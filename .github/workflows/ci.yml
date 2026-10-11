@@ -75,20 +75,7 @@ jobs:
       - name: Seed demo data and smoke-test the running app
         env:
           SEED_DEMO_DATA: "true"
-        run: |
-          npx next start -p 3100 &
-          for i in $(seq 1 30); do curl -sf http://localhost:3100/ >/dev/null && break; sleep 1; done
-          set -e
-          curl -sf http://localhost:3100/setup | grep -q "Create the platform administrator"
-          npm run db:seed
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/setup)" = "307"
-          curl -sf http://localhost:3100/ | grep -q "DEMO"
-          curl -sf http://localhost:3100/login >/dev/null
-          curl -sf http://localhost:3100/signup >/dev/null
-          REF=$(curl -sf http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)
-          curl -sf "http://localhost:3100/$REF" | grep -q "Verify this property"
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/app)" = "307"
-          echo "Smoke test passed"
+        run: scripts/ci-run.sh "Smoke test" scripts/smoke.sh
 
       - name: Save the resolved lockfile
         if: always()

@@ -40,6 +40,7 @@ jobs:
           CREATE ROLE estate_owner LOGIN PASSWORD 'owner_ci_pw' CREATEDB CREATEROLE;
           CREATE DATABASE estate OWNER estate_owner;
           CREATE DATABASE estate_shadow OWNER estate_owner;
+          CREATE DATABASE estate_it OWNER estate_owner;
           SQL
 
       - name: Install dependencies
@@ -66,8 +67,13 @@ jobs:
       - name: Unit tests
         run: scripts/ci-run.sh "Unit tests" npm run test:unit
 
-      - name: Integration tests (real database, app role)
-        run: scripts/ci-run.sh "Integration tests" npm run test:integration
+      - name: Integration tests (separate database, app role)
+        env:
+          MIGRATION_DATABASE_URL: postgresql://estate_owner:owner_ci_pw@localhost:5432/estate_it
+          DATABASE_URL: postgresql://estate_app:app_ci_password_long_enough_123@localhost:5432/estate_it
+        run: |
+          npm run db:setup
+          scripts/ci-run.sh "Integration tests" npm run test:integration
 
       - name: Production build
         run: scripts/ci-run.sh "Production build" npm run build

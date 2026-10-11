@@ -13,7 +13,7 @@ function clientIp() {
 
 export async function signupAction(form: FormData) {
   return act("/signup", async () => {
-    if (!rateLimit(`signup:${clientIp()}`, 5, 60 * 60 * 1000)) throw new Error("Too many sign-up attempts. Try again later.");
+    if (!(await rateLimit(`signup:${clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
     const { userId, companyId } = await registerCompany({
       companyName: str(form, "companyName"), name: str(form, "name"),
       email: str(form, "email"), password: str(form, "password"),
@@ -26,7 +26,7 @@ export async function signupAction(form: FormData) {
 export async function loginAction(form: FormData) {
   return act("/login", async () => {
     const email = str(form, "email").toLowerCase();
-    if (!rateLimit(`login:${clientIp()}:${email}`, 8, 15 * 60 * 1000)) {
+    if (!(await rateLimit(`login:${clientIp()}:${email}`, 8, 15 * 60 * 1000))) {
       throw new Error("Too many sign-in attempts. Wait 15 minutes and try again.");
     }
     const user = await prisma.user.findUnique({ where: { email } });

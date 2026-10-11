@@ -57,6 +57,8 @@ model Company {
   id          String       @id @default(uuid())
   name        String
   slug        String       @unique
+  // Organization prefix used in correspondence references, for example "ALP" in ALP/LEG/2026/0007.
+  refPrefix   String       @default("REF") @map("ref_prefix")
   createdAt   DateTime     @default(now()) @map("created_at")
   memberships Membership[]
   invitations Invitation[]
@@ -71,10 +73,14 @@ model Membership {
   userId    String       @map("user_id")
   role      MemberRole   @default(VIEWER)
   status    MemberStatus @default(ACTIVE)
+  departmentId String?   @map("department_id")
   createdAt DateTime     @default(now()) @map("created_at")
   company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   tasks     Task[]       @relation("TaskAssignee")
+  correspondence Correspondence[] @relation("CorrespondenceAssignee")
+  heldFiles PhysicalFile[] @relation("FileHolder")
 
   @@unique([companyId, userId])
   @@index([userId])
@@ -149,6 +155,8 @@ model Asset {
   leases              Lease[]
   tasks               Task[]
   listing             Listing?
+  correspondence      Correspondence[]
+  files               PhysicalFile[]
 
   @@unique([companyId, ref])
   @@index([companyId, status])
@@ -500,4 +508,191 @@ model ProviderLead {
 
   @@index([providerId, status])
   @@map("provider_leads")
+}
+
+// ---------- Departments (master prompt Section 3.2) ----------
+
+model Department {
+  id          String           @id @default(uuid())
+  companyId   String           @map("company_id")
+  name        String
+  code        String
+  createdAt   DateTime         @default(now()) @map("created_at")
+  members     Membership[]
+  correspondence Correspondence[]
+  files       PhysicalFile[]
+
+  @@unique([companyId, code])
+  @@map("departments")
+}
+
+// ---------- Correspondence register (master prompt Section 11) ----------
+
+enum CorrespondenceDirection {
+  INCOMING
+  OUTGOING
+}
+
+enum CorrespondenceStatus {
+  REGISTERED
+  ASSIGNED
+  UNDER_REVIEW
+  RESPONSE_REQUIRED
+  DRAFT_RESPONSE
+  AWAITING_APPROVAL
+  APPROVED
+  SENT
+  AWAITING_REPLY
+  CLOSED
+}
+
+enum CorrespondencePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model CorrespondenceCounter {
+  companyId  String @map("company_id")
+  year       Int
+  lastNumber Int    @default(0) @map("last_number")
+
+  @@id([companyId, year])
+  @@map("correspondence_counters")
+}
+
+model Correspondence {
+  id               String                  @id @default(uuid())
+  companyId        String                  @map("company_id")
+  ref              String
+  direction        CorrespondenceDirection
+  subject          String
+  description      String                  @default("")
+  category         String                  @default("General")
+  priority         CorrespondencePriority  @default(NORMAL)
+  confidential     Boolean                 @default(false)
+  status           CorrespondenceStatus
+  senderName       String                  @map("sender_name")
+  recipientName    String                  @map("recipient_name")
+  copiedTo         String                  @default("") @map("copied_to")
+  externalRef      String                  @default("") @map("external_ref")
+  dateReceived     DateTime?               @map("date_received") @db.Date
+  dateIssued       DateTime?               @map("date_issued") @db.Date
+  responseDeadline DateTime?               @map("response_deadline") @db.Date
+  assetId          String?                 @map("asset_id")
+  departmentId     String?                 @map("department_id")
+  assigneeId       String?                 @map("assignee_id")
+  requiredAction   String                  @default("") @map("required_action")
+  draftResponse    String                  @default("") @map("draft_response")
+  draftedById      String?                 @map("drafted_by_id")
+  approvedById     String?                 @map("approved_by_id")
+  approvedAt       DateTime?               @map("approved_at")
+  dispatchMethod   String                  @default("") @map("dispatch_method")
+  dispatchedAt     DateTime?               @map("dispatched_at") @db.Date
+  closedAt         DateTime?               @map("closed_at")
+  closureNote      String                  @default("") @map("closure_note")
+  createdById      String                  @map("created_by_id")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  asset            Asset?                  @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  department       Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignee         Membership?             @relation("CorrespondenceAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  actions          CorrespondenceAction[]
+  attachments      CorrespondenceAttachment[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, status])
+  @@index([companyId, responseDeadline])
+  @@map("correspondence")
+}
+
+model CorrespondenceAction {
+  id               String               @id @default(uuid())
+  companyId        String               @map("company_id")
+  correspondenceId String               @map("correspondence_id")
+  kind             String
+  fromStatus       CorrespondenceStatus? @map("from_status")
+  toStatus         CorrespondenceStatus? @map("to_status")
+  note             String               @default("")
+  actorId          String               @map("actor_id")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  correspondence   Correspondence       @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+
+  @@index([correspondenceId])
+  @@map("correspondence_actions")
+}
+
+model CorrespondenceAttachment {
+  id               String         @id @default(uuid())
+  companyId        String         @map("company_id")
+  correspondenceId String         @map("correspondence_id")
+  title            String
+  fileName         String         @map("file_name")
+  mimeType         String         @map("mime_type")
+  sizeBytes        Int            @map("size_bytes")
+  storageKey       String         @unique @map("storage_key")
+  uploadedById     String         @map("uploaded_by_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  correspondence   Correspondence @relation(fields: [correspondenceId], references: [id], onDelete: Restrict)
+
+  @@index([correspondenceId])
+  @@map("correspondence_attachments")
+}
+
+// ---------- Physical file register (master prompt Section 11.3) ----------
+
+enum FileStatus {
+  IN_REGISTRY
+  ISSUED
+  ARCHIVED
+}
+
+model PhysicalFile {
+  id           String         @id @default(uuid())
+  companyId    String         @map("company_id")
+  fileNumber   String         @map("file_number")
+  title        String
+  location     String         @default("")
+  departmentId String?        @map("department_id")
+  assetId      String?        @map("asset_id")
+  status       FileStatus     @default(IN_REGISTRY)
+  holderId     String?        @map("holder_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  department   Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  asset        Asset?         @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  holder       Membership?    @relation("FileHolder", fields: [holderId], references: [id], onDelete: SetNull)
+  movements    FileMovement[]
+
+  @@unique([companyId, fileNumber])
+  @@map("physical_files")
+}
+
+model FileMovement {
+  id               String       @id @default(uuid())
+  companyId        String       @map("company_id")
+  fileId           String       @map("file_id")
+  holderId         String       @map("holder_id")
+  issuedOn         DateTime     @map("issued_on") @db.Date
+  expectedReturnOn DateTime     @map("expected_return_on") @db.Date
+  returnedOn       DateTime?    @map("returned_on") @db.Date
+  purpose          String       @default("")
+  issuedById       String       @map("issued_by_id")
+  receivedById     String?      @map("received_by_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  file             PhysicalFile @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, returnedOn])
+  @@index([fileId])
+  @@map("file_movements")
+}
+
+// ---------- Shared rate limiting (works across serverless instances) ----------
+
+model RateLimit {
+  key         String   @id
+  windowStart DateTime @map("window_start")
+  count       Int
+
+  @@map("rate_limits")
 }

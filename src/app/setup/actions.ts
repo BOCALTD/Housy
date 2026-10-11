@@ -28,7 +28,7 @@ const schema = z.object({
 export async function setupAction(form: FormData) {
   return act("/setup", async () => {
     const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-    if (!rateLimit(`setup:${ip}`, 5, 15 * 60 * 1000)) throw new Error("Too many attempts. Wait 15 minutes and try again.");
+    if (!(await rateLimit(`setup:${ip}`, 5, 15 * 60 * 1000))) throw new Error("Too many attempts. Wait 15 minutes and try again.");
     if (await prisma.user.count({ where: { isPlatformAdmin: true } })) {
       throw new Error("Setup is already complete. Sign in instead.");
     }

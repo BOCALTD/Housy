@@ -9,6 +9,10 @@ import { createAsset, addParty } from "./services/assets";
 import { createLease } from "./services/leases";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
+import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
+import { registerCorrespondence, actOnCorrespondence } from "./services/correspondence";
+import { createPhysicalFile, issuePhysicalFile } from "./services/files";
+import { todayInLagos, toDateOnlyString } from "./dates";
 import type { Ctx } from "./services/context";
 
 export const DEMO_PASSWORD = "demo-password-123";
@@ -90,6 +94,32 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     description: "Demonstration listing.",
   });
   await setListingStatus(beta, warehouse.id, "PENDING_REVIEW");
+
+  // Correspondence and files.
+  const officerUser = await prisma.user.findUniqueOrThrow({ where: { email: "demo.officer@example.test" } });
+  const officer = await ctxFor(officerUser.id, alpha.companyId);
+  await updateRefPrefix(alpha, "ALP");
+  await addDepartment(alpha, { name: "[DEMO] Legal", code: "LEG" });
+  await addDepartment(alpha, { name: "[DEMO] Property management", code: "PM" });
+  const legal = (await listDepartments(alpha)).find((d) => d.code === "LEG")!;
+  await setMemberDepartment(alpha, officer.membershipId, legal.id);
+  const today = todayInLagos();
+  const daysFromToday = (n: number) => toDateOnlyString(new Date(today.getTime() + n * 864e5));
+  const notice = await registerCorrespondence(alpha, {
+    direction: "INCOMING", subject: "[DEMO] Notice of Land Use Charge reassessment", senderName: "[DEMO] Lands Bureau",
+    recipientName: "[DEMO] Alpha Estates", dateReceived: daysFromToday(-10), responseDeadline: daysFromToday(-2),
+    category: "Government and regulatory", departmentId: legal.id, assetId: duplex.id, assigneeId: officer.membershipId,
+    description: "Demonstration record. The deadline has passed, so it shows as overdue.",
+  });
+  await actOnCorrespondence(officer, notice.id, "start_review", { expectedStatus: "ASSIGNED" });
+  await registerCorrespondence(alpha, {
+    direction: "INCOMING", subject: "[DEMO] Request for lease renewal", senderName: "[DEMO] Corner Pharmacy Ltd",
+    recipientName: "[DEMO] Alpha Estates", dateReceived: daysFromToday(-1), responseDeadline: daysFromToday(10), category: "Tenant",
+    assetId: shop.id, description: "Demonstration record, waiting to be assigned.",
+  });
+  const deeds = await createPhysicalFile(alpha, { fileNumber: "F-0001", title: "[DEMO] Duplex title deeds", location: "Cabinet A", assetId: duplex.id, departmentId: legal.id });
+  await issuePhysicalFile(alpha, deeds.id, { holderId: officer.membershipId, expectedReturnOn: daysFromToday(7), purpose: "Demo: valuation" });
+  await createPhysicalFile(alpha, { fileNumber: "F-0002", title: "[DEMO] Allen Avenue shop lease file", location: "Cabinet A", assetId: shop.id });
 
   // Approve only the demo listings, never real submissions waiting for review.
   for (const l of await reviewQueue(adminId)) {

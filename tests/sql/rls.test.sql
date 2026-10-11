@@ -93,5 +93,30 @@ SELECT pg_temp.expect((SELECT count(*) FROM assets) = 0, 'membership context doe
 SELECT set_config('app.user_id', 'user-2', true);
 SELECT pg_temp.expect((SELECT count(*) FROM memberships) = 0, 'other user sees no memberships');
 
+-- 11. Phase 4 tables: correspondence, its history and physical files are isolated by company.
+SELECT set_config('app.user_id', '', true);
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO departments (id, company_id, name, code) VALUES ('d-a', 'co-a', 'Legal', 'LEG');
+INSERT INTO correspondence (id, company_id, ref, direction, subject, status, sender_name, recipient_name, created_by_id, updated_at)
+  VALUES ('c-a', 'co-a', 'ALP/LEG/2026/0001', 'INCOMING', 'Notice of rent review', 'REGISTERED', 'Lagos State Lands Bureau', 'Alpha Estates', 'u1', now());
+INSERT INTO correspondence_actions (id, company_id, correspondence_id, kind, note, actor_id) VALUES ('ca-1', 'co-a', 'c-a', 'REGISTERED', '', 'u1');
+INSERT INTO physical_files (id, company_id, file_number, title) VALUES ('f-a', 'co-a', 'F-001', 'Plot 12 title deeds');
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM correspondence) = 0, 'B cannot see A correspondence');
+SELECT pg_temp.expect((SELECT count(*) FROM correspondence_actions) = 0, 'B cannot see A correspondence history');
+SELECT pg_temp.expect((SELECT count(*) FROM physical_files) = 0, 'B cannot see A physical files');
+SELECT pg_temp.expect((SELECT count(*) FROM departments) = 0, 'B cannot see A departments');
+DO $$ BEGIN
+  INSERT INTO correspondence_actions (id, company_id, correspondence_id, kind, note, actor_id) VALUES ('ca-x', 'co-a', 'c-a', 'NOTE', 'forged', 'u2');
+  RAISE EXCEPTION 'FAIL: cross-company correspondence note was allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: cannot add notes to another company''s correspondence';
+END $$;
+SELECT set_config('app.company_id', 'co-a', true);
+DO $$ BEGIN
+  UPDATE correspondence_actions SET note = 'tampered' WHERE id = 'ca-1';
+  RAISE EXCEPTION 'FAIL: correspondence history update was allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: correspondence history is append-only';
+END $$;
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

@@ -98,3 +98,27 @@ test("hosted deployments connect as the restricted runtime role", async () => {
   assert.equal(u.searchParams.get("sslmode"), "require");
   assert.equal(runtimeDatabaseUrl("postgresql://a:b@localhost/db", ""), undefined, "no password means no rewrite");
 });
+
+test("correspondence references follow PREFIX/DEPT/YEAR/SEQUENCE", async () => {
+  const { formatReference, cleanCode } = await import("../../src/lib/correspondence-rules");
+  assert.equal(formatReference("alp", "leg", 2026, 7), "ALP/LEG/2026/0007");
+  assert.equal(formatReference("ALP", null, 2026, 12345), "ALP/2026/12345");
+  assert.equal(formatReference("", null, 2026, 1), "REF/2026/0001");
+  assert.equal(cleanCode("a/b c-9"), "ABC9");
+});
+
+test("correspondence moves only through allowed steps", async () => {
+  const { nextStatus, allowedActions, isOverdue } = await import("../../src/lib/correspondence-rules");
+  assert.equal(nextStatus("assign", "REGISTERED"), "ASSIGNED");
+  assert.equal(nextStatus("submit_for_approval", "DRAFT_RESPONSE"), "AWAITING_APPROVAL");
+  assert.throws(() => nextStatus("dispatch", "DRAFT_RESPONSE"), /cannot be moved/);
+  assert.throws(() => nextStatus("approve", "REGISTERED"));
+  assert.throws(() => nextStatus("close", "CLOSED"));
+  assert.throws(() => nextStatus("close", "AWAITING_APPROVAL"), "a letter awaiting approval must be approved or returned first");
+  assert.deepEqual(allowedActions("AWAITING_APPROVAL").sort(), ["approve", "return_to_draft"]);
+  const today = new Date(Date.UTC(2026, 9, 12));
+  const past = new Date(Date.UTC(2026, 9, 1));
+  assert.equal(isOverdue("UNDER_REVIEW", past, today), true);
+  assert.equal(isOverdue("SENT", past, today), false, "a sent reply is no longer overdue");
+  assert.equal(isOverdue("UNDER_REVIEW", null, today), false);
+});

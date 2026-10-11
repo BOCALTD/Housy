@@ -48,7 +48,7 @@ export async function recordRecommendationEvent(input: {
   const trigger = (TRIGGERS as readonly string[]).includes(input.trigger) ? input.trigger : "view";
   const provider = await prisma.serviceProvider.findFirst({ where: { id: input.providerId, status: "APPROVED" } });
   if (!provider) throw new Error("Provider not available");
-  if (!rateLimit(`rec:${input.visitorKey}`, 120, 60 * 60 * 1000)) return;
+  if (!(await rateLimit(`rec:${input.visitorKey}`, 120, 60 * 60 * 1000))) return;
   await prisma.recommendationEvent.create({
     data: {
       providerId: provider.id, listingRef: input.listingRef.slice(0, 40), userId: input.userId,
@@ -74,7 +74,7 @@ const leadSchema = z.object({
  * Returns the reference and a one-time access token for the visitor's status page.
  */
 export async function submitLead(input: z.input<typeof leadSchema>, userId: string | null, clientKey: string) {
-  if (!rateLimit(`lead:${clientKey}`, 5, 60 * 60 * 1000)) throw new Error("Too many requests. Try again later.");
+  if (!(await rateLimit(`lead:${clientKey}`, 5, 60 * 60 * 1000))) throw new Error("Too many requests. Try again later.");
   const data = leadSchema.parse(input);
   if (data.contactMethod === "email" && !z.string().email().safeParse(data.contactValue).success) {
     throw new Error("Enter a valid email address");

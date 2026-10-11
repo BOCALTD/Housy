@@ -49,6 +49,7 @@ GRANT USAGE ON SCHEMA public TO estate_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO estate_app;
 REVOKE UPDATE, DELETE ON activity_log FROM estate_app;
 REVOKE UPDATE, DELETE ON rent_payments FROM estate_app;
+REVOKE UPDATE, DELETE ON correspondence_actions FROM estate_app;
 REVOKE ALL ON _prisma_migrations FROM estate_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO estate_app;
 `, "runtime role privileges granted");

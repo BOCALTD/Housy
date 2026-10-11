@@ -146,7 +146,7 @@ const enquirySchema = z.object({
 
 /** A public enquiry, recorded against the listing's company. */
 export async function createEnquiry(publicRef: string, input: z.input<typeof enquirySchema>, clientKey: string) {
-  if (!rateLimit(`enquiry:${clientKey}`, 10, 60 * 60 * 1000)) throw new Error("Too many enquiries. Try again later.");
+  if (!(await rateLimit(`enquiry:${clientKey}`, 10, 60 * 60 * 1000))) throw new Error("Too many enquiries. Try again later.");
   const data = enquirySchema.parse(input);
   const listing = await getPublicListing(publicRef);
   if (!listing) throw new Error("This property is no longer available");

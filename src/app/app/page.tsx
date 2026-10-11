@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { dashboard } from "@/lib/services/dashboard";
+import { correspondenceSummary } from "@/lib/services/correspondence";
+import { expiringDocuments, overdueFileCount } from "@/lib/services/files";
 import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -11,7 +13,9 @@ export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage({ searchParams }: { searchParams?: SP }) {
   const member = await requireMember();
-  const d = await dashboard(member);
+  const [d, corr, filesOverdue, expiring] = await Promise.all([
+    dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60),
+  ]);
   const s = (k: string) => d.statusCounts[k] ?? 0;
 
   return (
@@ -33,6 +37,24 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           <b>{d.openTasks}</b><span>Open tasks ({d.overdueTasks} overdue)</span>
         </div>
         <div className="stat"><b>{d.enquiries30d}</b><span>Enquiries, last 30 days</span></div>
+      </section>
+
+      <section className="stats" aria-label="Administration alerts">
+        <Link href="/app/correspondence?view=overdue" className={`stat${corr.overdue ? " alert" : ""}`} style={{ textDecoration: "none" }}>
+          <b>{corr.overdue}</b><span>Overdue correspondence replies</span>
+        </Link>
+        <Link href="/app/correspondence?view=unassigned" className="stat" style={{ textDecoration: "none" }}>
+          <b>{corr.unassigned}</b><span>Unassigned letters</span>
+        </Link>
+        <Link href="/app/correspondence?view=mine" className="stat" style={{ textDecoration: "none" }}>
+          <b>{corr.mine}</b><span>Letters assigned to me</span>
+        </Link>
+        <Link href="/app/files?view=overdue" className={`stat${filesOverdue ? " alert" : ""}`} style={{ textDecoration: "none" }}>
+          <b>{filesOverdue}</b><span>Files overdue for return</span>
+        </Link>
+        <Link href="/app/files" className={`stat${expiring.length ? " alert" : ""}`} style={{ textDecoration: "none" }}>
+          <b>{expiring.length}</b><span>Documents expiring within 60 days</span>
+        </Link>
       </section>
 
       <div className="two">

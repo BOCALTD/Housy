@@ -16,7 +16,14 @@ export type Action =
   | "task.update.any"
   | "listing.manage"
   | "enquiry.view"
-  | "team.manage";
+  | "team.manage"
+  | "settings.manage"
+  | "correspondence.view"
+  | "correspondence.register"
+  | "correspondence.assign"
+  | "correspondence.approve"
+  | "correspondence.confidential"
+  | "file.manage";
 
 const MATRIX: Record<Action, Role[]> = {
   "asset.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER", "VIEWER"],
@@ -32,6 +39,15 @@ const MATRIX: Record<Action, Role[]> = {
   "listing.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],
   "enquiry.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],
   "team.manage": ["COMPANY_SUPER_ADMIN"],
+  "settings.manage": ["COMPANY_SUPER_ADMIN"],
+  // Correspondence (master prompt Section 11). Confidential records are visible only to
+  // these roles and to the person assigned to them.
+  "correspondence.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER", "VIEWER"],
+  "correspondence.register": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "correspondence.assign": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "correspondence.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "correspondence.confidential": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "file.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
 };
 
 export function can(role: Role, action: Action): boolean {

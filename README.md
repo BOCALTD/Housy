@@ -43,7 +43,7 @@ You need a GitHub account with this repository and a Vercel account. Signing up 
 
 After that, every push to `main` deploys automatically.
 
-Limits on Vercel's free plan to know about: uploads are capped at 4 MB per file, and the sign-in rate limit is per server instance.
+Uploads are capped at 4 MB per file, which is Vercel's request size limit.
 
 ## Set up locally
 
@@ -112,12 +112,20 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - Listing drafts, platform review and publication, public search, enquiries.
 - Verification modal with consent, provider leads, a private status page, withdrawal, and admin metrics that keep preselected defaults separate from confirmed interest.
 
+**Built in Phase 4 (correspondence, files and document control):**
+- Departments and a company reference prefix. Correspondence references follow PREFIX/DEPARTMENT/YEAR/NUMBER and never collide.
+- Incoming and outgoing correspondence register with assignment, review, response drafting, approval by someone other than the drafter, dispatch, awaiting reply and closure with evidence.
+- Response deadlines with overdue alerts, confidential records limited to managers and the people involved, attachments, notes and an append-only history.
+- Physical file register with issue and return, overdue returns and movement history.
+- Documents expiring within 60 days, and dashboard alerts for all of the above.
+- Rate limits shared through the database, so they hold across serverless instances.
+
 **Deferred to later phases:**
 - **Email and notifications:** no email sending yet. Invitation links are shown once to the administrator to share.
 - **Provider portal:** providers can't sign in to see their leads yet. Platform admins handle leads for now.
 - **Media and maps:** photo and video galleries, maps.
-- **Later modules:** correspondence, service charges, valuation, construction, inventory, collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
-- **Rate limiting:** it is in memory, so it applies per server instance. Move it to a shared store before running several instances.
+- **Email capture:** linking emails to correspondence needs an email provider, which is not configured yet.
+- **Later modules:** service charges, valuation, construction, inventory, collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
 - **Document storage:** document contents are stored in PostgreSQL (`stored_files`, protected by row-level security), capped at 4 MB per file. Move to an object store behind `src/lib/storage.ts` as volumes grow.
 
 **Not yet verified:**

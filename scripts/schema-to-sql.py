@@ -2,7 +2,8 @@
 
 Used once to bootstrap the first migration in an environment without the Prisma
 engines. CI runs `prisma migrate diff` to confirm the SQL matches the schema exactly.
-Usage: python3 scripts/schema-to-sql.py prisma/schema.prisma > migration.sql
+Usage: python3 scripts/schema-to-sql.py prisma/schema.prisma [Model,Model] [Enum,Enum] > migration.sql
+With model and enum lists, only those are emitted (for incremental migrations).
 """
 import re
 import sys
@@ -15,16 +16,23 @@ enums = {m.group(1): re.findall(r"^\s*([A-Z_]+)\s*$", m.group(2), re.M)
 models = {m.group(1): m.group(2) for m in re.finditer(r"model (\w+) \{(.*?)\n\}", src, re.S)}
 
 SCALAR = {"String": "TEXT", "Boolean": "BOOLEAN", "Int": "INTEGER", "BigInt": "BIGINT",
-          "DateTime": "TIMESTAMP(3)", "Json": "JSONB"}
+          "DateTime": "TIMESTAMP(3)", "Json": "JSONB", "Bytes": "BYTEA"}
 ONDELETE = {"Restrict": "RESTRICT", "Cascade": "CASCADE", "SetNull": "SET NULL", "NoAction": "NO ACTION"}
+
+only_models = set(sys.argv[2].split(",")) if len(sys.argv) > 2 and sys.argv[2] else None
+only_enums = set(sys.argv[3].split(",")) if len(sys.argv) > 3 and sys.argv[3] else None
 
 out = []
 for name, values in enums.items():
+    if only_models is not None and (only_enums is None or name not in only_enums):
+        continue
     out.append(f'-- CreateEnum\nCREATE TYPE "{name}" AS ENUM ({", ".join(repr(v).replace(chr(34), chr(39)) for v in values)});\n')
 
 indexes, fks = [], []
-for model, body in models.items():
+all_models = dict(models)
+for model, body in all_models.items():
     table = re.search(r'@@map\("(\w+)"\)', body).group(1)
+    emit = only_models is None or model in only_models
     colmap = {}
     cols, pk = [], None
     lines = [l.strip() for l in body.strip().split("\n") if l.strip() and not l.strip().startswith("@@")]
@@ -69,7 +77,17 @@ for model, body in models.items():
             pk = col
         if "@unique" in attrs.split():
             indexes.append(f'CREATE UNIQUE INDEX "{table}_{col}_key" ON "{table}"("{col}");')
-    cols.append(f'\n    CONSTRAINT "{table}_pkey" PRIMARY KEY ("{pk}")')
+    if pk is None:
+        ids = re.search(r"@@id\(\[([^\]]*)\]\)", body).group(1).split(", ")
+        pkcols = ", ".join(f'"{colmap[f]}"' for f in ids)
+    else:
+        pkcols = f'"{pk}"'
+    cols.append(f'\n    CONSTRAINT "{table}_pkey" PRIMARY KEY ({pkcols})')
+    globals().setdefault("COLMAPS", {})[table] = colmap
+    if not emit:
+        indexes[:] = [i for i in indexes if f'ON "{table}"' not in i]
+        fks[:] = [f for f in fks if f[0] != table]
+        continue
     out.append(f'-- CreateTable\nCREATE TABLE "{table}" (\n' + ",\n".join(cols) + "\n);\n")
     for kind, fields in re.findall(r"@@(unique|index)\(\[([^\]]*)\]\)", body):
         dbcols = [colmap[f] for f in fields.split(", ")]

@@ -91,8 +91,8 @@ test("a company completes the vertical slice and another company cannot reach an
   assert.equal(await getAsset(beta, asset.id), null);
   assert.equal((await listAssets(beta)).length, 0);
   await assert.rejects(addParty(beta, asset.id, { partyName: "Hijack", relationship: "LEGAL_OWNER" }), /not found/);
-  await assert.rejects(createLease(beta, asset.id, { occupantName: "X", startDate: "2027-01-01", endDate: "2028-01-01", rent: "1", frequency: "YEARLY" }), /not found/);
-  await assert.rejects(uploadDocument(beta, asset.id, { title: "X", category: "OTHER" }, { name: "a.pdf", type: "application/pdf", bytes: PDF_BYTES }), /not found/);
+  await assert.rejects(createLease(beta, asset.id, { occupantName: "Intruder Ltd", startDate: "2027-01-01", endDate: "2028-01-01", rent: "1", frequency: "YEARLY" }), /not found/);
+  await assert.rejects(uploadDocument(beta, asset.id, { title: "Intruder document", category: "OTHER" }, { name: "a.pdf", type: "application/pdf", bytes: PDF_BYTES }), /not found/);
   await assert.rejects(recordPayment(beta, charges[1].id, { amount: "1", paidOn: "2025-04-02", evidence: "fake ref" }), /not found/);
   await assert.rejects(updateTaskStatus(beta, task.id, "CANCELLED", ""), /not found/);
   await assert.rejects(updateAssetStatus(beta, asset.id, "DISPOSED", "attempted hijack"), /not found/);

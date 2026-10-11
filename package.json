@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Multi-tenant real estate marketplace and asset management CRM. First end-to-end vertical slice.",
-  "engines": { "node": ">=20.11" },
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -15,7 +17,9 @@
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "tsx --test tests/unit/*.test.ts",
     "test:integration": "tsx --test --test-concurrency=1 tests/integration/*.test.ts",
-    "test:rls": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f tests/sql/rls.test.sql"
+    "test:rls": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f tests/sql/rls.test.sql",
+    "vercel-build": "node scripts/db-setup.mjs && prisma generate && next build",
+    "db:setup": "node scripts/db-setup.mjs"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

@@ -10,7 +10,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
-    serverActions: { bodySizeLimit: "11mb" },
+    serverActions: { bodySizeLimit: "4.5mb" },
     serverComponentsExternalPackages: ["@prisma/client", "bcryptjs"],
   },
   async headers() {

@@ -5,9 +5,6 @@
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { prisma, withTenant } from "../../src/lib/db";
 import { inviteMember, acceptInvitation, changeMemberRole } from "../../src/lib/services/companies";
 import { createAsset, getAsset, listAssets, addParty, uploadDocument, getDocumentForDownload, updateAssetStatus } from "../../src/lib/services/assets";
@@ -17,9 +14,6 @@ import { saveListingDraft, setListingStatus, reviewQueue, reviewListing, searchL
 import { submitLead, getLeadForVisitor, withdrawLead, recordRecommendationEvent, verificationMetrics, saveProvider } from "../../src/lib/services/verification";
 import { dashboard } from "../../src/lib/services/dashboard";
 import { newCompany, withRole, newPlatformAdmin, PDF_BYTES, PASSWORD } from "./helpers";
-
-// Uploaded test documents go to a throwaway folder (storage reads this lazily).
-process.env.STORAGE_DIR = mkdtempSync(path.join(tmpdir(), "estate-docs-"));
 
 after(() => prisma.$disconnect());
 

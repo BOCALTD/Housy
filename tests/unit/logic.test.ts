@@ -87,3 +87,14 @@ test("permission matrix keeps viewers read-only and team management with the sup
   assert.equal(can("MANAGER", "team.manage"), false);
   assert.equal(can("COMPANY_SUPER_ADMIN", "team.manage"), true);
 });
+
+test("hosted deployments connect as the restricted runtime role", async () => {
+  const { runtimeDatabaseUrl } = await import("../../src/lib/db-url");
+  const url = runtimeDatabaseUrl("postgresql://neondb_owner:ownerpw@ep-cool-1-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require", "p@ss/word");
+  const u = new URL(url!);
+  assert.equal(u.username, "estate_app");
+  assert.equal(decodeURIComponent(u.password), "p@ss/word");
+  assert.equal(u.searchParams.get("pgbouncer"), "true");
+  assert.equal(u.searchParams.get("sslmode"), "require");
+  assert.equal(runtimeDatabaseUrl("postgresql://a:b@localhost/db", undefined), undefined);
+});

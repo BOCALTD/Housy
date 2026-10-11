@@ -23,29 +23,50 @@ A user from one company cannot reach another company's records. This is enforced
 
 Money is stored as integer kobo. Dates are stored in UTC and shown in West Africa Time.
 
+## Deploy on Vercel
+
+You need a GitHub account with this repository and a Vercel account. Signing up to Vercel with GitHub is easiest.
+
+1. **Import the project.** On vercel.com choose **Add New → Project**, pick **BOCALTD/Housy** and click **Import**. Do not deploy yet if Vercel offers to. If it deploys anyway, the first build fails until steps 2 and 3 are done. That is expected.
+2. **Add a database.** In the project, open **Storage → Create Database → Neon (Postgres)**, choose a region close to Nigeria (for example Frankfurt, `eu-central-1`) and connect it to the project for all environments. This adds `DATABASE_URL` and `DATABASE_URL_UNPOOLED` automatically.
+3. **Add three environment variables** under **Settings → Environment Variables**:
+
+   | Name | Value |
+   |---|---|
+   | `APP_DB_PASSWORD` | A random string of 32+ letters and numbers. |
+   | `SETUP_TOKEN` | Another random string of 32+ letters and numbers. Keep it private. |
+   | `NEXT_PUBLIC_PLATFORM_NAME` | `Housy` |
+
+   To make a random value, you can use a password manager's generator. Avoid quotes and backslashes.
+4. **Deploy.** Open **Deployments**, then on the latest deployment choose **Redeploy**. Each build creates the restricted database role, applies migrations and grants access before building the app.
+5. **Create your administrator.** Open `https://<your-project>.vercel.app/setup`, enter the `SETUP_TOKEN`, your name, email and a password. Tick the demo box if you want labelled sample companies and listings to look around. The page locks itself once the administrator exists.
+
+After that, every push to `main` deploys automatically.
+
+Limits on Vercel's free plan to know about: uploads are capped at 4 MB per file, and the sign-in rate limit is per server instance.
+
 ## Set up locally
 
 Requirements: Node 20+, PostgreSQL 16.
 
-1. Create two database roles and a database. The app connects as `estate_app`, which is not the table owner and cannot bypass row-level security.
+1. Create an owner role and a database. The owner needs `CREATEROLE` so setup can create the restricted runtime role `estate_app`.
 
    ```sql
-   CREATE ROLE estate_owner LOGIN PASSWORD 'choose-a-password' CREATEDB;
-   CREATE ROLE estate_app   LOGIN PASSWORD 'choose-another' NOSUPERUSER NOBYPASSRLS;
+   CREATE ROLE estate_owner LOGIN PASSWORD 'choose-a-password' CREATEDB CREATEROLE;
    CREATE DATABASE estate OWNER estate_owner;
    ```
 
-2. Copy `.env.example` to `.env` and fill in the passwords.
-3. Install and migrate:
+2. Copy `.env.example` to `.env` and fill in the values.
+3. Install, set up the database and start:
 
    ```bash
    npm install
-   npm run db:migrate          # runs as estate_owner
+   npm run db:setup            # creates estate_app, applies migrations, grants access
    npm run db:seed             # creates the first Platform Super Super Admin
    npm run dev
    ```
 
-   Set `SEED_DEMO_DATA=true` before seeding to add two demonstration companies with listings. Every demo record is labelled `[DEMO]`. Demo users and their password are printed by the seed script.
+   Set `SEED_DEMO_DATA=true` before seeding to add labelled demonstration data. You can also use the `/setup` page instead of the seed script.
 
 4. Open http://localhost:3000.
 
@@ -75,7 +96,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs all of these, plus the type che
 
 ## Verification providers
 
-The seed creates **Bona Okorie Consulting & Advisory Ltd (BOCA)** as a pending provider with no profile text. To show it to buyers, a platform admin opens **Platform admin → Verification providers**. There they enter the approved profile, set the placement label and approve it.
+Setup creates **Bona Okorie Consulting & Advisory Ltd (BOCA)** as a pending provider with no profile text. To show it to buyers, a platform admin opens **Platform admin → Verification providers**. There they enter the approved profile, set the placement label and approve it.
 
 Use **Affiliated** if BOCA shares owners or directors with the platform operator. Use **Sponsored** if it pays for the placement. Use **Editorial** only when neither applies.
 
@@ -97,7 +118,7 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - **Media and maps:** photo and video galleries, maps.
 - **Later modules:** correspondence, service charges, valuation, construction, inventory, collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
 - **Rate limiting:** it is in memory, so it applies per server instance. Move it to a shared store before running several instances.
-- **Document storage:** documents are stored on local disk behind `src/lib/storage.ts`. Swap in an object store for production.
+- **Document storage:** document contents are stored in PostgreSQL (`stored_files`, protected by row-level security), capped at 4 MB per file. Move to an object store behind `src/lib/storage.ts` as volumes grow.
 
 **Not yet verified:**
 - The code was written in an environment that could not download packages. Row-level security tests and unit tests were run there. The type check, build, integration tests and smoke test run in GitHub Actions on first push, so check the Actions tab before relying on the build.

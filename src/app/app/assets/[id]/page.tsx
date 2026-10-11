@@ -342,7 +342,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                   <Field label="Title"><input name="title" required /></Field>
                   <Field label="Category"><select name="category" defaultValue="TITLE_OWNERSHIP"><EnumOptions values={DOCUMENT_CATEGORIES} /></select></Field>
                   <Field label="Expires on" hint="Optional, for permits, insurance and leases."><input name="expiresOn" type="date" /></Field>
-                  <Field label="File" hint="PDF, JPG, PNG, WEBP or Word, up to 10 MB."><input name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp,.docx" /></Field>
+                  <Field label="File" hint="PDF, JPG, PNG, WEBP or Word, up to 4 MB."><input name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp,.docx" /></Field>
                   <button className="btn primary" type="submit">Upload</button>
                 </form>
               </details>

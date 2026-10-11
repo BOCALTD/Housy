@@ -1,8 +1,10 @@
 import { PrismaClient, Prisma } from "@prisma/client";
+import { runtimeDatabaseUrl } from "./db-url";
 
 // One Prisma client per process. In development, reuse it across hot reloads.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+const datasourceUrl = runtimeDatabaseUrl();
+export const prisma = globalForPrisma.prisma ?? new PrismaClient(datasourceUrl ? { datasourceUrl } : undefined);
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export type Tx = Prisma.TransactionClient;

@@ -180,13 +180,11 @@ export async function uploadDocument(
   assertCan(ctx, "document.upload");
   const data = docSchema.parse(input);
   validateUpload(file.type, file.bytes);
-  // Confirm the asset belongs to this company before writing anything.
-  const asset = await withTenant(ctx.companyId, ctx.userId, (tx) =>
-    tx.asset.findFirst({ where: { id: assetId, companyId: ctx.companyId }, select: { id: true } }),
-  );
-  if (!asset) throw new Error("Asset not found");
-  const storageKey = await saveFile(file.type, file.bytes);
   await withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    // Confirm the asset belongs to this company before writing anything.
+    const asset = await tx.asset.findFirst({ where: { id: assetId, companyId: ctx.companyId }, select: { id: true } });
+    if (!asset) throw new Error("Asset not found");
+    const storageKey = await saveFile(tx, ctx.companyId, file.type, file.bytes);
     const previous = await tx.assetDocument.count({ where: { companyId: ctx.companyId, assetId, title: data.title } });
     const doc = await tx.assetDocument.create({
       data: {
@@ -205,16 +203,14 @@ export async function uploadDocument(
 /** Fetch a document for download. Records the access in the audit trail. */
 export async function getDocumentForDownload(ctx: Ctx, documentId: string) {
   assertCan(ctx, "document.download");
-  const doc = await withTenant(ctx.companyId, ctx.userId, async (tx) => {
-    const d = await tx.assetDocument.findFirst({ where: { id: documentId, companyId: ctx.companyId } });
-    if (d) {
-      await logActivity(tx, {
-        companyId: ctx.companyId, actorId: ctx.userId, entityType: "document", entityId: d.id,
-        action: "document.downloaded", detail: { title: d.title },
-      });
-    }
-    return d;
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const doc = await tx.assetDocument.findFirst({ where: { id: documentId, companyId: ctx.companyId } });
+    if (!doc) return null;
+    const bytes = await readStoredFile(tx, ctx.companyId, doc.storageKey);
+    await logActivity(tx, {
+      companyId: ctx.companyId, actorId: ctx.userId, entityType: "document", entityId: doc.id,
+      action: "document.downloaded", detail: { title: doc.title },
+    });
+    return { doc, bytes };
   });
-  if (!doc) return null;
-  return { doc, bytes: await readStoredFile(doc.storageKey) };
 }

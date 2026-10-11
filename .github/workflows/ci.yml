@@ -20,10 +20,11 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      DATABASE_URL: postgresql://estate_app:app_ci_pw@localhost:5432/estate
+      DATABASE_URL: postgresql://estate_app:app_ci_password_long_enough_123@localhost:5432/estate
       MIGRATION_DATABASE_URL: postgresql://estate_owner:owner_ci_pw@localhost:5432/estate
       SHADOW_DATABASE_URL: postgresql://estate_owner:owner_ci_pw@localhost:5432/estate_shadow
-      STORAGE_DIR: /tmp/estate-storage
+      APP_DB_PASSWORD: app_ci_password_long_enough_123
+      SETUP_TOKEN: ci-setup-token-long-enough
       SEED_ADMIN_EMAIL: admin@example.test
       SEED_ADMIN_PASSWORD: ci-admin-password
     steps:
@@ -36,8 +37,7 @@ jobs:
       - name: Create database roles and databases
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE ROLE estate_owner LOGIN PASSWORD 'owner_ci_pw' CREATEDB;
-          CREATE ROLE estate_app LOGIN PASSWORD 'app_ci_pw' NOSUPERUSER NOBYPASSRLS;
+          CREATE ROLE estate_owner LOGIN PASSWORD 'owner_ci_pw' CREATEDB CREATEROLE;
           CREATE DATABASE estate OWNER estate_owner;
           CREATE DATABASE estate_shadow OWNER estate_owner;
           SQL
@@ -48,8 +48,11 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Apply migrations (as owner)
-        run: npm run db:migrate
+      - name: Database setup as on Vercel (runtime role, migrations, privileges)
+        run: npm run db:setup
+
+      - name: Database setup is repeatable (runs on every deploy)
+        run: npm run db:setup
 
       - name: Check migrations match the Prisma schema
         run: npm run db:check-drift
@@ -79,10 +82,12 @@ jobs:
         env:
           SEED_DEMO_DATA: "true"
         run: |
-          npm run db:seed
           npx next start -p 3100 &
           for i in $(seq 1 30); do curl -sf http://localhost:3100/ >/dev/null && break; sleep 1; done
           set -e
+          curl -sf http://localhost:3100/setup | grep -q "Create the platform administrator"
+          npm run db:seed
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/setup)" = "307"
           curl -sf http://localhost:3100/ | grep -q "DEMO"
           curl -sf http://localhost:3100/login >/dev/null
           curl -sf http://localhost:3100/signup >/dev/null

@@ -216,6 +216,17 @@ model AssetDocument {
   @@map("asset_documents")
 }
 
+// Uploaded file contents, kept in the database so the app runs on hosts without a disk.
+model StoredFile {
+  key       String   @id
+  companyId String   @map("company_id")
+  bytes     Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@map("stored_files")
+}
+
 // ---------- Tenancy and rent ----------
 
 enum RentFrequency {

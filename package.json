@@ -1,0 +1,37 @@
+{
+  "name": "real-estate-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant real estate marketplace and asset management CRM. First end-to-end vertical slice.",
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "db:migrate": "DATABASE_URL=\"$MIGRATION_DATABASE_URL\" prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:check-drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "tsx --test tests/unit/*.test.ts",
+    "test:integration": "tsx --test --test-concurrency=1 tests/integration/*.test.ts",
+    "test:rls": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f tests/sql/rls.test.sql"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "bcryptjs": "2.4.3",
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "2.4.6",
+    "@types/node": "22.9.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "prisma": "5.22.0",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3"
+  }
+}

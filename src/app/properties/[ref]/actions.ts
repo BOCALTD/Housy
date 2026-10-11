@@ -1,0 +1,75 @@
+"use server";
+
+import { cookies, headers } from "next/headers";
+import { randomUUID } from "node:crypto";
+import { getSession } from "@/lib/auth";
+import { act, str, withNotice, messageFor } from "@/lib/forms";
+import { createEnquiry } from "@/lib/services/listings";
+import { parsePrefs, recordRecommendationEvent, submitLead } from "@/lib/services/verification";
+
+const PREF_COOKIE = "pv_pref";
+const VISITOR_COOKIE = "pv_vid";
+
+function clientKey() {
+  return headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+}
+
+/** An anonymous, random visitor id used only to separate analytics events. Not linked to personal data. */
+function visitorKey() {
+  const existing = cookies().get(VISITOR_COOKIE)?.value;
+  if (existing) return existing;
+  const id = randomUUID();
+  cookies().set(VISITOR_COOKIE, id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
+    secure: process.env.NODE_ENV === "production" });
+  return id;
+}
+
+export async function enquiryAction(form: FormData) {
+  const ref = str(form, "ref");
+  const back = `/properties/${encodeURIComponent(ref)}`;
+  return act(back, async () => {
+    await createEnquiry(ref, { name: str(form, "name"), contact: str(form, "contact"), message: str(form, "message") }, clientKey());
+    return withNotice(back, "Your enquiry was sent to the listing company.");
+  });
+}
+
+type EventName = "IMPRESSION" | "CONFIRMED_INTEREST" | "DECLINED" | "LATER";
+
+/** Records a modal event and, for Not interested / Maybe later, remembers the choice on this device. */
+export async function recommendationEventAction(input: { providerId: string; listingRef: string; trigger: string; event: EventName }) {
+  const allowed: EventName[] = ["IMPRESSION", "CONFIRMED_INTEREST", "DECLINED", "LATER"];
+  if (!allowed.includes(input.event)) return { ok: false };
+  const session = await getSession();
+  try {
+    await recordRecommendationEvent({ ...input, userId: session?.user.id ?? null, visitorKey: visitorKey() });
+  } catch {
+    return { ok: false };
+  }
+  if (input.event === "DECLINED" || input.event === "LATER") {
+    const prefs = parsePrefs(cookies().get(PREF_COOKIE)?.value);
+    if (input.event === "DECLINED") prefs.declinedAt = Date.now();
+    else prefs.laterAt = Date.now();
+    cookies().set(PREF_COOKIE, JSON.stringify(prefs), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
+      secure: process.env.NODE_ENV === "production" });
+  }
+  return { ok: true };
+}
+
+/** Submits a consented verification request. Returns the reference and the private status link. */
+export async function submitLeadAction(form: FormData): Promise<{ ok: true; ref: string; statusUrl: string } | { ok: false; error: string }> {
+  try {
+    const session = await getSession();
+    const { ref, token } = await submitLead({
+      providerId: str(form, "providerId"), listingRef: str(form, "listingRef"), name: str(form, "name"),
+      contactMethod: str(form, "contactMethod") as never, contactValue: str(form, "contactValue"),
+      note: str(form, "note"), consent: str(form, "consent") as never,
+    }, session?.user.id ?? null, clientKey());
+    return { ok: true, ref, statusUrl: `/verification/${ref}?t=${encodeURIComponent(token)}` };
+  } catch (err) {
+    return { ok: false, error: messageFor(err) };
+  }
+}
+
+export async function clearVerificationPrefsAction() {
+  cookies().delete(PREF_COOKIE);
+}

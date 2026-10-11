@@ -1,0 +1,28 @@
+import Link from "next/link";
+import { getMember, requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
+import { ROLE_LABELS } from "@/lib/permissions";
+
+export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
+  await requireUser();
+  const member = await getMember();
+  return (
+    <div className="stack-lg">
+      {member ? (
+        <div className="row between card" style={{ padding: "12px 16px" }}>
+          <div>
+            <strong>{member.companyName}</strong>
+            <span className="small muted"> · {member.userName}, {ROLE_LABELS[member.role]}</span>
+          </div>
+          <nav className="nav" aria-label="Workspace">
+            <Link href="/app">Dashboard</Link>
+            <Link href="/app/assets">Assets</Link>
+            {can(member.role, "team.manage") ? <Link href="/app/team">Team</Link> : null}
+            <Link href="/app/switch">Switch company</Link>
+          </nav>
+        </div>
+      ) : null}
+      {children}
+    </div>
+  );
+}

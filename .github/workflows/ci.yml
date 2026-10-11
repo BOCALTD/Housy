@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      DATABASE_URL: postgresql://estate_app:app_ci_pw@localhost:5432/estate
+      MIGRATION_DATABASE_URL: postgresql://estate_owner:owner_ci_pw@localhost:5432/estate
+      SHADOW_DATABASE_URL: postgresql://estate_owner:owner_ci_pw@localhost:5432/estate_shadow
+      STORAGE_DIR: /tmp/estate-storage
+      SEED_ADMIN_EMAIL: admin@example.test
+      SEED_ADMIN_PASSWORD: ci-admin-password
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Create database roles and databases
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE estate_owner LOGIN PASSWORD 'owner_ci_pw' CREATEDB;
+          CREATE ROLE estate_app LOGIN PASSWORD 'app_ci_pw' NOSUPERUSER NOBYPASSRLS;
+          CREATE DATABASE estate OWNER estate_owner;
+          CREATE DATABASE estate_shadow OWNER estate_owner;
+          SQL
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations (as owner)
+        run: npm run db:migrate
+
+      - name: Check migrations match the Prisma schema
+        run: npm run db:check-drift
+
+      - name: Row-level security tests (as the app role)
+        run: npm run test:rls
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests (real database, app role)
+        run: npm run test:integration
+
+      - name: Production build
+        run: npm run build
+
+      - name: Seed demo data and smoke-test the running app
+        env:
+          SEED_DEMO_DATA: "true"
+        run: |
+          npm run db:seed
+          npx next start -p 3100 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3100/ >/dev/null && break; sleep 1; done
+          set -e
+          curl -sf http://localhost:3100/ | grep -q "DEMO"
+          curl -sf http://localhost:3100/login >/dev/null
+          curl -sf http://localhost:3100/signup >/dev/null
+          REF=$(curl -sf http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)
+          curl -sf "http://localhost:3100/$REF" | grep -q "Verify this property"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/app)" = "307"
+          echo "Smoke test passed"
+
+      - name: Save the resolved lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json

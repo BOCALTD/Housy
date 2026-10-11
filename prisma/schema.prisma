@@ -1,0 +1,492 @@
+// Data model for the first end-to-end vertical slice (master prompt Section 51).
+// Every tenant-owned table carries company_id and is protected twice:
+//   1. the application scopes every query by company (src/lib/db.ts), and
+//   2. PostgreSQL row-level security (prisma/migrations/*_rls) rejects rows from other companies.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity and multi-tenancy ----------
+
+enum MemberRole {
+  COMPANY_SUPER_ADMIN
+  MANAGER
+  AGENT
+  OFFICER
+  VIEWER
+}
+
+enum MemberStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model User {
+  id              String       @id @default(uuid())
+  email           String       @unique
+  name            String
+  passwordHash    String       @map("password_hash")
+  isPlatformAdmin Boolean      @default(false) @map("is_platform_admin")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  sessions        Session[]
+  memberships     Membership[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  companyId String?  @map("company_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Company {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now()) @map("created_at")
+  memberships Membership[]
+  invitations Invitation[]
+  assets      Asset[]
+
+  @@map("companies")
+}
+
+model Membership {
+  id        String       @id @default(uuid())
+  companyId String       @map("company_id")
+  userId    String       @map("user_id")
+  role      MemberRole   @default(VIEWER)
+  status    MemberStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     Task[]       @relation("TaskAssignee")
+
+  @@unique([companyId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model Invitation {
+  id          String     @id @default(uuid())
+  companyId   String     @map("company_id")
+  email       String
+  role        MemberRole
+  tokenHash   String     @unique @map("token_hash")
+  invitedById String     @map("invited_by_id")
+  expiresAt   DateTime   @map("expires_at")
+  acceptedAt  DateTime?  @map("accepted_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("invitations")
+}
+
+// ---------- Asset register ----------
+
+enum AssetClass {
+  RESIDENTIAL
+  COMMERCIAL
+  LAND
+  INDUSTRIAL
+  PLANT_MACHINERY
+  OTHER
+}
+
+enum AssetStatus {
+  ACTIVE
+  VACANT
+  OCCUPIED
+  UNDER_RENOVATION
+  DISPOSED
+  ARCHIVED
+}
+
+// How the company holds this asset. Managing a property never makes the company its owner.
+enum CompanyRelationship {
+  OWNER
+  MANAGER
+  CUSTODIAN
+  LISTING_AGENT
+}
+
+model Asset {
+  id                  String              @id @default(uuid())
+  companyId           String              @map("company_id")
+  ref                 String
+  name                String
+  assetClass          AssetClass          @map("asset_class")
+  category            String
+  description         String              @default("")
+  address             String              @default("")
+  city                String              @default("")
+  state               String              @default("")
+  status              AssetStatus         @default(ACTIVE)
+  companyRelationship CompanyRelationship @map("company_relationship")
+  acquisitionCostKobo BigInt?             @map("acquisition_cost_kobo")
+  acquiredOn          DateTime?           @map("acquired_on") @db.Date
+  createdById         String              @map("created_by_id")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  parties             AssetParty[]
+  documents           AssetDocument[]
+  leases              Lease[]
+  tasks               Task[]
+  listing             Listing?
+
+  @@unique([companyId, ref])
+  @@index([companyId, status])
+  @@map("assets")
+}
+
+enum PartyRelationship {
+  LEGAL_OWNER
+  BENEFICIAL_OWNER
+  PROPERTY_MANAGER
+  CUSTODIAN
+  LESSEE
+  LISTING_AGENT
+  MAINTENANCE_RESPONSIBLE
+  INCOME_COLLECTOR
+}
+
+model AssetParty {
+  id            String            @id @default(uuid())
+  companyId     String            @map("company_id")
+  assetId       String            @map("asset_id")
+  partyName     String            @map("party_name")
+  relationship  PartyRelationship
+  effectiveFrom DateTime?         @map("effective_from") @db.Date
+  effectiveTo   DateTime?         @map("effective_to") @db.Date
+  evidenceNote  String            @default("") @map("evidence_note")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  asset         Asset             @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, assetId])
+  @@map("asset_parties")
+}
+
+enum DocumentCategory {
+  TITLE_OWNERSHIP
+  LEASE_AGREEMENT
+  MANAGEMENT_AGREEMENT
+  SURVEY_PLAN
+  VALUATION_REPORT
+  INSPECTION_REPORT
+  INSURANCE
+  TAX_RECEIPT
+  PERMIT_APPROVAL
+  CORRESPONDENCE
+  OTHER
+}
+
+model AssetDocument {
+  id           String           @id @default(uuid())
+  companyId    String           @map("company_id")
+  assetId      String           @map("asset_id")
+  category     DocumentCategory
+  title        String
+  fileName     String           @map("file_name")
+  mimeType     String           @map("mime_type")
+  sizeBytes    Int              @map("size_bytes")
+  storageKey   String           @unique @map("storage_key")
+  version      Int              @default(1)
+  expiresOn    DateTime?        @map("expires_on") @db.Date
+  uploadedById String           @map("uploaded_by_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  asset        Asset            @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, assetId])
+  @@map("asset_documents")
+}
+
+// ---------- Tenancy and rent ----------
+
+enum RentFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+enum LeaseStatus {
+  ACTIVE
+  ENDED
+  TERMINATED
+}
+
+model Lease {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  assetId       String        @map("asset_id")
+  ref           String
+  occupantName  String        @map("occupant_name")
+  occupantContact String      @default("") @map("occupant_contact")
+  startDate     DateTime      @map("start_date") @db.Date
+  endDate       DateTime      @map("end_date") @db.Date
+  rentKobo      BigInt        @map("rent_kobo")
+  frequency     RentFrequency
+  depositKobo   BigInt        @default(0) @map("deposit_kobo")
+  status        LeaseStatus   @default(ACTIVE)
+  createdById   String        @map("created_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  asset         Asset         @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  charges       RentCharge[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, assetId])
+  @@map("leases")
+}
+
+model RentCharge {
+  id         String        @id @default(uuid())
+  companyId  String        @map("company_id")
+  leaseId    String        @map("lease_id")
+  dueDate    DateTime      @map("due_date") @db.Date
+  amountKobo BigInt        @map("amount_kobo")
+  paidKobo   BigInt        @default(0) @map("paid_kobo")
+  lease      Lease         @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+  payments   RentPayment[]
+
+  @@index([companyId, dueDate])
+  @@index([leaseId])
+  @@map("rent_charges")
+}
+
+model RentPayment {
+  id           String     @id @default(uuid())
+  companyId    String     @map("company_id")
+  chargeId     String     @map("charge_id")
+  amountKobo   BigInt     @map("amount_kobo")
+  paidOn       DateTime   @map("paid_on") @db.Date
+  evidence     String
+  recordedById String     @map("recorded_by_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  charge       RentCharge @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  @@index([chargeId])
+  @@map("rent_payments")
+}
+
+// ---------- Tasks, inspections, maintenance ----------
+
+enum TaskKind {
+  TASK
+  INSPECTION
+  MAINTENANCE
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  companyId   String       @map("company_id")
+  assetId     String       @map("asset_id")
+  kind        TaskKind
+  title       String
+  description String       @default("")
+  priority    TaskPriority @default(NORMAL)
+  status      TaskStatus   @default(OPEN)
+  assigneeId  String?      @map("assignee_id")
+  dueOn       DateTime?    @map("due_on") @db.Date
+  outcome     String       @default("")
+  createdById String       @map("created_by_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  asset       Asset        @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  assignee    Membership?  @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status])
+  @@index([assetId])
+  @@map("tasks")
+}
+
+// ---------- Audit ----------
+
+// Insert-only: the runtime database role has no UPDATE or DELETE on this table.
+model ActivityLog {
+  id         String   @id @default(uuid())
+  companyId  String?  @map("company_id")
+  actorId    String?  @map("actor_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String
+  detail     Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([companyId, entityType, entityId])
+  @@index([companyId, createdAt])
+  @@map("activity_log")
+}
+
+// ---------- Public marketplace ----------
+
+enum ListingPurpose {
+  SALE
+  RENT
+  LEASE
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  UNAVAILABLE
+  ARCHIVED
+}
+
+model Listing {
+  id          String         @id @default(uuid())
+  companyId   String         @map("company_id")
+  assetId     String         @unique @map("asset_id")
+  publicRef   String         @unique @map("public_ref")
+  title       String
+  purpose     ListingPurpose
+  priceKobo   BigInt         @map("price_kobo")
+  bedrooms    Int?
+  bathrooms   Int?
+  description String         @default("")
+  city        String
+  state       String
+  status      ListingStatus  @default(DRAFT)
+  reviewNote  String         @default("") @map("review_note")
+  publishedAt DateTime?      @map("published_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  asset       Asset          @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  enquiries   Enquiry[]
+
+  @@index([status, city])
+  @@map("listings")
+}
+
+model Enquiry {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  listingId String   @map("listing_id")
+  name      String
+  contact   String
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, createdAt])
+  @@map("enquiries")
+}
+
+// ---------- Verification services (master prompt Section 9) ----------
+// Platform-level tables: not owned by a tenant company.
+
+enum ProviderStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum PlacementLabel {
+  SPONSORED
+  AFFILIATED
+  EDITORIAL
+}
+
+model ServiceProvider {
+  id         String         @id @default(uuid())
+  name       String
+  shortName  String         @map("short_name")
+  profile    String         @default("")
+  services   String         @default("")
+  coverage   String         @default("")
+  link       String         @default("")
+  status     ProviderStatus @default(PENDING)
+  placement  PlacementLabel @default(EDITORIAL)
+  featured   Boolean        @default(false)
+  createdAt  DateTime       @default(now()) @map("created_at")
+  events     RecommendationEvent[]
+  leads      ProviderLead[]
+
+  @@map("service_providers")
+}
+
+enum RecommendationEventType {
+  IMPRESSION
+  CONFIRMED_INTEREST
+  DECLINED
+  LATER
+}
+
+model RecommendationEvent {
+  id           String                  @id @default(uuid())
+  providerId   String                  @map("provider_id")
+  listingRef   String                  @map("listing_ref")
+  userId       String?                 @map("user_id")
+  visitorKey   String                  @map("visitor_key")
+  trigger      String
+  modalVersion String                  @map("modal_version")
+  event        RecommendationEventType
+  preselected  Boolean                 @default(false)
+  createdAt    DateTime                @default(now()) @map("created_at")
+  provider     ServiceProvider         @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, event])
+  @@map("recommendation_events")
+}
+
+enum LeadStatus {
+  SUBMITTED
+  CONTACTED
+  IN_PROGRESS
+  CLOSED
+  WITHDRAWN
+  DECLINED
+}
+
+model ProviderLead {
+  id                    String          @id @default(uuid())
+  ref                   String          @unique
+  accessTokenHash       String          @map("access_token_hash")
+  providerId            String          @map("provider_id")
+  listingRef            String          @map("listing_ref")
+  userId                String?         @map("user_id")
+  name                  String
+  contactMethod         String          @map("contact_method")
+  contactValue          String          @map("contact_value")
+  note                  String          @default("")
+  consentTextVersion    String          @map("consent_text_version")
+  consentGivenAt        DateTime        @map("consent_given_at")
+  status                LeadStatus      @default(SUBMITTED)
+  withdrawnAt           DateTime?       @map("withdrawn_at")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+  provider              ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, status])
+  @@map("provider_leads")
+}

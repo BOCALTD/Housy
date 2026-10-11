@@ -64,7 +64,13 @@ jobs:
         run: npm run test:unit
 
       - name: Integration tests (real database, app role)
-        run: npm run test:integration
+        run: |
+          set -o pipefail
+          npm run test:integration 2>&1 | tee integration.log || {
+            # Surface the failure as an annotation so it is readable without downloading logs.
+            node -e 'const s=require("fs").readFileSync("integration.log","utf8").split("\n");const i=s.findIndex(l=>/^not ok|^\s+not ok/.test(l));const out=(i<0?s.slice(-120):s.slice(Math.max(0,i-5),i+120)).join("\n").slice(0,60000);console.log("::error title=Integration tests::"+out.replace(/%/g,"%25").replace(/\r/g,"%0D").replace(/\n/g,"%0A"))'
+            exit 1
+          }
 
       - name: Production build
         run: npm run build

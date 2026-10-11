@@ -96,5 +96,5 @@ test("hosted deployments connect as the restricted runtime role", async () => {
   assert.equal(decodeURIComponent(u.password), "p@ss/word");
   assert.equal(u.searchParams.get("pgbouncer"), "true");
   assert.equal(u.searchParams.get("sslmode"), "require");
-  assert.equal(runtimeDatabaseUrl("postgresql://a:b@localhost/db", undefined), undefined);
+  assert.equal(runtimeDatabaseUrl("postgresql://a:b@localhost/db", ""), undefined, "no password means no rewrite");
 });

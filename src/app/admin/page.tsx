@@ -30,7 +30,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: SP })
       <div className="stack" style={{ gap: 4 }}>
         <p className="eyebrow">Platform Super Super Admin</p>
         <h1>Platform administration</h1>
-        <p className="small"><Link href="/admin/plans">Plans, subscriptions and messaging limits</Link></p>
+        <p className="small"><Link href="/admin/plans">Plans, subscriptions and messaging limits</Link> · <Link href="/admin/collaborations">Collaborations</Link></p>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 

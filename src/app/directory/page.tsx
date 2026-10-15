@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getSession } from "@/lib/auth";
+import { getMember, getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { directory, type DirectoryKind } from "@/lib/services/community";
 import { Flash, sp, type SP } from "@/components/ui";
 import { followAction, unfollowAction } from "../me/actions";
@@ -11,6 +12,8 @@ const TABS: { kind: DirectoryKind; label: string }[] = [{ kind: "agents", label:
 
 export default async function DirectoryPage({ searchParams }: { searchParams?: SP }) {
   const session = await getSession();
+  const member = session ? await getMember() : null;
+  const inviteCompany = !!member && can(member.role, "collab.company");
   const kind = (TABS.find((t) => t.kind === sp(searchParams, "kind"))?.kind ?? "agents") as DirectoryKind;
   const q = sp(searchParams, "q") ?? "";
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);
@@ -29,10 +32,14 @@ export default async function DirectoryPage({ searchParams }: { searchParams?: S
             <li key={`${r.kind}-${r.targetId}`}><div className="row between" style={{ width: "100%" }}>
               <div><strong>{r.name}</strong> <span className="small muted">{r.sub}</span>{r.blurb ? <div className="small muted">{r.blurb}</div> : null}<div className="small muted">{r.followers} {r.followers === 1 ? "follower" : "followers"}</div></div>
               {session ? (
+                <div className="row">
+                  {r.kind === "AGENT" && !member && r.targetId !== session.user.id ? <Link className="btn" href={`/me/collaborations/new?agent=${r.targetId}`}>Invite to collaborate</Link> : null}
+                  {r.kind !== "AGENT" && inviteCompany && r.targetId !== member?.companyId ? <Link className="btn" href={`/app/collaborations/new?company=${r.targetId}`}>Invite to collaborate</Link> : null}
                 <form action={r.following ? unfollowAction : followAction}>
                   <input type="hidden" name="kind" value={r.kind} /><input type="hidden" name="targetId" value={r.targetId} /><input type="hidden" name="back" value={back} />
                   <button className="btn" type="submit">{r.following ? "Unfollow" : "Follow"}</button>
                 </form>
+                </div>
               ) : <Link className="btn" href="/login">Sign in to follow</Link>}
             </div></li>))}</ul>
         )}

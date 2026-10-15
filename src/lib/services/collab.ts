@@ -106,8 +106,12 @@ export async function planFor(tx: Tx, c: Collab, now: Date = new Date()): Promis
 async function loadSettled(tx: Tx, a: Actor, id: string): Promise<Collab> {
   const c = await tx.collaboration.findUnique({ where: { id } });
   if (!c) throw new Error(NOT_FOUND);
-  const supervisorOrUser = sideOf(a, c) !== null || isSupervisor(a, c);
-  if (!supervisorOrUser) throw new Error(NOT_FOUND);
+  // Known to the people named in it, the supervisors of a company involved, and active participants. Nobody else learns it exists.
+  const byAccount = a.userId === c.senderUserId || a.userId === c.recipientUserId;
+  if (!byAccount && !isSupervisor(a, c)) {
+    const p = await tx.collabParticipant.findUnique({ where: { collaborationId_userId: { collaborationId: id, userId: a.userId } } });
+    if (!p || !participantActive(p, new Date())) throw new Error(NOT_FOUND);
+  }
   return settle(tx, c);
 }
 
@@ -667,10 +671,6 @@ export async function getWorkspace(a: Actor, id: string) {
     ]);
     const me = myRow && participantActive(myRow, now) ? myRow : null;
     const supervisor = isSupervisor(a, c);
-    if (!me && !supervisor && !(c.status === "PENDING" || c.status === "DRAFT" || c.status === "DECLINED" || c.status === "EXPIRED" || c.status === "CANCELLED")) {
-      // A person involved by account (the seeker or the invited agent) may always read the invitation itself.
-      if (side === null) throw new Error(NOT_FOUND);
-    }
     const mode = workspaceMode(c.status as CollabStatusName, plan.access);
     const showContent = !!me && mode.view;
     const events = await tx.collabEvent.findMany({ where: { collaborationId: id }, orderBy: { createdAt: "desc" }, take: 100 });

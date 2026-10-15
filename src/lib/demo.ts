@@ -3,7 +3,8 @@
  * Every demonstration record is labelled "[DEMO]" so it is never mistaken for real data
  * (master prompt Section 52).
  */
-import { prisma, withTenant } from "./db";
+import { asCompany, asPerson, createInvitation, respondInvitation, shareNote } from "./services/collab";
+import { prisma, withTenant, withUser } from "./db";
 import { registerCompany, inviteMember, acceptInvitation } from "./services/companies";
 import { createAsset, addParty } from "./services/assets";
 import { createLease, getLease, recordLeasePayment, recordPayment } from "./services/leases";
@@ -450,14 +451,20 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await saveCompanyProfile(alpha, { kind: "COMPANY", displayName: "[DEMO] Alpha Estates", tagline: "[DEMO] Sales and property management", about: "Demonstration profile.", listed: true });
   await saveCompanyProfile(beta, { kind: "DEVELOPER", displayName: "[DEMO] Beta Developments", tagline: "[DEMO] Residential estates", about: "Demonstration profile.", listed: true });
   const seeker = await registerSeeker({ name: "[DEMO] Seyi Seeker", email: "demo.seeker@example.test", password: DEMO_PASSWORD });
-  const premium = await prisma.subscriptionPlan.findUniqueOrThrow({ where: { code: "premium-seeker" } });
+  const premium = await withUser("demo-seed", (tx) => tx.subscriptionPlan.findUniqueOrThrow({ where: { code: "premium-seeker" } }));
   const inAYear = toDateOnlyString(new Date(Date.now() + 365 * 864e5));
   await assignSubscription(adminId, { planId: premium.id, periodEnd: inAYear, email: "demo.seeker@example.test", note: "[DEMO] Demonstration subscription" });
-  const proCompany = await prisma.subscriptionPlan.findUniqueOrThrow({ where: { code: "company-professional" } });
+  const proCompany = await withUser("demo-seed", (tx) => tx.subscriptionPlan.findUniqueOrThrow({ where: { code: "company-professional" } }));
   await assignSubscription(adminId, { planId: proCompany.id, periodEnd: inAYear, companyId: alpha.companyId, note: "[DEMO] Demonstration subscription" });
   await assignSubscription(adminId, { planId: proCompany.id, periodEnd: inAYear, companyId: beta.companyId, note: "[DEMO] Demonstration subscription" });
   await follow(seeker.userId, "AGENT", alpha.userId);
   await follow(seeker.userId, "DEVELOPER", beta.companyId);
+
+  // Collaboration: two companies already working together, and a seeker's invitation waiting for an agent to answer.
+  const pair = await createInvitation(asCompany(alpha), { kind: "COMPANY_COMPANY", purpose: "CO_BROKERAGE", title: "[DEMO] Co-brokerage on the Lekki terraces", scope: "Demonstration collaboration.", companyId: beta.companyId }, true);
+  await respondInvitation(asCompany(beta), pair.id, "accept", "[DEMO] Happy to work together");
+  await shareNote(asCompany(alpha), pair.id, { title: "[DEMO] Viewing times", body: "Weekdays after 4pm." });
+  await createInvitation(asPerson(seeker.userId), { kind: "SEEKER_AGENT", purpose: "SEARCH_ASSISTANCE", title: "[DEMO] Help me find a flat in Lekki", scope: "Two bedrooms.", agentUserId: alpha.userId }, true);
 
   return true;
 }

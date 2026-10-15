@@ -2,10 +2,12 @@ import Link from "next/link";
 import { getMember, requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { ROLE_LABELS } from "@/lib/permissions";
+import { asCompany, pendingIncoming } from "@/lib/services/collab";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   await requireUser();
   const member = await getMember();
+  const incoming = member && can(member.role, "collab.company") ? await pendingIncoming(asCompany(member)).catch(() => 0) : 0;
   return (
     <div className="stack-lg">
       {member ? (
@@ -30,6 +32,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
             <Link href="/app/compliance">Compliance</Link>
             {can(member.role, "finance.view") ? <Link href="/app/reports">Reports</Link> : null}
             <Link href="/app/files">Files</Link>
+            {can(member.role, "collab.view") ? <Link href="/app/collaborations">Collaborations{incoming > 0 ? ` (${incoming})` : ""}</Link> : null}
             {can(member.role, "crm.view") ? <Link href="/app/profile">Public profile</Link> : null}
             {can(member.role, "team.manage") ? <Link href="/app/team">Team</Link> : null}
             {can(member.role, "settings.manage") ? <Link href="/app/settings">Settings</Link> : null}

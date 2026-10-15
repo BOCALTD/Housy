@@ -28,6 +28,11 @@ const PROFILES: { name: string; device: string; engine: "chromium" | "webkit"; s
   { name: "iPad (tablet)", device: "iPad (gen 7)", engine: "webkit", shots: false },
 ];
 
+// Screenshots are only for the report. A slow capture (font loading in CI) is not a compatibility finding.
+async function shot(page: import("@playwright/test").Page, opts: Parameters<import("@playwright/test").Page["screenshot"]>[0]) {
+  try { await page.screenshot({ ...opts, timeout: 15000 }); } catch { /* best effort */ }
+}
+
 // Pages that get a screenshot on the profiles that take them.
 const SHOT_PATTERNS = ["/", "/login", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id"];
 
@@ -168,9 +173,9 @@ async function main() {
           const vh = page.viewportSize()!.height;
           for (let t = 0; t < 3; t += 1) {
             await page.evaluate((y) => window.scrollTo(0, y), t * vh);
-            await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}__${t}.png` });
+            await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}__${t}.png` });
           }
-        } else if (wantShot) await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
+        } else if (wantShot) await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
       } catch (e) {
         add("load-failed", String(e).slice(0, 200));
       }

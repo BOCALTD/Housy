@@ -23,6 +23,10 @@ import {
 import {
   addComparable, addEntry, assignValuation, createInstruction as createValuation, decideReport, saveReportDraft, saveWorksheet, submitReport,
 } from "./services/valuation";
+import {
+  addMilestone, addWorkPackage, createProject, decideBudget, decideCommitment, decideInvoice, decideVariation, recordForecast, recordInvoice, requestCommitment,
+  requestVariation, setProgress as setPackageProgress, submitBudget, activateProject, achieveMilestone,
+} from "./services/project";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -334,6 +338,37 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   } as never);
   await addComparable(officer, pendingValuation.id, { kind: "SALE", address: "[DEMO] 9 Garden Close", evidenceDate: daysFromToday(-60), price: "80,000,000", area: "300", source: "[DEMO] Agent letter" });
   await assignValuation(alpha, pendingValuation.id, officer.membershipId);
+
+  // Projects: one active renovation with an approved budget, spending, a variation and progress; one still being planned.
+  const reno = await createProject(alpha, {
+    assetId: shop.id, title: "[DEMO] Shopfront renovation", kind: "RENOVATION", description: "[DEMO] New shopfront, roof repairs and repainting.", managerId: manager.membershipId,
+    plannedStart: daysFromToday(-30), plannedEnd: daysFromToday(60), contingency: "1,000,000",
+  });
+  const wpRoof = (await addWorkPackage(officer, reno.id, { title: "Roof repairs", plannedStart: daysFromToday(-30), plannedEnd: daysFromToday(10), budget: "4,000,000", responsibleId: officer.membershipId })).workPackage;
+  const wpFront = (await addWorkPackage(officer, reno.id, { title: "New shopfront", plannedStart: daysFromToday(-10), plannedEnd: daysFromToday(45), budget: "6,000,000", responsibleId: officer.membershipId })).workPackage;
+  const wpPaint = (await addWorkPackage(officer, reno.id, { title: "Repainting", plannedStart: daysFromToday(30), plannedEnd: daysFromToday(60), budget: "2,000,000" })).workPackage;
+  await addMilestone(officer, reno.id, { title: "Roof watertight", dueOn: daysFromToday(10), workPackageId: wpRoof.id });
+  await addMilestone(officer, reno.id, { title: "Shopfront installed", dueOn: daysFromToday(45), workPackageId: wpFront.id });
+  await submitBudget(officer, reno.id);
+  await decideBudget(manager, reno.id, "approve", "Budget agreed.");
+  await activateProject(alpha, reno.id);
+  const roofCommitment = await requestCommitment(officer, reno.id, { supplierName: "[DEMO] Roofing Contractors", description: "Roof repairs", amount: "3,800,000", workPackageId: wpRoof.id });
+  await decideCommitment(manager, roofCommitment.id, "approve", "");
+  const frontCommitment = await requestCommitment(officer, reno.id, { supplierName: "[DEMO] Glazing Ltd", description: "Aluminium shopfront", amount: "5,500,000", workPackageId: wpFront.id });
+  await decideCommitment(manager, frontCommitment.id, "approve", "");
+  const inv1 = await recordInvoice(officer, roofCommitment.id, { invoiceNo: "DEMO-INV-001", invoiceDate: daysFromToday(-5), amount: "1,900,000" });
+  await decideInvoice(manager, inv1.id, "approve", "Work seen on site.");
+  await recordInvoice(officer, frontCommitment.id, { invoiceNo: "DEMO-INV-002", invoiceDate: daysFromToday(-2), amount: "2,000,000" });
+  await requestCommitment(officer, reno.id, { supplierName: "[DEMO] Paint Supplies", description: "Paint and rollers", amount: "900,000", workPackageId: wpPaint.id });
+  const extra = await requestVariation(officer, reno.id, { target: "COMMITMENT", commitmentId: roofCommitment.id, title: "Extra rotten timber found", reason: "Further timber replaced after the roof was opened.", amount: "250,000", timeImpactDays: "3" });
+  await decideVariation(manager, extra.id, "approve", "Agreed.");
+  await setPackageProgress(officer, wpRoof.id, "IN_PROGRESS", "70");
+  await setPackageProgress(officer, wpFront.id, "IN_PROGRESS", "25");
+  await recordForecast(officer, wpFront.id, "3,900,000", "Quote for remaining glazing");
+  await achieveMilestone(officer, (await withTenant(alpha.companyId, alpha.userId, (tx) => tx.milestone.findFirstOrThrow({ where: { projectId: reno.id, title: "Roof watertight" } }))).id).catch(() => undefined);
+  await createProject(alpha, {
+    assetId: duplex.id, title: "[DEMO] Duplex kitchen refit", kind: "FIT_OUT", plannedStart: daysFromToday(30), plannedEnd: daysFromToday(75), managerId: manager.membershipId,
+  });
 
   // Approve only the demo listings, never real submissions waiting for review.
   for (const l of await reviewQueue(adminId)) {

@@ -458,5 +458,73 @@ SELECT pg_temp.expect((SELECT count(*) FROM valuation_comparables) = 0, 'B canno
 SELECT pg_temp.expect((SELECT count(*) FROM valuation_reports) = 0, 'B cannot see A reports');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 20. Phase 7b: projects are isolated; money and progress are bounded; decisions need a second person; forecasts are append-only.
+INSERT INTO projects (id, company_id, ref, asset_id, title, kind, planned_start, planned_end, created_by_id, updated_at)
+  SELECT 'pj-a', 'co-a', 'PRJ-2026-0001', id, 'Roof', 'RENOVATION', '2026-01-01', '2026-06-01', 'u1', now() FROM assets WHERE company_id = 'co-a' LIMIT 1;
+INSERT INTO work_packages (id, company_id, project_id, code, title, planned_start, planned_end, updated_at)
+  VALUES ('wp-a', 'co-a', 'pj-a', 'WP-1', 'Strip roof', '2026-01-01', '2026-02-01', now());
+INSERT INTO commitments (id, company_id, project_id, work_package_id, ref, supplier_name, description, amount_kobo, requested_by_id)
+  VALUES ('cm-a', 'co-a', 'pj-a', 'wp-a', 'CMT-2026-0001', 'Builder', 'Roofing', 100000, 'u1');
+DO $$ BEGIN
+  INSERT INTO projects (id, company_id, ref, asset_id, title, kind, planned_start, planned_end, created_by_id, updated_at)
+    SELECT 'pj-bad', 'co-a', 'PRJ-X', id, 'Bad', 'RENOVATION', '2026-06-01', '2026-01-01', 'u1', now() FROM assets WHERE company_id = 'co-a' LIMIT 1;
+  RAISE EXCEPTION 'FAIL: a project ending before it starts was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: project dates are ordered'; END $$;
+DO $$ BEGIN
+  UPDATE projects SET budget_status = 'APPROVED' WHERE id = 'pj-a';
+  RAISE EXCEPTION 'FAIL: an approved budget without a figure was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: an approved budget has a figure'; END $$;
+DO $$ BEGIN
+  UPDATE projects SET budget_submitted_by_id = 'u1', budget_decided_by_id = 'u1' WHERE id = 'pj-a';
+  RAISE EXCEPTION 'FAIL: budget self-approval was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: the budget needs a second person'; END $$;
+DO $$ BEGIN
+  UPDATE work_packages SET percent_complete = 120 WHERE id = 'wp-a';
+  RAISE EXCEPTION 'FAIL: 120 percent complete was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: progress is 0 to 100'; END $$;
+DO $$ BEGIN
+  UPDATE work_packages SET status = 'DONE' WHERE id = 'wp-a';
+  RAISE EXCEPTION 'FAIL: a done work package under 100 percent was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: done means 100 percent'; END $$;
+DO $$ BEGIN
+  INSERT INTO commitments (id, company_id, project_id, ref, supplier_name, description, amount_kobo, requested_by_id)
+    VALUES ('cm-bad', 'co-a', 'pj-a', 'CMT-X', 'S', 'D', 0, 'u1');
+  RAISE EXCEPTION 'FAIL: a zero commitment was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: commitments are positive'; END $$;
+DO $$ BEGIN
+  UPDATE commitments SET status = 'APPROVED', decided_by_id = 'u1' WHERE id = 'cm-a';
+  RAISE EXCEPTION 'FAIL: self-approved commitment was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a commitment needs a second person'; END $$;
+DO $$ BEGIN
+  UPDATE commitments SET status = 'APPROVED' WHERE id = 'cm-a';
+  RAISE EXCEPTION 'FAIL: a decision without a decider was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a decided commitment names its decider'; END $$;
+DO $$ BEGIN
+  INSERT INTO project_invoices (id, company_id, project_id, commitment_id, invoice_no, invoice_date, amount_kobo, status, recorded_by_id)
+    VALUES ('pi-bad', 'co-a', 'pj-a', 'cm-a', 'I-1', '2026-02-01', 100, 'PAID', 'u1');
+  RAISE EXCEPTION 'FAIL: a paid invoice without payment details was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a paid invoice records who paid and when'; END $$;
+DO $$ BEGIN
+  INSERT INTO variations (id, company_id, project_id, ref, target, title, reason, amount_kobo, requested_by_id)
+    VALUES ('vr-bad1', 'co-a', 'pj-a', 'VAR-X', 'COMMITMENT', 'T', 'R', 100, 'u1');
+  RAISE EXCEPTION 'FAIL: a commitment variation without a commitment was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a commitment variation names its commitment'; END $$;
+DO $$ BEGIN
+  INSERT INTO variations (id, company_id, project_id, ref, target, commitment_id, title, reason, amount_kobo, requested_by_id)
+    VALUES ('vr-bad2', 'co-a', 'pj-a', 'VAR-Y', 'BUDGET', 'cm-a', 'T', 'R', 100, 'u1');
+  RAISE EXCEPTION 'FAIL: a budget variation naming a commitment was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a budget variation has no commitment'; END $$;
+DO $$ BEGIN
+  INSERT INTO variations (id, company_id, project_id, ref, target, title, reason, amount_kobo, requested_by_id)
+    VALUES ('vr-bad3', 'co-a', 'pj-a', 'VAR-Z', 'BUDGET', 'T', 'R', 0, 'u1');
+  RAISE EXCEPTION 'FAIL: a zero variation was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a variation changes something'; END $$;
+INSERT INTO project_forecasts (id, company_id, project_id, work_package_id, etc_kobo, recorded_by_id) VALUES ('pf-a', 'co-a', 'pj-a', 'wp-a', 5000, 'u1');
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM projects) = 0, 'B cannot see A projects');
+SELECT pg_temp.expect((SELECT count(*) FROM commitments) = 0, 'B cannot see A commitments');
+SELECT pg_temp.expect((SELECT count(*) FROM project_forecasts) = 0, 'B cannot see A forecasts');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

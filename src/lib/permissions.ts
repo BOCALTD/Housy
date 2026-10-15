@@ -34,6 +34,11 @@ export type Action =
   | "valuation.manage"
   | "valuation.prepare"
   | "valuation.approve"
+  | "project.view"
+  | "project.manage"
+  | "project.plan"
+  | "project.cost"
+  | "project.approve"
   | "inspection.manage"
   | "inspection.conduct"
   | "inspection.approve"
@@ -91,6 +96,12 @@ const MATRIX: Record<Action, Role[]> = {
   "valuation.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "valuation.prepare": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "valuation.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  // Projects (master prompt Phase 7). Budgets, commitments, invoices and variations are decided by someone other than the person who raised them.
+  "project.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER", "VIEWER"],
+  "project.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "project.plan": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "project.cost": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "project.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "inspection.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "inspection.conduct": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "inspection.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],

@@ -176,6 +176,7 @@ model Asset {
   @@map("assets")
   inventoryItems      InventoryItem[]
   valuations          ValuationInstruction[]
+  projects            Project[]
 }
 
 enum PartyRelationship {
@@ -1857,4 +1858,230 @@ model ValuationReport {
   @@unique([instructionId, version])
   @@index([companyId, status])
   @@map("valuation_reports")
+}
+
+// ---------- Phase 7b: construction and renovation projects ----------
+
+enum ProjectKind {
+  CONSTRUCTION
+  RENOVATION
+  FIT_OUT
+  REPAIR_PROGRAMME
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum BudgetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+enum WorkStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+enum InvoiceStatus {
+  RECEIVED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum VariationTarget {
+  COMMITMENT
+  BUDGET
+}
+
+/// A construction, renovation or repair project on an asset.
+model Project {
+  id                  String        @id @default(uuid())
+  companyId           String        @map("company_id")
+  ref                 String
+  assetId             String        @map("asset_id")
+  title               String
+  kind                ProjectKind
+  description         String        @default("")
+  status              ProjectStatus @default(PLANNING)
+  managerId           String?       @map("manager_id")
+  plannedStart        DateTime      @map("planned_start") @db.Date
+  plannedEnd          DateTime      @map("planned_end") @db.Date
+  actualStart         DateTime?     @map("actual_start") @db.Date
+  actualEnd           DateTime?     @map("actual_end") @db.Date
+  contingencyKobo     BigInt        @default(0) @map("contingency_kobo")
+  budgetStatus        BudgetStatus  @default(DRAFT) @map("budget_status")
+  budgetSubmittedById String?       @map("budget_submitted_by_id")
+  budgetDecidedById   String?       @map("budget_decided_by_id")
+  budgetDecidedAt     DateTime?     @map("budget_decided_at")
+  budgetNote          String        @default("") @map("budget_note")
+  approvedBudgetKobo  BigInt?       @map("approved_budget_kobo")
+  holdReason          String        @default("") @map("hold_reason")
+  cancelReason        String        @default("") @map("cancel_reason")
+  createdById         String        @map("created_by_id")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  asset               Asset         @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  workPackages        WorkPackage[]
+  milestones          Milestone[]
+  commitments         Commitment[]
+  invoices            ProjectInvoice[]
+  variations          Variation[]
+  forecasts           ProjectForecast[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, status])
+  @@index([companyId, assetId])
+  @@map("projects")
+}
+
+model WorkPackage {
+  id              String     @id @default(uuid())
+  companyId       String     @map("company_id")
+  projectId       String     @map("project_id")
+  code            String
+  title           String
+  description     String     @default("")
+  responsibleId   String?    @map("responsible_id")
+  contractorId    String?    @map("contractor_id")
+  plannedStart    DateTime   @map("planned_start") @db.Date
+  plannedEnd      DateTime   @map("planned_end") @db.Date
+  actualStart     DateTime?  @map("actual_start") @db.Date
+  actualEnd       DateTime?  @map("actual_end") @db.Date
+  percentComplete Int        @default(0) @map("percent_complete")
+  status          WorkStatus @default(NOT_STARTED)
+  budgetKobo      BigInt     @default(0) @map("budget_kobo")
+  sortOrder       Int        @default(0) @map("sort_order")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestones      Milestone[]
+  commitments     Commitment[]
+  forecasts       ProjectForecast[]
+
+  @@unique([projectId, code])
+  @@index([companyId, projectId])
+  @@map("work_packages")
+}
+
+model Milestone {
+  id            String       @id @default(uuid())
+  companyId     String       @map("company_id")
+  projectId     String       @map("project_id")
+  workPackageId String?      @map("work_package_id")
+  title         String
+  dueOn         DateTime     @map("due_on") @db.Date
+  achievedOn    DateTime?    @map("achieved_on") @db.Date
+  achievedById  String?      @map("achieved_by_id")
+  note          String       @default("")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackage   WorkPackage? @relation(fields: [workPackageId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, projectId])
+  @@map("milestones")
+}
+
+/// Money the company has committed to spend: a contract or purchase order, approved by a second person.
+model Commitment {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  projectId     String        @map("project_id")
+  workPackageId String?       @map("work_package_id")
+  ref           String
+  supplierName  String        @map("supplier_name")
+  contractorId  String?       @map("contractor_id")
+  description   String
+  amountKobo    BigInt        @map("amount_kobo")
+  status        RequestStatus @default(PENDING)
+  requestedById String        @map("requested_by_id")
+  decidedById   String?       @map("decided_by_id")
+  decidedAt     DateTime?     @map("decided_at")
+  decisionNote  String        @default("") @map("decision_note")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackage   WorkPackage?  @relation(fields: [workPackageId], references: [id], onDelete: SetNull)
+  invoices      ProjectInvoice[]
+  variations    Variation[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, projectId])
+  @@map("commitments")
+}
+
+model ProjectInvoice {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  projectId     String        @map("project_id")
+  commitmentId  String        @map("commitment_id")
+  invoiceNo     String        @map("invoice_no")
+  invoiceDate   DateTime      @map("invoice_date") @db.Date
+  dueDate       DateTime?     @map("due_date") @db.Date
+  amountKobo    BigInt        @map("amount_kobo")
+  status        InvoiceStatus @default(RECEIVED)
+  recordedById  String        @map("recorded_by_id")
+  decidedById   String?       @map("decided_by_id")
+  decidedAt     DateTime?     @map("decided_at")
+  decisionNote  String        @default("") @map("decision_note")
+  paidOn        DateTime?     @map("paid_on") @db.Date
+  paidById      String?       @map("paid_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  commitment    Commitment    @relation(fields: [commitmentId], references: [id], onDelete: Restrict)
+
+  @@unique([commitmentId, invoiceNo])
+  @@index([companyId, projectId])
+  @@map("project_invoices")
+}
+
+/// A change to a contract sum or to the approved budget, with any time it adds. Approved by a second person.
+model Variation {
+  id            String          @id @default(uuid())
+  companyId     String          @map("company_id")
+  projectId     String          @map("project_id")
+  ref           String
+  target        VariationTarget
+  commitmentId  String?         @map("commitment_id")
+  workPackageId String?         @map("work_package_id")
+  title         String
+  reason        String
+  amountKobo    BigInt          @map("amount_kobo")
+  timeImpactDays Int            @default(0) @map("time_impact_days")
+  status        RequestStatus   @default(PENDING)
+  requestedById String          @map("requested_by_id")
+  decidedById   String?         @map("decided_by_id")
+  decidedAt     DateTime?       @map("decided_at")
+  decisionNote  String          @default("") @map("decision_note")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  commitment    Commitment?     @relation(fields: [commitmentId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, ref])
+  @@index([companyId, projectId])
+  @@map("variations")
+}
+
+/// Estimate to complete for a work package. Each entry is a dated estimate; the latest one is current.
+model ProjectForecast {
+  id            String      @id @default(uuid())
+  companyId     String      @map("company_id")
+  projectId     String      @map("project_id")
+  workPackageId String      @map("work_package_id")
+  etcKobo       BigInt      @map("etc_kobo")
+  note          String      @default("")
+  recordedById  String      @map("recorded_by_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackage   WorkPackage @relation(fields: [workPackageId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, projectId, workPackageId, createdAt])
+  @@map("project_forecasts")
 }

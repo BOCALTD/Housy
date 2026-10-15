@@ -46,10 +46,12 @@ a { color: inherit; }
 a:hover { color: var(--primary); }
 :focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
 button, input, select, textarea { font: inherit; color: inherit; }
-.mono { font-family: var(--font-mono); font-size: .92em; }
+.mono { font-family: var(--font-mono); font-size: .95em; }
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
+small { font-size: 12.5px; }
+.field small { font-size: 12.5px; }
 
 .wrap { max-width: 1120px; margin-inline: auto; padding-inline: 16px; }
 .stack { display: grid; gap: 16px; }
@@ -195,7 +197,8 @@ input[type="file"] { max-width: 100%; font-size: 14px; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat b { font-size: 22px; overflow-wrap: anywhere; }
   .grid { grid-template-columns: 1fr; }
-  .fields { grid-template-columns: 1fr; }
+  .fields { grid-template-columns: minmax(0, 1fr); }
+  .stack, .stack-lg, .two { min-width: 0; }
   .dialog { padding: 24px 16px 18px; border-radius: 16px; }
   .hero h1 { max-width: none; }
   /* The workspace menu is one scrolling row instead of a block of wrapped links. */
@@ -219,6 +222,7 @@ input[type="file"] { max-width: 100%; font-size: 14px; }
   .check input, .option input { width: 22px; height: 22px; }
   label.row input[type="checkbox"] { width: 22px; height: 22px; }
   .dialog .close { width: 44px; height: 44px; }
-  .table-wrap a { display: inline-block; padding-block: 12px; }
-  td a, li > div > a, .timeline a { display: inline-block; padding-block: 11px; }
+  /* Links get a larger hit area without moving anything on the page. */
+  main a:not(.btn):not(.brand) { display: inline-block; padding-block: 11px; margin-block: -11px; }
+  .brand { min-height: 44px; }
 }

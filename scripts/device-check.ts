@@ -165,7 +165,7 @@ async function main() {
           const vh = page.viewportSize()!.height;
           for (let t = 0; t < 3; t += 1) {
             await page.evaluate((y) => window.scrollTo(0, y), t * vh);
-            await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}__${t}.jpg`, type: "jpeg", quality: 55 });
+            await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}__${t}.png` });
           }
         } else if (wantShot) await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
       } catch (e) {

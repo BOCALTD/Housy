@@ -123,7 +123,7 @@ test("deal tasks stay off the asset pages, can go only to people who can see the
   assert.equal(f.tasks[0].status, "DONE");
   const { getAsset } = await import("../../src/lib/services/assets");
   const asset = await getAsset(e.admin, e.asset.id);
-  assert.equal(asset?.tasks.length, 0);
+  assert.equal(asset?.asset.tasks.length, 0);
 });
 
 test("conversations are tied to the deal and its client, and merging clients carries the deals and letters across", async () => {

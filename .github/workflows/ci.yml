@@ -7,7 +7,9 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    permissions:
+      contents: write
     services:
       postgres:
         image: postgres:16
@@ -98,6 +100,19 @@ jobs:
           name: device-report
           path: device-report
           if-no-files-found: ignore
+
+      - name: Publish device screenshots to the device-shots branch
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          [ -d device-report ] || exit 0
+          cp -r device-report /tmp/device-report
+          git config user.name "ci"; git config user.email "ci@example.invalid"
+          git checkout --orphan device-shots
+          git rm -rf -q --cached . > /dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r /tmp/device-report/* .
+          git add -A && git commit -q -m "Device screenshots for ${GITHUB_SHA}"
+          git push -q -f origin device-shots
 
       - name: Save the resolved lockfile
         if: always()

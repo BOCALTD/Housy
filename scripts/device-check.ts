@@ -155,7 +155,7 @@ async function main() {
         }
         for (const e of errors.slice(0, 3)) add("script-error", e.slice(0, 200));
         const wantShot = prof.shots && (SHOT_PATTERNS.includes(pattern(p)) || issues.some((i) => i.page === p && i.profile === prof.name && i.kind === "sideways-scroll"));
-        if (wantShot) await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.png`, fullPage: true });
+        if (wantShot) await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
       } catch (e) {
         add("load-failed", String(e).slice(0, 200));
       }
@@ -187,7 +187,8 @@ async function main() {
   writeFileSync(`${OUT}/issues.json`, JSON.stringify([...grouped.values()], null, 1));
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md.slice(0, 900000));
   console.log(md.split("\n").slice(0, 60).join("\n"));
-  for (const [k, n] of byKind) console.log(`::warning title=Device check: ${k}::${n} distinct problem(s). See the report artifact.`);
+  const esc = (t: string) => t.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  console.log(`::notice title=Device report::${esc(md.slice(0, 60000))}`);
   if (STRICT && grouped.size > 0) process.exit(1);
 }
 

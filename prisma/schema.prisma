@@ -1927,10 +1927,25 @@ model Project {
   approvedBudgetKobo  BigInt?       @map("approved_budget_kobo")
   holdReason          String        @default("") @map("hold_reason")
   cancelReason        String        @default("") @map("cancel_reason")
+  completionRequestedById String?   @map("completion_requested_by_id")
+  completionRequestedAt   DateTime? @map("completion_requested_at")
+  completionNote      String        @default("") @map("completion_note")
+  defectsMonths       Int           @default(12) @map("defects_months")
+  completedById       String?       @map("completed_by_id")
+  completedAt         DateTime?     @map("completed_at")
+  defectsPeriodEnd    DateTime?     @map("defects_period_end") @db.Date
+  handoverOn          DateTime?     @map("handover_on") @db.Date
+  handoverById        String?       @map("handover_by_id")
+  handedToName        String        @default("") @map("handed_to_name")
+  handoverNote        String        @default("") @map("handover_note")
   createdById         String        @map("created_by_id")
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @updatedAt @map("updated_at")
   asset               Asset         @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  defects             ProjectDefect[]
+  warranties          ProjectWarranty[]
+  documents           ProjectDocument[]
+  handoverItems       HandoverItem[]
   workPackages        WorkPackage[]
   milestones          Milestone[]
   commitments         Commitment[]
@@ -2283,4 +2298,109 @@ model QualityCheck {
 
   @@index([companyId, projectId, workPackageId])
   @@map("quality_checks")
+}
+
+enum DefectStatus {
+  OPEN
+  FIXED
+  VERIFIED
+}
+
+enum ProjectDocKind {
+  DRAWING
+  CERTIFICATE
+  WARRANTY
+  MANUAL
+  HANDOVER
+  OTHER
+}
+
+/// A snag or defect found at completion or during the defects liability period. The person who fixes it
+/// is never the person who verifies the fix.
+model ProjectDefect {
+  id            String         @id @default(uuid())
+  companyId     String         @map("company_id")
+  projectId     String         @map("project_id")
+  workPackageId String?        @map("work_package_id")
+  ref           String
+  title         String
+  description   String         @default("")
+  severity      DefectSeverity
+  status        DefectStatus   @default(OPEN)
+  raisedById    String         @map("raised_by_id")
+  raisedOn      DateTime       @map("raised_on") @db.Date
+  dueOn         DateTime?      @map("due_on") @db.Date
+  fixedById     String?        @map("fixed_by_id")
+  fixedOn       DateTime?      @map("fixed_on") @db.Date
+  fixNote       String         @default("") @map("fix_note")
+  verifiedById  String?        @map("verified_by_id")
+  verifiedOn    DateTime?      @map("verified_on") @db.Date
+  verifyNote    String         @default("") @map("verify_note")
+  workOrderId   String?        @map("work_order_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, projectId, ref])
+  @@index([companyId, projectId, status])
+  @@map("project_defects")
+}
+
+/// A warranty or guarantee that came with the works, linked to the asset so maintenance can see it.
+model ProjectWarranty {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  projectId   String   @map("project_id")
+  assetId     String   @map("asset_id")
+  title       String
+  provider    String
+  coverage    String   @default("")
+  startsOn    DateTime @map("starts_on") @db.Date
+  endsOn      DateTime @map("ends_on") @db.Date
+  documentId  String?  @map("document_id")
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, assetId, endsOn])
+  @@index([companyId, projectId])
+  @@map("project_warranties")
+}
+
+/// A file kept with the project: drawings, certificates, manuals and handover papers. Never changed once added.
+model ProjectDocument {
+  id           String         @id @default(uuid())
+  companyId    String         @map("company_id")
+  projectId    String         @map("project_id")
+  kind         ProjectDocKind
+  title        String
+  fileName     String         @map("file_name")
+  mimeType     String         @map("mime_type")
+  sizeBytes    Int            @map("size_bytes")
+  storageKey   String         @unique @map("storage_key")
+  uploadedById String         @map("uploaded_by_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, projectId])
+  @@map("project_documents")
+}
+
+/// One line of the handover checklist, created when the project is completed.
+model HandoverItem {
+  id         String    @id @default(uuid())
+  companyId  String    @map("company_id")
+  projectId  String    @map("project_id")
+  title      String
+  sortOrder  Int       @default(0) @map("sort_order")
+  done       Boolean   @default(false)
+  doneById   String?   @map("done_by_id")
+  doneOn     DateTime? @map("done_on") @db.Date
+  note       String    @default("")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, projectId, sortOrder])
+  @@map("handover_items")
 }

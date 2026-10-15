@@ -72,6 +72,11 @@ export default async function WorkOrderPage({ params, searchParams }: { params: 
             {wo.safetyRisk ? <Pill status="OVERDUE" label="Safety risk" /> : null}
           </div>
         </div>
+        {data.warranties.length > 0 && !finished ? (
+          <div className="flash notice" role="status">
+            <strong>This asset has a warranty in force.</strong> Check whether this repair is covered before paying for it: {data.warranties.slice(0, 2).map((w) => `${w.title} by ${w.provider} (to ${formatDate(w.endsOn)})`).join("; ")}{data.warranties.length > 2 ? `; and ${data.warranties.length - 2} more` : ""}.
+          </div>
+        ) : null}
         {wo.finding ? <p className="small muted">Raised from inspection finding <Link href={`/app/inspections/${wo.finding.inspectionId}`}>{wo.finding.title}</Link></p> : null}
         {wo.schedule ? <p className="small muted">Recurring job: {wo.schedule.title}</p> : null}
       </div>

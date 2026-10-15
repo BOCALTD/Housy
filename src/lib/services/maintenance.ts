@@ -112,8 +112,15 @@ async function newRef(tx: Tx, companyId: string) {
 
 export async function reportWorkOrder(ctx: Ctx, assetId: string, input: z.input<typeof reportSchema>) {
   assertCan(ctx, "maintenance.request");
+  reportSchema.parse(input);
+  return withTenant(ctx.companyId, ctx.userId, (tx) => reportWorkOrderInTx(tx, ctx, assetId, input));
+}
+
+/** Raise a work order inside a transaction the caller already holds (used when a project defect becomes maintenance). */
+export async function reportWorkOrderInTx(tx: Tx, ctx: Ctx, assetId: string, input: z.input<typeof reportSchema>) {
+  assertCan(ctx, "maintenance.request");
   const data = reportSchema.parse(input);
-  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+  {
     const asset = await tx.asset.findFirst({ where: { id: assetId, companyId: ctx.companyId }, select: { id: true } });
     if (!asset) throw new Error("Asset not found");
     if (data.leaseId) {
@@ -141,7 +148,7 @@ export async function reportWorkOrder(ctx: Ctx, assetId: string, input: z.input<
       detail: { workOrderId: wo.id, ref, priority: data.priority, risk: data.riskLevel, safetyRisk: data.safetyRisk },
     });
     return wo;
-  });
+  }
 }
 
 // ---------- Workflow ----------
@@ -513,8 +520,11 @@ export async function getWorkOrder(ctx: Ctx, id: string) {
     const users = await tx.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } });
     const members = await tx.membership.findMany({ where: { companyId: ctx.companyId, status: "ACTIVE" }, include: { user: { select: { name: true } } } });
     const contractors = await tx.contractor.findMany({ where: { companyId: ctx.companyId, active: true }, orderBy: { name: "asc" } });
+    // Warranties from completed projects that are in force today, so a repair that may be covered is noticed.
+    const today = todayInLagos();
+    const warranties = await tx.projectWarranty.findMany({ where: { companyId: ctx.companyId, assetId: wo.assetId, startsOn: { lte: today }, endsOn: { gte: today } }, orderBy: { endsOn: "asc" }, take: 10 });
     return {
-      wo, photos, contractors, materialsTotal: materialsTotal(wo.materials),
+      warranties, wo, photos, contractors, materialsTotal: materialsTotal(wo.materials),
       names: Object.fromEntries(users.map((u) => [u.id, u.name])) as Record<string, string>,
       members: members.map((m) => ({ id: m.id, name: m.user.name })),
     };

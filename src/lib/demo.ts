@@ -31,6 +31,7 @@ import {
   addProcurement, addQualityCheck, addRisk, appointParty, orderProcurement, recordDelivery, recordProgressUpdate, recordQualityResult, recordSiteInspection,
 } from "./services/project-delivery";
 import { useOnProject } from "./services/inventory";
+import { addWarranty, decideCompletion, fixDefect, raiseDefect, requestCompletion, tickHandoverItem } from "./services/project-handover";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -385,6 +386,22 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   const roofCheck = await addQualityCheck(officer, wpRoof.id, { title: "Roof is watertight", standard: "Water test" });
   await recordQualityResult(manager, roofCheck.id, "PASSED", "Hose test, no leaks");
   await addQualityCheck(officer, wpFront.id, { title: "Frame is level and plumb" });
+  // A finished project: completed with a second person's approval, one defect fixed and waiting for verification, and a warranty on the asset.
+  const gateJob = await createProject(alpha, { assetId: duplex.id, title: "[DEMO] Duplex gate repair", kind: "REPAIR_PROGRAMME", plannedStart: daysFromToday(-40), plannedEnd: daysFromToday(-5), managerId: manager.membershipId });
+  const wpGateJob = (await addWorkPackage(officer, gateJob.id, { title: "Gate and fence", plannedStart: daysFromToday(-40), plannedEnd: daysFromToday(-5), budget: "800,000" })).workPackage;
+  await submitBudget(officer, gateJob.id);
+  await decideBudget(manager, gateJob.id, "approve", "Agreed.");
+  await activateProject(alpha, gateJob.id);
+  await setPackageProgress(officer, wpGateJob.id, "DONE", "100");
+  await requestCompletion(officer, gateJob.id, { note: "Gate fitted and painted.", defectsMonths: "12" });
+  await decideCompletion(manager, gateJob.id, "approve", "Inspected and accepted.");
+  const gateDefect = await raiseDefect(officer, gateJob.id, { title: "Gate drags on the ground", severity: "MEDIUM", description: "Hinges need adjusting." });
+  await fixDefect(officer, gateDefect.id, "Hinges adjusted.");
+  await raiseDefect(officer, gateJob.id, { title: "Paint chipped near the lock", severity: "LOW" });
+  await addWarranty(officer, gateJob.id, { title: "Gate and ironwork", provider: "[DEMO] Ironworks Ltd", startsOn: daysFromToday(-5), endsOn: daysFromToday(360), coverage: "Defective workmanship" });
+  const gateItems = await withTenant(alpha.companyId, alpha.userId, (tx) => tx.handoverItem.findMany({ where: { projectId: gateJob.id }, orderBy: { sortOrder: "asc" }, take: 3 }));
+  for (const it of gateItems) await tickHandoverItem(officer, it.id, true, "");
+  await raiseDefect(officer, reno.id, { title: "Paint run on the shopfront fascia", severity: "LOW" });
   await createProject(alpha, {
     assetId: duplex.id, title: "[DEMO] Duplex kitchen refit", kind: "FIT_OUT", plannedStart: daysFromToday(30), plannedEnd: daysFromToday(75), managerId: manager.membershipId,
   });

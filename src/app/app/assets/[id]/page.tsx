@@ -8,12 +8,13 @@ import { PURPOSES } from "@/lib/services/listings";
 import { listTeam } from "@/lib/services/companies";
 import { conditionHistory } from "@/lib/services/inspections";
 import { assetMaintenance } from "@/lib/services/maintenance";
+import { assetProjectHistory } from "@/lib/services/project-handover";
 import { formatKobo } from "@/lib/money";
 import { chargeState, outstandingOf } from "@/lib/rent";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import {
   addPartyAction, createLeaseAction, createTaskAction, listingStatusAction, recordPaymentAction,
   saveListingAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
@@ -36,6 +37,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
   const today = todayInLagos();
   const condition = await conditionHistory(member, asset.id);
   const upkeep = await assetMaintenance(member, asset.id);
+  const works = can(member.role, "project.view") ? await assetProjectHistory(member, asset.id) : null;
   const listing = asset.listing;
   const hidden = <input type="hidden" name="assetId" value={asset.id} />;
 
@@ -197,6 +199,30 @@ export default async function AssetPage({ params, searchParams }: { params: { id
               </>
             )}
           </section>
+
+          {/* Projects, warranties and valuation */}
+          {works ? (
+            <section className="card stack" aria-labelledby="works-h">
+              <div className="section-head"><h2 id="works-h">Works, warranties and valuation</h2><span className="small"><Link href="/app/projects">Projects</Link> · <Link href="/app/valuations">Valuations</Link></span></div>
+              {works.valuation ? <p>Latest approved valuation: <strong>{works.valuation.valueKobo !== null ? formatKobo(works.valuation.valueKobo) : "no value stated"}</strong> as at {formatDate(works.valuation.valuationDate)} (<Link href={`/app/valuations/${works.valuation.id}`}>{works.valuation.ref}</Link>)</p> : <p className="muted">No approved valuation yet.</p>}
+              <details className="inline">
+                <summary><strong>Projects</strong> <span className="small muted">({works.projects.length}{works.openDefects ? `, ${works.openDefects} defect${works.openDefects === 1 ? "" : "s"} open` : ""})</span></summary>
+                {works.projects.length === 0 ? <p className="muted">No projects on this asset.</p> : (
+                  <ShowMore noun="more projects" limit={4} items={works.projects.map((x) => (
+                    <li key={x.id}><div><Link href={`/app/projects/${x.id}`}>{x.ref}</Link> · {x.title}<div className="small muted">{humanize(x.status)}{x.completedAt ? ` · completed ${formatDate(x.completedAt)}` : ""}{x.handoverOn ? ` · handed over ${formatDate(x.handoverOn)}` : ""}{x.defectsPeriodEnd ? ` · defects period to ${formatDate(x.defectsPeriodEnd)}` : ""}</div></div></li>
+                  ))} />
+                )}
+              </details>
+              <details className="inline">
+                <summary><strong>Warranties</strong> <span className="small muted">({works.warranties.filter((w) => w.state === "ACTIVE" || w.state === "EXPIRING").length} in force)</span></summary>
+                {works.warranties.length === 0 ? <p className="muted">No warranties recorded.</p> : (
+                  <ShowMore noun="more warranties" limit={4} items={works.warranties.map((w) => (
+                    <li key={w.id}><div className="row between" style={{ width: "100%" }}><div><strong>{w.title}</strong> · {w.provider}<div className="small muted">to {formatDate(w.endsOn)}</div></div><Pill status={w.state === "EXPIRED" ? "CANCELLED" : w.state === "EXPIRING" ? "HIGH" : w.state === "NOT_STARTED" ? "PENDING" : "DONE"} label={humanize(w.state)} /></div></li>
+                  ))} />
+                )}
+              </details>
+            </section>
+          ) : null}
 
           {/* Tasks */}
           <section className="card" aria-labelledby="tasks-h">

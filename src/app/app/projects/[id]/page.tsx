@@ -65,6 +65,7 @@ export default async function ProjectPage({ params, searchParams }: { params: { 
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 
       <p className="small"><Link href={`/app/projects/${p.id}/delivery`}>Delivery: contractors, materials, risks, site inspections and quality checks</Link></p>
+      <p className="small"><Link href={`/app/projects/${p.id}/handover`}>Completion and handover: defects, warranties, documents and handover</Link></p>
 
       <section className="stats" aria-label="Cost and progress">
         <div className="stat"><b>{progress}%</b><span>Complete</span></div>

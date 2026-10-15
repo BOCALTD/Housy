@@ -37,7 +37,7 @@ async function main() {
     for (const l of await tx.lease.findMany({ select: { id: true } })) paths.add(`/app/handover-inventory/${l.id}`);
     for (const w of await tx.workOrder.findMany({ select: { id: true } })) paths.add(`/app/maintenance/${w.id}`);
     for (const v of await tx.valuationInstruction.findMany({ select: { id: true } })) paths.add(`/app/valuations/${v.id}`);
-    for (const x of await tx.project.findMany({ select: { id: true } })) { paths.add(`/app/projects/${x.id}`); paths.add(`/app/projects/${x.id}/delivery`); }
+    for (const x of await tx.project.findMany({ select: { id: true } })) { paths.add(`/app/projects/${x.id}`); paths.add(`/app/projects/${x.id}/delivery`); paths.add(`/app/projects/${x.id}/handover`); }
     for (const r of await tx.receipt.findMany({ select: { id: true } })) paths.add(`/app/receipts/${r.id}`);
   });
 

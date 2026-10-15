@@ -204,3 +204,87 @@ export function deliveryProblem(a: { quantity: number; deliveredSoFar: number; r
 export function qualityBlocksCompletion(checks: { result: string }[]): number {
   return checks.filter((c) => c.result === "PENDING" || c.result === "FAILED").length;
 }
+
+// ---------- Completion, defects, warranties and handover (Phase 7c-2) ----------
+
+export const DEFECT_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+export const DOC_KINDS = ["DRAWING", "CERTIFICATE", "WARRANTY", "MANUAL", "HANDOVER", "OTHER"] as const;
+export const DEFAULT_DEFECTS_MONTHS = 12;
+export const HANDOVER_CHECKLIST = [
+  "As-built drawings received",
+  "Operation and maintenance manuals received",
+  "Warranties and guarantees filed",
+  "Test and completion certificates filed",
+  "Keys and access handed over",
+  "Defects list agreed with the recipient",
+  "Final account agreed",
+] as const;
+
+/** The last day of the defects liability period: the same day, `months` months after completion (clamped to month end). */
+export function defectsPeriodEnd(completedOn: Date, months: number): Date {
+  if (!Number.isInteger(months) || months < 0 || months > 60) throw new Error("The defects period is 0 to 60 months");
+  const y = completedOn.getUTCFullYear();
+  const m = completedOn.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(completedOn.getUTCDate(), lastDay)));
+}
+
+export interface CompletionFacts {
+  packages: { status: string }[];
+  openCriticalDefects: number;
+  pendingDecisions: number; // commitments, variations and a budget awaiting a decision
+  pendingInvoices: number; // invoices received but not decided
+  unpaidApprovedInvoices: number;
+}
+
+/** What stops a project being completed. Unpaid approved invoices are a warning, not a block. */
+export function completionProblems(f: CompletionFacts): { blocks: string[]; warnings: string[] } {
+  const blocks: string[] = [];
+  const warnings: string[] = [];
+  if (f.packages.length === 0) blocks.push("The project has no work packages");
+  const notDone = f.packages.filter((p) => p.status !== "DONE").length;
+  if (notDone > 0) blocks.push(`${notDone} work package${notDone === 1 ? " is" : "s are"} not done`);
+  if (f.openCriticalDefects > 0) blocks.push(`${f.openCriticalDefects} critical defect${f.openCriticalDefects === 1 ? " is" : "s are"} not yet verified as fixed`);
+  if (f.pendingDecisions > 0) blocks.push(`${f.pendingDecisions} request${f.pendingDecisions === 1 ? " is" : "s are"} still waiting for a decision`);
+  if (f.pendingInvoices > 0) blocks.push(`${f.pendingInvoices} invoice${f.pendingInvoices === 1 ? " has" : "s have"} not been decided`);
+  if (f.unpaidApprovedInvoices > 0) warnings.push(`${f.unpaidApprovedInvoices} approved invoice${f.unpaidApprovedInvoices === 1 ? " is" : "s are"} still unpaid`);
+  return { blocks, warnings };
+}
+
+/** Defects can be raised while the project runs and until the defects period ends. */
+export function defectsOpenForRaising(p: { status: string; defectsPeriodEnd: Date | null }, today: Date): boolean {
+  if (p.status === "ACTIVE" || p.status === "ON_HOLD") return true;
+  return p.status === "COMPLETED" && p.defectsPeriodEnd !== null && p.defectsPeriodEnd.getTime() >= today.getTime();
+}
+
+export type DefectState = "OVERDUE" | "OPEN" | "AWAITING_VERIFICATION" | "CLOSED";
+export function defectState(d: { status: string; dueOn: Date | null }, today: Date): DefectState {
+  if (d.status === "VERIFIED") return "CLOSED";
+  if (d.status === "FIXED") return "AWAITING_VERIFICATION";
+  return d.dueOn !== null && d.dueOn.getTime() < today.getTime() ? "OVERDUE" : "OPEN";
+}
+
+export function warrantyProblem(w: { startsOn: Date; endsOn: Date; provider: string }): string | null {
+  if (w.provider.trim().length < 2) return "Enter who gives the warranty";
+  if (w.endsOn.getTime() < w.startsOn.getTime()) return "The warranty cannot end before it starts";
+  return null;
+}
+
+export type WarrantyState = "ACTIVE" | "EXPIRING" | "EXPIRED" | "NOT_STARTED";
+/** EXPIRING is within 60 days of the end. */
+export function warrantyState(w: { startsOn: Date; endsOn: Date }, today: Date): WarrantyState {
+  const t = today.getTime();
+  if (t < w.startsOn.getTime()) return "NOT_STARTED";
+  if (t > w.endsOn.getTime()) return "EXPIRED";
+  return (w.endsOn.getTime() - t) / 864e5 <= 60 ? "EXPIRING" : "ACTIVE";
+}
+
+/** Handover needs every checklist item ticked, no unverified critical or high defect, and a named recipient. */
+export function handoverProblems(f: { items: { done: boolean }[]; openSeriousDefects: number; handedTo: string }): string[] {
+  const out: string[] = [];
+  const left = f.items.filter((i) => !i.done).length;
+  if (left > 0) out.push(`${left} handover checklist item${left === 1 ? " is" : "s are"} not ticked`);
+  if (f.openSeriousDefects > 0) out.push(`${f.openSeriousDefects} high or critical defect${f.openSeriousDefects === 1 ? " is" : "s are"} not yet verified as fixed`);
+  if (f.handedTo.trim().length < 2) out.push("Name the person or organisation receiving the handover");
+  return out;
+}

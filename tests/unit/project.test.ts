@@ -134,3 +134,62 @@ test("open quality checks block completion", () => {
   assert.equal(qualityBlocksCompletion([{ result: "PASSED" }, { result: "WAIVED" }]), 0);
   assert.equal(qualityBlocksCompletion([{ result: "PASSED" }, { result: "PENDING" }, { result: "FAILED" }]), 2);
 });
+
+import { completionProblems, defectState, defectsOpenForRaising, defectsPeriodEnd, handoverProblems, warrantyProblem, warrantyState } from "../../src/lib/project-rules";
+
+const dt = (s: string) => new Date(`${s}T00:00:00Z`);
+
+test("the defects period ends the same day months later, clamped to month end", () => {
+  assert.equal(defectsPeriodEnd(dt("2026-03-15"), 12).toISOString().slice(0, 10), "2027-03-15");
+  assert.equal(defectsPeriodEnd(dt("2026-01-31"), 1).toISOString().slice(0, 10), "2026-02-28");
+  assert.equal(defectsPeriodEnd(dt("2024-01-31"), 1).toISOString().slice(0, 10), "2024-02-29");
+  assert.equal(defectsPeriodEnd(dt("2026-11-30"), 3).toISOString().slice(0, 10), "2027-02-28");
+  assert.equal(defectsPeriodEnd(dt("2026-03-15"), 0).toISOString().slice(0, 10), "2026-03-15");
+  assert.throws(() => defectsPeriodEnd(dt("2026-03-15"), 61), /0 to 60/);
+  assert.throws(() => defectsPeriodEnd(dt("2026-03-15"), 1.5), /0 to 60/);
+});
+
+test("completion is blocked by unfinished work, critical defects and undecided requests, and warns about unpaid invoices", () => {
+  const ok = { packages: [{ status: "DONE" }], openCriticalDefects: 0, pendingDecisions: 0, pendingInvoices: 0, unpaidApprovedInvoices: 0 };
+  assert.deepEqual(completionProblems(ok), { blocks: [], warnings: [] });
+  assert.match(completionProblems({ ...ok, packages: [] }).blocks[0], /no work packages/);
+  assert.match(completionProblems({ ...ok, packages: [{ status: "DONE" }, { status: "IN_PROGRESS" }] }).blocks[0], /1 work package is not done/);
+  assert.match(completionProblems({ ...ok, openCriticalDefects: 2 }).blocks[0], /2 critical defects are not yet verified/);
+  assert.match(completionProblems({ ...ok, pendingDecisions: 1 }).blocks[0], /1 request is still waiting/);
+  assert.match(completionProblems({ ...ok, pendingInvoices: 3 }).blocks[0], /3 invoices have not been decided/);
+  const w = completionProblems({ ...ok, unpaidApprovedInvoices: 1 });
+  assert.equal(w.blocks.length, 0);
+  assert.match(w.warnings[0], /unpaid/);
+});
+
+test("defects can be raised while running and until the defects period ends", () => {
+  const today = dt("2026-06-01");
+  assert.equal(defectsOpenForRaising({ status: "ACTIVE", defectsPeriodEnd: null }, today), true);
+  assert.equal(defectsOpenForRaising({ status: "PLANNING", defectsPeriodEnd: null }, today), false);
+  assert.equal(defectsOpenForRaising({ status: "COMPLETED", defectsPeriodEnd: dt("2026-06-01") }, today), true);
+  assert.equal(defectsOpenForRaising({ status: "COMPLETED", defectsPeriodEnd: dt("2026-05-31") }, today), false);
+  assert.equal(defectsOpenForRaising({ status: "CANCELLED", defectsPeriodEnd: null }, today), false);
+});
+
+test("defect and warranty states", () => {
+  const today = dt("2026-06-01");
+  assert.equal(defectState({ status: "OPEN", dueOn: dt("2026-05-31") }, today), "OVERDUE");
+  assert.equal(defectState({ status: "OPEN", dueOn: dt("2026-06-01") }, today), "OPEN");
+  assert.equal(defectState({ status: "FIXED", dueOn: dt("2026-01-01") }, today), "AWAITING_VERIFICATION");
+  assert.equal(defectState({ status: "VERIFIED", dueOn: null }, today), "CLOSED");
+  assert.equal(warrantyState({ startsOn: dt("2026-01-01"), endsOn: dt("2026-12-31") }, today), "ACTIVE");
+  assert.equal(warrantyState({ startsOn: dt("2026-01-01"), endsOn: dt("2026-07-31") }, today), "EXPIRING");
+  assert.equal(warrantyState({ startsOn: dt("2026-01-01"), endsOn: dt("2026-05-31") }, today), "EXPIRED");
+  assert.equal(warrantyState({ startsOn: dt("2026-07-01"), endsOn: dt("2027-05-31") }, today), "NOT_STARTED");
+  assert.match(warrantyProblem({ startsOn: dt("2026-02-01"), endsOn: dt("2026-01-01"), provider: "Roofers" }) ?? "", /before it starts/);
+  assert.match(warrantyProblem({ startsOn: dt("2026-01-01"), endsOn: dt("2026-02-01"), provider: " " }) ?? "", /who gives/);
+  assert.equal(warrantyProblem({ startsOn: dt("2026-01-01"), endsOn: dt("2026-01-01"), provider: "Roofers" }), null);
+});
+
+test("handover needs a complete checklist, no serious open defects and a named recipient", () => {
+  assert.deepEqual(handoverProblems({ items: [{ done: true }], openSeriousDefects: 0, handedTo: "Owner" }), []);
+  const p = handoverProblems({ items: [{ done: true }, { done: false }], openSeriousDefects: 1, handedTo: "" });
+  assert.equal(p.length, 3);
+  assert.match(p[0], /1 handover checklist item is not ticked/);
+  assert.match(p[1], /1 high or critical defect is not yet verified/);
+});

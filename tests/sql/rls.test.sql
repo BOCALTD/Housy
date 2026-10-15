@@ -575,5 +575,50 @@ SELECT pg_temp.expect((SELECT count(*) FROM quality_checks) = 0, 'B cannot see A
 SELECT pg_temp.expect((SELECT count(*) FROM progress_updates) = 0, 'B cannot see A progress updates');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 22. Phase 7c-2: completion, defects, warranties, documents and handover rules hold in the database.
+DO $$ BEGIN
+  UPDATE projects SET status = 'COMPLETED' WHERE id = 'pj-a';
+  RAISE EXCEPTION 'FAIL: completion without an approver was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: completion names its approver'; END $$;
+DO $$ BEGIN
+  UPDATE projects SET completion_requested_by_id = 'u1', completed_by_id = 'u1' WHERE id = 'pj-a';
+  RAISE EXCEPTION 'FAIL: self-approved completion was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: completion is approved by a second person'; END $$;
+DO $$ BEGIN
+  UPDATE projects SET defects_months = 61 WHERE id = 'pj-a';
+  RAISE EXCEPTION 'FAIL: a 61 month defects period was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: defects period is 0 to 60 months'; END $$;
+DO $$ BEGIN
+  UPDATE projects SET handover_on = '2026-03-01', handover_by_id = 'u1', handed_to_name = 'Owner' WHERE id = 'pj-a';
+  RAISE EXCEPTION 'FAIL: a handover before completion was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: handover follows completion'; END $$;
+INSERT INTO project_defects (id, company_id, project_id, ref, title, severity, raised_by_id, raised_on, updated_at)
+  VALUES ('df-a', 'co-a', 'pj-a', 'DEF-1', 'Cracked tile', 'LOW', 'u1', '2026-03-01', now());
+DO $$ BEGIN
+  UPDATE project_defects SET status = 'FIXED' WHERE id = 'df-a';
+  RAISE EXCEPTION 'FAIL: a fix without a fixer was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a fix names the fixer'; END $$;
+DO $$ BEGIN
+  UPDATE project_defects SET status = 'VERIFIED', fixed_by_id = 'u2', fixed_on = '2026-03-02', verified_by_id = 'u2', verified_on = '2026-03-03' WHERE id = 'df-a';
+  RAISE EXCEPTION 'FAIL: a self-verified fix was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a fix is verified by someone else'; END $$;
+DO $$ BEGIN
+  INSERT INTO project_warranties (id, company_id, project_id, asset_id, title, provider, starts_on, ends_on, created_by_id)
+    SELECT 'wr-bad', 'co-a', 'pj-a', asset_id, 'Roof', 'Roofers', '2026-03-01', '2026-02-01', 'u1' FROM projects WHERE id = 'pj-a';
+  RAISE EXCEPTION 'FAIL: a warranty ending before it starts was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: warranty dates run forward'; END $$;
+INSERT INTO project_documents (id, company_id, project_id, kind, title, file_name, mime_type, size_bytes, storage_key, uploaded_by_id)
+  VALUES ('pd-a', 'co-a', 'pj-a', 'DRAWING', 'Plan', 'plan.pdf', 'application/pdf', 10, 'sk-pd-a', 'u1');
+INSERT INTO handover_items (id, company_id, project_id, title, updated_at) VALUES ('hi-a', 'co-a', 'pj-a', 'Keys handed over', now());
+DO $$ BEGIN
+  UPDATE handover_items SET done = true WHERE id = 'hi-a';
+  RAISE EXCEPTION 'FAIL: a ticked item without a name was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a ticked handover item names who ticked it'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM project_defects) = 0, 'B cannot see A defects');
+SELECT pg_temp.expect((SELECT count(*) FROM project_documents) = 0, 'B cannot see A project documents');
+SELECT pg_temp.expect((SELECT count(*) FROM handover_items) = 0, 'B cannot see A handover items');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

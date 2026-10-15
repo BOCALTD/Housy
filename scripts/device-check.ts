@@ -61,8 +61,11 @@ async function inspect(page: Page, touch: boolean) {
       for (const el of Array.from(document.body.querySelectorAll("*"))) {
         if (!visible(el)) continue;
         const r = el.getBoundingClientRect();
-        if (r.right > vw + 1 && !scrollsSideways(el.parentElement)) wide.push(`${label(el)} right=${Math.round(r.right)}`);
-        if (wide.length >= 4) break;
+        if (r.right > vw + 1) {
+          const box = scrollsSideways(el.parentElement);
+          wide.push(`${label(el)} right=${Math.round(r.right)} w=${Math.round(r.width)} parent=${label(el.parentElement as Element).slice(0, 40)} ${box ? "(inside a scroll box)" : "(NOT in a scroll box)"}`);
+        }
+        if (wide.length >= 12) break;
       }
     }
     out.wide = wide;
@@ -186,7 +189,7 @@ async function main() {
     byKind.set(i.kind, kinds);
     const keys = i.items.length ? i.items : [i.detail];
     for (const raw of keys) {
-      const key = raw.replace(/\d+(\.\d+)?x\d+(\.\d+)?/g, "WxH").replace(/right=\d+/, "").replace(/(\d+(\.\d+)?)px/, "Npx").slice(0, 160);
+      const key = raw.replace(/\d+(\.\d+)?x\d+(\.\d+)?/g, "WxH").replace(/right=\d+ w=\d+/, "").replace(/(\d+(\.\d+)?)px/, "Npx").slice(0, 160);
       const g = kinds.get(key) ?? { pages: new Set<string>(), profiles: new Set<string>() };
       g.pages.add(pattern(i.page)); g.profiles.add(i.profile.split(" (")[0]);
       kinds.set(key, g);

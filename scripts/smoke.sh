@@ -27,7 +27,14 @@ COUNT=0
 for p in $PAGES; do
   status=$(curl -s -o page.html -w '%{http_code}' -H "Cookie: sid=$TOKEN" "http://localhost:3100$p")
   [ "$status" = "200" ] || fail "$p returned $status when signed in"
-  if grep -q "Something went wrong" page.html || grep -q "This page does not exist" page.html; then fail "$p rendered an error page"; fi
+  for marker in "Something went wrong" "This page does not exist"; do
+    if grep -q "$marker" page.html; then
+      echo "--- $p contains: $marker ---"
+      grep -o ".\{0,200\}$marker.\{0,200\}" page.html | head -3
+      echo "--- start of page ---"; head -c 1500 page.html; echo
+      fail "$p rendered an error page"
+    fi
+  done
   COUNT=$((COUNT + 1))
 done
 echo "Opened $COUNT signed-in pages without errors"

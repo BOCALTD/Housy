@@ -139,7 +139,6 @@ test("payment is person by person, never to oneself or by the proposer, and the 
   const mine = c2.splits.find((s) => s.membershipId === e.manager.membershipId)!;
   const theirs = c2.splits.find((s) => s.membershipId === e.manager2.membershipId)!;
   await assert.rejects(payCommissionSplit(e.manager, mine.id, { paidOn: relativeDate(0), reference: "SELF" }), /own share|Someone other/);
-  await assert.rejects(payCommissionSplit(e.manager2, mine.id, { paidOn: relativeDate(0), reference: "X1" }), /./).catch(() => undefined);
   await payCommissionSplit(e.admin, theirs.id, { paidOn: relativeDate(0), reference: "TRF-100" });
 });
 
@@ -150,7 +149,7 @@ test("a disputed deal withholds its commission until the dispute is settled by s
   await proposeCommission(e.agent1, deal.id, { ruleId: rule.id, splits: [{ membershipId: e.agent1.membershipId, role: "SELLING_AGENT", share: "100" }] });
   await raiseDispute(e.agent1, deal.id, "Buyer says the title was not as described");
   await assert.rejects(decideCommission(e.manager2, deal.id, "approve"), /withheld/);
-  await assert.rejects(cancelDeal(e.manager, deal.id, "No"), /completed deal cannot be cancelled/);
+  await assert.rejects(cancelDeal(e.manager, deal.id, "Changed our minds"), /completed deal cannot be cancelled/);
   await assert.rejects(resolveDispute(e.manager2, deal.id, "Settled", "cancel"), /completed deal cannot be cancelled/);
   await resolveDispute(e.manager2, deal.id, "Title queried and cleared by the lawyers", "resume");
   await decideCommission(e.manager2, deal.id, "approve", "");

@@ -6,8 +6,8 @@ import { parseNairaToKobo } from "../money";
 import { allocate, COMMISSION_APPLIES, COMMISSION_METHODS, commissionAmount, parsePercentToBps, payoutStatus, rulesApplyTo, SPLIT_ROLES, splitProblem } from "../commission-rules";
 import { can } from "../permissions";
 import { assertCan, type Ctx } from "./context";
-import { activeAgent } from "./crm";
-import { canChangeDeal, loadDeal, lockDeal } from "./deal";
+import { activeAgent, visibleOwners } from "./crm";
+import { canChangeDeal, dealVisibleWhere, lockDeal } from "./deal";
 
 // Commission (master prompt Phase 8). The company sets its own rules; nothing here knows a rate. A commission is proposed on a
 // completed deal, approved by a manager who is neither the proposer nor one of the people sharing it, and paid person by person
@@ -167,8 +167,13 @@ export async function payCommissionSplit(ctx: Ctx, splitId: string, raw: { paidO
 export async function getDealCommission(ctx: Ctx, dealId: string) {
   assertCan(ctx, "crm.view");
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
-    const deal = await loadDeal(tx, ctx, dealId);
+    const owners = await visibleOwners(tx, ctx);
+    const visible = await tx.deal.findFirst({ where: { id: dealId, companyId: ctx.companyId, AND: [dealVisibleWhere(ctx, owners)] } });
     const c = await tx.dealCommission.findFirst({ where: { dealId, companyId: ctx.companyId }, include: { splits: { orderBy: { createdAt: "asc" } } } });
+    // Someone who shares in the commission may see it even when the deal itself is not theirs to see.
+    const sharing = !!c?.splits.some((s) => s.membershipId === ctx.membershipId);
+    const deal = visible ?? (sharing ? await tx.deal.findFirst({ where: { id: dealId, companyId: ctx.companyId } }) : null);
+    if (!deal) throw new Error("Deal not found");
     const members = await tx.membership.findMany({ where: { companyId: ctx.companyId }, include: { user: { select: { name: true } } } });
     const names = Object.fromEntries(members.map((m) => [m.id, m.user.name])) as Record<string, string>;
     const userNames = Object.fromEntries(members.map((m) => [m.userId, m.user.name])) as Record<string, string>;

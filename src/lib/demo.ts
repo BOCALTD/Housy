@@ -285,8 +285,8 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await recordMovement(officer, cement.id, { kind: "ISSUE", quantity: "5", reference: "DEMO-REQ-001", note: "Boundary wall repair" });
   await recordMovement(officer, generator.id, { kind: "TRANSFER", toLocation: "Workshop", note: "Sent for service" });
   await useOnWorkOrder(officer, cement.id, roofWo.id, { quantity: "2" });
-  await requestAdjustment(officer, paint.id, { kind: "DAMAGE", quantity: "1", reason: "Tin damaged in the store room" });
-  const wrongCount = await requestAdjustment(officer, cement.id, { kind: "ADJUSTMENT", quantity: "2", direction: "DOWN", reason: "Recount found two bags short" });
+  await requestStockAdjustment(officer, paint.id, { kind: "DAMAGE", quantity: "1", reason: "Tin damaged in the store room" });
+  const wrongCount = await requestStockAdjustment(officer, cement.id, { kind: "ADJUSTMENT", quantity: "2", direction: "DOWN", reason: "Recount found two bags short" });
   await decideAdjustment(manager, wrongCount.id, "approve", "");
   const stocktake = await startCount(alpha, { title: "[DEMO] Shop store room count", assetId: shop.id });
   {

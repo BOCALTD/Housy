@@ -151,3 +151,56 @@ export function scheduleWarnings(project: { plannedStart: Date; plannedEnd: Date
 export function extendedEnd(end: Date, days: number): Date {
   return new Date(end.getTime() + days * DAY);
 }
+
+// ---------- Risks, procurement and quality (Phase 7c) ----------
+
+export const PARTY_ROLES = ["CONTRACTOR", "CONSULTANT", "SUPPLIER", "OTHER"] as const;
+export const SITE_OUTCOMES = ["SATISFACTORY", "ACTIONS_REQUIRED", "FAILED"] as const;
+export const RISK_HIGH = 15;
+export const RISK_MEDIUM = 8;
+
+export function riskScore(likelihood: number, impact: number): number {
+  if (!Number.isInteger(likelihood) || !Number.isInteger(impact) || likelihood < 1 || likelihood > 5 || impact < 1 || impact > 5) {
+    throw new Error("Likelihood and impact are each a whole number from 1 to 5");
+  }
+  return likelihood * impact;
+}
+
+export type RiskLevel = "HIGH" | "MEDIUM" | "LOW";
+export function riskLevel(score: number): RiskLevel {
+  return score >= RISK_HIGH ? "HIGH" : score >= RISK_MEDIUM ? "MEDIUM" : "LOW";
+}
+
+/** A high risk must have someone who owns it and a plan to reduce it. */
+export function riskProblem(r: { likelihood: number; impact: number; ownerId: string | null; mitigation: string }): string | null {
+  if (riskLevel(riskScore(r.likelihood, r.impact)) === "HIGH" && (!r.ownerId || r.mitigation.trim().length < 5)) {
+    return "A high risk needs an owner and a plan to reduce it";
+  }
+  return null;
+}
+
+export function riskReviewOverdue(r: { status: string; reviewOn: Date | null }, today: Date): boolean {
+  return (r.status === "OPEN" || r.status === "MITIGATING") && r.reviewOn !== null && r.reviewOn.getTime() < today.getTime();
+}
+
+export type ProcurementState = "DONE" | "CANCELLED" | "LATE" | "DUE_SOON" | "OK";
+export function procurementState(i: { status: string; requiredBy: Date }, today: Date): ProcurementState {
+  if (i.status === "DELIVERED") return "DONE";
+  if (i.status === "CANCELLED") return "CANCELLED";
+  const days = daysBetween(today, i.requiredBy);
+  if (days < 0) return "LATE";
+  if (days <= 7) return "DUE_SOON";
+  return "OK";
+}
+
+/** A delivery cannot be larger than what is still outstanding. */
+export function deliveryProblem(a: { quantity: number; deliveredSoFar: number; receiving: number }): string | null {
+  if (!Number.isInteger(a.receiving) || a.receiving <= 0) return "Enter the quantity delivered as a whole number";
+  if (a.deliveredSoFar + a.receiving > a.quantity) return `Only ${a.quantity - a.deliveredSoFar} is still outstanding`;
+  return null;
+}
+
+/** A work package is complete only when none of its quality checks is waiting or failed. */
+export function qualityBlocksCompletion(checks: { result: string }[]): number {
+  return checks.filter((c) => c.result === "PENDING" || c.result === "FAILED").length;
+}

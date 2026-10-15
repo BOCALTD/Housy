@@ -1520,6 +1520,7 @@ model InventoryItem {
   movements     InventoryMovement[]
   adjustments   InventoryAdjustment[]
   countLines    InventoryCountLine[]
+  projectUses   ProjectStockUse[]
 
   @@unique([companyId, itemNo])
   @@unique([companyId, code])
@@ -1936,6 +1937,13 @@ model Project {
   invoices            ProjectInvoice[]
   variations          Variation[]
   forecasts           ProjectForecast[]
+  parties             ProjectParty[]
+  procurement         ProcurementItem[]
+  stockUses           ProjectStockUse[]
+  risks               ProjectRisk[]
+  siteInspections     SiteInspection[]
+  progressUpdates     ProgressUpdate[]
+  qualityChecks       QualityCheck[]
 
   @@unique([companyId, ref])
   @@index([companyId, status])
@@ -1966,6 +1974,8 @@ model WorkPackage {
   milestones      Milestone[]
   commitments     Commitment[]
   forecasts       ProjectForecast[]
+  procurement     ProcurementItem[]
+  qualityChecks   QualityCheck[]
 
   @@unique([projectId, code])
   @@index([companyId, projectId])
@@ -2084,4 +2094,193 @@ model ProjectForecast {
 
   @@index([companyId, projectId, workPackageId, createdAt], map: "project_forecasts_lookup_idx")
   @@map("project_forecasts")
+}
+
+// ---------- Phase 7c-1: project delivery ----------
+
+enum PartyRole {
+  CONTRACTOR
+  CONSULTANT
+  SUPPLIER
+  OTHER
+}
+
+enum ProcurementStatus {
+  REQUIRED
+  ORDERED
+  DELIVERED
+  CANCELLED
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATING
+  CLOSED
+  OCCURRED
+}
+
+enum SiteOutcome {
+  SATISFACTORY
+  ACTIONS_REQUIRED
+  FAILED
+}
+
+enum QualityResult {
+  PENDING
+  PASSED
+  FAILED
+  WAIVED
+}
+
+/// A contractor, consultant or supplier appointed to the project.
+model ProjectParty {
+  id           String    @id @default(uuid())
+  companyId    String    @map("company_id")
+  projectId    String    @map("project_id")
+  role         PartyRole
+  contractorId String?   @map("contractor_id")
+  name         String
+  scope        String    @default("")
+  email        String    @default("")
+  phone        String    @default("")
+  appointedOn  DateTime? @map("appointed_on") @db.Date
+  endedOn      DateTime? @map("ended_on") @db.Date
+  createdById  String    @map("created_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, role, name])
+  @@index([companyId, projectId])
+  @@map("project_parties")
+}
+
+/// A material or service the project needs, tracked from requirement through order to delivery.
+model ProcurementItem {
+  id              String            @id @default(uuid())
+  companyId       String            @map("company_id")
+  projectId       String            @map("project_id")
+  workPackageId   String?           @map("work_package_id")
+  description     String
+  quantity        Int
+  unit            String            @default("pcs")
+  requiredBy      DateTime          @map("required_by") @db.Date
+  status          ProcurementStatus @default(REQUIRED)
+  supplierName    String            @default("") @map("supplier_name")
+  commitmentId    String?           @map("commitment_id")
+  orderedOn       DateTime?         @map("ordered_on") @db.Date
+  deliveredOn     DateTime?         @map("delivered_on") @db.Date
+  deliveredQty    Int               @default(0) @map("delivered_qty")
+  inventoryItemId String?           @map("inventory_item_id")
+  note            String            @default("")
+  createdById     String            @map("created_by_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackage     WorkPackage?      @relation(fields: [workPackageId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, projectId])
+  @@map("procurement_items")
+}
+
+/// Stock taken from the inventory register for the project. Append-only, like the movement it records.
+model ProjectStockUse {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  projectId     String        @map("project_id")
+  workPackageId String?       @map("work_package_id")
+  itemId        String        @map("item_id")
+  quantity      Int
+  unitCostKobo  BigInt        @default(0) @map("unit_cost_kobo")
+  movementId    String        @map("movement_id")
+  recordedById  String        @map("recorded_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  item          InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, projectId])
+  @@map("project_stock_uses")
+}
+
+model ProjectRisk {
+  id          String     @id @default(uuid())
+  companyId   String     @map("company_id")
+  projectId   String     @map("project_id")
+  ref         String
+  title       String
+  description String     @default("")
+  category    String     @default("")
+  likelihood  Int
+  impact      Int
+  ownerId     String?    @map("owner_id")
+  mitigation  String     @default("")
+  status      RiskStatus @default(OPEN)
+  reviewOn    DateTime?  @map("review_on") @db.Date
+  closeNote   String     @default("") @map("close_note")
+  closedAt    DateTime?  @map("closed_at")
+  createdById String     @map("created_by_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, ref])
+  @@index([companyId, projectId])
+  @@map("project_risks")
+}
+
+/// A site visit. Recorded once and never edited, with photographs as evidence.
+model SiteInspection {
+  id            String      @id @default(uuid())
+  companyId     String      @map("company_id")
+  projectId     String      @map("project_id")
+  workPackageId String?     @map("work_package_id")
+  inspectedOn   DateTime    @map("inspected_on") @db.Date
+  inspectorId   String      @map("inspector_id")
+  summary       String
+  actions       String      @default("")
+  outcome       SiteOutcome
+  createdAt     DateTime    @default(now()) @map("created_at")
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, projectId, inspectedOn])
+  @@map("site_inspections")
+}
+
+/// A dated progress report. Recorded once and never edited.
+model ProgressUpdate {
+  id              String   @id @default(uuid())
+  companyId       String   @map("company_id")
+  projectId       String   @map("project_id")
+  reportDate      DateTime @map("report_date") @db.Date
+  summary         String
+  issues          String   @default("")
+  nextSteps       String   @default("") @map("next_steps")
+  percentComplete Int      @map("percent_complete")
+  recordedById    String   @map("recorded_by_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, projectId, reportDate])
+  @@map("progress_updates")
+}
+
+/// A quality check on a work package. Someone other than the person responsible for the work passes it.
+model QualityCheck {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  projectId     String        @map("project_id")
+  workPackageId String        @map("work_package_id")
+  title         String
+  standard      String        @default("")
+  result        QualityResult @default(PENDING)
+  checkedById   String?       @map("checked_by_id")
+  checkedOn     DateTime?     @map("checked_on") @db.Date
+  note          String        @default("")
+  createdById   String        @map("created_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackage   WorkPackage   @relation(fields: [workPackageId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, projectId, workPackageId])
+  @@map("quality_checks")
 }

@@ -27,6 +27,10 @@ import {
   addMilestone, addWorkPackage, createProject, decideBudget, decideCommitment, decideInvoice, decideVariation, recordForecast, recordInvoice, requestCommitment,
   requestVariation, setProgress as setPackageProgress, submitBudget, activateProject, achieveMilestone,
 } from "./services/project";
+import {
+  addProcurement, addQualityCheck, addRisk, appointParty, orderProcurement, recordDelivery, recordProgressUpdate, recordQualityResult, recordSiteInspection,
+} from "./services/project-delivery";
+import { useOnProject } from "./services/inventory";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -366,6 +370,21 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await setPackageProgress(officer, wpFront.id, "IN_PROGRESS", "25");
   await recordForecast(officer, wpFront.id, "3,900,000", "Quote for remaining glazing");
   await achieveMilestone(officer, (await withTenant(alpha.companyId, alpha.userId, (tx) => tx.milestone.findFirstOrThrow({ where: { projectId: reno.id, title: "Roof watertight" } }))).id).catch(() => undefined);
+  await appointParty(officer, reno.id, { role: "CONTRACTOR", name: "[DEMO] Roofing Contractors", scope: "Roof repairs" });
+  await appointParty(officer, reno.id, { role: "CONSULTANT", name: "[DEMO] Structural Engineer", scope: "Inspect roof timbers" });
+  const cementReq = await addProcurement(officer, reno.id, { description: "Cement for the shopfront base", quantity: "30", unit: "bags", requiredBy: daysFromToday(-3), workPackageId: wpFront.id });
+  await orderProcurement(manager, cementReq.id, { supplierName: "[DEMO] Building Supplies", commitmentId: frontCommitment.id });
+  await recordDelivery(officer, cementReq.id, { quantity: "20", inventoryItemId: cement.id });
+  await addProcurement(officer, reno.id, { description: "Aluminium frames", quantity: "12", unit: "pcs", requiredBy: daysFromToday(14), workPackageId: wpFront.id });
+  await useOnProject(officer, cement.id, reno.id, { quantity: "5", workPackageId: wpFront.id });
+  await addRisk(officer, reno.id, { title: "Rain delays the roof work", likelihood: "4", impact: "4", ownerId: manager.membershipId, mitigation: "Cover the opened roof each evening", category: "Weather", reviewOn: daysFromToday(7) });
+  await addRisk(officer, reno.id, { title: "Imported glass arrives late", likelihood: "2", impact: "3", category: "Supply" });
+  await recordSiteInspection(officer, reno.id, { inspectedOn: daysFromToday(-4), summary: "Roof timbers replaced on the north side. Work tidy.", outcome: "SATISFACTORY", workPackageId: wpRoof.id });
+  await recordSiteInspection(officer, reno.id, { inspectedOn: daysFromToday(-1), summary: "Shopfront frame is out of level on the left.", actions: "Contractor to re-fix the frame", outcome: "ACTIONS_REQUIRED", workPackageId: wpFront.id });
+  await recordProgressUpdate(officer, reno.id, { summary: "Roof work is going well. Shopfront has started.", issues: "Frames are on order", nextSteps: "Finish the roof" });
+  const roofCheck = await addQualityCheck(officer, wpRoof.id, { title: "Roof is watertight", standard: "Water test" });
+  await recordQualityResult(manager, roofCheck.id, "PASSED", "Hose test, no leaks");
+  await addQualityCheck(officer, wpFront.id, { title: "Frame is level and plumb" });
   await createProject(alpha, {
     assetId: duplex.id, title: "[DEMO] Duplex kitchen refit", kind: "FIT_OUT", plannedStart: daysFromToday(30), plannedEnd: daysFromToday(75), managerId: manager.membershipId,
   });

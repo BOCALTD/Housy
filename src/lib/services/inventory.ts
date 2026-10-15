@@ -217,6 +217,57 @@ export async function useOnWorkOrder(ctx: Ctx, itemId: string, workOrderId: stri
   });
 }
 
+/** Take consumable stock out for a project. This records the movement and the project's use of it together. */
+export async function useOnProject(ctx: Ctx, itemId: string, projectId: string, input: { quantity: string; workPackageId?: string }) {
+  assertCan(ctx, "project.plan");
+  assertCan(ctx, "inventory.move");
+  const quantity = Number(useSchema.parse({ quantity: input.quantity }).quantity);
+  if (quantity <= 0) throw new Error("Enter a quantity of one or more");
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    // Always lock the project first, then the item, so concurrent requests cannot deadlock.
+    const ps = await tx.$queryRawUnsafe<{ id: string }[]>(`SELECT id FROM projects WHERE id = $1 AND company_id = $2 FOR UPDATE`, projectId, ctx.companyId);
+    if (ps.length === 0) throw new Error("Project not found");
+    await lockItem(tx, itemId, ctx.companyId);
+    const project = await tx.project.findUniqueOrThrow({ where: { id: projectId } });
+    if (project.status !== "ACTIVE") throw new Error("Stock can only be issued to an active project");
+    if (input.workPackageId) {
+      const w = await tx.workPackage.findFirst({ where: { id: input.workPackageId, companyId: ctx.companyId, projectId }, select: { id: true } });
+      if (!w) throw new Error("Work package not found");
+    }
+    const item = await tx.inventoryItem.findUniqueOrThrow({ where: { id: itemId } });
+    if (item.status !== "ACTIVE") throw new Error("This item has been disposed of");
+    if (item.kind !== "CONSUMABLE") throw new Error("Only consumable stock can be used on a project");
+    const problem = movementProblem({ kind: "CONSUMPTION", quantity, balance: item.quantity, toLocation: "", custodianChange: false });
+    if (problem) throw new Error(problem);
+    const balanceAfter = item.quantity - quantity;
+    await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: balanceAfter } });
+    const mv = await addMovement(tx, ctx, { itemId, kind: "CONSUMPTION", delta: -quantity, balanceAfter, fromLocation: item.location, reference: project.ref, note: `Used on ${project.ref}` });
+    const use = await tx.projectStockUse.create({
+      data: { companyId: ctx.companyId, projectId, workPackageId: input.workPackageId || null, itemId, quantity, unitCostKobo: item.unitCostKobo ?? 0n, movementId: mv.id, recordedById: ctx.userId },
+    });
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "project", entityId: projectId, action: "project.stock_used", detail: { itemNo: item.itemNo, quantity } });
+    return use;
+  });
+}
+
+/**
+ * Receive delivered stock into the register inside the caller's transaction (the caller has locked the project).
+ * Used when a project delivery is booked into inventory.
+ */
+export async function receiveStockInTx(tx: Tx, ctx: Ctx, itemId: string, quantity: number, reference: string) {
+  assertCan(ctx, "inventory.move");
+  await lockItem(tx, itemId, ctx.companyId);
+  const item = await tx.inventoryItem.findUniqueOrThrow({ where: { id: itemId } });
+  if (item.status !== "ACTIVE") throw new Error("This item has been disposed of");
+  if (item.kind !== "CONSUMABLE") throw new Error("Deliveries can only be booked into consumable stock");
+  const problem = movementProblem({ kind: "RECEIPT", quantity, balance: item.quantity, toLocation: "", custodianChange: false });
+  if (problem) throw new Error(problem);
+  const balanceAfter = item.quantity + quantity;
+  await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: balanceAfter } });
+  await addMovement(tx, ctx, { itemId, kind: "RECEIPT", delta: quantity, balanceAfter, toLocation: item.location, reference: reference.slice(0, 200), note: "Delivered to a project" });
+  await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "inventory_item", entityId: itemId, action: "inventory.receipt", detail: { itemNo: item.itemNo, delta: quantity, balanceAfter } });
+}
+
 // ---------- Adjustments (reviewed) ----------
 
 const adjustSchema = z.object({

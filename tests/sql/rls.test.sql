@@ -526,5 +526,54 @@ SELECT pg_temp.expect((SELECT count(*) FROM commitments) = 0, 'B cannot see A co
 SELECT pg_temp.expect((SELECT count(*) FROM project_forecasts) = 0, 'B cannot see A forecasts');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 21. Phase 7c-1: delivery records are isolated and bounded; procurement, risk and quality rules hold in the database.
+INSERT INTO procurement_items (id, company_id, project_id, description, quantity, required_by, created_by_id, updated_at)
+  VALUES ('pr-a', 'co-a', 'pj-a', 'Cement', 10, '2026-03-01', 'u1', now());
+DO $$ BEGIN
+  INSERT INTO procurement_items (id, company_id, project_id, description, quantity, required_by, created_by_id, updated_at)
+    VALUES ('pr-bad', 'co-a', 'pj-a', 'None', 0, '2026-03-01', 'u1', now());
+  RAISE EXCEPTION 'FAIL: a zero quantity was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: procurement quantities are positive'; END $$;
+DO $$ BEGIN
+  UPDATE procurement_items SET status = 'ORDERED' WHERE id = 'pr-a';
+  RAISE EXCEPTION 'FAIL: an order without a supplier was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: an order names its supplier'; END $$;
+DO $$ BEGIN
+  UPDATE procurement_items SET status = 'DELIVERED', supplier_name = 'S', delivered_on = '2026-03-01', delivered_qty = 5 WHERE id = 'pr-a';
+  RAISE EXCEPTION 'FAIL: a part delivery marked delivered was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: delivered means fully delivered'; END $$;
+INSERT INTO project_risks (id, company_id, project_id, ref, title, likelihood, impact, created_by_id, updated_at)
+  VALUES ('rk-a', 'co-a', 'pj-a', 'RSK-1', 'Rain', 3, 4, 'u1', now());
+DO $$ BEGIN
+  INSERT INTO project_risks (id, company_id, project_id, ref, title, likelihood, impact, created_by_id, updated_at)
+    VALUES ('rk-bad', 'co-a', 'pj-a', 'RSK-2', 'Bad', 6, 1, 'u1', now());
+  RAISE EXCEPTION 'FAIL: likelihood 6 was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: risk scores are 1 to 5'; END $$;
+DO $$ BEGIN
+  UPDATE project_risks SET status = 'CLOSED' WHERE id = 'rk-a';
+  RAISE EXCEPTION 'FAIL: a risk closed without a note was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: closing a risk needs a note'; END $$;
+INSERT INTO quality_checks (id, company_id, project_id, work_package_id, title, created_by_id, updated_at)
+  VALUES ('qc-a', 'co-a', 'pj-a', 'wp-a', 'Waterproofing', 'u1', now());
+DO $$ BEGIN
+  UPDATE quality_checks SET result = 'PASSED' WHERE id = 'qc-a';
+  RAISE EXCEPTION 'FAIL: a passed check without a checker was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a decided check names its checker'; END $$;
+DO $$ BEGIN
+  UPDATE quality_checks SET result = 'WAIVED', checked_by_id = 'u2', checked_on = '2026-03-01' WHERE id = 'qc-a';
+  RAISE EXCEPTION 'FAIL: a waiver without a reason was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a waiver needs a reason'; END $$;
+INSERT INTO progress_updates (id, company_id, project_id, report_date, summary, percent_complete, recorded_by_id) VALUES ('pu-a', 'co-a', 'pj-a', '2026-03-01', 'On track', 40, 'u1');
+DO $$ BEGIN
+  INSERT INTO progress_updates (id, company_id, project_id, report_date, summary, percent_complete, recorded_by_id) VALUES ('pu-bad', 'co-a', 'pj-a', '2026-03-01', 'x', 140, 'u1');
+  RAISE EXCEPTION 'FAIL: 140 percent was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: progress is 0 to 100'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM procurement_items) = 0, 'B cannot see A procurement');
+SELECT pg_temp.expect((SELECT count(*) FROM project_risks) = 0, 'B cannot see A risks');
+SELECT pg_temp.expect((SELECT count(*) FROM quality_checks) = 0, 'B cannot see A quality checks');
+SELECT pg_temp.expect((SELECT count(*) FROM progress_updates) = 0, 'B cannot see A progress updates');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

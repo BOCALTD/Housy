@@ -97,3 +97,40 @@ test("schedule warnings and extensions", () => {
   assert.equal(scheduleWarnings(p, { plannedStart: d("2026-02-01"), plannedEnd: d("2026-07-01") }).length, 1);
   assert.equal(extendedEnd(d("2026-06-30"), 5).toISOString().slice(0, 10), "2026-07-05");
 });
+
+import { deliveryProblem, procurementState, qualityBlocksCompletion, riskLevel, riskProblem, riskReviewOverdue, riskScore } from "../../src/lib/project-rules";
+
+test("risk scores, levels and the rule for high risks", () => {
+  assert.equal(riskScore(3, 4), 12);
+  assert.throws(() => riskScore(0, 3));
+  assert.throws(() => riskScore(3, 6));
+  assert.throws(() => riskScore(2.5, 3));
+  assert.equal(riskLevel(15), "HIGH");
+  assert.equal(riskLevel(14), "MEDIUM");
+  assert.equal(riskLevel(8), "MEDIUM");
+  assert.equal(riskLevel(7), "LOW");
+  assert.match(riskProblem({ likelihood: 5, impact: 4, ownerId: null, mitigation: "Cover the roof" }) ?? "", /owner/);
+  assert.match(riskProblem({ likelihood: 5, impact: 4, ownerId: "m1", mitigation: "" }) ?? "", /plan/);
+  assert.equal(riskProblem({ likelihood: 5, impact: 4, ownerId: "m1", mitigation: "Cover the roof" }), null);
+  assert.equal(riskProblem({ likelihood: 2, impact: 2, ownerId: null, mitigation: "" }), null);
+  assert.equal(riskReviewOverdue({ status: "OPEN", reviewOn: d("2026-01-01") }, d("2026-01-02")), true);
+  assert.equal(riskReviewOverdue({ status: "CLOSED", reviewOn: d("2026-01-01") }, d("2026-01-02")), false);
+  assert.equal(riskReviewOverdue({ status: "OPEN", reviewOn: null }, d("2026-01-02")), false);
+});
+
+test("procurement state and deliveries", () => {
+  const today = d("2026-03-10");
+  assert.equal(procurementState({ status: "REQUIRED", requiredBy: d("2026-03-09") }, today), "LATE");
+  assert.equal(procurementState({ status: "ORDERED", requiredBy: d("2026-03-17") }, today), "DUE_SOON");
+  assert.equal(procurementState({ status: "ORDERED", requiredBy: d("2026-03-18") }, today), "OK");
+  assert.equal(procurementState({ status: "DELIVERED", requiredBy: d("2026-01-01") }, today), "DONE");
+  assert.equal(procurementState({ status: "CANCELLED", requiredBy: d("2026-01-01") }, today), "CANCELLED");
+  assert.equal(deliveryProblem({ quantity: 10, deliveredSoFar: 4, receiving: 6 }), null);
+  assert.match(deliveryProblem({ quantity: 10, deliveredSoFar: 4, receiving: 7 }) ?? "", /Only 6/);
+  assert.match(deliveryProblem({ quantity: 10, deliveredSoFar: 0, receiving: 0 }) ?? "", /whole number/);
+});
+
+test("open quality checks block completion", () => {
+  assert.equal(qualityBlocksCompletion([{ result: "PASSED" }, { result: "WAIVED" }]), 0);
+  assert.equal(qualityBlocksCompletion([{ result: "PASSED" }, { result: "PENDING" }, { result: "FAILED" }]), 2);
+});

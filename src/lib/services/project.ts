@@ -5,7 +5,7 @@ import { parseNairaToKobo } from "../money";
 import { parseDateOnly, todayInLagos } from "../dates";
 import { nextNumber } from "../numbering";
 import {
-  activationProblems, budgetTotal, commitmentProblem, costSummary, extendedEnd, invoiceProblem, normaliseProgress, overallPercent, PROJECT_KINDS,
+  activationProblems, budgetTotal, commitmentProblem, costSummary, extendedEnd, invoiceProblem, normaliseProgress, overallPercent, PROJECT_KINDS, qualityBlocksCompletion,
   scheduleWarnings, WORK_STATUSES, workState, type WorkStatus,
 } from "../project-rules";
 import { assertCan, type Ctx } from "./context";
@@ -26,7 +26,7 @@ const optionalId = z.string().optional().transform((v) => v || null);
 
 const OPEN = ["PLANNING", "ACTIVE", "ON_HOLD"];
 
-async function lockProject(tx: Tx, ctx: Ctx, id: string) {
+export async function lockProject(tx: Tx, ctx: Ctx, id: string) {
   const rows = await tx.$queryRawUnsafe<{ id: string }[]>(`SELECT id FROM projects WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, ctx.companyId);
   if (rows.length === 0) throw new Error("Project not found");
   return tx.project.findFirstOrThrow({ where: { id, companyId: ctx.companyId } });
@@ -276,6 +276,10 @@ export async function setProgress(ctx: Ctx, id: string, rawStatus: string, rawPe
     if (!w) throw new Error("Work package not found");
     const p = await lockProject(tx, ctx, w.projectId);
     needActive(p);
+    if (wanted.status === "DONE") {
+      const open = qualityBlocksCompletion(await tx.qualityCheck.findMany({ where: { companyId: ctx.companyId, workPackageId: id }, select: { result: true } }));
+      if (open > 0) throw new Error(`${open} quality check${open === 1 ? " is" : "s are"} still waiting or failed, so this work package cannot be marked done`);
+    }
     const today = todayInLagos();
     await tx.workPackage.update({
       where: { id },

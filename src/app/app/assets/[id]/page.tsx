@@ -138,6 +138,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                       <Field label="Rent per period (₦)"><input name="rent" required inputMode="decimal" /></Field>
                       <Field label="Paid"><select name="frequency" defaultValue="YEARLY"><EnumOptions values={FREQUENCIES} /></select></Field>
                       <Field label="Every how many months?" hint="Only for a custom frequency."><input name="intervalMonths" inputMode="numeric" /></Field>
+                      <Field label="Floor area (m², whole number)" hint="Needed to share a service charge by floor area."><input name="floorAreaSqm" inputMode="numeric" /></Field>
                       <Field label="Deposit (₦)"><input name="deposit" inputMode="decimal" /></Field>
                     </div>
                     <div className="fields">

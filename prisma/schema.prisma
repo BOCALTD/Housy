@@ -153,6 +153,7 @@ model Asset {
   parties             AssetParty[]
   documents           AssetDocument[]
   leases              Lease[]
+  serviceCharges      ServiceChargePeriod[]
   tasks               Task[]
   listing             Listing?
   correspondence      Correspondence[]
@@ -272,6 +273,8 @@ model Lease {
   permittedUse   String       @default("") @map("permitted_use")
   otherTerms     String       @default("") @map("other_terms")
   // Closure (Section 12.3) and renewal chain. A renewal is a new lease that points back at the old one.
+  // Whole square metres, used when a service charge is shared by floor area.
+  floorAreaSqm   Int?         @map("floor_area_sqm")
   closedOn       DateTime?    @map("closed_on") @db.Date
   closeReason    String       @default("") @map("close_reason")
   renewedFromId  String?      @unique @map("renewed_from_id")
@@ -286,6 +289,7 @@ model Lease {
   renewals      LeaseRenewal[]
   notices       LeaseNotice[]
   handovers     LeaseHandover[]
+  serviceAssessments ServiceAssessment[]
 
   @@unique([companyId, ref])
   @@index([companyId, assetId])
@@ -918,4 +922,109 @@ model LeaseHandover {
   @@unique([leaseId, kind])
   @@index([companyId])
   @@map("lease_handovers")
+}
+
+enum ServiceMethod {
+  EQUAL
+  FLOOR_AREA
+  FIXED
+}
+
+enum ServicePeriodStatus {
+  OPEN
+  ASSESSED
+}
+
+/// A service charge budget for one property and period (master prompt Section 13.1).
+model ServiceChargePeriod {
+  id           String              @id @default(uuid())
+  companyId    String              @map("company_id")
+  assetId      String              @map("asset_id")
+  name         String
+  startDate    DateTime            @map("start_date") @db.Date
+  endDate      DateTime            @map("end_date") @db.Date
+  budgetKobo   BigInt              @map("budget_kobo")
+  method       ServiceMethod
+  status       ServicePeriodStatus @default(OPEN)
+  assessedAt   DateTime?           @map("assessed_at")
+  createdById  String              @map("created_by_id")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  asset        Asset               @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  assessments  ServiceAssessment[]
+  expenses     ServiceExpense[]
+
+  @@index([companyId, assetId])
+  @@map("service_charge_periods")
+}
+
+/// One tenant's share of a period's budget.
+model ServiceAssessment {
+  id         String              @id @default(uuid())
+  companyId  String              @map("company_id")
+  periodId   String              @map("period_id")
+  leaseId    String              @map("lease_id")
+  amountKobo BigInt              @map("amount_kobo")
+  dueDate    DateTime            @map("due_date") @db.Date
+  createdAt  DateTime            @default(now()) @map("created_at")
+  period     ServiceChargePeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  lease      Lease               @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+  collections ServiceCollection[]
+
+  @@unique([periodId, leaseId])
+  @@index([companyId, leaseId])
+  @@map("service_assessments")
+}
+
+/// Money collected against an assessment. Append-only; a mistake is reversed, never edited.
+model ServiceCollection {
+  id           String            @id @default(uuid())
+  companyId    String            @map("company_id")
+  assessmentId String            @map("assessment_id")
+  amountKobo   BigInt            @map("amount_kobo")
+  paidOn       DateTime          @map("paid_on") @db.Date
+  method       String            @default("")
+  evidence     String
+  evidenceKey  String            @map("evidence_key")
+  recordedById String            @map("recorded_by_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  assessment   ServiceAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  reversal     ServiceCollectionReversal?
+
+  @@index([companyId, assessmentId])
+  @@index([companyId, evidenceKey])
+  @@map("service_collections")
+}
+
+model ServiceCollectionReversal {
+  id           String            @id @default(uuid())
+  companyId    String            @map("company_id")
+  collectionId String            @unique @map("collection_id")
+  reason       String
+  reversedById String            @map("reversed_by_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  collection   ServiceCollection @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+
+  @@map("service_collection_reversals")
+}
+
+/// Spending from the service charge fund. Approved by someone other than the requester.
+model ServiceExpense {
+  id            String              @id @default(uuid())
+  companyId     String              @map("company_id")
+  periodId      String              @map("period_id")
+  description   String
+  supplier      String              @default("")
+  amountKobo    BigInt              @map("amount_kobo")
+  incurredOn    DateTime            @map("incurred_on") @db.Date
+  evidence      String
+  status        AdjustmentStatus    @default(PENDING)
+  requestedById String              @map("requested_by_id")
+  decidedById   String?             @map("decided_by_id")
+  decidedAt     DateTime?           @map("decided_at")
+  decisionNote  String              @default("") @map("decision_note")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  period        ServiceChargePeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, periodId])
+  @@map("service_expenses")
 }

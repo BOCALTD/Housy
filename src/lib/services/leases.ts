@@ -38,6 +38,7 @@ const leaseSchema = z.object({
   rent: z.string().transform((v) => parseNairaToKobo(v)),
   frequency: z.enum(FREQUENCIES),
   intervalMonths: optionalWhole("The payment interval", 1, 120),
+  floorAreaSqm: optionalWhole("The floor area", 1, 10_000_000),
   deposit: z.string().optional().transform((v) => (v ? parseNairaToKobo(v) : 0n)),
   graceDays: optionalWhole("Grace days", 0, 90),
   noticeDays: optionalWhole("The notice period", 0, 365),
@@ -79,7 +80,7 @@ export async function insertLease(tx: Tx, ctx: Ctx, assetId: string, data: Lease
         companyId: ctx.companyId, assetId, ref, occupantName: data.occupantName,
         occupantContact: data.occupantContact, unit: data.unit, startDate: data.startDate, endDate: data.endDate,
         rentKobo: data.rent, frequency: data.frequency, intervalMonths, depositKobo: data.deposit,
-        graceDays: data.graceDays ?? 0, noticeDays: data.noticeDays ?? 0,
+        graceDays: data.graceDays ?? 0, noticeDays: data.noticeDays ?? 0, floorAreaSqm: data.floorAreaSqm ?? null,
         permittedUse: data.permittedUse, otherTerms: data.otherTerms, renewedFromId, createdById: ctx.userId,
       },
     });

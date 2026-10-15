@@ -24,12 +24,13 @@ async function main() {
 
   const paths = new Set<string>([
     "/app", "/app/assets", "/app/assets/new", "/app/correspondence", "/app/correspondence/new",
-    "/app/files", "/app/settings", "/app/team",
+    "/app/files", "/app/settings", "/app/team", "/app/service-charges",
   ]);
   await withTenant(companyId, user.id, async (tx) => {
     for (const a of await tx.asset.findMany({ select: { id: true } })) paths.add(`/app/assets/${a.id}`);
     for (const c of await tx.correspondence.findMany({ select: { id: true } })) paths.add(`/app/correspondence/${c.id}`);
     for (const l of await tx.lease.findMany({ select: { id: true } })) paths.add(`/app/leases/${l.id}`);
+    for (const p of await tx.serviceChargePeriod.findMany({ select: { id: true } })) paths.add(`/app/service-charges/${p.id}`);
     for (const r of await tx.receipt.findMany({ select: { id: true } })) paths.add(`/app/receipts/${r.id}`);
   });
 

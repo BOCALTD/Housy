@@ -81,7 +81,7 @@ export async function decideRenewal(ctx: Ctx, renewalId: string, decision: "appr
       occupantName: lease.occupantName, occupantContact: lease.occupantContact, unit: lease.unit,
       startDate: renewal.proposedStart, endDate: renewal.proposedEnd, rent: renewal.proposedRentKobo,
       frequency: lease.frequency, intervalMonths: lease.intervalMonths, deposit: 0n,
-      graceDays: lease.graceDays, noticeDays: lease.noticeDays, permittedUse: lease.permittedUse, otherTerms: lease.otherTerms,
+      graceDays: lease.graceDays, noticeDays: lease.noticeDays, floorAreaSqm: lease.floorAreaSqm, permittedUse: lease.permittedUse, otherTerms: lease.otherTerms,
     }, lease.id);
     await tx.leaseRenewal.update({
       where: { id: renewalId },

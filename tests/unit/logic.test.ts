@@ -245,3 +245,61 @@ test("overdue amounts fall into ageing buckets at the boundaries", async () => {
   assert.equal(ageingBucket(90), "61-90 days");
   assert.equal(ageingBucket(91), "Over 90 days");
 });
+
+// ---------- Phase 5b/5c rules ----------
+import { allocateBudget, assessmentBalance, checkClosure, checkRenewalPeriod, fundPosition, noticeAdequacy } from "../../src/lib/ledger-rules";
+
+const day = (s: string) => new Date(`${s}T00:00:00.000Z`);
+
+test("service charge shares add up to the budget exactly, whatever the split", () => {
+  const equal = allocateBudget(1_000_000n, "EQUAL", [{ id: "a", floorAreaSqm: null }, { id: "b", floorAreaSqm: null }, { id: "c", floorAreaSqm: null }]);
+  assert.equal(equal.reduce((s, r) => s + r.amountKobo, 0n), 1_000_000n);
+  assert.deepEqual(equal.map((r) => r.amountKobo), [333_334n, 333_333n, 333_333n]);
+
+  const area = allocateBudget(1_000_001n, "FLOOR_AREA", [{ id: "x", floorAreaSqm: 30 }, { id: "y", floorAreaSqm: 70 }, { id: "z", floorAreaSqm: 17 }]);
+  assert.equal(area.reduce((s, r) => s + r.amountKobo, 0n), 1_000_001n);
+  assert.ok(area.find((r) => r.id === "y")!.amountKobo > area.find((r) => r.id === "x")!.amountKobo);
+
+  // Same input, same output: ties are broken by id, not by order.
+  const one = allocateBudget(100n, "EQUAL", [{ id: "b", floorAreaSqm: null }, { id: "a", floorAreaSqm: null }, { id: "c", floorAreaSqm: null }]);
+  const two = allocateBudget(100n, "EQUAL", [{ id: "c", floorAreaSqm: null }, { id: "a", floorAreaSqm: null }, { id: "b", floorAreaSqm: null }]);
+  const byId = (r: { id: string; amountKobo: bigint }[]) => Object.fromEntries(r.map((x) => [x.id, x.amountKobo]));
+  assert.deepEqual(byId(one), byId(two));
+  assert.equal(byId(one).a, 34n);
+});
+
+test("service charge allocation rejects what cannot be shared fairly", () => {
+  assert.throws(() => allocateBudget(0n, "EQUAL", [{ id: "a", floorAreaSqm: null }]), /more than zero/);
+  assert.throws(() => allocateBudget(100n, "EQUAL", []), /No active leases/);
+  assert.throws(() => allocateBudget(100n, "FLOOR_AREA", [{ id: "a", floorAreaSqm: 10 }, { id: "b", floorAreaSqm: null }]), /floor area/);
+  assert.throws(() => allocateBudget(100n, "FIXED", [{ id: "a", floorAreaSqm: null, fixedKobo: 60n }, { id: "b", floorAreaSqm: null, fixedKobo: 30n }]), /exactly the budget/);
+  assert.throws(() => allocateBudget(100n, "FIXED", [{ id: "a", floorAreaSqm: null, fixedKobo: 60n }, { id: "b", floorAreaSqm: null }]), /every lease/);
+  assert.deepEqual(allocateBudget(100n, "FIXED", [{ id: "a", floorAreaSqm: null, fixedKobo: 60n }, { id: "b", floorAreaSqm: null, fixedKobo: 40n }]).map((r) => r.amountKobo), [60n, 40n]);
+});
+
+test("assessment balances ignore reversed collections, and the fund stays separate from the budget", () => {
+  const b = assessmentBalance(1_000n, [{ amountKobo: 400n, reversed: false }, { amountKobo: 300n, reversed: true }]);
+  assert.equal(b.collected, 400n);
+  assert.equal(b.outstanding, 600n);
+  const f = fundPosition({ collectedKobo: 500n, approvedExpensesKobo: 200n, pendingExpensesKobo: 400n, budgetKobo: 1_000n });
+  assert.equal(f.balance, 300n);
+  assert.equal(f.afterPending, -100n);
+  assert.equal(f.overBudget, false);
+  assert.equal(fundPosition({ collectedKobo: 0n, approvedExpensesKobo: 1_001n, pendingExpensesKobo: 0n, budgetKobo: 1_000n }).overBudget, true);
+});
+
+test("notice adequacy, renewal period and closure rules", () => {
+  assert.deepEqual(noticeAdequacy(day("2026-01-01"), day("2026-04-01"), 90), { days: 90, requiredDays: 90, short: false });
+  assert.equal(noticeAdequacy(day("2026-01-01"), day("2026-03-31"), 90).short, true);
+  assert.equal(checkRenewalPeriod(day("2026-12-31"), day("2026-12-30"), day("2027-12-31")), "The renewal cannot start before the current lease ends");
+  assert.equal(checkRenewalPeriod(day("2026-12-31"), day("2026-12-31"), day("2026-12-31")), "The renewal must end after it starts");
+  assert.equal(checkRenewalPeriod(day("2026-12-31"), day("2026-12-31"), day("2027-12-31")), null);
+  const base = { outcome: "TERMINATED" as const, closedOn: day("2026-06-01"), today: day("2026-06-01"), startDate: day("2026-01-01"), endDate: day("2027-01-01"), reason: "Tenant left", hasMoveOut: true, status: "ACTIVE" };
+  assert.equal(checkClosure(base), null);
+  assert.match(checkClosure({ ...base, hasMoveOut: false })!, /move-out/);
+  assert.match(checkClosure({ ...base, status: "ENDED" })!, /already closed/);
+  assert.match(checkClosure({ ...base, closedOn: day("2026-06-02") })!, /future/);
+  assert.match(checkClosure({ ...base, closedOn: day("2025-12-31") })!, /before the lease started/);
+  assert.match(checkClosure({ ...base, outcome: "ENDED" })!, /not reached its end date/);
+  assert.equal(checkClosure({ ...base, outcome: "ENDED", today: day("2027-01-01"), closedOn: day("2027-01-01") }), null);
+});

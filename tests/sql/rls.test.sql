@@ -235,5 +235,40 @@ SELECT pg_temp.expect((SELECT count(*) FROM lease_notices) = 0, 'B cannot see A 
 SELECT pg_temp.expect((SELECT count(*) FROM lease_renewals) = 0, 'B cannot see A renewals');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 14. Phase 5c: service charge records are isolated, collections are append-only, shares cannot be negative.
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO service_charge_periods (id, company_id, asset_id, name, start_date, end_date, budget_kobo, method, created_by_id)
+  VALUES ('sp-a', 'co-a', 'as-a', '2026', '2026-01-01', '2027-01-01', 1000000, 'EQUAL', 'u1');
+INSERT INTO service_assessments (id, company_id, period_id, lease_id, amount_kobo, due_date)
+  VALUES ('sa-a', 'co-a', 'sp-a', 'l-a', 1000000, '2026-02-01');
+INSERT INTO service_collections (id, company_id, assessment_id, amount_kobo, paid_on, evidence, evidence_key, recorded_by_id)
+  VALUES ('sc-a', 'co-a', 'sa-a', 400000, '2026-02-02', 'REF1', 'ref1', 'u1');
+INSERT INTO service_expenses (id, company_id, period_id, description, amount_kobo, incurred_on, evidence, requested_by_id)
+  VALUES ('se-a', 'co-a', 'sp-a', 'Generator diesel', 50000, '2026-02-03', 'INV-1', 'u1');
+DO $$ BEGIN
+  INSERT INTO service_collections (id, company_id, assessment_id, amount_kobo, paid_on, evidence, evidence_key, recorded_by_id)
+    VALUES ('sc-z', 'co-a', 'sa-a', 0, '2026-02-02', 'REF0', 'ref0', 'u1');
+  RAISE EXCEPTION 'FAIL: zero collection was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: collections must be positive'; END $$;
+DO $$ BEGIN
+  INSERT INTO service_assessments (id, company_id, period_id, lease_id, amount_kobo, due_date)
+    VALUES ('sa-dup', 'co-a', 'sp-a', 'l-a', 5, '2026-02-01');
+  RAISE EXCEPTION 'FAIL: second assessment for the same lease was allowed';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: one assessment per lease per period'; END $$;
+DO $$ BEGIN
+  UPDATE service_collections SET amount_kobo = 1 WHERE id = 'sc-a';
+  RAISE EXCEPTION 'FAIL: collection was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: collections cannot be edited'; END $$;
+DO $$ BEGIN
+  DELETE FROM service_collections WHERE id = 'sc-a';
+  RAISE EXCEPTION 'FAIL: collection was deleted';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: collections cannot be deleted'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM service_charge_periods) = 0, 'B cannot see A service periods');
+SELECT pg_temp.expect((SELECT count(*) FROM service_assessments) = 0, 'B cannot see A assessments');
+SELECT pg_temp.expect((SELECT count(*) FROM service_collections) = 0, 'B cannot see A collections');
+SELECT pg_temp.expect((SELECT count(*) FROM service_expenses) = 0, 'B cannot see A expenses');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

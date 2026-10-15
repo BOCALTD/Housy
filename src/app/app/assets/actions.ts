@@ -66,7 +66,7 @@ export async function createLeaseAction(form: FormData) {
     const lease = await createLease(member, id, {
       occupantName: str(form, "occupantName"), occupantContact: str(form, "occupantContact"), unit: str(form, "unit"),
       startDate: str(form, "startDate"), endDate: str(form, "endDate"), rent: str(form, "rent"),
-      frequency: str(form, "frequency") as never, intervalMonths: optStr(form, "intervalMonths"),
+      frequency: str(form, "frequency") as never, intervalMonths: optStr(form, "intervalMonths"), floorAreaSqm: optStr(form, "floorAreaSqm"),
       deposit: optStr(form, "deposit"), graceDays: optStr(form, "graceDays"), noticeDays: optStr(form, "noticeDays"),
       permittedUse: str(form, "permittedUse"), otherTerms: str(form, "otherTerms"),
     });

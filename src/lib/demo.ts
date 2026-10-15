@@ -9,6 +9,7 @@ import { createAsset, addParty } from "./services/assets";
 import { createLease, getLease, recordLeasePayment, recordPayment } from "./services/leases";
 import { reconcileReceipt, recordDepositReceived, requestAdjustment } from "./services/ledger";
 import { proposeRenewal, recordHandover, recordNotice } from "./services/lifecycle";
+import { assessPeriod, createServicePeriod, decideExpense, recordCollection, requestExpense } from "./services/service-charges";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -153,6 +154,32 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   const deeds = await createPhysicalFile(alpha, { fileNumber: "F-0001", title: "[DEMO] Duplex title deeds", location: "Cabinet A", assetId: duplex.id, departmentId: legal.id });
   await issuePhysicalFile(alpha, deeds.id, { holderId: officer.membershipId, expectedReturnOn: daysFromToday(7), purpose: "Demo: valuation" });
   await createPhysicalFile(alpha, { fileNumber: "F-0002", title: "[DEMO] Allen Avenue shop lease file", location: "Cabinet A", assetId: shop.id });
+
+  // Service charges: a plaza with two units, the budget shared by floor area, a payment and two expenses.
+  const plaza = await createAsset(alpha, {
+    name: "[DEMO] Plaza, Opebi Road", assetClass: "COMMERCIAL", category: "Office block",
+    city: "Ikeja", state: "Lagos", companyRelationship: "OWNER",
+  });
+  for (const [unit, name, area] of [["Suite A", "[DEMO] Bright Accountants", "60"], ["Suite B", "[DEMO] Swift Logistics", "140"]] as const) {
+    await createLease(alpha, plaza.id, {
+      occupantName: name, unit, startDate: `${year - 1}-01-01`, endDate: `${year + 1}-01-01`, rent: "1,200,000", frequency: "YEARLY",
+      floorAreaSqm: area,
+    });
+  }
+  const period = await createServicePeriod(alpha, plaza.id, {
+    name: `[DEMO] ${year} service charge`, startDate: `${year}-01-01`, endDate: `${year + 1}-01-01`, budget: "6,000,000", method: "FLOOR_AREA",
+  });
+  await assessPeriod(alpha, period.id, { dueDate: `${year}-03-31` });
+  const assessments = await withTenant(alpha.companyId, alpha.userId, (tx) =>
+    tx.serviceAssessment.findMany({ where: { periodId: period.id }, orderBy: { amountKobo: "asc" } }));
+  await recordCollection(officer, assessments[1].id, { amount: "2,000,000", paidOn: daysFromToday(-3), evidence: "DEMO-SVC-0001", method: "Bank transfer" });
+  const diesel = await requestExpense(officer, period.id, {
+    description: "[DEMO] Generator diesel", supplier: "[DEMO] Fuel Depot", amount: "400,000", incurredOn: daysFromToday(-2), evidence: "DEMO-INV-0101",
+  });
+  await decideExpense(alpha, diesel.id, "approve", "Demonstration approval");
+  await requestExpense(officer, period.id, {
+    description: "[DEMO] Lift servicing", supplier: "[DEMO] Lift Co", amount: "250,000", incurredOn: daysFromToday(-1), evidence: "DEMO-INV-0102",
+  });
 
   // Approve only the demo listings, never real submissions waiting for review.
   for (const l of await reviewQueue(adminId)) {

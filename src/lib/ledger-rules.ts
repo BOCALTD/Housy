@@ -176,3 +176,69 @@ export function checkClosure(input: {
   if (!input.hasMoveOut) return "Record the move-out handover before closing the lease";
   return null;
 }
+
+// ---------- Service charges (Phase 5c) ----------
+
+export type ServiceMethodName = "EQUAL" | "FLOOR_AREA" | "FIXED";
+
+export interface Share { id: string; floorAreaSqm: number | null; fixedKobo?: bigint }
+
+/**
+ * Split a budget across tenants with the largest-remainder method, so the shares add up to the
+ * budget exactly, with no kobo lost or invented. Ties go to the lower id so the result is stable.
+ * FIXED shares are taken as given and must add up to the budget.
+ */
+export function allocateBudget(budgetKobo: bigint, method: ServiceMethodName, shares: Share[]): { id: string; amountKobo: bigint }[] {
+  if (budgetKobo <= 0n) throw new Error("The budget must be more than zero");
+  if (shares.length === 0) throw new Error("No active leases on this property to share the charge between");
+  const ids = new Set(shares.map((s) => s.id));
+  if (ids.size !== shares.length) throw new Error("A lease appears twice in the allocation");
+
+  if (method === "FIXED") {
+    let total = 0n;
+    for (const s of shares) {
+      if (s.fixedKobo === undefined || s.fixedKobo < 0n) throw new Error("Enter a fixed amount (zero or more) for every lease");
+      total += s.fixedKobo;
+    }
+    if (total !== budgetKobo) throw new Error("The fixed amounts must add up to exactly the budget");
+    return shares.map((s) => ({ id: s.id, amountKobo: s.fixedKobo! }));
+  }
+
+  const weights = shares.map((s) => {
+    if (method === "EQUAL") return 1n;
+    if (!s.floorAreaSqm || s.floorAreaSqm <= 0) throw new Error("Every lease needs a floor area to share the charge by floor area");
+    return BigInt(s.floorAreaSqm);
+  });
+  const totalWeight = weights.reduce((a, b) => a + b, 0n);
+  const rows = shares.map((s, i) => {
+    const product = budgetKobo * weights[i];
+    return { id: s.id, base: product / totalWeight, remainder: product % totalWeight };
+  });
+  let leftover = budgetKobo - rows.reduce((a, r) => a + r.base, 0n);
+  const order = [...rows].sort((a, b) => (a.remainder === b.remainder ? (a.id < b.id ? -1 : 1) : a.remainder > b.remainder ? -1 : 1));
+  const extra = new Map<string, bigint>();
+  for (const r of order) {
+    if (leftover <= 0n) break;
+    extra.set(r.id, 1n);
+    leftover -= 1n;
+  }
+  return rows.map((r) => ({ id: r.id, amountKobo: r.base + (extra.get(r.id) ?? 0n) }));
+}
+
+/** What is still owed on an assessment, from the amount and the collections that have not been reversed. */
+export function assessmentBalance(amountKobo: bigint, collections: { amountKobo: bigint; reversed: boolean }[]) {
+  const collected = collections.reduce((s, c) => (c.reversed ? s : s + c.amountKobo), 0n);
+  return { collected, outstanding: amountKobo - collected };
+}
+
+/** The service charge fund: money collected less approved spending. Rent is never part of it. */
+export function fundPosition(input: { collectedKobo: bigint; approvedExpensesKobo: bigint; pendingExpensesKobo: bigint; budgetKobo: bigint }) {
+  const balance = input.collectedKobo - input.approvedExpensesKobo;
+  return {
+    balance,
+    // What is left once pending expenses are also paid. Negative means the fund cannot cover them.
+    afterPending: balance - input.pendingExpensesKobo,
+    overBudget: input.approvedExpensesKobo > input.budgetKobo,
+    budgetRemaining: input.budgetKobo - input.approvedExpensesKobo,
+  };
+}

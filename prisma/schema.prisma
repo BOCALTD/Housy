@@ -3181,3 +3181,215 @@ model Notification {
   @@index([userId, readAt])
   @@map("notifications")
 }
+
+// ---------- Phase 9b: collaboration ----------
+
+enum CollabKind {
+  SEEKER_AGENT
+  COMPANY_COMPANY
+}
+
+enum CollabPurpose {
+  SEARCH_ASSISTANCE
+  TRANSACTION
+  INSPECTION
+  DOCUMENT_EXCHANGE
+  CO_LISTING
+  REFERRAL
+  CO_BROKERAGE
+  MARKETING
+  DEVELOPMENT
+  CONTRACTOR
+  OTHER
+}
+
+enum CollabStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  DECLINED
+  EXPIRED
+  CANCELLED
+  COMPLETED
+  SUSPENDED
+}
+
+enum CollabSide {
+  SENDER
+  RECIPIENT
+}
+
+enum CollabItemKind {
+  PROPERTY
+  DEAL_SUMMARY
+  DOCUMENT
+  NOTE
+}
+
+enum CollabTaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+/// An invitation to work together, and once accepted the workspace for it. Either a seeker and an agent, or two companies.
+/// Both parties can read the row; neither gains access to the other's own records. Only what a party puts into the workspace is shared.
+model Collaboration {
+  id                 String       @id @default(uuid())
+  ref                String       @unique
+  kind               CollabKind
+  purpose            CollabPurpose
+  title              String
+  scope              String       @default("")
+  terms              String       @default("")
+  status             CollabStatus @default(DRAFT)
+  senderUserId       String       @map("sender_user_id")
+  senderCompanyId    String?      @map("sender_company_id")
+  senderName         String       @map("sender_name")
+  recipientUserId    String?      @map("recipient_user_id")
+  recipientCompanyId String?      @map("recipient_company_id")
+  recipientName      String       @map("recipient_name")
+  sentAt             DateTime?    @map("sent_at")
+  expiresAt          DateTime?    @map("expires_at")
+  endsOn             DateTime?    @map("ends_on") @db.Date
+  respondedAt        DateTime?    @map("responded_at")
+  respondedById      String?      @map("responded_by_id")
+  responseNote       String       @default("") @map("response_note")
+  closedAt           DateTime?    @map("closed_at")
+  closedById         String?      @map("closed_by_id")
+  closeReason        String       @default("") @map("close_reason")
+  suspendedAt        DateTime?    @map("suspended_at")
+  suspendedById      String?      @map("suspended_by_id")
+  suspendedBy        String?      @map("suspended_by")
+  suspendReason      String       @default("") @map("suspend_reason")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  participants       CollabParticipant[]
+  items              CollabItem[]
+  tasks              CollabTask[]
+  comments           CollabComment[]
+  events             CollabEvent[]
+
+  @@index([senderCompanyId, status])
+  @@index([recipientCompanyId, status])
+  @@index([senderUserId])
+  @@index([recipientUserId])
+  @@map("collaborations")
+}
+
+/// A person who may work in the workspace, with what they may do and until when. Revoking takes effect at once.
+model CollabParticipant {
+  id              String        @id @default(uuid())
+  collaborationId String        @map("collaboration_id")
+  side            CollabSide
+  userId          String        @map("user_id")
+  companyId       String?       @map("company_id")
+  name            String
+  canComment      Boolean       @default(true) @map("can_comment")
+  canTasks        Boolean       @default(true) @map("can_tasks")
+  canShare        Boolean       @default(true) @map("can_share")
+  canDocuments    Boolean       @default(true) @map("can_documents")
+  expiresAt       DateTime?     @map("expires_at")
+  revokedAt       DateTime?     @map("revoked_at")
+  revokedById     String?       @map("revoked_by_id")
+  revokeReason    String        @default("") @map("revoke_reason")
+  addedById       String        @map("added_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+
+  @@unique([collaborationId, userId])
+  @@index([userId])
+  @@map("collab_participants")
+}
+
+/// One thing a party chose to share. It is a copy of the fields they ticked, not a live link to their records. Revoking wipes the copy.
+model CollabItem {
+  id               String         @id @default(uuid())
+  collaborationId  String         @map("collaboration_id")
+  kind             CollabItemKind
+  title            String
+  summary          String         @default("")
+  details          Json           @default("{}")
+  sourceType       String         @default("") @map("source_type")
+  sourceId         String         @default("") @map("source_id")
+  side             CollabSide
+  sharedById       String         @map("shared_by_id")
+  sharedByName     String         @map("shared_by_name")
+  sharedByCompanyId String?       @map("shared_by_company_id")
+  version          Int            @default(1)
+  fileKey          String?        @map("file_key")
+  fileName         String         @default("") @map("file_name")
+  mimeType         String         @default("") @map("mime_type")
+  sizeBytes        Int            @default(0) @map("size_bytes")
+  revokedAt        DateTime?      @map("revoked_at")
+  revokedById      String?        @map("revoked_by_id")
+  revokeReason     String         @default("") @map("revoke_reason")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  collaboration    Collaboration  @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+
+  @@index([collaborationId, createdAt])
+  @@map("collab_items")
+}
+
+/// The bytes of a shared document, kept apart from either company's own stored files.
+model CollabFile {
+  key             String   @id
+  collaborationId String   @map("collaboration_id")
+  bytes           Bytes
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([collaborationId])
+  @@map("collab_files")
+}
+
+model CollabTask {
+  id              String           @id @default(uuid())
+  collaborationId String           @map("collaboration_id")
+  title           String
+  description     String           @default("")
+  milestone       Boolean          @default(false)
+  assigneeId      String?          @map("assignee_id")
+  assigneeName    String           @default("") @map("assignee_name")
+  dueOn           DateTime?        @map("due_on") @db.Date
+  status          CollabTaskStatus @default(OPEN)
+  outcome         String           @default("")
+  createdById     String           @map("created_by_id")
+  createdByName   String           @map("created_by_name")
+  completedAt     DateTime?        @map("completed_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  collaboration   Collaboration    @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+
+  @@index([collaborationId, status])
+  @@map("collab_tasks")
+}
+
+model CollabComment {
+  id              String        @id @default(uuid())
+  collaborationId String        @map("collaboration_id")
+  itemId          String?       @map("item_id")
+  authorId        String        @map("author_id")
+  authorName      String        @map("author_name")
+  body            String
+  createdAt       DateTime      @default(now()) @map("created_at")
+  collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+
+  @@index([collaborationId, createdAt])
+  @@map("collab_comments")
+}
+
+/// The workspace's history: who did what, when. Append-only.
+model CollabEvent {
+  id              String        @id @default(uuid())
+  collaborationId String        @map("collaboration_id")
+  actorId         String?       @map("actor_id")
+  actorName       String        @map("actor_name")
+  kind            String
+  summary         String
+  createdAt       DateTime      @default(now()) @map("created_at")
+  collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+
+  @@index([collaborationId, createdAt])
+  @@map("collab_events")
+}

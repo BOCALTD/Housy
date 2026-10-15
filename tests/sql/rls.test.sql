@@ -847,5 +847,96 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only signed-in peop
 SELECT set_config('app.user_id', 'u1', true);
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 27. Phase 9b: collaborations are visible to their two parties only, and what one party shared cannot be altered by the other.
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', '', true);
+DO $$ BEGIN
+  INSERT INTO collaborations (id, ref, kind, purpose, title, status, sender_user_id, sender_name, recipient_user_id, recipient_company_id, recipient_name, updated_at)
+    VALUES ('cb-bad', 'COL-BAD', 'SEEKER_AGENT', 'OTHER', 'Spoofed sender', 'DRAFT', 'u2', 'Spoof', 'u9', 'co-a', 'Agent Nine', now());
+  RAISE EXCEPTION 'FAIL: an invitation was created in someone else''s name';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: an invitation can only be created by its sender'; END $$;
+DO $$ BEGIN
+  INSERT INTO collaborations (id, ref, kind, purpose, title, status, sender_user_id, sender_company_id, sender_name, recipient_user_id, recipient_company_id, recipient_name, updated_at)
+    VALUES ('cb-bad', 'COL-BAD', 'SEEKER_AGENT', 'OTHER', 'Seeker with a company', 'DRAFT', 'u1', 'co-b', 'U1', 'u9', 'co-a', 'Agent Nine', now());
+  RAISE EXCEPTION 'FAIL: a seeker invitation carried a sender company';
+EXCEPTION WHEN check_violation OR insufficient_privilege THEN RAISE NOTICE 'ok: a seeker invitation has no sender company'; END $$;
+INSERT INTO collaborations (id, ref, kind, purpose, title, status, sender_user_id, sender_name, recipient_user_id, recipient_company_id, recipient_name, updated_at)
+  VALUES ('cb-1', 'COL-0001', 'SEEKER_AGENT', 'SEARCH_ASSISTANCE', 'Find me a flat', 'DRAFT', 'u1', 'Seeker One', 'u9', 'co-a', 'Agent Nine', now());
+DO $$ BEGIN
+  UPDATE collaborations SET status = 'PENDING', sent_at = now() WHERE id = 'cb-1';
+  RAISE EXCEPTION 'FAIL: a pending invitation without an expiry was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a pending invitation expires'; END $$;
+UPDATE collaborations SET status = 'PENDING', sent_at = now(), expires_at = now() + interval '14 days' WHERE id = 'cb-1';
+DO $$ BEGIN
+  UPDATE collaborations SET status = 'ACTIVE', responded_at = now(), responded_by_id = 'u1' WHERE id = 'cb-1';
+  RAISE EXCEPTION 'FAIL: the sender accepted their own invitation';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: the other side answers, never the sender'; END $$;
+DO $$ BEGIN
+  UPDATE collaborations SET status = 'SUSPENDED', suspended_at = now(), suspended_by_id = 'u1', suspended_by = 'SENDER', suspend_reason = '' WHERE id = 'cb-1';
+  RAISE EXCEPTION 'FAIL: a suspension without a reason was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a suspension says why'; END $$;
+DO $$ BEGIN
+  INSERT INTO collaborations (id, ref, kind, purpose, title, status, sender_user_id, sender_company_id, sender_name, recipient_company_id, recipient_name, updated_at)
+    VALUES ('cb-self', 'COL-SELF', 'COMPANY_COMPANY', 'OTHER', 'With ourselves', 'DRAFT', 'u1', 'co-a', 'U1', 'co-a', 'Alpha', now());
+  RAISE EXCEPTION 'FAIL: a company invited itself';
+EXCEPTION WHEN check_violation OR insufficient_privilege THEN RAISE NOTICE 'ok: a company cannot invite itself'; END $$;
+INSERT INTO collab_participants (id, collaboration_id, side, user_id, name, added_by_id) VALUES ('cp-1', 'cb-1', 'SENDER', 'u1', 'Seeker One', 'u1');
+INSERT INTO collab_items (id, collaboration_id, kind, title, summary, details, side, shared_by_id, shared_by_name, updated_at)
+  VALUES ('ci-1', 'cb-1', 'NOTE', 'My budget', 'Up to 40m', '{"fields":[1]}', 'SENDER', 'u1', 'Seeker One', now());
+DO $$ BEGIN
+  UPDATE collab_items SET revoked_at = now(), revoked_by_id = 'u1' WHERE id = 'ci-1';
+  RAISE EXCEPTION 'FAIL: a revoked item kept its content';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: revoking wipes what was shared'; END $$;
+INSERT INTO collab_events (id, collaboration_id, actor_id, actor_name, kind, summary) VALUES ('ce-1', 'cb-1', 'u1', 'Seeker One', 'created', 'Invitation created');
+
+-- The agent, in their company, sees the invitation; a stranger sees nothing.
+SELECT set_config('app.user_id', 'u9', true);
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT pg_temp.expect((SELECT count(*) FROM collaborations WHERE id = 'cb-1') = 1, 'the recipient agent sees the invitation');
+SELECT pg_temp.expect((SELECT count(*) FROM collab_items WHERE collaboration_id = 'cb-1') = 1, 'the recipient sees what was shared');
+DO $$ BEGIN
+  UPDATE collab_items SET summary = 'Tampered' WHERE id = 'ci-1';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: the other party changed what was shared'; END IF;
+  RAISE NOTICE 'ok: the other party cannot change what was shared';
+END $$;
+DO $$ BEGIN
+  DELETE FROM collab_items WHERE id = 'ci-1';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: the other party deleted what was shared'; END IF;
+  RAISE NOTICE 'ok: the other party cannot delete what was shared';
+END $$;
+DO $$ BEGIN
+  UPDATE collab_events SET summary = 'Changed' WHERE id = 'ce-1';
+  RAISE EXCEPTION 'FAIL: the workspace history was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: the workspace history is append-only'; END $$;
+SELECT set_config('app.user_id', 'u3', true);
+SELECT set_config('app.company_id', 'co-c', true);
+SELECT pg_temp.expect((SELECT count(*) FROM collaborations) = 0, 'a stranger sees no collaboration');
+SELECT pg_temp.expect((SELECT count(*) FROM collab_items) = 0, 'a stranger sees nothing shared');
+SELECT pg_temp.expect((SELECT count(*) FROM collab_participants) = 0, 'a stranger sees no participants');
+DO $$ BEGIN
+  INSERT INTO collab_items (id, collaboration_id, kind, title, side, shared_by_id, shared_by_name, updated_at) VALUES ('ci-x', 'cb-1', 'NOTE', 'Injected', 'RECIPIENT', 'u3', 'Stranger', now());
+  RAISE EXCEPTION 'FAIL: a stranger added to a workspace';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a stranger cannot add to a workspace'; END $$;
+
+-- Company to company: each company sees the pair, the third does not, and the partner's plan state is readable but not its other records.
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO collaborations (id, ref, kind, purpose, title, status, sender_user_id, sender_company_id, sender_name, recipient_company_id, recipient_name, updated_at)
+  VALUES ('cb-2', 'COL-0002', 'COMPANY_COMPANY', 'CO_BROKERAGE', 'Joint sale', 'DRAFT', 'u1', 'co-a', 'Alpha Estates', 'co-b', 'Beta Property', now());
+SELECT set_config('app.user_id', 'u5', true);
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM collaborations WHERE id = 'cb-2') = 1, 'the invited company sees the invitation');
+SELECT pg_temp.expect((SELECT count(*) FROM subscriptions WHERE owner_company_id = 'co-a') = 1, 'the partner company''s plan state is readable');
+SELECT pg_temp.expect((SELECT count(*) FROM deals WHERE company_id = 'co-a') = 0, 'the partner company still sees none of the other company''s deals');
+SELECT pg_temp.expect((SELECT count(*) FROM assets WHERE company_id = 'co-a') = 0, 'the partner company still sees none of the other company''s assets');
+SELECT set_config('app.user_id', 'u3', true);
+SELECT set_config('app.company_id', 'co-c', true);
+SELECT pg_temp.expect((SELECT count(*) FROM subscriptions WHERE owner_company_id = 'co-a') = 0, 'an unrelated company cannot read the plan state');
+SELECT set_config('app.platform_admin', 'on', true);
+SELECT pg_temp.expect((SELECT count(*) FROM collaborations) = 2, 'the platform administrator sees every collaboration');
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

@@ -67,7 +67,9 @@ export type Action =
   | "crm.merge"
   | "crm.configure"
   | "crm.approve"
-  | "crm.report";
+  | "crm.report"
+  | "collab.view"
+  | "collab.company";
 
 const MATRIX: Record<Action, Role[]> = {
   "asset.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER", "VIEWER"],
@@ -141,6 +143,9 @@ const MATRIX: Record<Action, Role[]> = {
   "crm.configure": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "crm.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "crm.report": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  // Collaboration: agents and managers take part; managers and administrators speak for the company (invite, accept, suspend, add people).
+  "collab.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],
+  "collab.company": ["COMPANY_SUPER_ADMIN", "MANAGER"],
 };
 
 export function can(role: Role, action: Action): boolean {

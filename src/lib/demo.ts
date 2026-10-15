@@ -17,7 +17,7 @@ import {
   reportWorkOrder, setProgress, triageWorkOrder,
 } from "./services/maintenance";
 import {
-  acknowledgeSchedule, addScheduleLine, createHandoverSchedule, createItem, decideAdjustment, decideCount, recordMovement, requestAdjustment,
+  acknowledgeSchedule, addScheduleLine, createHandoverSchedule, createItem, decideAdjustment, decideCount, recordMovement, requestAdjustment as requestStockAdjustment,
   saveCountLines, startCount, submitCount, useOnWorkOrder,
 } from "./services/inventory";
 import { createTask } from "./services/tasks";

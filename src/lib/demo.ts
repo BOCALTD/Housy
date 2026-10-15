@@ -20,6 +20,9 @@ import {
   acknowledgeSchedule, addScheduleLine, createHandoverSchedule, createItem, decideAdjustment, decideCount, recordMovement, requestAdjustment as requestStockAdjustment,
   saveCountLines, startCount, submitCount, useOnWorkOrder,
 } from "./services/inventory";
+import {
+  addComparable, addEntry, assignValuation, createInstruction as createValuation, decideReport, saveReportDraft, saveWorksheet, submitReport,
+} from "./services/valuation";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -299,6 +302,38 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await addScheduleLine(officer, moveIn.id, { room: "Main shop floor", description: "Display shelving units", quantity: "6", condition: "FAIR", notes: "Two shelves chipped" });
   await addScheduleLine(officer, moveIn.id, { room: "Storeroom", description: "Roller shutter", quantity: "1", condition: "GOOD" });
   await acknowledgeSchedule(officer, moveIn.id, { acknowledgedBy: "[DEMO] Tenant Representative", acknowledgedOn: daysFromToday(-30) });
+
+  // Valuation: one approved going-concern valuation with evidence, and one still in progress.
+  const valuation = await createValuation(alpha, {
+    assetId: shop.id, clientName: "[DEMO] Lender Plc", clientReference: "DEMO-LOAN-001", purpose: "MORTGAGE_SECURITY", basis: "MARKET_VALUE", premise: "GOING_CONCERN",
+    assetDescription: "[DEMO] Two-storey commercial building of about 180 square metres with a trading shop on the ground floor.",
+    scope: "Valuation for loan security. Internal and external inspection.", valuationDate: daysFromToday(-10), inspectionDate: daysFromToday(-12), dueDate: daysFromToday(5),
+    assignedToId: officer.membershipId, professionalName: "[DEMO] Valuer", professionalBody: "[DEMO] Professional Body", registrationNo: "DEMO-0000",
+  } as never);
+  await addEntry(officer, valuation.id, "PREMISE", "Valued as a going concern: the shop continues to trade from the premises.");
+  await addEntry(officer, valuation.id, "ASSUMPTION", "Title is good and marketable and free of undisclosed encumbrances.");
+  await addEntry(officer, valuation.id, "LIMITATION", "No structural survey was carried out. Areas were measured on site, not from drawings.");
+  for (const c of [
+    { address: "[DEMO] 14 Market Road", price: "50,000,000", area: "200", adjustment: "10", adjustmentNote: "Inferior position", weight: "100", source: "[DEMO] Agent letter" },
+    { address: "[DEMO] 3 Station Street", price: "60,000,000", area: "250", adjustment: "0", adjustmentNote: "", weight: "100", source: "[DEMO] Deed of assignment" },
+    { address: "[DEMO] 22 Canal Road", price: "42,000,000", area: "170", adjustment: "-5", adjustmentNote: "Superior finish", weight: "50", source: "[DEMO] Auction record" },
+  ]) {
+    await addComparable(officer, valuation.id, { kind: "SALE", evidenceDate: daysFromToday(-90), ...c });
+  }
+  await saveWorksheet(officer, valuation.id, "SALES_COMPARISON", { subjectArea: "180" }, "Primary method");
+  await saveWorksheet(officer, valuation.id, "INCOME_CAPITALISATION", { grossRent: "6,000,000", vacancy: "10", operatingCosts: "600,000", capRate: "10" }, "Cross-check");
+  await saveReportDraft(officer, valuation.id, {
+    summary: "[DEMO] The property is a commercial building in a good trading position.", conclusion: "[DEMO] The market value on a going-concern basis is stated below.",
+    concludedValue: "47,000,000", reconciliationNote: "Weighted towards the sales comparison, with the income method as a cross-check.",
+  });
+  await submitReport(officer, valuation.id);
+  await decideReport(manager, valuation.id, "approve", "Evidence checked.", false);
+  const pendingValuation = await createValuation(alpha, {
+    assetId: duplex.id, clientName: "[DEMO] Private Client", purpose: "SALE", basis: "MARKET_VALUE", premise: "STANDARD", dueDate: daysFromToday(14),
+    professionalName: "[DEMO] Valuer", professionalBody: "[DEMO] Professional Body", registrationNo: "DEMO-0000",
+  } as never);
+  await addComparable(officer, pendingValuation.id, { kind: "SALE", address: "[DEMO] 9 Garden Close", evidenceDate: daysFromToday(-60), price: "80,000,000", area: "300", source: "[DEMO] Agent letter" });
+  await assignValuation(alpha, pendingValuation.id, officer.membershipId);
 
   // Approve only the demo listings, never real submissions waiting for review.
   for (const l of await reviewQueue(adminId)) {

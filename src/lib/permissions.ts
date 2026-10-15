@@ -30,6 +30,10 @@ export type Action =
   | "inventory.move"
   | "inventory.count"
   | "inventory.approve"
+  | "valuation.view"
+  | "valuation.manage"
+  | "valuation.prepare"
+  | "valuation.approve"
   | "inspection.manage"
   | "inspection.conduct"
   | "inspection.approve"
@@ -82,6 +86,11 @@ const MATRIX: Record<Action, Role[]> = {
   "inventory.move": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "inventory.count": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "inventory.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  // Valuation (master prompt Phase 7). A report is prepared by one person and approved by another.
+  "valuation.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER", "VIEWER"],
+  "valuation.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "valuation.prepare": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "valuation.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "inspection.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "inspection.conduct": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "inspection.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],

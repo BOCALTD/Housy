@@ -175,6 +175,7 @@ model Asset {
   @@index([companyId, status])
   @@map("assets")
   inventoryItems      InventoryItem[]
+  valuations          ValuationInstruction[]
 }
 
 enum PartyRelationship {
@@ -1641,4 +1642,219 @@ model HandoverScheduleLine {
 
   @@index([companyId, scheduleId])
   @@map("handover_schedule_lines")
+}
+
+// ---------- Phase 7a: valuation ----------
+
+enum ValuationPurpose {
+  SALE
+  PURCHASE
+  MORTGAGE_SECURITY
+  INSURANCE
+  FINANCIAL_REPORTING
+  TAXATION
+  LITIGATION
+  OTHER
+}
+
+enum ValuationBasis {
+  MARKET_VALUE
+  MARKET_RENT
+  REINSTATEMENT_COST
+  FORCED_SALE_VALUE
+  OTHER
+}
+
+enum ValuationPremise {
+  STANDARD
+  GOING_CONCERN
+  GONE_CONCERN
+}
+
+enum ValuationStatus {
+  INSTRUCTED
+  IN_PROGRESS
+  IN_REVIEW
+  APPROVED
+  ISSUED
+  CANCELLED
+}
+
+enum ValuationMethod {
+  SALES_COMPARISON
+  INCOME_CAPITALISATION
+  COST_APPROACH
+}
+
+enum EvidenceKind {
+  SALE
+  LETTING
+  LISTING
+  OFFER
+  OTHER
+}
+
+enum EntryKind {
+  PREMISE
+  ASSUMPTION
+  SPECIAL_ASSUMPTION
+  LIMITATION
+}
+
+enum ReportStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+/// A valuation assignment: what is being valued, why, as at when, on what basis and premise, and by whom.
+model ValuationInstruction {
+  id               String            @id @default(uuid())
+  companyId        String            @map("company_id")
+  ref              String
+  assetId          String            @map("asset_id")
+  clientName       String            @map("client_name")
+  clientReference  String            @default("") @map("client_reference")
+  purpose          ValuationPurpose
+  purposeNote      String            @default("") @map("purpose_note")
+  basis            ValuationBasis    @default(MARKET_VALUE)
+  premise          ValuationPremise  @default(STANDARD)
+  assetDescription String            @default("") @map("asset_description")
+  scope            String            @default("")
+  instructionDate  DateTime          @map("instruction_date") @db.Date
+  valuationDate    DateTime?         @map("valuation_date") @db.Date
+  inspectionDate   DateTime?         @map("inspection_date") @db.Date
+  dueDate          DateTime?         @map("due_date") @db.Date
+  status           ValuationStatus   @default(INSTRUCTED)
+  assignedToId     String?           @map("assigned_to_id")
+  professionalName String            @default("") @map("professional_name")
+  professionalBody String            @default("") @map("professional_body")
+  registrationNo   String            @default("") @map("registration_no")
+  issuedOn         DateTime?         @map("issued_on") @db.Date
+  createdById      String            @map("created_by_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  asset            Asset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  worksheets       ValuationWorksheet[]
+  comparables      ValuationComparable[]
+  entries          ValuationEntry[]
+  documents        ValuationDocument[]
+  reports          ValuationReport[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, status])
+  @@index([companyId, assetId])
+  @@map("valuation_instructions")
+}
+
+/// One valuation method applied to an instruction, with its inputs and the calculated result.
+model ValuationWorksheet {
+  id            String               @id @default(uuid())
+  companyId     String               @map("company_id")
+  instructionId String               @map("instruction_id")
+  method        ValuationMethod
+  inputs        Json                 @default("{}")
+  resultKobo    BigInt?              @map("result_kobo")
+  lines         Json                 @default("[]")
+  warnings      Json                 @default("[]")
+  note          String               @default("")
+  calculatedAt  DateTime?            @map("calculated_at")
+  createdById   String               @map("created_by_id")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  instruction   ValuationInstruction @relation(fields: [instructionId], references: [id], onDelete: Cascade)
+
+  @@unique([instructionId, method])
+  @@index([companyId])
+  @@map("valuation_worksheets")
+}
+
+/// Market evidence: a sale, letting, listing or offer, with the adjustment and weight the professional applies.
+model ValuationComparable {
+  id             String               @id @default(uuid())
+  companyId      String               @map("company_id")
+  instructionId  String               @map("instruction_id")
+  kind           EvidenceKind         @default(SALE)
+  address        String
+  evidenceDate   DateTime             @map("evidence_date") @db.Date
+  priceKobo      BigInt               @map("price_kobo")
+  areaSqm100     Int                  @map("area_sqm100")
+  adjustmentBps  Int                  @default(0) @map("adjustment_bps")
+  adjustmentNote String               @default("") @map("adjustment_note")
+  weightBps      Int                  @default(10000) @map("weight_bps")
+  source         String               @default("")
+  verifiedById   String?              @map("verified_by_id")
+  verifiedAt     DateTime?            @map("verified_at")
+  createdById    String               @map("created_by_id")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  instruction    ValuationInstruction @relation(fields: [instructionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, instructionId])
+  @@map("valuation_comparables")
+}
+
+/// Premises, assumptions, special assumptions and limitations recorded for the valuation.
+model ValuationEntry {
+  id            String               @id @default(uuid())
+  companyId     String               @map("company_id")
+  instructionId String               @map("instruction_id")
+  kind          EntryKind
+  text          String
+  createdById   String               @map("created_by_id")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  instruction   ValuationInstruction @relation(fields: [instructionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, instructionId])
+  @@map("valuation_entries")
+}
+
+/// Supporting documents (title deeds, survey plans, evidence extracts). Contents live in stored_files.
+model ValuationDocument {
+  id            String               @id @default(uuid())
+  companyId     String               @map("company_id")
+  instructionId String               @map("instruction_id")
+  title         String
+  fileName      String               @map("file_name")
+  mimeType      String               @map("mime_type")
+  sizeBytes     Int                  @map("size_bytes")
+  storageKey    String               @unique @map("storage_key")
+  uploadedById  String               @map("uploaded_by_id")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  instruction   ValuationInstruction @relation(fields: [instructionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, instructionId])
+  @@map("valuation_documents")
+}
+
+/// A draft or approved report. When submitted, a snapshot of the worksheets and evidence is frozen with it.
+/// An approved report cannot change. A revision is a new version.
+model ValuationReport {
+  id                  String               @id @default(uuid())
+  companyId           String               @map("company_id")
+  instructionId       String               @map("instruction_id")
+  version             Int
+  status              ReportStatus         @default(DRAFT)
+  summary             String               @default("")
+  conclusion          String               @default("")
+  concludedValueKobo  BigInt?              @map("concluded_value_kobo")
+  reconciliationNote  String               @default("") @map("reconciliation_note")
+  aiAssisted          Boolean              @default(false) @map("ai_assisted")
+  aiNote              String               @default("") @map("ai_note")
+  snapshot            Json?
+  authorId            String               @map("author_id")
+  submittedAt         DateTime?            @map("submitted_at")
+  decidedById         String?              @map("decided_by_id")
+  decidedAt           DateTime?            @map("decided_at")
+  decisionNote        String               @default("") @map("decision_note")
+  reviewConfirmed     Boolean              @default(false) @map("review_confirmed")
+  supersededAt        DateTime?            @map("superseded_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  instruction         ValuationInstruction @relation(fields: [instructionId], references: [id], onDelete: Restrict)
+
+  @@unique([instructionId, version])
+  @@index([companyId, status])
+  @@map("valuation_reports")
 }

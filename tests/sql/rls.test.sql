@@ -416,5 +416,47 @@ SELECT pg_temp.expect((SELECT count(*) FROM inventory_items) = 0, 'B cannot see 
 SELECT pg_temp.expect((SELECT count(*) FROM inventory_movements) = 0, 'B cannot see A stock movements');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 19. Phase 7a: valuation records are isolated; evidence is bounded; an approved report is frozen.
+INSERT INTO valuation_instructions (id, company_id, ref, asset_id, client_name, purpose, instruction_date, created_by_id, updated_at)
+  SELECT 'vi-a', 'co-a', 'VAL-2026-0001', id, 'Client', 'SALE', '2026-01-01', 'u1', now() FROM assets WHERE company_id = 'co-a' LIMIT 1;
+INSERT INTO valuation_comparables (id, company_id, instruction_id, address, evidence_date, price_kobo, area_sqm100, created_by_id)
+  VALUES ('vc-a', 'co-a', 'vi-a', '1 Test Street', '2026-01-01', 5000000000, 20000, 'u1');
+DO $$ BEGIN
+  INSERT INTO valuation_comparables (id, company_id, instruction_id, address, evidence_date, price_kobo, area_sqm100, adjustment_bps, created_by_id)
+    VALUES ('vc-bad', 'co-a', 'vi-a', 'x', '2026-01-01', 1, 1, 6000, 'u1');
+  RAISE EXCEPTION 'FAIL: a 60 percent adjustment was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: adjustments are bounded'; END $$;
+DO $$ BEGIN
+  INSERT INTO valuation_comparables (id, company_id, instruction_id, address, evidence_date, price_kobo, area_sqm100, created_by_id)
+    VALUES ('vc-bad2', 'co-a', 'vi-a', 'x', '2026-01-01', 0, 1, 'u1');
+  RAISE EXCEPTION 'FAIL: a zero price was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: comparables need a price'; END $$;
+DO $$ BEGIN
+  INSERT INTO valuation_reports (id, company_id, instruction_id, version, status, author_id, decided_by_id, updated_at)
+    VALUES ('vr-bad', 'co-a', 'vi-a', 9, 'APPROVED', 'u1', 'u1', now());
+  RAISE EXCEPTION 'FAIL: self-approval of a report was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: the author cannot approve their own report'; END $$;
+INSERT INTO valuation_reports (id, company_id, instruction_id, version, status, concluded_value_kobo, author_id, decided_by_id, updated_at)
+  VALUES ('vr-a', 'co-a', 'vi-a', 1, 'APPROVED', 100, 'u1', 'u2', now());
+DO $$ BEGIN
+  UPDATE valuation_reports SET concluded_value_kobo = 999 WHERE id = 'vr-a';
+  RAISE EXCEPTION 'FAIL: an approved report was edited';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: approved reports are frozen'; END $$;
+DO $$ BEGIN
+  DELETE FROM valuation_reports WHERE id = 'vr-a';
+  RAISE EXCEPTION 'FAIL: an approved report was deleted';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: approved reports cannot be deleted'; END $$;
+UPDATE valuation_reports SET status = 'SUPERSEDED', superseded_at = now() WHERE id = 'vr-a';
+SELECT pg_temp.expect((SELECT status FROM valuation_reports WHERE id = 'vr-a') = 'SUPERSEDED', 'an approved report can be superseded');
+DO $$ BEGIN
+  UPDATE valuation_reports SET summary = 'changed' WHERE id = 'vr-a';
+  RAISE EXCEPTION 'FAIL: a superseded report was edited';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: superseded reports are frozen'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM valuation_instructions) = 0, 'B cannot see A valuations');
+SELECT pg_temp.expect((SELECT count(*) FROM valuation_comparables) = 0, 'B cannot see A comparables');
+SELECT pg_temp.expect((SELECT count(*) FROM valuation_reports) = 0, 'B cannot see A reports');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

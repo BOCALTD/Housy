@@ -131,6 +131,8 @@ async function main() {
   for (const prof of PROFILES) {
     const d = devices[prof.device];
     const context = await browsers[prof.engine].newContext({ ...d });
+    // tsx adds a __name helper to functions it compiles; the browser page does not have it.
+    await context.addInitScript("window.__name = (f) => f;");
     await context.addCookies([{ name: "sid", value: token, domain: "localhost", path: "/" }]);
     const touch = !!d.hasTouch;
     let pageCount = 0;

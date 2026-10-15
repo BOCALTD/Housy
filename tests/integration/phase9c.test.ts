@@ -21,7 +21,7 @@ import { addMember, newCompany, newPlatformAdmin, relativeDate } from "./helpers
 after(() => prisma.$disconnect());
 
 const uid = () => Math.random().toString(36).slice(2, 8);
-const DEFAULTS = { inviteExpiryDays: 14, messagesPerMinute: 20, newConversationsPerDay: 10, contactPolicy: "MASK" as const, reportMuteThreshold: 3 };
+const DEFAULTS = { inviteExpiryDays: 14, messagesPerMinute: 20, newConversationsPerDay: 10, contactPolicy: "MASK" as "MASK" | "BLOCK", reportMuteThreshold: 3 };
 async function withSettings<T>(admin: { id: string }, patch: Partial<typeof DEFAULTS>, fn: () => Promise<T>): Promise<T> {
   await saveSettings(admin.id, { ...DEFAULTS, ...patch });
   try { return await fn(); } finally { await saveSettings(admin.id, DEFAULTS); }

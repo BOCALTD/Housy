@@ -14,8 +14,8 @@ export async function savePlanAction(form: FormData) {
     const id = optStr(form, "id") ?? null;
     const plan = await savePlan(admin.id, id, {
       code: str(form, "code"), name: str(form, "name"), audience: str(form, "audience") as never, price: str(form, "price"),
-      billingPeriod: str(form, "billingPeriod") as never, trialDays: str(form, "trialDays"), graceDays: str(form, "graceDays"), readOnlyDays: str(form, "readOnlyDays"),
-      active: str(form, "active") === "on", sortOrder: str(form, "sortOrder") || "100",
+      billingPeriod: str(form, "billingPeriod") as never, trialDays: str(form, "trialDays") as never, graceDays: str(form, "graceDays") as never, readOnlyDays: str(form, "readOnlyDays") as never,
+      active: str(form, "active") === "on", sortOrder: (str(form, "sortOrder") || "100") as never,
     });
     await setPlanEntitlements(admin.id, plan.id, ENTITLEMENT_KEYS.map((key) => ({ key, enabled: str(form, `on_${key}`) === "on", limit: str(form, `limit_${key}`) })));
     return withNotice(BACK, "Plan saved.");
@@ -50,8 +50,8 @@ export async function settingsAction(form: FormData) {
   return act(BACK, async () => {
     const admin = await requirePlatformAdmin();
     await saveSettings(admin.id, {
-      inviteExpiryDays: str(form, "inviteExpiryDays"), messagesPerMinute: str(form, "messagesPerMinute"), newConversationsPerDay: str(form, "newConversationsPerDay"),
-      contactPolicy: str(form, "contactPolicy") as never, reportMuteThreshold: str(form, "reportMuteThreshold"),
+      inviteExpiryDays: str(form, "inviteExpiryDays") as never, messagesPerMinute: str(form, "messagesPerMinute") as never, newConversationsPerDay: str(form, "newConversationsPerDay") as never,
+      contactPolicy: str(form, "contactPolicy") as never, reportMuteThreshold: str(form, "reportMuteThreshold") as never,
     });
     return withNotice(BACK, "Settings saved.");
   });

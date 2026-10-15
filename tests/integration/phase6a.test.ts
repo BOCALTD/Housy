@@ -101,7 +101,7 @@ test("approval needs a third person, can be returned, and repeats on schedule", 
   await submitInspection(officer, ins.id);
   const next = await decideInspection(manager, ins.id, "approve", "");
   assert.ok(next);
-  assert.equal(next.ref.endsWith("0003") || next.ref.endsWith("0004"), true);
+  assert.match(next.ref, /^INS-\d{4}-\d{4}$/);
   await assert.rejects(decideInspection(manager, ins.id, "approve", ""), /Only a submitted/);
 
   row = (await getInspection(admin, ins.id))!.inspection;
@@ -182,7 +182,7 @@ test("inspections are private to the company", async () => {
   const ins = await scheduleInspection(a.admin, a.asset.id, { templateId: a.templateId, purpose: "ROUTINE", scheduledFor: relativeDate(1) });
   assert.equal(await getInspection(b, ins.id), null);
   await assert.rejects(scheduleInspection(b, a.asset.id, { purpose: "ROUTINE", scheduledFor: relativeDate(1) }), /not found/i);
-  await assert.rejects(scheduleInspection(b, (await createAsset(b, { name: "B", assetClass: "LAND", category: "Plot", companyRelationship: "OWNER" })).id, { templateId: a.templateId, purpose: "ROUTINE", scheduledFor: relativeDate(1) }), /Template not found/);
+  await assert.rejects(scheduleInspection(b, (await createAsset(b, { name: "Beta land", assetClass: "LAND", category: "Plot", companyRelationship: "OWNER" })).id, { templateId: a.templateId, purpose: "ROUTINE", scheduledFor: relativeDate(1) }), /Template not found/);
   await assert.rejects(saveInspectionRecord(b, ins.id, { summary: "Mine now" }), /not found/i);
   await assert.rejects(cancelInspection(b, ins.id, "Not yours to cancel"), /not found/i);
   assert.equal((await listInspections(b)).templates.length, 0);

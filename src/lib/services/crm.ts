@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { parseDateOnly, todayInLagos } from "../dates";
@@ -34,7 +35,7 @@ export async function visibleOwners(tx: Tx, ctx: Ctx): Promise<string[] | null> 
   return [...new Set([ctx.membershipId, ...members.map((m) => m.id)])];
 }
 
-export function clientVisibleWhere(ctx: Ctx, owners: string[] | null) {
+export function clientVisibleWhere(ctx: Ctx, owners: string[] | null): Prisma.ClientWhereInput {
   if (owners === null) return {};
   // A lead given to you also gives you its client, even a confidential one: a manager chose to hand it over.
   return { OR: [{ ownerId: ctx.membershipId }, { ownerId: { in: owners }, confidential: false }, { leads: { some: { ownerId: ctx.membershipId } } }] };
@@ -321,7 +322,7 @@ export async function listClients(ctx: Ctx, opts: { q?: string; mine?: boolean; 
     const rows = await tx.client.findMany({
       where: {
         companyId: ctx.companyId, archivedAt: opts.archived ? { not: null } : null, ...(opts.mine ? { ownerId: ctx.membershipId } : {}),
-        AND: [clientVisibleWhere(ctx, owners), q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { ref: { contains: q, mode: "insensitive" } }, { emailNorm: { contains: q.toLowerCase() } }, ...(qn.length >= 4 ? [{ phoneNorm: { contains: qn } }] : [])] } : {}],
+        AND: [clientVisibleWhere(ctx, owners), q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { ref: { contains: q, mode: "insensitive" } }, { emailNorm: { contains: q.toLowerCase() } }, ...(qn.length >= 4 ? [{ phoneNorm: { contains: qn } }] : [])] } as Prisma.ClientWhereInput : {}],
       },
       orderBy: { createdAt: "desc" }, take: 200, include: { _count: { select: { leads: true } } },
     });

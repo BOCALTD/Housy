@@ -1,3 +1,4 @@
+import SaveDocument from "@/components/SaveDocument";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -6,7 +7,7 @@ import { listTeam } from "@/lib/services/companies";
 import { allowedActions, isOverdue, STATUS_LABELS, type CorrStatus } from "@/lib/correspondence-rules";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { can } from "@/lib/permissions";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { attachAction, noteAction, submitDraftAction, workflowAction } from "../actions";
 
 export const metadata = { title: "Correspondence" };
@@ -182,16 +183,14 @@ export default async function CorrespondenceDetail({ params, searchParams }: { p
 
           <section className="card" aria-labelledby="hist-h">
             <h2 id="hist-h">History and notes</h2>
-            <ul className="timeline">
-              {rec.actions.map((a) => (
+            <ShowMore noun="more" limit={5} items={rec.actions.map((a) => (
                 <li key={a.id}>
                   <div>
                     <div className="small"><strong>{KIND_LABELS[a.kind] ?? a.kind}</strong>{a.note ? `: ${a.note}` : ""}</div>
                     <div className="small muted">{names[a.actorId] ?? "Former member"} · {formatDateTime(a.createdAt)}</div>
                   </div>
                 </li>
-              ))}
-            </ul>
+              ))} />
             <form action={noteAction} className="row" style={{ marginTop: 12 }}>
               <input type="hidden" name="id" value={rec.id} />
               <input name="note" placeholder="Add a note" aria-label="Note" required
@@ -229,11 +228,9 @@ export default async function CorrespondenceDetail({ params, searchParams }: { p
           <section className="card">
             <h2>Attachments</h2>
             {rec.attachments.length === 0 ? <p className="muted small">No attachments.</p> : (
-              <ul className="timeline">
-                {rec.attachments.map((a) => (
-                  <li key={a.id}><div><a href={`/app/correspondence/attachments/${a.id}`}>{a.title}</a><div className="small muted">{(a.sizeBytes / 1024).toFixed(0)} KB · {formatDateTime(a.createdAt)}</div></div></li>
-                ))}
-              </ul>
+              <ShowMore noun="more" limit={5} items={rec.attachments.map((a) => (
+                  <li key={a.id}><div><a href={`/app/correspondence/attachments/${a.id}`}>{a.title}</a><div className="small muted">{(a.sizeBytes / 1024).toFixed(0)} KB · {formatDateTime(a.createdAt)}</div><SaveDocument url={`/app/correspondence/attachments/${a.id}`} fallbackName={a.title} /></div></li>
+                ))} />
             )}
             {can(member.role, "correspondence.register") ? (
               <details className="inline" style={{ marginTop: 12 }}>

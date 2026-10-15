@@ -4,7 +4,7 @@ import { listInspections, PURPOSES } from "@/lib/services/inspections";
 import { formatDate, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { scheduleInspectionAction } from "./actions";
 
 export const metadata = { title: "Inspections" };
@@ -24,7 +24,7 @@ export default async function InspectionsPage({ searchParams }: { searchParams?:
     </li>
   );
   const block = (title: string, items: typeof d.overdue, empty: string) => (
-    <section className="card"><h2>{title}</h2>{items.length === 0 ? <p className="muted small">{empty}</p> : <ul className="timeline">{items.map(row)}</ul>}</section>
+    <section className="card"><h2>{title}</h2>{items.length === 0 ? <p className="muted small">{empty}</p> : <ShowMore noun="more" limit={5} items={items.map(row)} />}</section>
   );
   const todayText = toDateOnlyString(d.today);
 
@@ -44,11 +44,9 @@ export default async function InspectionsPage({ searchParams }: { searchParams?:
       <section className="card">
         <h2>Recently closed</h2>
         {d.recent.length === 0 ? <p className="muted small">None yet.</p> : (
-          <ul className="timeline">
-            {d.recent.map((i) => (
+          <ShowMore noun="more inspections" limit={5} items={d.recent.map((i) => (
               <li key={i.id}><div><Link href={`/app/inspections/${i.id}`}>{i.ref}</Link> · {i.asset.name}<div className="small muted">{humanize(i.purpose)} · {i.conductedOn ? formatDate(i.conductedOn) : formatDate(i.scheduledFor)}{i.conditionRating ? ` · ${humanize(i.conditionRating)}` : ""} · {humanize(i.status)}</div></div></li>
-            ))}
-          </ul>
+            ))} />
         )}
       </section>
       {can(member.role, "inspection.manage") ? (

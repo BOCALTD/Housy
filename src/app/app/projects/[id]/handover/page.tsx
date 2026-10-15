@@ -1,3 +1,4 @@
+import SaveDocument from "@/components/SaveDocument";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -188,7 +189,7 @@ export default async function HandoverPage({ params, searchParams }: { params: {
           {d.documents.length === 0 ? <p className="muted">No documents yet.</p> : (
             <ShowMore noun="more documents" limit={5} items={d.documents.map((x) => (
               <li key={x.id}><div className="row between" style={{ width: "100%" }}>
-                <div><a href={`/app/project-docs/${x.id}`}>{x.title}</a><div className="small muted">{humanize(x.kind)} · {x.fileName} · {formatDate(x.createdAt)} · {who(x.uploadedById)}</div></div>
+                <div><a href={`/app/project-docs/${x.id}`}>{x.title}</a><div className="small muted">{humanize(x.kind)} · {x.fileName} · {formatDate(x.createdAt)} · {who(x.uploadedById)}</div><SaveDocument url={`/app/project-docs/${x.id}`} fallbackName={x.fileName} /></div>
               </div></li>
             ))} />
           )}

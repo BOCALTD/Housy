@@ -4,7 +4,7 @@ import { correspondenceSummary, listCorrespondence } from "@/lib/services/corres
 import { isOverdue, STATUS_LABELS, type CorrStatus } from "@/lib/correspondence-rules";
 import { formatDate, todayInLagos } from "@/lib/dates";
 import { can } from "@/lib/permissions";
-import { Flash, Pill, sp, type SP } from "@/components/ui";
+import { Flash, Pill, TableMore, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Correspondence" };
 
@@ -66,10 +66,7 @@ export default async function CorrespondencePage({ searchParams }: { searchParam
         {items.length === 0 ? (
           <p className="muted" style={{ padding: 20 }}>{q || view || direction ? "Nothing matches this view." : "No correspondence registered yet."}</p>
         ) : (
-          <table>
-            <thead><tr><th>Reference</th><th>Subject</th><th>From / to</th><th>Assigned</th><th>Deadline</th><th>Status</th></tr></thead>
-            <tbody>
-              {items.map((c) => {
+          <TableMore limit={12} noun="more rows" head={<tr><th>Reference</th><th>Subject</th><th>From / to</th><th>Assigned</th><th>Deadline</th><th>Status</th></tr>} rows={items.map((c) => {
                 const overdue = isOverdue(c.status as CorrStatus, c.responseDeadline, today);
                 return (
                   <tr key={c.id}>
@@ -87,9 +84,7 @@ export default async function CorrespondencePage({ searchParams }: { searchParam
                     <td><Pill status={c.status} label={STATUS_LABELS[c.status as CorrStatus]} /></td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
+              })} />
         )}
       </div>
     </div>

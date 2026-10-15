@@ -6,7 +6,7 @@ import { varianceOf } from "@/lib/inventory-rules";
 import { formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { cancelCountAction, decideCountAction, saveCountAction, submitCountAction } from "../../actions";
 
 export const metadata = { title: "Count sheet" };
@@ -40,10 +40,7 @@ export default async function CountPage({ params, searchParams }: { params: { id
         {hidden}
         <h2>Count sheet</h2>
         <div className="table-wrap">
-          <table>
-            <thead><tr><th>Item</th><th>Location</th><th className="r">Books say</th><th className="r">Counted</th><th className="r">Difference</th><th>Note</th></tr></thead>
-            <tbody>
-              {count.lines.map((l) => {
+          <TableMore limit={12} noun="more rows" head={<tr><th>Item</th><th>Location</th><th className="r">Books say</th><th className="r">Counted</th><th className="r">Difference</th><th>Note</th></tr>} rows={count.lines.map((l) => {
                 const v = varianceOf(l.expectedQty, l.countedQty);
                 return (
                   <tr key={l.id}>
@@ -57,9 +54,7 @@ export default async function CountPage({ params, searchParams }: { params: { id
                     <td>{open && counter ? <input name={`note:${l.id}`} defaultValue={l.note} aria-label={`Note for ${l.item.name}`} style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "6px 8px", background: "var(--surface)" }} /> : <span className="small">{l.note}</span>}</td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
+              })} />
         </div>
         {open && counter ? <div><button className="btn primary" type="submit">Save counts</button></div> : null}
       </form>
@@ -76,7 +71,7 @@ export default async function CountPage({ params, searchParams }: { params: { id
         <section className="card stack">
           <h2>Variance report</h2>
           {variances.length === 0 ? <p>The count agrees with the books.</p> : (
-            <ul className="timeline">{variances.map((l) => <li key={l.id}><div>{l.item.itemNo} {l.item.name}: books {l.expectedQty}, counted {l.countedQty} ({(l.countedQty ?? 0) - l.expectedQty > 0 ? "+" : ""}{(l.countedQty ?? 0) - l.expectedQty}){l.note ? ` · ${l.note}` : ""}</div></li>)}</ul>
+            <ShowMore noun="more" limit={5} items={variances.map((l) => <li key={l.id}><div>{l.item.itemNo} {l.item.name}: books {l.expectedQty}, counted {l.countedQty} ({(l.countedQty ?? 0) - l.expectedQty > 0 ? "+" : ""}{(l.countedQty ?? 0) - l.expectedQty}){l.note ? ` · ${l.note}` : ""}</div></li>)} />
           )}
           {mayDecide ? (
             <div className="row">

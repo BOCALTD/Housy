@@ -7,6 +7,7 @@ import { TASK_KINDS, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/services/tasks
 import { PURPOSES } from "@/lib/services/listings";
 import { listTeam } from "@/lib/services/companies";
 import { conditionHistory } from "@/lib/services/inspections";
+import SaveDocument from "@/components/SaveDocument";
 import { assetMaintenance } from "@/lib/services/maintenance";
 import { assetProjectHistory } from "@/lib/services/project-handover";
 import { formatKobo } from "@/lib/money";
@@ -14,7 +15,7 @@ import { chargeState, outstandingOf } from "@/lib/rent";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import {
   addPartyAction, createLeaseAction, createTaskAction, listingStatusAction, recordPaymentAction,
   saveListingAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
@@ -89,10 +90,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                       </div>
                     </div>
                     <div className="table-wrap">
-                      <table>
-                        <thead><tr><th>Due</th><th className="r">Amount</th><th className="r">Paid</th><th>Status</th><th></th></tr></thead>
-                        <tbody>
-                          {l.charges.map((c) => {
+                      <TableMore limit={12} noun="more rows" head={<tr><th>Due</th><th className="r">Amount</th><th className="r">Paid</th><th>Status</th><th></th></tr>} rows={l.charges.map((c) => {
                             const state = chargeState(c, today, l.graceDays);
                             return (
                               <tr key={c.id}>
@@ -119,9 +117,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                                 </td>
                               </tr>
                             );
-                          })}
-                        </tbody>
-                      </table>
+                          })} />
                     </div>
                   </div>
                 );
@@ -169,16 +165,14 @@ export default async function AssetPage({ params, searchParams }: { params: { id
               <Link className="small" href={`/app/inspections?assetId=${asset.id}`}>Inspections</Link>
             </div>
             {condition.length === 0 ? <p className="muted">No approved inspections yet.</p> : (
-              <ul className="timeline">
-                {[...condition].reverse().map((c) => (
+              <ShowMore noun="earlier inspections" limit={4} items={[...condition].reverse().map((c) => (
                   <li key={c.id}>
                     <div>
                       <div><Link href={`/app/inspections/${c.id}`}>{humanize(c.rating)}</Link> · {humanize(c.purpose)}{c.change !== null && c.change !== 0 ? ` · ${c.change > 0 ? "worse" : "better"} than the one before` : ""}</div>
                       <div className="small muted">{c.conductedOn ? formatDate(c.conductedOn) : "—"} · {c.ref}{c.summary ? ` · ${c.summary.slice(0, 120)}` : ""}</div>
                     </div>
                   </li>
-                ))}
-              </ul>
+                ))} />
             )}
           </section>
 
@@ -191,11 +185,9 @@ export default async function AssetPage({ params, searchParams }: { params: { id
             {upkeep.rows.length === 0 ? <p className="muted">No work orders for this asset.</p> : (
               <>
                 {upkeep.downtimeDays > 0 ? <p className="small muted">Recorded downtime: {upkeep.downtimeDays} day{upkeep.downtimeDays === 1 ? "" : "s"}</p> : null}
-                <ul className="timeline">
-                  {upkeep.rows.map((w) => (
+                <ShowMore noun="more" limit={5} items={upkeep.rows.map((w) => (
                     <li key={w.id}><div><Link href={`/app/maintenance/${w.id}`}>{w.ref}</Link> · {w.title}<div className="small muted">{humanize(w.status)} · {humanize(w.priority).toLowerCase()}{w.completedOn ? ` · done ${formatDate(w.completedOn)}` : ""}{w.actualCostKobo !== null ? ` · ${formatKobo(w.actualCostKobo)}` : ""}</div></div></li>
-                  ))}
-                </ul>
+                  ))} />
               </>
             )}
           </section>
@@ -371,8 +363,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
           <section className="card" aria-labelledby="parties-h">
             <h2 id="parties-h">Ownership and responsibility</h2>
             {asset.parties.length === 0 ? <p className="muted small">No owner, manager or custodian recorded yet.</p> : (
-              <ul className="timeline">
-                {asset.parties.map((p) => (
+              <ShowMore noun="more" limit={5} items={asset.parties.map((p) => (
                   <li key={p.id}>
                     <div>
                       <strong>{p.partyName}</strong>
@@ -380,8 +371,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                       {p.evidenceNote ? <div className="small">{p.evidenceNote}</div> : null}
                     </div>
                   </li>
-                ))}
-              </ul>
+                ))} />
             )}
             {can(member.role, "party.manage") ? (
               <details className="inline" style={{ marginTop: 12 }}>
@@ -403,19 +393,17 @@ export default async function AssetPage({ params, searchParams }: { params: { id
             <h2 id="docs-h">Documents</h2>
             <p className="small muted" style={{ marginBottom: 10 }}>Uploading a document records that it exists. It does not verify ownership.</p>
             {asset.documents.length === 0 ? <p className="muted small">No documents uploaded.</p> : (
-              <ul className="timeline">
-                {asset.documents.map((d) => (
+              <ShowMore noun="more" limit={5} items={asset.documents.map((d) => (
                   <li key={d.id}>
                     <div>
-                      {can(member.role, "document.download") ? <a href={`/app/documents/${d.id}`}>{d.title}</a> : <span>{d.title}</span>}
+                      {can(member.role, "document.download") ? <><a href={`/app/documents/${d.id}`}>{d.title}</a><SaveDocument url={`/app/documents/${d.id}`} fallbackName={d.title} /></> : <span>{d.title}</span>}
                       <div className="small muted">
                         {humanize(d.category)} · v{d.version} · {(d.sizeBytes / 1024).toFixed(0)} KB
                         {d.expiresOn ? ` · expires ${formatDate(d.expiresOn)}` : ""}
                       </div>
                     </div>
                   </li>
-                ))}
-              </ul>
+                ))} />
             )}
             {can(member.role, "document.upload") ? (
               <details className="inline" style={{ marginTop: 12 }}>
@@ -436,16 +424,14 @@ export default async function AssetPage({ params, searchParams }: { params: { id
           <section className="card" aria-labelledby="history-h">
             <h2 id="history-h">History</h2>
             {history.length === 0 ? <p className="muted small">No activity yet.</p> : (
-              <ul className="timeline">
-                {history.map((h) => (
+              <ShowMore noun="more" limit={5} items={history.map((h) => (
                   <li key={h.id}>
                     <div>
                       <div className="small">{humanize(h.action.replace(".", " "))}</div>
                       <div className="small muted">{h.actorId ? actorNames[h.actorId] ?? "Unknown user" : "Public visitor"} · {formatDateTime(h.createdAt)}</div>
                     </div>
                   </li>
-                ))}
-              </ul>
+                ))} />
             )}
           </section>
         </div>

@@ -3,7 +3,7 @@ import { requireMember } from "@/lib/auth";
 import { listTeam } from "@/lib/services/companies";
 import { ALL_ROLES, ROLE_LABELS, type Role } from "@/lib/permissions";
 import { formatDate } from "@/lib/dates";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { inviteAction, updateMemberAction } from "./actions";
 
 export const metadata = { title: "Team" };
@@ -31,10 +31,7 @@ export default async function TeamPage({ searchParams }: { searchParams?: SP }) 
       <div className="two">
         <section className="card table-wrap">
           <h2>Members</h2>
-          <table>
-            <thead><tr><th>Name</th><th>Role and status</th><th></th></tr></thead>
-            <tbody>
-              {members.map((m) => (
+          <TableMore limit={12} noun="more rows" head={<tr><th>Name</th><th>Role and status</th><th></th></tr>} rows={members.map((m) => (
                 <tr key={m.id}>
                   <td><strong>{m.user.name}</strong><div className="small muted">{m.user.email}</div></td>
                   <td>
@@ -56,9 +53,7 @@ export default async function TeamPage({ searchParams }: { searchParams?: SP }) 
                   </td>
                   <td><Pill status={m.status} /></td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              ))} />
         </section>
 
         <div className="stack-lg">
@@ -77,11 +72,9 @@ export default async function TeamPage({ searchParams }: { searchParams?: SP }) 
           {invitations.length > 0 ? (
             <section className="card">
               <h2>Pending invitations</h2>
-              <ul className="timeline">
-                {invitations.map((i) => (
+              <ShowMore noun="more" limit={5} items={invitations.map((i) => (
                   <li key={i.id}><div>{i.email}<div className="small muted">{ROLE_LABELS[i.role as Role]} · expires {formatDate(i.expiresAt)}</div></div></li>
-                ))}
-              </ul>
+                ))} />
             </section>
           ) : null}
         </div>

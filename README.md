@@ -163,7 +163,8 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - Phase 7: the worksheets are calculation aids for a professional. The platform applies no valuation standard, rate or legal rule, and a valuation is not an opinion of value until a professional has approved it.
 - Phase 7: stock issued to a project is shown for information and is not added to the project's cost figures. Only approved commitments and invoices count as cost.
 - Phase 7: invoice payment is a record that someone marked an invoice paid. No payment is made by the platform.
-- Phase 7: older list pages (for example inventory and maintenance) have not yet been changed to fold long lists.
+- Layout: long lists and tables show the first few rows and fold the rest behind "Show more". Forms that span folded rows still submit every row.
+- Saving documents: every document and the rent CSV has "Save or share". Download always works. On phones and tablets "Send to another app" opens the system share sheet (Files, iCloud Drive, Google Drive, Dropbox, OneDrive and others). "Save to Google Drive" appears when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set to a Google OAuth web client ID (Google Cloud Console, APIs and services, enable the Drive API, create an OAuth client for a web application, and add your site as an authorised JavaScript origin). It asks only for the `drive.file` scope, so it can touch only files it creates. Dropbox and OneDrive direct buttons are not built; use "Send to another app" on a phone or Download on a computer.
 
 **Deferred to later phases:**
 - **Email and notifications:** no email sending yet. Invitation links are shown once to the administrator to share.

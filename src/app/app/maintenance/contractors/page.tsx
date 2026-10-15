@@ -3,7 +3,7 @@ import { requireMember } from "@/lib/auth";
 import { contractorSummary } from "@/lib/services/maintenance";
 import { formatKobo } from "@/lib/money";
 import { can } from "@/lib/permissions";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { createContractorAction, toggleContractorAction } from "../actions";
 
 export const metadata = { title: "Contractors" };
@@ -22,8 +22,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams?:
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <section className="card">
         {rows.length === 0 ? <p className="muted">No contractors yet.</p> : (
-          <ul className="timeline">
-            {rows.map((c) => (
+          <ShowMore noun="more" limit={5} items={rows.map((c) => (
               <li key={c.id}>
                 <div className="row between" style={{ width: "100%" }}>
                   <div>
@@ -37,8 +36,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams?:
                   </div>
                 </div>
               </li>
-            ))}
-          </ul>
+            ))} />
         )}
       </section>
       {manage ? (

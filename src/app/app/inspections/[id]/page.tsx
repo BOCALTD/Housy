@@ -6,7 +6,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { reportWorkOrderAction } from "../../maintenance/actions";
 import {
   addFindingAction, addPhotoAction, approveInspectionAction, cancelInspectionAction, returnInspectionAction,
@@ -90,18 +90,13 @@ export default async function InspectionPage({ params, searchParams }: { params:
           </div>
           {ins.responses.length > 0 ? (
             <div className="table-wrap">
-              <table>
-                <thead><tr><th>Area</th><th>Check</th><th>Result</th><th>Note</th></tr></thead>
-                <tbody>
-                  {ins.responses.map((r) => (
+              <TableMore limit={12} noun="more rows" head={<tr><th>Area</th><th>Check</th><th>Result</th><th>Note</th></tr>} rows={ins.responses.map((r) => (
                     <tr key={r.id}>
                       <td>{r.category}</td><td>{r.prompt}</td>
                       <td><select name={`result:${r.id}`} defaultValue={r.result} aria-label={`Result for ${r.prompt}`} style={input}><EnumOptions values={CHECK_RESULTS} /></select></td>
                       <td><input name={`note:${r.id}`} defaultValue={r.note} aria-label={`Note for ${r.prompt}`} style={{ ...input, width: "100%" }} /></td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  ))} />
             </div>
           ) : <p className="muted small">This inspection has no checklist. Use the summary and findings.</p>}
           <div className="fields">
@@ -127,10 +122,7 @@ export default async function InspectionPage({ params, searchParams }: { params:
           </p>
           {ins.responses.length > 0 ? (
             <div className="table-wrap">
-              <table>
-                <thead><tr><th>Area</th><th>Check</th><th>Result</th><th>Note</th></tr></thead>
-                <tbody>{ins.responses.map((r) => <tr key={r.id}><td>{r.category}</td><td>{r.prompt}</td><td>{humanize(r.result)}</td><td>{r.note || "—"}</td></tr>)}</tbody>
-              </table>
+              <TableMore limit={12} noun="more rows" head={<tr><th>Area</th><th>Check</th><th>Result</th><th>Note</th></tr>} rows={ins.responses.map((r) => <tr key={r.id}><td>{r.category}</td><td>{r.prompt}</td><td>{humanize(r.result)}</td><td>{r.note || "—"}</td></tr>)} />
             </div>
           ) : null}
           <div className="fields">
@@ -147,8 +139,7 @@ export default async function InspectionPage({ params, searchParams }: { params:
       <section className="card stack" aria-labelledby="find-h">
         <h2 id="find-h">Findings</h2>
         {ins.findings.length === 0 ? <p className="muted small">No defects or observations recorded.</p> : (
-          <ul className="timeline">
-            {ins.findings.map((f) => (
+          <ShowMore noun="more" limit={5} items={ins.findings.map((f) => (
               <li key={f.id}>
                 <div className="stack" style={{ gap: 6 }}>
                   <div>
@@ -182,8 +173,7 @@ export default async function InspectionPage({ params, searchParams }: { params:
                   ) : null}
                 </div>
               </li>
-            ))}
-          </ul>
+            ))} />
         )}
         {canRecord ? (
           <details className="inline">
@@ -250,11 +240,9 @@ export default async function InspectionPage({ params, searchParams }: { params:
 
       <section className="card" aria-labelledby="hist-h">
         <h2 id="hist-h">History</h2>
-        <ul className="timeline">
-          {history.map((h) => (
+        <ShowMore noun="more" limit={5} items={history.map((h) => (
             <li key={h.id}><div><div>{humanize(h.action.replace(/[._]/g, " "))}</div><div className="small muted">{formatDateTime(h.createdAt)} · {who(h.actorId)}</div></div></li>
-          ))}
-        </ul>
+          ))} />
       </section>
     </div>
   );

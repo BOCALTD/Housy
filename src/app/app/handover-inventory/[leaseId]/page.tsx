@@ -5,7 +5,7 @@ import { CONDITIONS, getHandoverInventory } from "@/lib/services/inventory";
 import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, TableMore, sp, type SP } from "@/components/ui";
 import { acknowledgeAction, addLineAction, addLinePhotoAction, createScheduleAction, removeLineAction } from "../../inventory/actions";
 
 export const metadata = { title: "Handover inventory" };
@@ -43,10 +43,7 @@ export default async function HandoverInventoryPage({ params, searchParams }: { 
             <>
               {schedule.lines.length === 0 ? <p className="muted">No items yet.</p> : (
                 <div className="table-wrap">
-                  <table>
-                    <thead><tr><th>Room</th><th>Item</th><th className="r">Qty</th><th>Condition</th><th>Notes</th><th>Photographs</th>{schedule.status === "DRAFT" && record ? <th><span className="visually-hidden">Actions</span></th> : null}</tr></thead>
-                    <tbody>
-                      {schedule.lines.map((l) => {
+                  <TableMore limit={12} noun="more rows" head={<tr><th>Room</th><th>Item</th><th className="r">Qty</th><th>Condition</th><th>Notes</th><th>Photographs</th>{schedule.status === "DRAFT" && record ? <th><span className="visually-hidden">Actions</span></th> : null}</tr>} rows={schedule.lines.map((l) => {
                         const photos = d.photos.filter((p) => p.subjectId === l.id);
                         return (
                           <tr key={l.id}>
@@ -74,9 +71,7 @@ export default async function HandoverInventoryPage({ params, searchParams }: { 
                             ) : null}
                           </tr>
                         );
-                      })}
-                    </tbody>
-                  </table>
+                      })} />
                 </div>
               )}
               {schedule.status === "DRAFT" && record ? (
@@ -122,19 +117,14 @@ export default async function HandoverInventoryPage({ params, searchParams }: { 
           <h2 id="cmp-h">Move-in compared with move-out</h2>
           {d.comparison.filter((c) => c.kind !== "SAME").length === 0 ? <p>Nothing has changed since move-in.</p> : null}
           <div className="table-wrap">
-            <table>
-              <thead><tr><th>Room</th><th>Item</th><th>Move-in</th><th>Move-out</th><th>Result</th></tr></thead>
-              <tbody>
-                {d.comparison.map((c, i) => (
+            <TableMore limit={12} noun="more rows" head={<tr><th>Room</th><th>Item</th><th>Move-in</th><th>Move-out</th><th>Result</th></tr>} rows={d.comparison.map((c, i) => (
                   <tr key={i}>
                     <td>{c.room}</td><td>{c.description}</td>
                     <td>{c.before ? `${c.before.quantity} · ${humanize(c.before.condition)}` : "—"}</td>
                     <td>{c.after ? `${c.after.quantity} · ${humanize(c.after.condition)}` : "—"}</td>
                     <td>{c.kind === "SAME" ? KIND_TEXT.SAME : <strong>{KIND_TEXT[c.kind]}</strong>}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                ))} />
           </div>
           <p className="small muted">This comparison is a record of differences for people to review. It does not decide any deduction from the deposit.</p>
         </section>

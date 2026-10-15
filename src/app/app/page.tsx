@@ -9,7 +9,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { Flash, sp, type SP } from "@/components/ui";
+import { Flash, ShowMore, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Dashboard" };
 
@@ -108,16 +108,14 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           {d.recent.length === 0 ? (
             <p className="muted">Nothing yet. Register your first asset to get started.</p>
           ) : (
-            <ul className="timeline">
-              {d.recent.map((r) => (
+            <ShowMore noun="more" limit={5} items={d.recent.map((r) => (
                 <li key={r.id}>
                   <div>
                     <div>{humanize(r.action.replace(".", " "))}</div>
                     <div className="small muted">{formatDateTime(r.createdAt)}</div>
                   </div>
                 </li>
-              ))}
-            </ul>
+              ))} />
           )}
         </section>
         <section className="card">
@@ -125,16 +123,14 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           {d.expiring.length === 0 ? (
             <p className="muted">No leases end in the next 90 days.</p>
           ) : (
-            <ul className="timeline">
-              {d.expiring.map((l) => (
+            <ShowMore noun="more" limit={5} items={d.expiring.map((l) => (
                 <li key={l.id}>
                   <div>
                     <Link href={`/app/assets/${l.asset.id}`}>{l.asset.name}</Link>
                     <div className="small muted">{l.ref} · {l.occupantName} · ends {formatDate(l.endDate)}</div>
                   </div>
                 </li>
-              ))}
-            </ul>
+              ))} />
           )}
         </section>
       </div>

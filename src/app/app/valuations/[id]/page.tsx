@@ -1,3 +1,4 @@
+import SaveDocument from "@/components/SaveDocument";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -246,7 +247,7 @@ export default async function ValuationPage({ params, searchParams }: { params: 
       <section className="card stack" aria-labelledby="doc-h">
         <details className="inline"><summary id="doc-h"><strong>Supporting documents</strong> <span className="small muted">({documents.length})</span></summary>
         {documents.length === 0 ? <p className="muted">No documents attached.</p> : (
-          <ShowMore noun="more documents" items={documents.map((d) => <li key={d.id}><a href={`/app/valuation-docs/${d.id}`}>{d.title}</a><span className="small muted"> · {d.fileName} · {formatDate(d.createdAt)}</span></li>)} />
+          <ShowMore noun="more documents" items={documents.map((d) => <li key={d.id}><a href={`/app/valuation-docs/${d.id}`}>{d.title}</a><span className="small muted"> · {d.fileName} · {formatDate(d.createdAt)}</span><SaveDocument url={`/app/valuation-docs/${d.id}`} fallbackName={d.fileName} /></li>)} />
         )}
         {prepare ? (
           <form action={addDocumentAction} className="stack">

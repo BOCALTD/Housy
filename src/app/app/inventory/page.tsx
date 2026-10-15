@@ -4,7 +4,7 @@ import { CONDITIONS, INVENTORY_KINDS, listInventory } from "@/lib/services/inven
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { createItemAction, decideAdjustmentAction, lookupCodeAction } from "./actions";
 
 export const metadata = { title: "Inventory" };
@@ -45,8 +45,7 @@ export default async function InventoryPage({ searchParams }: { searchParams?: S
       {d.pending.length > 0 ? (
         <section className="card stack" aria-labelledby="pend-h">
           <h2 id="pend-h">Waiting for approval</h2>
-          <ul className="timeline">
-            {d.pending.map((p) => (
+          <ShowMore noun="more requests" limit={3} items={d.pending.map((p) => (
               <li key={p.id}>
                 <div className="stack" style={{ gap: 6, width: "100%" }}>
                   <div><Link href={`/app/inventory/${p.item.id}`}><strong>{p.item.itemNo}</strong></Link> · {p.item.name}: {humanize(p.kind)} {p.delta > 0 ? "+" : ""}{p.delta} {p.item.unit} (now {p.item.quantity})</div>
@@ -61,28 +60,21 @@ export default async function InventoryPage({ searchParams }: { searchParams?: S
                   ) : approve ? <p className="small muted">Someone else must approve a request you made.</p> : null}
                 </div>
               </li>
-            ))}
-          </ul>
+            ))} />
         </section>
       ) : null}
 
       {d.lowStock.length > 0 ? (
         <section className="card stack" aria-labelledby="low-h">
           <h2 id="low-h">Running low</h2>
-          <ul className="timeline">
-            {d.lowStock.map((i) => <li key={i.id}><div><Link href={`/app/inventory/${i.id}`}>{i.itemNo}</Link> · {i.name}: {i.quantity} {i.unit} left (reorder at {i.reorderLevel})</div></li>)}
-          </ul>
+          <ShowMore noun="more items" limit={5} items={d.lowStock.map((i) => <li key={i.id}><div><Link href={`/app/inventory/${i.id}`}>{i.itemNo}</Link> · {i.name}: {i.quantity} {i.unit} left (reorder at {i.reorderLevel})</div></li>)} />
         </section>
       ) : null}
 
       <section className="card stack" aria-labelledby="list-h">
         <h2 id="list-h">Items</h2>
         {d.items.length === 0 ? <p className="muted">{q || assetId ? "Nothing matches." : "No items yet."}</p> : (
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>No.</th><th>Item</th><th>Type</th><th>Asset</th><th>Location</th><th className="r">Quantity</th><th>Condition</th><th>Checked</th></tr></thead>
-              <tbody>
-                {d.items.map((i) => (
+          <TableMore limit={15} noun="more items" head={<tr><th>No.</th><th>Item</th><th>Type</th><th>Asset</th><th>Location</th><th className="r">Quantity</th><th>Condition</th><th>Checked</th></tr>} rows={d.items.map((i) => (
                   <tr key={i.id}>
                     <td className="mono"><Link href={`/app/inventory/${i.id}`}>{i.itemNo}</Link></td>
                     <td>{i.name}{i.status === "DISPOSED" ? <> <Pill status="CANCELLED" label="Disposed" /></> : null}</td>
@@ -93,10 +85,7 @@ export default async function InventoryPage({ searchParams }: { searchParams?: S
                     <td>{humanize(i.condition)}</td>
                     <td>{i.lastVerifiedOn ? formatDate(i.lastVerifiedOn) : "Never"}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))} />
         )}
       </section>
 

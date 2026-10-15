@@ -1,9 +1,10 @@
+import SaveDocument from "@/components/SaveDocument";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { rentReport } from "@/lib/services/reports";
 import { formatKobo } from "@/lib/money";
 import { formatDate, parseDateOnly, todayInLagos, toDateOnlyString } from "@/lib/dates";
-import { Field, Flash, sp, type SP } from "@/components/ui";
+import { Field, Flash, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Rent reports" };
 
@@ -39,7 +40,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: SP 
         <Field label="From"><input name="from" type="date" defaultValue={fromText} /></Field>
         <Field label="To"><input name="to" type="date" defaultValue={toText} /></Field>
         <button className="btn" type="submit">Update</button>
-        {report ? <a className="btn" href={`/app/reports/rent.csv?from=${fromText}&to=${toText}`}>Download CSV</a> : null}
+        {report ? <SaveDocument url={`/app/reports/rent.csv?from=${fromText}&to=${toText}`} fallbackName="rent-report.csv" label="Save or share the CSV" /> : null}
       </form>
 
       {report ? (
@@ -54,37 +55,28 @@ export default async function ReportsPage({ searchParams }: { searchParams?: SP 
           <section className="card table-wrap" aria-labelledby="prop-h">
             <h2 id="prop-h">By property</h2>
             {report.rows.length === 0 ? <p className="muted">No properties have leases yet.</p> : (
-              <table>
-                <thead><tr><th>Property</th><th>Active leases</th><th>Billed</th><th>Collected</th><th>Arrears today</th></tr></thead>
-                <tbody>
-                  {report.rows.map((r) => (
+              <TableMore limit={12} noun="more rows" head={<tr><th>Property</th><th>Active leases</th><th>Billed</th><th>Collected</th><th>Arrears today</th></tr>} rows={report.rows.map((r) => (
                     <tr key={r.assetId}>
                       <td><Link href={`/app/assets/${r.assetId}`}>{r.assetRef} · {r.assetName}</Link></td>
                       <td>{r.activeLeases}</td><td>{formatKobo(r.billedKobo)}</td><td>{formatKobo(r.collectedKobo)}</td><td>{formatKobo(r.arrearsKobo)}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  ))} />
             )}
           </section>
 
           <div className="two">
             <section className="card" aria-labelledby="age-h">
               <h2 id="age-h">Arrears by age</h2>
-              <ul className="timeline">
-                {report.ageing.map((a) => (
+              <ShowMore noun="more" limit={5} items={report.ageing.map((a) => (
                   <li key={a.bucket}><div>{a.bucket}: <strong>{formatKobo(a.kobo)}</strong> <span className="small muted">({a.charges} charge{a.charges === 1 ? "" : "s"})</span></div></li>
-                ))}
-              </ul>
+                ))} />
             </section>
             <section className="card" aria-labelledby="exp-h">
               <h2 id="exp-h">Leases ending in {report.leadDays} days</h2>
               {report.expiries.length === 0 ? <p className="muted">None, or they have already been renewed.</p> : (
-                <ul className="timeline">
-                  {report.expiries.map((e) => (
+                <ShowMore noun="more" limit={5} items={report.expiries.map((e) => (
                     <li key={e.leaseId}><div><Link href={`/app/leases/${e.leaseId}`}>{e.occupant}</Link><div className="small muted">{e.assetRef} · {e.assetName} · ends {formatDate(e.endDate)} ({e.days} day{e.days === 1 ? "" : "s"})</div></div></li>
-                  ))}
-                </ul>
+                  ))} />
               )}
             </section>
           </div>

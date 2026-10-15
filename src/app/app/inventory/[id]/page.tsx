@@ -6,7 +6,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { decideAdjustmentAction, movementAction, requestAdjustmentAction, updateItemAction, useOnWorkOrderAction } from "../actions";
 
 export const metadata = { title: "Inventory item" };
@@ -123,11 +123,9 @@ export default async function ItemPage({ params, searchParams }: { params: { id:
           </details>
         ) : null}
         {adjustments.filter((a) => a.status !== "PENDING").length > 0 ? (
-          <ul className="timeline">
-            {adjustments.filter((a) => a.status !== "PENDING").map((a) => (
+          <ShowMore noun="more adjustments" limit={4} items={adjustments.filter((a) => a.status !== "PENDING").map((a) => (
               <li key={a.id}><div>{humanize(a.kind)} {a.delta > 0 ? "+" : ""}{a.delta} · {humanize(a.status)}<div className="small muted">{a.reason} · asked by {who(a.requestedById)}, decided by {who(a.decidedById)}{a.decisionNote ? ` (${a.decisionNote})` : ""}</div></div></li>
-            ))}
-          </ul>
+            ))} />
         ) : null}
       </section>
 
@@ -135,10 +133,7 @@ export default async function ItemPage({ params, searchParams }: { params: { id:
         <h2 id="hist-h">Movement history</h2>
         {movements.length === 0 ? <p className="muted">No movements yet.</p> : (
           <div className="table-wrap">
-            <table>
-              <thead><tr><th>When</th><th>What</th><th className="r">Change</th><th className="r">Balance</th><th>Details</th><th>By</th></tr></thead>
-              <tbody>
-                {movements.map((m) => (
+            <TableMore limit={12} noun="more rows" head={<tr><th>When</th><th>What</th><th className="r">Change</th><th className="r">Balance</th><th>Details</th><th>By</th></tr>} rows={movements.map((m) => (
                   <tr key={m.id}>
                     <td>{formatDateTime(m.createdAt)}</td>
                     <td>{humanize(m.kind)}</td>
@@ -150,9 +145,7 @@ export default async function ItemPage({ params, searchParams }: { params: { id:
                     </td>
                     <td className="small">{who(m.performedById)}{m.approvedById ? `, approved by ${who(m.approvedById)}` : ""}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                ))} />
           </div>
         )}
       </section>

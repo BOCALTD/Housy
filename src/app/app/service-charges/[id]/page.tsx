@@ -8,7 +8,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import {
   approveExpenseAction, assessPeriodAction, recordCollectionAction, rejectExpenseAction, requestExpenseAction, reverseCollectionAction,
 } from "../actions";
@@ -61,16 +61,14 @@ export default async function ServicePeriodPage({ params, searchParams }: { para
             activeLeases.length === 0 ? <p className="muted">No active leases overlap this period, so there is nobody to share the charge between.</p> : (
               <form action={assessPeriodAction} className="stack">
                 {hidden}
-                <ul className="timeline">
-                  {activeLeases.map((l) => (
+                <ShowMore noun="more" limit={5} items={activeLeases.map((l) => (
                     <li key={l.id}>
                       <div className="row between" style={{ width: "100%" }}>
                         <div>{l.occupantName} <span className="small muted">{l.ref}{l.unit ? ` · ${l.unit}` : ""}{l.floorAreaSqm ? ` · ${l.floorAreaSqm} m²` : period.method === "FLOOR_AREA" ? " · floor area missing" : ""}</span></div>
                         {period.method === "FIXED" ? <input name={`fixed:${l.id}`} aria-label={`Fixed amount for ${l.occupantName}`} inputMode="decimal" placeholder="₦" style={{ width: 140 }} /> : null}
                       </div>
                     </li>
-                  ))}
-                </ul>
+                  ))} />
                 {period.method === "FIXED" ? <p className="small muted">The fixed amounts must add up to exactly {formatKobo(period.budgetKobo)}.</p> : null}
                 <Field label="Payment due on"><input name="dueDate" type="date" required /></Field>
                 <button className="btn primary" type="submit">Share the budget</button>
@@ -92,8 +90,7 @@ export default async function ServicePeriodPage({ params, searchParams }: { para
                     <div className="small">Share {formatKobo(a.amountKobo)} · paid {formatKobo(bal.collected)} · <strong>owes {formatKobo(bal.outstanding)}</strong></div>
                   </div>
                   {a.collections.length > 0 ? (
-                    <ul className="timeline">
-                      {a.collections.map((c) => (
+                    <ShowMore noun="more" limit={5} items={a.collections.map((c) => (
                         <li key={c.id}>
                           <div>
                             <div>{formatKobo(c.amountKobo)} on {formatDate(c.paidOn)} {c.reversal ? <Pill status="REVERSED" /> : null}</div>
@@ -110,8 +107,7 @@ export default async function ServicePeriodPage({ params, searchParams }: { para
                             ) : null}
                           </div>
                         </li>
-                      ))}
-                    </ul>
+                      ))} />
                   ) : null}
                   {bal.outstanding > 0n && can(member.role, "service.collect") ? (
                     <details className="inline">
@@ -140,8 +136,7 @@ export default async function ServicePeriodPage({ params, searchParams }: { para
       <section className="card" aria-labelledby="exp-h">
         <h2 id="exp-h">Expenses from the fund</h2>
         {period.expenses.length === 0 ? <p className="muted small">No expenses recorded.</p> : (
-          <ul className="timeline">
-            {period.expenses.map((e) => (
+          <ShowMore noun="more" limit={5} items={period.expenses.map((e) => (
               <li key={e.id}>
                 <div>
                   <div>{e.description} <strong>{formatKobo(e.amountKobo)}</strong> <Pill status={e.status} /></div>
@@ -158,8 +153,7 @@ export default async function ServicePeriodPage({ params, searchParams }: { para
                   ) : null}
                 </div>
               </li>
-            ))}
-          </ul>
+            ))} />
         )}
         {can(member.role, "service.expense") ? (
           <details className="inline" style={{ marginTop: 10 }}>

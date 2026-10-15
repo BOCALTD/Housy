@@ -8,7 +8,7 @@ import { ADJUSTMENT_KINDS, depositTotals, receiptStatus, type DepositKind } from
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import {
   approveAdjustmentAction, depositReceivedAction, reconcileReceiptAction, recordLeasePaymentAction,
   rejectAdjustmentAction, requestAdjustmentAction, reverseReceiptAction, settleDepositAction,
@@ -91,10 +91,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
               <span className="small muted">{lease.graceDays > 0 ? `${lease.graceDays} days' grace after each due date` : "No grace period"}</span>
             </div>
             <div className="table-wrap">
-              <table>
-                <thead><tr><th>Due</th><th className="r">Amount</th><th className="r">Adjusted</th><th className="r">Paid</th><th className="r">Outstanding</th><th>Status</th><th></th></tr></thead>
-                <tbody>
-                  {lease.charges.map((c) => {
+              <TableMore limit={12} noun="more rows" head={<tr><th>Due</th><th className="r">Amount</th><th className="r">Adjusted</th><th className="r">Paid</th><th className="r">Outstanding</th><th>Status</th><th></th></tr>} rows={lease.charges.map((c) => {
                     const state = chargeState(c, today, lease.graceDays);
                     return (
                       <tr key={c.id}>
@@ -128,9 +125,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
-              </table>
+                  })} />
             </div>
           </section>
 
@@ -276,16 +271,14 @@ export default async function LeasePage({ params, searchParams }: { params: { id
               Agreed {formatKobo(lease.depositKobo)} · received {formatKobo(deposit.received)} · deducted {formatKobo(deposit.deducted)} · refunded {formatKobo(deposit.refunded)}
             </p>
             {lease.depositEntries.length === 0 ? <p className="muted small">No deposit movements recorded.</p> : (
-              <ul className="timeline">
-                {lease.depositEntries.map((e) => (
+              <ShowMore noun="more" limit={5} items={lease.depositEntries.map((e) => (
                   <li key={e.id}>
                     <div>
                       <div>{humanize(e.kind)} <strong>{formatKobo(e.amountKobo)}</strong></div>
                       <div className="small muted">{formatDate(e.entryDate)} · {who(e.recordedById)}{e.reason ? ` · ${e.reason}` : ""}{e.evidence ? ` · ref ${e.evidence}` : ""}</div>
                     </div>
                   </li>
-                ))}
-              </ul>
+                ))} />
             )}
             {can(member.role, "deposit.manage") && lease.depositKobo > deposit.received ? (
               <details className="inline" style={{ marginTop: 12 }}>
@@ -325,8 +318,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
               <div>
                 <h3 className="small muted">Renewal</h3>
                 {lease.renewals.length === 0 ? <p className="muted small">No renewal proposed.</p> : (
-                  <ul className="timeline">
-                    {lease.renewals.map((r) => (
+                  <ShowMore noun="more" limit={5} items={lease.renewals.map((r) => (
                       <li key={r.id}>
                         <div>
                           <div>{formatDate(r.proposedStart)} to {formatDate(r.proposedEnd)} at <strong>{formatKobo(r.proposedRentKobo)}</strong> <Pill status={r.status} /></div>
@@ -343,8 +335,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
                           ) : null}
                         </div>
                       </li>
-                    ))}
-                  </ul>
+                    ))} />
                 )}
                 {can(member.role, "lease.manage") && lease.status === "ACTIVE" && !lease.renewedTo && !lease.renewals.some((r) => r.status === "PENDING") ? (
                   <details className="inline" style={{ marginTop: 8 }}>
@@ -367,8 +358,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
               <div>
                 <h3 className="small muted">Notices</h3>
                 {lease.notices.length === 0 ? <p className="muted small">No notices recorded.</p> : (
-                  <ul className="timeline">
-                    {lease.notices.map((n) => {
+                  <ShowMore noun="more" limit={5} items={lease.notices.map((n) => {
                       const adq = noticeAdequacy(n.givenOn, n.effectiveOn, lease.noticeDays);
                       return (
                         <li key={n.id}>
@@ -378,8 +368,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
                           </div>
                         </li>
                       );
-                    })}
-                  </ul>
+                    })} />
                 )}
                 {can(member.role, "lease.manage") && lease.status === "ACTIVE" ? (
                   <details className="inline" style={{ marginTop: 8 }}>
@@ -472,16 +461,14 @@ export default async function LeasePage({ params, searchParams }: { params: { id
           <section className="card" aria-labelledby="hist-h">
             <h2 id="hist-h">History</h2>
             {history.length === 0 ? <p className="muted small">No activity yet.</p> : (
-              <ul className="timeline">
-                {history.map((h) => (
+              <ShowMore noun="more" limit={5} items={history.map((h) => (
                   <li key={h.id}>
                     <div>
                       <div className="small">{humanize(h.action.replace(".", " "))}</div>
                       <div className="small muted">{h.actorId ? who(h.actorId) : "System"} · {formatDateTime(h.createdAt)}</div>
                     </div>
                   </li>
-                ))}
-              </ul>
+                ))} />
             )}
           </section>
         </div>

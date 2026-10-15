@@ -3,7 +3,7 @@ import { getSettings } from "@/lib/services/settings";
 import { listTeam } from "@/lib/services/companies";
 import { formatReference } from "@/lib/correspondence-rules";
 import { todayInLagos } from "@/lib/dates";
-import { Field, Flash, sp, type SP } from "@/components/ui";
+import { Field, Flash, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { departmentAction, memberDepartmentAction, prefixAction, reminderSettingsAction } from "./actions";
 
 export const metadata = { title: "Company settings" };
@@ -45,10 +45,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: SP
 
           <section className="card table-wrap">
             <h2>Member departments</h2>
-            <table>
-              <thead><tr><th>Member</th><th>Department</th></tr></thead>
-              <tbody>
-                {team.members.map((m) => (
+            <TableMore limit={12} noun="more rows" head={<tr><th>Member</th><th>Department</th></tr>} rows={team.members.map((m) => (
                   <tr key={m.id}>
                     <td>{m.user.name}<div className="small muted">{m.user.email}</div></td>
                     <td>
@@ -62,20 +59,16 @@ export default async function SettingsPage({ searchParams }: { searchParams?: SP
                       </form>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                ))} />
           </section>
         </div>
 
         <section className="card stack">
           <h2>Departments</h2>
           {departments.length === 0 ? <p className="muted small">No departments yet.</p> : (
-            <ul className="timeline">
-              {departments.map((d) => (
+            <ShowMore noun="more" limit={5} items={departments.map((d) => (
                 <li key={d.id}><div>{d.name} <span className="mono small muted">{d.code}</span><div className="small muted">{d._count.members} {d._count.members === 1 ? "member" : "members"}</div></div></li>
-              ))}
-            </ul>
+              ))} />
           )}
           <form action={departmentAction} className="stack">
             <Field label="Name"><input name="name" id="deptName" required placeholder="Legal" /></Field>

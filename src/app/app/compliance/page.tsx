@@ -5,7 +5,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { cancelObligationAction, completeObligationAction, createObligationAction, reviewObligationAction } from "./actions";
 
 export const metadata = { title: "Compliance calendar" };
@@ -46,8 +46,7 @@ export default async function CompliancePage({ searchParams }: { searchParams?: 
       <section className="card" aria-labelledby="cal-h">
         <h2 id="cal-h">Needs attention</h2>
         {urgent.length === 0 ? <p className="muted">Nothing is due soon or overdue.</p> : (
-          <ul className="timeline">
-            {urgent.map((i) => (
+          <ShowMore noun="more" limit={5} items={urgent.map((i) => (
               <li key={i.id}>
                 <div className="row between" style={{ width: "100%" }}>
                   <div>
@@ -57,17 +56,14 @@ export default async function CompliancePage({ searchParams }: { searchParams?: 
                   <Pill status={STATE_PILL[i.state]} label={STATE_LABEL[i.state]} />
                 </div>
               </li>
-            ))}
-          </ul>
+            ))} />
         )}
         {later.length > 0 ? (
           <details className="inline" style={{ marginTop: 10 }}>
             <summary>Coming later ({later.length})</summary>
-            <ul className="timeline">
-              {later.map((i) => (
+            <ShowMore noun="more" limit={5} items={later.map((i) => (
                 <li key={i.id}><div><Link href={i.href}>{i.title}</Link><div className="small muted">{KIND_LABEL[i.kind]} · {formatDate(i.dueDate)} ({when(i.days)})</div></div></li>
-              ))}
-            </ul>
+              ))} />
           </details>
         ) : null}
       </section>
@@ -133,8 +129,7 @@ export default async function CompliancePage({ searchParams }: { searchParams?: 
         {closed.length > 0 ? (
           <details className="inline" style={{ marginTop: 12 }}>
             <summary>Done or cancelled ({closed.length})</summary>
-            <ul className="timeline">
-              {closed.map((o) => (
+            <ShowMore noun="more" limit={5} items={closed.map((o) => (
                 <li key={o.id}>
                   <div>
                     <div>{o.title} <Pill status={o.status === "SATISFIED" ? "DONE" : "CANCELLED"} /></div>
@@ -143,8 +138,7 @@ export default async function CompliancePage({ searchParams }: { searchParams?: 
                     </div>
                   </div>
                 </li>
-              ))}
-            </ul>
+              ))} />
           </details>
         ) : null}
       </section>

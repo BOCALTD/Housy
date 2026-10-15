@@ -56,3 +56,20 @@ export function ShowMore({ items, limit = 5, noun = "more" }: { items: React.Rea
     </>
   );
 }
+
+/** A table that shows the first rows and folds the rest behind "Show more", with the same column headings. */
+export function TableMore({ head, rows, limit = 10, noun = "more rows" }: { head: React.ReactNode; rows: React.ReactNode[]; limit?: number; noun?: string }) {
+  const first = rows.slice(0, limit);
+  const rest = rows.slice(limit);
+  return (
+    <>
+      <div className="table-wrap"><table><thead>{head}</thead><tbody>{first}</tbody></table></div>
+      {rest.length > 0 ? (
+        <details className="inline">
+          <summary>Show {rest.length} {noun}</summary>
+          <div className="table-wrap"><table><thead>{head}</thead><tbody>{rest}</tbody></table></div>
+        </details>
+      ) : null}
+    </>
+  );
+}

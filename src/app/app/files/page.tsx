@@ -7,7 +7,7 @@ import { listTeam } from "@/lib/services/companies";
 import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { createFileAction, issueFileAction, returnFileAction } from "./actions";
 
 export const metadata = { title: "Files and deadlines" };
@@ -42,19 +42,14 @@ export default async function FilesPage({ searchParams }: { searchParams?: SP })
         </div>
         {expiring.length === 0 ? <p className="muted">No documents expire in the next 60 days.</p> : (
           <div className="table-wrap">
-            <table>
-              <thead><tr><th>Document</th><th>Asset</th><th>Expires</th><th></th></tr></thead>
-              <tbody>
-                {expiring.map((d) => (
+            <TableMore limit={12} noun="more rows" head={<tr><th>Document</th><th>Asset</th><th>Expires</th><th></th></tr>} rows={expiring.map((d) => (
                   <tr key={d.id}>
                     <td>{d.title}<div className="small muted">{humanize(d.category)}</div></td>
                     <td><Link href={`/app/assets/${d.asset.id}`}>{d.asset.ref} · {d.asset.name}</Link></td>
                     <td>{formatDate(d.expiresOn)}</td>
                     <td>{d.expiresOn && d.expiresOn < today ? <Pill status="OVERDUE" label="Expired" /> : <Pill status="DUE" label="Expiring" />}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                ))} />
           </div>
         )}
       </section>
@@ -76,10 +71,7 @@ export default async function FilesPage({ searchParams }: { searchParams?: SP })
         </form>
         <div className="card table-wrap" style={{ padding: 0 }}>
           {files.length === 0 ? <p className="muted" style={{ padding: 20 }}>{q || view ? "No files match." : "No physical files registered yet."}</p> : (
-            <table>
-              <thead><tr><th>File no.</th><th>Title</th><th>Where it is</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                {files.map((f) => (
+            <TableMore limit={12} noun="more rows" head={<tr><th>File no.</th><th>Title</th><th>Where it is</th><th>Status</th><th></th></tr>} rows={files.map((f) => (
                   <tr key={f.id}>
                     <td className="mono"><Link href={`/app/files?file=${f.id}`}>{f.fileNumber}</Link></td>
                     <td>{f.title}<div className="small muted">{[f.department?.code, f.asset?.ref].filter(Boolean).join(" · ")}</div></td>
@@ -107,9 +99,7 @@ export default async function FilesPage({ searchParams }: { searchParams?: SP })
                       ) : null}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                ))} />
           )}
         </div>
       </section>
@@ -118,14 +108,12 @@ export default async function FilesPage({ searchParams }: { searchParams?: SP })
         <section className="card">
           <h2>Movement history</h2>
           {history.length === 0 ? <p className="muted">This file has not left the registry.</p> : (
-            <ul className="timeline">
-              {history.map((m) => (
+            <ShowMore noun="more" limit={5} items={history.map((m) => (
                 <li key={m.id}><div>
                   Issued to {m.holderName} on {formatDate(m.issuedOn)}, due {formatDate(m.expectedReturnOn)}
                   <div className="small muted">{m.returnedOn ? `Returned ${formatDate(m.returnedOn)}${m.returnedOn > m.expectedReturnOn ? " (late)" : ""}` : "Not yet returned"}{m.purpose ? ` · ${m.purpose}` : ""}</div>
                 </div></li>
-              ))}
-            </ul>
+              ))} />
           )}
         </section>
       ) : null}

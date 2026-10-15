@@ -3,7 +3,7 @@ import { requireMember } from "@/lib/auth";
 import { listSchedules, PRIORITIES } from "@/lib/services/maintenance";
 import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { createScheduleAction, toggleScheduleAction } from "../actions";
 
 export const metadata = { title: "Recurring maintenance" };
@@ -23,8 +23,7 @@ export default async function SchedulesPage({ searchParams }: { searchParams?: S
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <section className="card">
         {schedules.length === 0 ? <p className="muted">No recurring jobs yet.</p> : (
-          <ul className="timeline">
-            {schedules.map((s) => (
+          <ShowMore noun="more" limit={5} items={schedules.map((s) => (
               <li key={s.id}>
                 <div className="row between" style={{ width: "100%" }}>
                   <div>
@@ -37,8 +36,7 @@ export default async function SchedulesPage({ searchParams }: { searchParams?: S
                   </div>
                 </div>
               </li>
-            ))}
-          </ul>
+            ))} />
         )}
       </section>
       {manage ? (

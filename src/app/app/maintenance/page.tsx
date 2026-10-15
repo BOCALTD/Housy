@@ -6,7 +6,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { generateAction, reportWorkOrderAction } from "./actions";
 
 export const metadata = { title: "Maintenance" };
@@ -73,14 +73,12 @@ export default async function MaintenancePage({ searchParams }: { searchParams?:
         <form action={generateAction}><button className="btn" type="submit">Create work orders that are due from recurring jobs</button></form>
       ) : null}
       {groups.map((g) => (
-        <section key={g.title} className="card"><h2>{g.title}</h2>{g.items.length === 0 ? <p className="muted small">{g.empty}</p> : <ul className="timeline">{g.items.map(row)}</ul>}</section>
+        <section key={g.title} className="card"><h2>{g.title}</h2>{g.items.length === 0 ? <p className="muted small">{g.empty}</p> : <ShowMore noun="more" limit={5} items={g.items.map(row)} />}</section>
       ))}
       <section className="card">
         <h2>Recently finished</h2>
         {d.closed.length === 0 ? <p className="muted small">None yet.</p> : (
-          <ul className="timeline">
-            {d.closed.map((w) => <li key={w.id}><div><Link href={`/app/maintenance/${w.id}`}>{w.ref}</Link> · {w.title}<div className="small muted">{w.asset.name} · {humanize(w.status)}</div></div></li>)}
-          </ul>
+          <ShowMore noun="more closed jobs" limit={5} items={d.closed.map((w) => <li key={w.id}><div><Link href={`/app/maintenance/${w.id}`}>{w.ref}</Link> · {w.title}<div className="small muted">{w.asset.name} · {humanize(w.status)}</div></div></li>)} />
         )}
       </section>
       {can(member.role, "maintenance.request") ? (

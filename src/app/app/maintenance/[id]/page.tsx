@@ -7,7 +7,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import {
   addMaterialAction, addPhotoAction, approveAction, assignAction, cancelAction, closeAction, completeAction, progressAction,
   removeMaterialAction, reopenAction, triageAction,
@@ -157,16 +157,14 @@ export default async function WorkOrderPage({ params, searchParams }: { params: 
       <section className="card stack" aria-labelledby="mat-h">
         <h2 id="mat-h">Materials</h2>
         {wo.materials.length === 0 ? <p className="muted small">No materials recorded.</p> : (
-          <ul className="timeline">
-            {wo.materials.map((m) => (
+          <ShowMore noun="more" limit={5} items={wo.materials.map((m) => (
               <li key={m.id}>
                 <div className="row between" style={{ width: "100%" }}>
                   <div>{m.quantity} {m.unit} {m.description} <span className="small muted">@ {formatKobo(m.unitCostKobo)} = {formatKobo(BigInt(m.quantity) * m.unitCostKobo)}</span></div>
                   {isWorker && !["COMPLETED", "CLOSED", "CANCELLED"].includes(wo.status) ? <form action={removeMaterialAction}>{hidden}<input type="hidden" name="materialId" value={m.id} /><button className="btn small" type="submit">Remove</button></form> : null}
                 </div>
               </li>
-            ))}
-          </ul>
+            ))} />
         )}
         {isWorker && !["COMPLETED", "CLOSED", "CANCELLED"].includes(wo.status) ? (
           <details className="inline"><summary>Add a material</summary>
@@ -248,11 +246,9 @@ export default async function WorkOrderPage({ params, searchParams }: { params: 
 
       <section className="card" aria-labelledby="hist-h">
         <h2 id="hist-h">History</h2>
-        <ul className="timeline">
-          {[...wo.events].reverse().map((e) => (
+        <ShowMore noun="earlier events" limit={6} items={[...wo.events].reverse().map((e) => (
             <li key={e.id}><div><div>{humanize(e.kind)}{e.note ? `: ${e.note}` : ""}</div><div className="small muted">{formatDateTime(e.createdAt)} · {who(e.actorId)}</div></div></li>
-          ))}
-        </ul>
+          ))} />
       </section>
     </div>
   );

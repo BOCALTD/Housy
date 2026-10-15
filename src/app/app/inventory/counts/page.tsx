@@ -4,7 +4,7 @@ import { listInventory } from "@/lib/services/inventory";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { startCountAction } from "../actions";
 
 export const metadata = { title: "Physical counts" };
@@ -22,14 +22,12 @@ export default async function CountsPage({ searchParams }: { searchParams?: SP }
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <section className="card">
         {d.counts.length === 0 ? <p className="muted">No counts yet.</p> : (
-          <ul className="timeline">
-            {d.counts.map((c) => (
+          <ShowMore noun="more" limit={5} items={d.counts.map((c) => (
               <li key={c.id}><div className="row between" style={{ width: "100%" }}>
                 <div><Link href={`/app/inventory/counts/${c.id}`}><strong>{c.ref}</strong></Link> · {c.title}<div className="small muted">Started {formatDate(c.createdAt)}</div></div>
                 <Pill status={c.status === "APPROVED" ? "DONE" : c.status === "CANCELLED" ? "CANCELLED" : "OPEN"} label={humanize(c.status)} />
               </div></li>
-            ))}
-          </ul>
+            ))} />
         )}
       </section>
       {can(member.role, "inventory.manage") ? (

@@ -3,7 +3,7 @@ import { requireMember } from "@/lib/auth";
 import { listInspections } from "@/lib/services/inspections";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { createTemplateAction, installStartersAction, toggleTemplateAction } from "../actions";
 
 export const metadata = { title: "Inspection templates" };
@@ -22,8 +22,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams?: S
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <section className="card">
         {templates.length === 0 ? <p className="muted">No templates yet.</p> : (
-          <ul className="timeline">
-            {templates.map((t) => (
+          <ShowMore noun="more" limit={5} items={templates.map((t) => (
               <li key={t.id}>
                 <div className="row between" style={{ width: "100%" }}>
                   <div>{t.name} <span className="small muted">{t.assetClass ? humanize(t.assetClass) : "Any asset class"} · {t._count.items} items</span></div>
@@ -35,8 +34,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams?: S
                   </div>
                 </div>
               </li>
-            ))}
-          </ul>
+            ))} />
         )}
         {manage ? <form action={installStartersAction} style={{ marginTop: 10 }}><button className="btn" type="submit">Add starter templates for each asset class</button></form> : null}
       </section>

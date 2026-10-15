@@ -58,10 +58,9 @@ async function inspect(page: Page, touch: boolean) {
     out.overflow = doc.scrollWidth - doc.clientWidth;
     const wide: string[] = [];
     if (doc.scrollWidth > doc.clientWidth + 1) {
-      for (const el of Array.from(document.body.querySelectorAll("*"))) {
-        if (!visible(el)) continue;
+      for (const el of Array.from(document.querySelectorAll("*"))) {
         const r = el.getBoundingClientRect();
-        if (r.right > vw + 1) {
+        if (r.right > vw + 1 || (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0 && getComputedStyle(el).overflowX === "visible" && el !== doc)) {
           const box = scrollsSideways(el.parentElement);
           if (box) continue;
           wide.push(`${label(el)} right=${Math.round(r.right)} w=${Math.round(r.width)} parent=${label(el.parentElement as Element).slice(0, 40)} ${box ? "(inside a scroll box)" : "(NOT in a scroll box)"}`);

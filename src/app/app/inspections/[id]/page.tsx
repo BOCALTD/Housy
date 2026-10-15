@@ -48,7 +48,7 @@ export default async function InspectionPage({ params, searchParams }: { params:
       ))}
     </div>
   );
-  const input = { border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)" } as const;
+  const input = { border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", minWidth: 130, background: "var(--surface)" } as const;
 
   return (
     <div className="stack-lg">

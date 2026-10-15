@@ -39,8 +39,9 @@ import { registerCorrespondence, actOnCorrespondence } from "./services/correspo
 import { createPhysicalFile, issuePhysicalFile } from "./services/files";
 import { todayInLagos, toDateOnlyString } from "./dates";
 import type { Ctx } from "./services/context";
+import { addCommissionRule, proposeCommission } from "./services/commission";
 import { addDealTask, recordDealPayment } from "./services/deal-file";
-import { counterOffer, createDeal, recordOffer, scheduleViewing } from "./services/deal";
+import { completeDeal, counterOffer, createDeal, decideAcceptance, moveStage, recordOffer, requestAcceptance, scheduleViewing } from "./services/deal";
 import { addClientActivity, addRequirement, createClient, createLead, setLeadStatus } from "./services/crm";
 
 export const DEMO_PASSWORD = "demo-password-123";
@@ -427,6 +428,17 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await counterOffer(alpha, firstOffer.id, { amount: "105,000,000", note: "[DEMO] Owner's counter" });
   await recordDealPayment(alpha, buyerDeal.id, { kind: "BOOKING_DEPOSIT", amount: "5,000,000", paidOn: daysFromToday(-1), method: "Bank transfer", reference: "[DEMO] TRF-0001" });
   await addDealTask(alpha, buyerDeal.id, { title: "[DEMO] Ask the owner for the title documents", dueOn: daysFromToday(4) });
+  // A finished sale with its commission waiting for a second person's approval.
+  const terrace = await createAsset(alpha, { name: "[DEMO] Ikeja terrace house", assetClass: "RESIDENTIAL", category: "House", companyRelationship: "OWNER" });
+  const soldTo = await createClient(alpha, { name: "[DEMO] Ngozi Eze", phone: "0805 555 0103", city: "Lagos" });
+  const soldDeal = await createDeal(alpha, { clientId: soldTo.id, assetId: terrace.id, type: "SALE", asking: "60,000,000", title: "[DEMO] Sale of the Ikeja terrace house" });
+  const soldOffer = await recordOffer(alpha, soldDeal.id, { side: "CLIENT", amount: "57,000,000" });
+  await requestAcceptance(alpha, soldOffer.id);
+  await decideAcceptance(manager, soldOffer.id, "approve", "Price confirmed with the owner.");
+  await moveStage(alpha, soldDeal.id, "LEGAL");
+  await completeDeal(manager, soldDeal.id, "Keys and title handed over.");
+  const demoRule = await addCommissionRule(alpha, { name: "[DEMO] Standard sales commission", applies: "SALE", method: "PERCENT", rate: "5" });
+  await proposeCommission(alpha, soldDeal.id, { ruleId: demoRule.id, splits: [{ membershipId: alpha.membershipId, role: "SELLING_AGENT", share: "100" }] });
   const tenant = await createClient(manager, { name: "[DEMO] Amina Bello", phone: "0802 555 0102", city: "Abuja", confidential: true });
   await createLead(manager, tenant.id, { title: "[DEMO] Two-bedroom flat to rent in Abuja", budgetMax: "4,000,000" });
 

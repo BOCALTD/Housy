@@ -694,5 +694,59 @@ SELECT pg_temp.expect((SELECT count(*) FROM offers) = 0, 'B cannot see A offers'
 SELECT pg_temp.expect((SELECT count(*) FROM deal_events) = 0, 'B cannot see A deal history');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 25. Phase 8c: commission rules, second-person approval and split rules hold in the database.
+DO $$ BEGIN
+  INSERT INTO deals (id, company_id, ref, type, title, client_id, asset_id, owner_id, asking_kobo, agreed_kobo, stage, status, completed_at, completed_by_id, created_by_id, updated_at)
+    VALUES ('dl-bad', 'co-a', 'DL-2026-0090', 'SALE', 'Finished but open', 'cl-a', 'as-a', 'u1', 5000000, 5000000, 'COMPLETED', 'OPEN', now(), 'u1', 'u1', now());
+  RAISE EXCEPTION 'FAIL: a completed stage with an open status was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a finished deal is completed or disputed, never open'; END $$;
+INSERT INTO deals (id, company_id, ref, type, title, client_id, asset_id, owner_id, asking_kobo, agreed_kobo, stage, status, completed_at, completed_by_id, dispute_reason, disputed_by_id, created_by_id, updated_at)
+  VALUES ('dl-c', 'co-a', 'DL-2026-0091', 'SALE', 'Finished sale', 'cl-a', 'as-a', 'u1', 5000000, 5000000, 'COMPLETED', 'DISPUTED', now(), 'u1', 'Title queried', 'u1', 'u1', now());
+DO $$ BEGIN
+  UPDATE deals SET completed_by_id = NULL WHERE id = 'dl-c';
+  RAISE EXCEPTION 'FAIL: a completed deal without who completed it was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a completed deal keeps who completed it, even in dispute'; END $$;
+DO $$ BEGIN
+  INSERT INTO commission_rules (id, company_id, name, method, rate_bps, created_by_id) VALUES ('cr-bad', 'co-a', 'Too much', 'PERCENT', 10001, 'u1');
+  RAISE EXCEPTION 'FAIL: a rate above 100 percent was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a commission rate is at most 100 percent'; END $$;
+DO $$ BEGIN
+  INSERT INTO commission_rules (id, company_id, name, method, rate_bps, fixed_kobo, created_by_id) VALUES ('cr-bad', 'co-a', 'Both', 'FIXED', 500, 1000, 'u1');
+  RAISE EXCEPTION 'FAIL: a fixed rule with a rate was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a rule is either a percentage or a fixed amount'; END $$;
+INSERT INTO commission_rules (id, company_id, name, method, rate_bps, created_by_id) VALUES ('cr-a', 'co-a', 'Sales 5%', 'PERCENT', 500, 'u1');
+INSERT INTO deal_commissions (id, company_id, deal_id, rule_id, rule_name, method, rate_bps, basis_kobo, total_kobo, submitted_by_id, updated_at)
+  VALUES ('dc-a', 'co-a', 'dl-c', 'cr-a', 'Sales 5%', 'PERCENT', 500, 5000000, 250000, 'u1', now());
+DO $$ BEGIN
+  UPDATE deal_commissions SET status = 'APPROVED', decided_by_id = 'u1' WHERE id = 'dc-a';
+  RAISE EXCEPTION 'FAIL: the proposer approved their own commission';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a commission is approved by a second person'; END $$;
+DO $$ BEGIN
+  UPDATE deal_commissions SET status = 'REJECTED', decided_by_id = 'u2' WHERE id = 'dc-a';
+  RAISE EXCEPTION 'FAIL: a rejection without a reason was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a commission rejection says why'; END $$;
+DO $$ BEGIN
+  UPDATE deal_commissions SET status = 'PAID', decided_by_id = 'u2' WHERE id = 'dc-a';
+  RAISE EXCEPTION 'FAIL: a paid commission without a payment date was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a paid commission is dated'; END $$;
+DO $$ BEGIN
+  INSERT INTO commission_splits (id, company_id, commission_id, membership_id, role, share_bps, amount_kobo) VALUES ('cs-bad', 'co-a', 'dc-a', 'm1', 'SELLING_AGENT', 0, 0);
+  RAISE EXCEPTION 'FAIL: an empty share was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a share is at least one basis point'; END $$;
+INSERT INTO commission_splits (id, company_id, commission_id, membership_id, role, share_bps, amount_kobo) VALUES ('cs-a', 'co-a', 'dc-a', 'm1', 'SELLING_AGENT', 10000, 250000);
+DO $$ BEGIN
+  UPDATE commission_splits SET paid_at = now() WHERE id = 'cs-a';
+  RAISE EXCEPTION 'FAIL: a payment with no payer was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a payment records who paid'; END $$;
+DO $$ BEGIN
+  INSERT INTO commission_splits (id, company_id, commission_id, membership_id, role, share_bps, amount_kobo) VALUES ('cs-dup', 'co-a', 'dc-a', 'm1', 'REFERRAL', 100, 1);
+  RAISE EXCEPTION 'FAIL: the same person was given two shares';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: a person has one share per commission'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM commission_rules) = 0, 'B cannot see A commission rules');
+SELECT pg_temp.expect((SELECT count(*) FROM deal_commissions) = 0, 'B cannot see A commissions');
+SELECT pg_temp.expect((SELECT count(*) FROM commission_splits) = 0, 'B cannot see A commission splits');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

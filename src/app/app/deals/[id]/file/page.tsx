@@ -3,12 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { DEAL_DOC_KINDS, DEAL_PAYMENT_KINDS, getDealFile } from "@/lib/services/deal-file";
+import { SPLIT_ROLES, getDealCommission } from "@/lib/services/commission";
+import { bpsToPercent } from "@/lib/commission-rules";
 import { ACTIVITY_KINDS } from "@/lib/crm-rules";
 import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { formatKobo } from "@/lib/money";
 import { humanize } from "@/lib/labels";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { cancelAction, decideAction, payAction, proposeAction } from "../../../commissions/actions";
 import { addConversationAction, addDocumentAction, addTaskAction, linkCorrespondenceAction, recordPaymentAction, reversePaymentAction, taskStatusAction } from "./actions";
 
 export const metadata = { title: "Deal file" };
@@ -22,6 +25,8 @@ export default async function DealFilePage({ params, searchParams }: { params: {
   const approve = can(member.role, "crm.approve");
   const live = deal.status !== "CANCELLED";
   const reversed = new Set(f.payments.filter((p) => p.reversesId).map((p) => p.reversesId!));
+  const com = await getDealCommission(member, deal.id);
+  const c = com.commission;
   const hid = <input type="hidden" name="dealId" value={deal.id} />;
   return (
     <div className="stack-lg">
@@ -116,6 +121,53 @@ export default async function DealFilePage({ params, searchParams }: { params: {
           </details>
         ) : null}
       </section>
+
+      {deal.stage === "COMPLETED" && !com.hidden ? (
+        <section className="card">
+          <h2>Commission</h2>
+          {!c ? <p className="muted">No commission proposed yet.</p> : (
+            <>
+              <p>{formatKobo(c.totalKobo)} on {formatKobo(c.basisKobo)} · {c.ruleName} ({c.method === "PERCENT" ? `${bpsToPercent(c.rateBps ?? 0)}%` : "fixed"}) · <Pill status={c.status} label={humanize(c.status)} /></p>
+              <p className="small muted">Proposed by {com.userNames[c.submittedById] ?? "unknown"}{c.decidedById ? ` · decided by ${com.userNames[c.decidedById] ?? "unknown"}` : ""}{c.decisionNote ? ` · ${c.decisionNote}` : ""}</p>
+              <ShowMore noun="more people" limit={4} items={c.splits.map((sp2) => (
+                <li key={sp2.id}><div className="stack" style={{ width: "100%", gap: 4 }}>
+                  <div className="row between"><div><strong>{com.names[sp2.membershipId] ?? "unknown"}</strong> · {humanize(sp2.role)} · {bpsToPercent(sp2.shareBps)}% · {formatKobo(sp2.amountKobo)}</div>{sp2.paidAt ? <Pill status="PAID" label={`Paid ${formatDate(sp2.paidAt)}`} /> : null}</div>
+                  {sp2.paidAt ? <div className="small muted">Reference {sp2.payReference} · paid by {com.userNames[sp2.paidById ?? ""] ?? "unknown"}</div> : null}
+                  {c.status === "APPROVED" && !sp2.paidAt && approve && sp2.membershipId !== member.membershipId && c.submittedById !== member.userId ? (
+                    <details className="inline"><summary>Record payment</summary>
+                      <form action={payAction} className="stack">{hid}<input type="hidden" name="splitId" value={sp2.id} />
+                        <div className="fields"><Field label="Date paid"><input name="paidOn" type="date" required /></Field><Field label="Reference"><input name="reference" required /></Field></div>
+                        <button className="btn primary" type="submit">Mark as paid</button></form></details>
+                  ) : null}
+                </div></li>))} />
+              {com.deal.status === "DISPUTED" ? <p className="small">The deal is disputed, so approval and payment are withheld.</p> : null}
+              {c.status === "SUBMITTED" && approve && c.submittedById !== member.userId && !c.splits.some((x) => x.membershipId === member.membershipId) && deal.ownerId !== member.membershipId ? (
+                <details className="inline"><summary>Decide</summary>
+                  <form action={decideAction} className="stack">{hid}<Field label="Note (needed to reject)"><input name="note" /></Field>
+                    <div className="row"><button className="btn primary" name="decision" value="approve" type="submit">Approve</button><button className="btn" name="decision" value="reject" type="submit">Reject</button></div></form></details>
+              ) : null}
+              {["SUBMITTED", "APPROVED"].includes(c.status) && (approve || (manage && c.submittedById === member.userId)) && !c.splits.some((x) => x.paidAt) ? (
+                <details className="inline"><summary>Cancel the commission</summary><form action={cancelAction} className="stack">{hid}<Field label="Reason"><input name="reason" required /></Field><button className="btn" type="submit">Cancel</button></form></details>
+              ) : null}
+            </>
+          )}
+          {manage && (!c || ["REJECTED", "CANCELLED"].includes(c.status)) ? (
+            <details className="inline"><summary>Propose the commission</summary>
+              <form action={proposeAction} className="stack">{hid}
+                <Field label="Rule"><select name="ruleId" required defaultValue=""><option value="" disabled>Choose</option>{com.rules.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></Field>
+                {[1, 2, 3, 4].map((n) => (
+                  <div className="fields" key={n}>
+                    <Field label={`Person ${n}`}><select name={`person${n}`} defaultValue="">{<option value="">{n === 1 ? "Choose" : "None"}</option>}{com.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+                    <Field label="Role"><select name={`role${n}`} defaultValue="OTHER"><EnumOptions values={SPLIT_ROLES} /></select></Field>
+                    <Field label="Share (%)"><input name={`share${n}`} inputMode="decimal" /></Field>
+                  </div>
+                ))}
+                <p className="small muted">The shares must add up to exactly 100%. A manager other than you and the people sharing it approves the commission.</p>
+                <button className="btn primary" type="submit">Send for approval</button></form>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="card">
         <h2>Conversations</h2>

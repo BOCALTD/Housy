@@ -153,7 +153,7 @@ export async function cancelDeal(ctx: Ctx, dealId: string, reasonInput: string) 
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const deal = await lockDeal(tx, ctx, dealId);
     mustChange(ctx, deal);
-    if (deal.status === "COMPLETED") throw new Error("A completed deal cannot be cancelled");
+    if (deal.status === "COMPLETED" || deal.stage === "COMPLETED") throw new Error("A completed deal cannot be cancelled");
     if (deal.status === "CANCELLED") throw new Error("This deal is already cancelled");
     if (["AGREED", "LEGAL"].includes(deal.stage) && !can(ctx.role, "crm.approve")) throw new Error("Once a price is agreed, only a manager can cancel the deal");
     const now = new Date();
@@ -171,7 +171,7 @@ export async function raiseDispute(ctx: Ctx, dealId: string, reasonInput: string
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const deal = await lockDeal(tx, ctx, dealId);
     mustChange(ctx, deal);
-    if (!["OPEN", "ON_HOLD"].includes(deal.status)) throw new Error("Only a live deal can be disputed");
+    if (!["OPEN", "ON_HOLD"].includes(deal.status) && !(deal.status === "COMPLETED" && deal.stage === "COMPLETED")) throw new Error("Only a live or completed deal can be disputed");
     await tx.deal.update({ where: { id: dealId }, data: { status: "DISPUTED", disputeReason: reason, disputedById: ctx.userId, disputedAt: new Date(), disputeOutcome: "" } });
     await event(tx, ctx, dealId, { kind: "STATUS", summary: "Dispute raised", reason, fromStatus: deal.status, toStatus: "DISPUTED" });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "deal", entityId: dealId, action: "deal.disputed", detail: { reason } });
@@ -186,14 +186,16 @@ export async function resolveDispute(ctx: Ctx, dealId: string, outcomeInput: str
     const deal = await lockDeal(tx, ctx, dealId);
     if (deal.status !== "DISPUTED") throw new Error("This deal is not disputed");
     if (deal.disputedById === ctx.userId) throw new Error("Someone other than the person who raised the dispute must settle it");
+    const finished = deal.stage === "COMPLETED";
+    if (then === "cancel" && finished) throw new Error("A completed deal cannot be cancelled. Settle the dispute and carry on");
     if (then === "cancel") {
       await tx.viewing.updateMany({ where: { dealId, companyId: ctx.companyId, status: "SCHEDULED" }, data: { status: "CANCELLED", cancelReason: "Deal cancelled after a dispute" } });
       await tx.offer.updateMany({ where: { dealId, companyId: ctx.companyId, status: { in: ["OPEN", "ACCEPTANCE_REQUESTED", "ACCEPTED"] } }, data: { status: "WITHDRAWN", decisionNote: "Deal cancelled after a dispute" } });
       await tx.deal.update({ where: { id: dealId }, data: { status: "CANCELLED", disputeOutcome: outcome, cancelReason: `Dispute: ${outcome}`, cancelledAt: new Date(), cancelledById: ctx.userId } });
     } else {
-      await tx.deal.update({ where: { id: dealId }, data: { status: "OPEN", disputeOutcome: outcome } });
+      await tx.deal.update({ where: { id: dealId }, data: { status: finished ? "COMPLETED" : "OPEN", disputeOutcome: outcome } });
     }
-    await event(tx, ctx, dealId, { kind: "STATUS", summary: then === "cancel" ? "Dispute settled, deal cancelled" : "Dispute settled, deal resumed", reason: outcome, fromStatus: "DISPUTED", toStatus: then === "cancel" ? "CANCELLED" : "OPEN" });
+    await event(tx, ctx, dealId, { kind: "STATUS", summary: then === "cancel" ? "Dispute settled, deal cancelled" : "Dispute settled, deal resumed", reason: outcome, fromStatus: "DISPUTED", toStatus: then === "cancel" ? "CANCELLED" : finished ? "COMPLETED" : "OPEN" });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "deal", entityId: dealId, action: "deal.dispute_settled", detail: { outcome, then } });
   });
 }

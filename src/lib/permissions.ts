@@ -66,7 +66,8 @@ export type Action =
   | "crm.assign"
   | "crm.merge"
   | "crm.configure"
-  | "crm.approve";
+  | "crm.approve"
+  | "crm.report";
 
 const MATRIX: Record<Action, Role[]> = {
   "asset.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER", "VIEWER"],
@@ -139,6 +140,7 @@ const MATRIX: Record<Action, Role[]> = {
   "crm.merge": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "crm.configure": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "crm.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "crm.report": ["COMPANY_SUPER_ADMIN", "MANAGER"],
 };
 
 export function can(role: Role, action: Action): boolean {

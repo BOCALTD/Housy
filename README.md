@@ -149,6 +149,14 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - *Device testing:* every page in the signed-in smoke test is opened on seven emulated profiles (iPhone SE, iPhone 14 Pro Max, Pixel 7, Galaxy S9+, iPad, desktop Chrome and desktop Safari) and checked for sideways scrolling, small text, small touch targets, unlabelled fields, missing alt text and script errors. This runs in CI and fails the build. It uses emulation, not physical phones.
 - *Layout:* long lists and busy panels fold behind "show more" and expandable sections instead of stretching the page.
 
+**Built in Phase 8 (CRM, clients and the transaction pipeline):**
+- *Clients and leads:* client records with duplicate detection and merging, lead sources, assignment, qualification, follow-ups, and property requirements matched to published listings.
+- *Deals:* a deal runs from enquiry to completion with viewings, offers, counteroffers and negotiation history. Accepting an offer and completing a deal each need a second person. Deals can be held, disputed (including after completion), reassigned or cancelled with a reason, and every change is kept in an append-only history.
+- *Deal file:* documents, payments, linked correspondence, tasks and client conversations tied to the deal, following the deal's access rules. Confidential clients' deals are visible only to the owner and managers.
+- *Commission:* company-set rules (percentage or fixed), splits that total 100% and divide to the exact kobo, approval by someone with no stake in the deal, payment per person, and withholding while a deal is disputed.
+- *Dashboards and reports:* agent, team and branch dashboards, and a company report on conversion, pipeline, completed deals, cancellations and commission, with CSV export, for managers only.
+- *Verification providers:* the buyer-journey recommendation, consent capture and lead tracking from the first slice are covered by the Phase 8 acceptance test. No personal data is stored before explicit consent, and a preselected default is recorded apart from confirmed interest.
+
 **Rules to know about:**
 - Several approvals need two different people (reconciliation, adjustments, renewals, service charge expenses). A company with one user cannot complete those steps until it adds a second member.
 - Reminders are in-app only. Nothing is emailed or messaged.
@@ -163,6 +171,7 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - Phase 7: the worksheets are calculation aids for a professional. The platform applies no valuation standard, rate or legal rule, and a valuation is not an opinion of value until a professional has approved it.
 - Phase 7: stock issued to a project is shown for information and is not added to the project's cost figures. Only approved commitments and invoices count as cost.
 - Phase 7: invoice payment is a record that someone marked an invoice paid. No payment is made by the platform.
+- Phase 8: deal tasks and linked correspondence are plain references checked by the application inside row-level security, not database foreign keys. Notifications and reminders are in-app only. The person a follow-up or task is assigned to must be able to see that client or deal. Approvals (accepting an offer, completing a deal, approving and paying commission) need people other than the owner, proposer and beneficiaries, so a small company needs at least three people.
 - Layout: long lists and tables show the first few rows and fold the rest behind "Show more". Forms that span folded rows still submit every row.
 - Saving documents: every document and the rent CSV has "Save or share". Download always works. On phones and tablets "Send to another app" opens the system share sheet (Files, iCloud Drive, Google Drive, Dropbox, OneDrive and others). "Save to Google Drive" appears when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set to a Google OAuth web client ID (Google Cloud Console, APIs and services, enable the Drive API, create an OAuth client for a web application, and add your site as an authorised JavaScript origin). It asks only for the `drive.file` scope, so it can touch only files it creates. Dropbox and OneDrive direct buttons are not built; use "Send to another app" on a phone or Download on a computer.
 

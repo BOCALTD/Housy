@@ -145,7 +145,7 @@ export default async function DealPage({ params, searchParams }: { params: { id:
         ) : null}
       </section>
 
-      {live ? (
+      {live || deal.status === "COMPLETED" ? (
         <section className="card">
           <details className="inline"><summary>Move, hold, dispute or close this deal</summary>
             <div className="stack">
@@ -166,13 +166,13 @@ export default async function DealPage({ params, searchParams }: { params: { id:
                   {deal.status === "ON_HOLD" ? null : <Field label="Reason for holding"><input name="reason" /></Field>}
                   {deal.status === "OPEN" || deal.status === "ON_HOLD" ? <button className="btn" type="submit">{deal.status === "ON_HOLD" ? "Resume the deal" : "Put on hold"}</button> : null}</form>
               ) : null}
-              {manage && ["OPEN", "ON_HOLD"].includes(deal.status) ? <form action={disputeAction} className="stack">{hid}<Field label="What is the dispute about?"><input name="reason" required /></Field><button className="btn" type="submit">Record a dispute</button></form> : null}
+              {manage && ["OPEN", "ON_HOLD", "COMPLETED"].includes(deal.status) ? <form action={disputeAction} className="stack">{hid}<Field label="What is the dispute about?"><input name="reason" required /></Field><button className="btn" type="submit">Record a dispute</button></form> : null}
               {approve && deal.status === "DISPUTED" && deal.disputedById !== member.userId ? (
                 <form action={resolveDisputeAction} className="stack">{hid}<Field label="How it was settled"><input name="outcome" required /></Field>
                   <Field label="Then"><select name="then" defaultValue="resume"><option value="resume">Carry on with the deal</option><option value="cancel">Cancel the deal</option></select></Field><button className="btn primary" type="submit">Settle the dispute</button></form>
               ) : null}
-              {manage ? <form action={cancelDealAction} className="stack">{hid}<Field label="Reason for cancelling"><input name="reason" required /></Field><button className="btn" type="submit">Cancel the deal</button></form> : null}
-              {assign ? <form action={reassignAction} className="stack">{hid}<Field label="Hand the deal to"><select name="ownerId" required defaultValue="">{<option value="" disabled>Choose</option>}{d.agents.filter((a) => a.id !== deal.ownerId).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
+              {manage && deal.stage !== "COMPLETED" ? <form action={cancelDealAction} className="stack">{hid}<Field label="Reason for cancelling"><input name="reason" required /></Field><button className="btn" type="submit">Cancel the deal</button></form> : null}
+              {assign && deal.status !== "COMPLETED" ? <form action={reassignAction} className="stack">{hid}<Field label="Hand the deal to"><select name="ownerId" required defaultValue="">{<option value="" disabled>Choose</option>}{d.agents.filter((a) => a.id !== deal.ownerId).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
                 <Field label="Reason"><input name="reason" required /></Field><button className="btn" type="submit">Reassign</button></form> : null}
             </div>
           </details>

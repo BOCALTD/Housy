@@ -2750,6 +2750,7 @@ model Deal {
   events           DealEvent[]
   viewings         Viewing[]
   offers           Offer[]
+  commission       DealCommission?
   documents        DealDocument[]
   payments         DealPayment[]
 
@@ -2893,4 +2894,99 @@ model DealPayment {
 
   @@index([companyId, dealId, paidOn])
   @@map("deal_payments")
+}
+
+// ---------- Commission (Phase 8c) ----------
+
+enum CommissionMethod {
+  PERCENT
+  FIXED
+}
+
+enum CommissionApplies {
+  ALL
+  SALE
+  RENT
+  LEASE
+}
+
+enum CommissionStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+  PAID
+}
+
+enum SplitRole {
+  LISTING_AGENT
+  SELLING_AGENT
+  TEAM_LEAD
+  REFERRAL
+  OTHER
+}
+
+/// A commission rule set by the company. Rules are never edited: stop using one and add another.
+model CommissionRule {
+  id          String            @id @default(uuid())
+  companyId   String            @map("company_id")
+  name        String
+  applies     CommissionApplies @default(ALL)
+  method      CommissionMethod
+  rateBps     Int?              @map("rate_bps")
+  fixedKobo   BigInt?           @map("fixed_kobo")
+  active      Boolean           @default(true)
+  createdById String            @map("created_by_id")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@unique([companyId, name])
+  @@map("commission_rules")
+}
+
+/// The commission on a completed deal. It copies the rule's figures when proposed, so later rule changes never alter it.
+model DealCommission {
+  id            String           @id @default(uuid())
+  companyId     String           @map("company_id")
+  dealId        String           @unique @map("deal_id")
+  ruleId        String           @map("rule_id")
+  ruleName      String           @map("rule_name")
+  method        CommissionMethod
+  rateBps       Int?             @map("rate_bps")
+  fixedKobo     BigInt?          @map("fixed_kobo")
+  basisKobo     BigInt           @map("basis_kobo")
+  totalKobo     BigInt           @map("total_kobo")
+  status        CommissionStatus @default(SUBMITTED)
+  submittedById String           @map("submitted_by_id")
+  submittedAt   DateTime         @default(now()) @map("submitted_at")
+  decidedById   String?          @map("decided_by_id")
+  decidedAt     DateTime?        @map("decided_at")
+  decisionNote  String           @default("") @map("decision_note")
+  paidAt        DateTime?        @map("paid_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  deal          Deal             @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  splits        CommissionSplit[]
+
+  @@index([companyId, status])
+  @@map("deal_commissions")
+}
+
+/// One person's share of a commission, and whether it has been paid.
+model CommissionSplit {
+  id           String         @id @default(uuid())
+  companyId    String         @map("company_id")
+  commissionId String         @map("commission_id")
+  membershipId String         @map("membership_id")
+  role         SplitRole
+  shareBps     Int            @map("share_bps")
+  amountKobo   BigInt         @map("amount_kobo")
+  paidAt       DateTime?      @map("paid_at")
+  paidById     String?        @map("paid_by_id")
+  payReference String         @default("") @map("pay_reference")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  commission   DealCommission @relation(fields: [commissionId], references: [id], onDelete: Cascade)
+
+  @@unique([commissionId, membershipId])
+  @@index([companyId, membershipId])
+  @@map("commission_splits")
 }

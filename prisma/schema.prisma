@@ -84,6 +84,8 @@ model Membership {
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   tasks     Task[]       @relation("TaskAssignee")
   inspections Inspection[] @relation("InspectionInspector")
+  workOrders  WorkOrder[]  @relation("WorkOrderAssignee")
+  schedules   PreventiveSchedule[] @relation("ScheduleAssignee")
   correspondence Correspondence[] @relation("CorrespondenceAssignee")
   heldFiles PhysicalFile[] @relation("FileHolder")
 
@@ -161,6 +163,8 @@ model Asset {
   serviceCharges      ServiceChargePeriod[]
   obligations         Obligation[]
   inspections         Inspection[]
+  workOrders          WorkOrder[]
+  preventiveSchedules PreventiveSchedule[]
   tasks               Task[]
   listing             Listing?
   correspondence      Correspondence[]
@@ -1245,9 +1249,11 @@ model InspectionFinding {
   safetyRisk     Boolean        @default(false) @map("safety_risk")
   estimatedCostKobo BigInt?     @map("estimated_cost_kobo")
   recommendedAction String      @default("") @map("recommended_action")
+  workOrderId    String?        @unique @map("work_order_id")
   createdById    String         @map("created_by_id")
   createdAt      DateTime       @default(now()) @map("created_at")
   inspection     Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Restrict)
+  workOrder      WorkOrder?     @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
 
   @@index([companyId, inspectionId])
   @@map("inspection_findings")
@@ -1270,4 +1276,163 @@ model EvidencePhoto {
 
   @@index([companyId, subjectType, subjectId])
   @@map("evidence_photos")
+}
+
+// ---------- Maintenance (Phase 6b) ----------
+
+enum WorkOrderStatus {
+  REPORTED
+  TRIAGED
+  APPROVED
+  ASSIGNED
+  IN_PROGRESS
+  AWAITING_PARTS
+  INSPECTION_REQUIRED
+  COMPLETED
+  CLOSED
+  CANCELLED
+}
+
+enum WorkOrderPriority {
+  LOW
+  NORMAL
+  HIGH
+  EMERGENCY
+}
+
+enum WorkOrderSource {
+  REQUEST
+  INSPECTION
+  PREVENTIVE
+  OTHER
+}
+
+/// A vendor or tradesperson the company uses.
+model Contractor {
+  id          String      @id @default(uuid())
+  companyId   String      @map("company_id")
+  name        String
+  trade       String      @default("")
+  phone       String      @default("")
+  email       String      @default("")
+  notes       String      @default("")
+  active      Boolean     @default(true)
+  createdById String      @map("created_by_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  workOrders  WorkOrder[]
+  schedules   PreventiveSchedule[]
+
+  @@unique([companyId, name])
+  @@map("contractors")
+}
+
+model WorkOrder {
+  id               String            @id @default(uuid())
+  companyId        String            @map("company_id")
+  assetId          String            @map("asset_id")
+  ref              String
+  title            String
+  description      String            @default("")
+  source           WorkOrderSource   @default(REQUEST)
+  priority         WorkOrderPriority @default(NORMAL)
+  riskLevel        DefectSeverity    @default(LOW) @map("risk_level")
+  safetyRisk       Boolean           @default(false) @map("safety_risk")
+  status           WorkOrderStatus   @default(REPORTED)
+  requestedById    String            @map("requested_by_id")
+  requesterName    String            @default("") @map("requester_name")
+  leaseId          String?           @map("lease_id")
+  scheduleId       String?           @map("schedule_id")
+  scheduledFor     DateTime?         @map("scheduled_for") @db.Date
+  assigneeId       String?           @map("assignee_id")
+  contractorId     String?           @map("contractor_id")
+  targetDate       DateTime?         @map("target_date") @db.Date
+  estimatedCostKobo BigInt?          @map("estimated_cost_kobo")
+  approvedCostKobo BigInt?           @map("approved_cost_kobo")
+  approvedById     String?           @map("approved_by_id")
+  approvedAt       DateTime?         @map("approved_at")
+  actualCostKobo   BigInt?           @map("actual_cost_kobo")
+  startedAt        DateTime?         @map("started_at")
+  completedOn      DateTime?         @map("completed_on") @db.Date
+  completedById    String?           @map("completed_by_id")
+  completionNotes  String            @default("") @map("completion_notes")
+  evidenceRef      String            @default("") @map("evidence_ref")
+  verifiedById     String?           @map("verified_by_id")
+  closedAt         DateTime?         @map("closed_at")
+  cancelReason     String            @default("") @map("cancel_reason")
+  downtimeFrom     DateTime?         @map("downtime_from") @db.Date
+  downtimeTo       DateTime?         @map("downtime_to") @db.Date
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  asset            Asset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  assignee         Membership?       @relation("WorkOrderAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  contractor       Contractor?       @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  schedule         PreventiveSchedule? @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  events           WorkOrderEvent[]
+  materials        WorkOrderMaterial[]
+  finding          InspectionFinding?
+
+  @@unique([companyId, ref])
+  @@unique([scheduleId, scheduledFor])
+  @@index([companyId, status, targetDate])
+  @@index([assetId])
+  @@map("work_orders")
+}
+
+/// Every status change and decision on a work order. Append-only.
+model WorkOrderEvent {
+  id          String          @id @default(uuid())
+  companyId   String          @map("company_id")
+  workOrderId String          @map("work_order_id")
+  kind        String
+  fromStatus  WorkOrderStatus? @map("from_status")
+  toStatus    WorkOrderStatus? @map("to_status")
+  note        String          @default("")
+  actorId     String          @map("actor_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  workOrder   WorkOrder       @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, workOrderId])
+  @@map("work_order_events")
+}
+
+model WorkOrderMaterial {
+  id            String    @id @default(uuid())
+  companyId     String    @map("company_id")
+  workOrderId   String    @map("work_order_id")
+  description   String
+  quantity      Int
+  unit          String    @default("")
+  unitCostKobo  BigInt    @map("unit_cost_kobo")
+  recordedById  String    @map("recorded_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  workOrder     WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, workOrderId])
+  @@map("work_order_materials")
+}
+
+/// A recurring maintenance job. Work orders are created ahead of each due date.
+model PreventiveSchedule {
+  id               String            @id @default(uuid())
+  companyId        String            @map("company_id")
+  assetId          String            @map("asset_id")
+  title            String
+  description      String            @default("")
+  priority         WorkOrderPriority @default(NORMAL)
+  intervalMonths   Int               @map("interval_months")
+  nextDueOn        DateTime          @map("next_due_on") @db.Date
+  leadDays         Int               @default(14) @map("lead_days")
+  contractorId     String?           @map("contractor_id")
+  assigneeId       String?           @map("assignee_id")
+  estimatedCostKobo BigInt?          @map("estimated_cost_kobo")
+  active           Boolean           @default(true)
+  createdById      String            @map("created_by_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  asset            Asset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  contractor       Contractor?       @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  assignee         Membership?       @relation("ScheduleAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  workOrders       WorkOrder[]
+
+  @@index([companyId, active, nextDueOn])
+  @@map("preventive_schedules")
 }

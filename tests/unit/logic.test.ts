@@ -373,3 +373,58 @@ test("checklists parse from pasted lines and every asset class has a starter", (
   for (const c of ["RESIDENTIAL", "COMMERCIAL", "LAND", "INDUSTRIAL", "PLANT_MACHINERY", "OTHER"]) assert.ok(classes.has(c as never), c);
   assert.ok(STARTER_TEMPLATES.every((t) => t.items.length >= 4));
 });
+
+// ---------- Phase 6b rules ----------
+import { closureProblem, completionProblem, dueOccurrences, isUnattendedUrgent, materialsTotal, transitionProblem } from "../../src/lib/maintenance-rules";
+
+test("work orders follow the status flow, with a shortcut only for emergencies", () => {
+  assert.equal(transitionProblem("REPORTED", "TRIAGED", "NORMAL"), null);
+  assert.equal(transitionProblem("TRIAGED", "APPROVED", "NORMAL"), null);
+  assert.equal(transitionProblem("APPROVED", "ASSIGNED", "LOW"), null);
+  assert.equal(transitionProblem("IN_PROGRESS", "AWAITING_PARTS", "HIGH"), null);
+  assert.equal(transitionProblem("AWAITING_PARTS", "IN_PROGRESS", "HIGH"), null);
+  assert.equal(transitionProblem("COMPLETED", "IN_PROGRESS", "NORMAL"), null);
+  assert.match(transitionProblem("REPORTED", "ASSIGNED", "HIGH")!, /cannot go from Reported to Assigned/);
+  assert.match(transitionProblem("TRIAGED", "IN_PROGRESS", "NORMAL")!, /cannot go/);
+  assert.match(transitionProblem("APPROVED", "COMPLETED", "NORMAL")!, /cannot go/);
+  assert.equal(transitionProblem("REPORTED", "ASSIGNED", "EMERGENCY"), null);
+  assert.equal(transitionProblem("TRIAGED", "IN_PROGRESS", "EMERGENCY"), null);
+  assert.match(transitionProblem("REPORTED", "COMPLETED", "EMERGENCY")!, /cannot go/);
+  assert.match(transitionProblem("CLOSED", "IN_PROGRESS", "EMERGENCY")!, /closed/);
+  assert.match(transitionProblem("CANCELLED", "TRIAGED", "NORMAL")!, /cancelled/);
+});
+
+test("completion needs evidence and closing needs a different person and an approved cost", () => {
+  assert.match(completionProblem({ notes: "ok", hasAfterPhoto: true, evidenceRef: "" })!, /Describe/);
+  assert.match(completionProblem({ notes: "Replaced the pump", hasAfterPhoto: false, evidenceRef: "" })!, /after photograph/);
+  assert.equal(completionProblem({ notes: "Replaced the pump", hasAfterPhoto: false, evidenceRef: "JC-114" }), null);
+  assert.equal(completionProblem({ notes: "Replaced the pump", hasAfterPhoto: true, evidenceRef: "" }), null);
+
+  const ok = { status: "COMPLETED" as const, approvedById: "u9", approvedCostKobo: 100n, actualCostKobo: 100n, completedByUserId: "u2", assigneeUserId: "u3", verifierUserId: "u4" };
+  assert.equal(closureProblem(ok), null);
+  assert.match(closureProblem({ ...ok, status: "IN_PROGRESS" })!, /Only completed/);
+  assert.match(closureProblem({ ...ok, verifierUserId: "u2" })!, /someone other/);
+  assert.match(closureProblem({ ...ok, verifierUserId: "u3" })!, /someone other/);
+  assert.match(closureProblem({ ...ok, approvedById: null })!, /must be approved/);
+  assert.match(closureProblem({ ...ok, actualCostKobo: 101n })!, /more than the approved cost/);
+  assert.equal(closureProblem({ ...ok, actualCostKobo: null }), null);
+});
+
+test("materials total, unattended urgent orders and preventive occurrences", () => {
+  assert.equal(materialsTotal([{ quantity: 3, unitCostKobo: 150n }, { quantity: 1, unitCostKobo: 5n }]), 455n);
+  const now = new Date("2026-06-10T12:00:00Z");
+  const base = { priority: "EMERGENCY" as const, riskLevel: "LOW", safetyRisk: false, status: "REPORTED" as const, createdAt: new Date("2026-06-09T12:00:00Z"), now, hours: 24 };
+  assert.equal(isUnattendedUrgent(base), true);
+  assert.equal(isUnattendedUrgent({ ...base, createdAt: new Date("2026-06-09T12:00:01Z") }), false);
+  assert.equal(isUnattendedUrgent({ ...base, status: "ASSIGNED" }), false);
+  assert.equal(isUnattendedUrgent({ ...base, priority: "NORMAL" }), false);
+  assert.equal(isUnattendedUrgent({ ...base, priority: "NORMAL", safetyRisk: true }), true);
+  assert.equal(isUnattendedUrgent({ ...base, priority: "NORMAL", riskLevel: "CRITICAL" }), true);
+
+  const add = (d: Date, n: number) => { const x = new Date(d); x.setUTCMonth(x.getUTCMonth() + n); return x; };
+  const today = day("2026-06-10");
+  assert.equal(dueOccurrences(day("2026-07-01"), 3, 14, today, add).length, 0);
+  assert.deepEqual(dueOccurrences(day("2026-06-24"), 3, 14, today, add).map((d) => d.toISOString().slice(0, 10)), ["2026-06-24"]);
+  assert.equal(dueOccurrences(day("2026-03-01"), 3, 0, today, add).length, 2);
+  assert.equal(dueOccurrences(day("2020-01-01"), 1, 0, today, add).length, 12);
+});

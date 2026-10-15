@@ -7,6 +7,7 @@ import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/li
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { reportWorkOrderAction } from "../../maintenance/actions";
 import {
   addFindingAction, addPhotoAction, approveInspectionAction, cancelInspectionAction, returnInspectionAction,
   saveRecordAction, submitInspectionAction,
@@ -158,6 +159,16 @@ export default async function InspectionPage({ params, searchParams }: { params:
                   {f.description ? <div className="small">{f.description}</div> : null}
                   {f.recommendedAction ? <div className="small">Recommended: {f.recommendedAction}</div> : null}
                   {gallery(photosOf("inspection_finding", f.id))}
+                  {f.workOrderId ? <p className="small"><Link href={`/app/maintenance/${f.workOrderId}`}>Work order raised</Link></p> : (ins.status === "SUBMITTED" || ins.status === "APPROVED") && can(member.role, "maintenance.request") ? (
+                    <form action={reportWorkOrderAction}>
+                      <input type="hidden" name="assetId" value={ins.asset.id} /><input type="hidden" name="findingId" value={f.id} />
+                      <input type="hidden" name="title" value={f.title} /><input type="hidden" name="description" value={[f.description, f.recommendedAction].filter(Boolean).join("\n")} />
+                      <input type="hidden" name="priority" value={f.severity === "CRITICAL" ? "HIGH" : "NORMAL"} /><input type="hidden" name="riskLevel" value={f.severity} />
+                      {f.safetyRisk ? <input type="hidden" name="safetyRisk" value="on" /> : null}
+                      {f.estimatedCostKobo !== null ? <input type="hidden" name="estimatedCost" value={koboToInput(f.estimatedCostKobo)} /> : null}
+                      <button className="btn small" type="submit">Raise a work order for this</button>
+                    </form>
+                  ) : null}
                   {canRecord ? (
                     <details className="inline">
                       <summary className="small">Add a photograph</summary>

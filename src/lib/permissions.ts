@@ -21,6 +21,11 @@ export type Action =
   | "renewal.approve"
   | "lease.close"
   | "handover.record"
+  | "maintenance.request"
+  | "maintenance.manage"
+  | "maintenance.approve"
+  | "maintenance.work"
+  | "maintenance.verify"
   | "inspection.manage"
   | "inspection.conduct"
   | "inspection.approve"
@@ -64,6 +69,11 @@ const MATRIX: Record<Action, Role[]> = {
   "renewal.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "lease.close": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "handover.record": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "maintenance.request": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "maintenance.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "maintenance.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "maintenance.work": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "maintenance.verify": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "inspection.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "inspection.conduct": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "inspection.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],

@@ -12,6 +12,10 @@ import { proposeRenewal, recordHandover, recordNotice } from "./services/lifecyc
 import { assessPeriod, createServicePeriod, decideExpense, recordCollection, requestExpense } from "./services/service-charges";
 import { completeObligation, createObligation } from "./services/obligations";
 import { addFinding, decideInspection, installStarterTemplates, saveInspectionRecord, scheduleInspection, submitInspection } from "./services/inspections";
+import {
+  addMaterial, addWorkOrderPhoto, approveWorkOrder, assignWorkOrder, closeWorkOrder, completeWorkOrder, createContractor, createSchedule,
+  reportWorkOrder, setProgress, triageWorkOrder,
+} from "./services/maintenance";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -238,6 +242,37 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     await submitInspection(officer, waiting.id);
   }
   await scheduleInspection(alpha, plaza.id, { templateId: commercial.id, purpose: "ROUTINE", scheduledFor: daysFromToday(-5), inspectorId: officer.membershipId });
+
+  // Maintenance: a work order raised from the inspection finding, an emergency, a closed job and a recurring job.
+  const sparky = await createContractor(alpha, { name: "[DEMO] Sparky Roofing & Electrical", trade: "Roofing, electrical", phone: "0800 000 0000", email: "", notes: "Demonstration contractor" });
+  const roofFinding = await withTenant(alpha.companyId, alpha.userId, (tx) => tx.inspectionFinding.findFirstOrThrow({ where: { inspectionId: approved.id } }));
+  const roofWo = await reportWorkOrder(officer, shop.id, {
+    title: "Roof leak above storeroom", description: "Water stain after rain.", priority: "HIGH", riskLevel: "HIGH", findingId: roofFinding.id,
+    targetDate: daysFromToday(10), estimatedCost: "180,000",
+  });
+  await triageWorkOrder(alpha, roofWo.id, { priority: "HIGH", riskLevel: "HIGH", targetDate: daysFromToday(10), estimatedCost: "180,000", note: "" });
+  await approveWorkOrder(manager, roofWo.id, { approvedCost: "200,000" });
+  await assignWorkOrder(alpha, roofWo.id, { assigneeId: officer.membershipId, contractorId: sparky.id });
+  await setProgress(officer, roofWo.id, "IN_PROGRESS", "");
+  await addWorkOrderPhoto(officer, roofWo.id, { phase: "BEFORE", caption: "Leak before repair" }, demoPhoto);
+  await addMaterial(officer, roofWo.id, { description: "Roofing flashing", quantity: "6", unit: "pcs", unitCost: "12,500" });
+
+  const pipe = await reportWorkOrder(officer, duplex.id, { title: "Burst pipe in kitchen", description: "Water running into the floor.", priority: "EMERGENCY", riskLevel: "CRITICAL", safetyRisk: true });
+  await assignWorkOrder(alpha, pipe.id, { assigneeId: officer.membershipId, contractorId: sparky.id });
+
+  const gate = await reportWorkOrder(manager, shop.id, { title: "Replace broken gate lock", description: "", priority: "NORMAL", riskLevel: "LOW", estimatedCost: "25,000" });
+  await triageWorkOrder(alpha, gate.id, { priority: "NORMAL", riskLevel: "LOW", estimatedCost: "25,000", note: "" });
+  await approveWorkOrder(alpha, gate.id, { approvedCost: "30,000" });
+  await assignWorkOrder(alpha, gate.id, { assigneeId: officer.membershipId });
+  await setProgress(officer, gate.id, "IN_PROGRESS", "");
+  await addWorkOrderPhoto(officer, gate.id, { phase: "AFTER", caption: "New lock fitted" }, demoPhoto);
+  await completeWorkOrder(officer, gate.id, { completedOn: daysFromToday(-1), notes: "Lock replaced and keys issued.", actualCost: "27,500" });
+  await closeWorkOrder(manager, gate.id, "Checked on site");
+
+  await createSchedule(alpha, shop.id, {
+    title: "Generator service", description: "Quarterly service", priority: "NORMAL", intervalMonths: "3", nextDueOn: daysFromToday(20), leadDays: "30",
+    contractorId: sparky.id, estimatedCost: "45,000",
+  });
 
   // Approve only the demo listings, never real submissions waiting for review.
   for (const l of await reviewQueue(adminId)) {

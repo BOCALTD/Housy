@@ -329,5 +329,37 @@ SELECT pg_temp.expect((SELECT count(*) FROM inspection_findings) = 0, 'B cannot 
 SELECT pg_temp.expect((SELECT count(*) FROM evidence_photos) = 0, 'B cannot see A photographs');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 17. Phase 6b: work orders are isolated, their history is append-only, costs and schedules are bounded.
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO preventive_schedules (id, company_id, asset_id, title, interval_months, next_due_on, created_by_id)
+  VALUES ('ps-a', 'co-a', 'as-a', 'Generator service', 6, '2026-06-01', 'u1');
+INSERT INTO work_orders (id, company_id, asset_id, ref, title, requested_by_id, schedule_id, scheduled_for, updated_at)
+  VALUES ('wo-a', 'co-a', 'as-a', 'WO-2026-0001', 'Service generator', 'u1', 'ps-a', '2026-06-01', now());
+INSERT INTO work_order_events (id, company_id, work_order_id, kind, to_status, actor_id)
+  VALUES ('we-a', 'co-a', 'wo-a', 'REPORTED', 'REPORTED', 'u1');
+DO $$ BEGIN
+  INSERT INTO work_orders (id, company_id, asset_id, ref, title, requested_by_id, schedule_id, scheduled_for, updated_at)
+    VALUES ('wo-dup', 'co-a', 'as-a', 'WO-2026-0002', 'Service generator again', 'u1', 'ps-a', '2026-06-01', now());
+  RAISE EXCEPTION 'FAIL: second work order for the same schedule date was allowed';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: one work order per schedule date'; END $$;
+DO $$ BEGIN
+  UPDATE work_order_events SET note = 'edited' WHERE id = 'we-a';
+  RAISE EXCEPTION 'FAIL: work order history was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: work order history cannot be edited'; END $$;
+DO $$ BEGIN
+  UPDATE work_orders SET actual_cost_kobo = -5 WHERE id = 'wo-a';
+  RAISE EXCEPTION 'FAIL: negative cost was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: costs cannot be negative'; END $$;
+DO $$ BEGIN
+  INSERT INTO work_order_materials (id, company_id, work_order_id, description, quantity, unit_cost_kobo, recorded_by_id)
+    VALUES ('wm-z', 'co-a', 'wo-a', 'Filters', 0, 100, 'u1');
+  RAISE EXCEPTION 'FAIL: zero quantity was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: material quantity must be positive'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM work_orders) = 0, 'B cannot see A work orders');
+SELECT pg_temp.expect((SELECT count(*) FROM work_order_events) = 0, 'B cannot see A work order history');
+SELECT pg_temp.expect((SELECT count(*) FROM preventive_schedules) = 0, 'B cannot see A schedules');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

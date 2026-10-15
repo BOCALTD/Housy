@@ -24,7 +24,7 @@ async function main() {
 
   const paths = new Set<string>([
     "/app", "/app/assets", "/app/assets/new", "/app/correspondence", "/app/correspondence/new",
-    "/app/files", "/app/settings", "/app/team", "/app/service-charges", "/app/compliance", "/app/inspections", "/app/inspections/templates", "/app/reports", "/app/reports/rent.csv",
+    "/app/files", "/app/settings", "/app/team", "/app/service-charges", "/app/compliance", "/app/inspections", "/app/inspections/templates", "/app/maintenance", "/app/maintenance/contractors", "/app/maintenance/schedules", "/app/reports", "/app/reports/rent.csv",
   ]);
   await withTenant(companyId, user.id, async (tx) => {
     for (const a of await tx.asset.findMany({ select: { id: true } })) paths.add(`/app/assets/${a.id}`);
@@ -32,6 +32,7 @@ async function main() {
     for (const l of await tx.lease.findMany({ select: { id: true } })) paths.add(`/app/leases/${l.id}`);
     for (const p of await tx.serviceChargePeriod.findMany({ select: { id: true } })) paths.add(`/app/service-charges/${p.id}`);
     for (const i of await tx.inspection.findMany({ select: { id: true } })) paths.add(`/app/inspections/${i.id}`);
+    for (const w of await tx.workOrder.findMany({ select: { id: true } })) paths.add(`/app/maintenance/${w.id}`);
     for (const r of await tx.receipt.findMany({ select: { id: true } })) paths.add(`/app/receipts/${r.id}`);
   });
 

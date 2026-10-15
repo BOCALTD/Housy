@@ -7,6 +7,7 @@ import { TASK_KINDS, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/services/tasks
 import { PURPOSES } from "@/lib/services/listings";
 import { listTeam } from "@/lib/services/companies";
 import { conditionHistory } from "@/lib/services/inspections";
+import { assetMaintenance } from "@/lib/services/maintenance";
 import { formatKobo } from "@/lib/money";
 import { chargeState, outstandingOf } from "@/lib/rent";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
@@ -34,6 +35,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
   const team = can(member.role, "task.create") ? (await listTeam(member)).members.filter((m) => m.status === "ACTIVE") : [];
   const today = todayInLagos();
   const condition = await conditionHistory(member, asset.id);
+  const upkeep = await assetMaintenance(member, asset.id);
   const listing = asset.listing;
   const hidden = <input type="hidden" name="assetId" value={asset.id} />;
 
@@ -175,6 +177,24 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                   </li>
                 ))}
               </ul>
+            )}
+          </section>
+
+          {/* Maintenance history */}
+          <section className="card" aria-labelledby="maint-h">
+            <div className="section-head">
+              <h2 id="maint-h">Maintenance history</h2>
+              <Link className="small" href={`/app/maintenance?assetId=${asset.id}`}>Report a problem</Link>
+            </div>
+            {upkeep.rows.length === 0 ? <p className="muted">No work orders for this asset.</p> : (
+              <>
+                {upkeep.downtimeDays > 0 ? <p className="small muted">Recorded downtime: {upkeep.downtimeDays} day{upkeep.downtimeDays === 1 ? "" : "s"}</p> : null}
+                <ul className="timeline">
+                  {upkeep.rows.map((w) => (
+                    <li key={w.id}><div><Link href={`/app/maintenance/${w.id}`}>{w.ref}</Link> · {w.title}<div className="small muted">{humanize(w.status)} · {humanize(w.priority).toLowerCase()}{w.completedOn ? ` · done ${formatDate(w.completedOn)}` : ""}{w.actualCostKobo !== null ? ` · ${formatKobo(w.actualCostKobo)}` : ""}</div></div></li>
+                  ))}
+                </ul>
+              </>
             )}
           </section>
 

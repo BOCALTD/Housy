@@ -6,6 +6,7 @@ import { parseDateOnly, todayInLagos } from "../dates";
 import {
   ADJUSTMENT_KINDS, checkAdjustmentFits, checkDepositEntry, depositTotals, signedAdjustment, type DepositKind,
 } from "../ledger-rules";
+import { lockKey } from "../locks";
 import { assertCan, type Ctx } from "./context";
 
 // Reversals, reconciliation, adjustments, deposits and the ledger check
@@ -13,6 +14,14 @@ import { assertCan, type Ctx } from "./context";
 
 async function lockRow(tx: Tx, table: "receipts" | "rent_adjustments" | "rent_charges" | "leases", id: string, companyId: string) {
   // Table names come from the fixed list above, never from input.
+  if (table === "receipts") {
+    // Receipts are append-only, so the app role has no UPDATE right and cannot take a row lock.
+    // An advisory lock on the receipt id serialises reconcile/reverse instead.
+    await lockKey(tx, `receipt:${id}`);
+    const found = await tx.$queryRawUnsafe<{ id: string }[]>(
+      `SELECT id FROM receipts WHERE id = $1 AND company_id = $2`, id, companyId);
+    return found.length > 0;
+  }
   const rows = await tx.$queryRawUnsafe<{ id: string }[]>(
     `SELECT id FROM ${table} WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, companyId);
   return rows.length > 0;

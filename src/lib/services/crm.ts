@@ -299,6 +299,8 @@ export async function mergeClients(ctx: Ctx, keepId: string, mergeId: string) {
     await tx.lead.updateMany({ where: { companyId: ctx.companyId, clientId: mergeId }, data: { clientId: keepId } });
     await tx.clientActivity.updateMany({ where: { companyId: ctx.companyId, clientId: mergeId }, data: { clientId: keepId } });
     await tx.propertyRequirement.updateMany({ where: { companyId: ctx.companyId, clientId: mergeId }, data: { clientId: keepId } });
+    await tx.deal.updateMany({ where: { companyId: ctx.companyId, clientId: mergeId }, data: { clientId: keepId } });
+    await tx.correspondence.updateMany({ where: { companyId: ctx.companyId, clientId: mergeId }, data: { clientId: keepId } });
     await tx.client.update({
       where: { id: keepId },
       data: {
@@ -549,6 +551,7 @@ const activitySchema = z.object({
   subject: z.string().trim().min(2, "Enter a short subject").max(200),
   body: text(4000),
   leadId: optionalId,
+  dealId: optionalId,
   dueOn: optionalDate,
   assigneeId: optionalId,
 });
@@ -562,6 +565,7 @@ export async function addClientActivity(ctx: Ctx, clientId: string, raw: z.input
     const c = await loadClient(tx, ctx, clientId);
     if (c.archivedAt) throw new Error("This client is archived");
     if (d.leadId && !(await tx.lead.findFirst({ where: { id: d.leadId, companyId: ctx.companyId, clientId } }))) throw new Error("Lead not found for this client");
+    if (d.dealId && !(await tx.deal.findFirst({ where: { id: d.dealId, companyId: ctx.companyId, clientId } }))) throw new Error("Deal not found for this client");
     let assigneeId = d.assigneeId;
     if (d.kind === "FOLLOW_UP") {
       assigneeId = assigneeId ?? ctx.membershipId;
@@ -574,7 +578,7 @@ export async function addClientActivity(ctx: Ctx, clientId: string, raw: z.input
       }
     } else assigneeId = null;
     const a = await tx.clientActivity.create({
-      data: { companyId: ctx.companyId, clientId, leadId: d.leadId, kind: d.kind, subject: d.subject, body: d.body, dueOn: d.kind === "FOLLOW_UP" ? d.dueOn : null, assigneeId, createdById: ctx.userId },
+      data: { companyId: ctx.companyId, clientId, leadId: d.leadId, dealId: d.dealId, kind: d.kind, subject: d.subject, body: d.body, dueOn: d.kind === "FOLLOW_UP" ? d.dueOn : null, assigneeId, createdById: ctx.userId },
     });
     if (d.leadId && d.kind !== "FOLLOW_UP" && d.kind !== "NOTE") {
       await tx.lead.updateMany({ where: { id: d.leadId, companyId: ctx.companyId, status: "NEW" }, data: { status: "CONTACTED" } });

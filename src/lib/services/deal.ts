@@ -25,7 +25,7 @@ export function dealVisibleWhere(ctx: Ctx, owners: string[] | null): Prisma.Deal
   return { OR: [{ ownerId: ctx.membershipId }, { ownerId: { in: owners }, client: { is: { confidential: false } } }] };
 }
 
-async function lockDeal(tx: Tx, ctx: Ctx, id: string) {
+export async function lockDeal(tx: Tx, ctx: Ctx, id: string) {
   const rows = await tx.$queryRawUnsafe<{ id: string }[]>(`SELECT id FROM deals WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, ctx.companyId);
   if (rows.length === 0) throw new Error("Deal not found");
   const owners = await visibleOwners(tx, ctx);
@@ -34,11 +34,19 @@ async function lockDeal(tx: Tx, ctx: Ctx, id: string) {
   return deal;
 }
 
-const canChange = (ctx: Ctx, d: { ownerId: string }) => isManager(ctx) || d.ownerId === ctx.membershipId;
-function mustChange(ctx: Ctx, d: { ownerId: string }) {
-  if (!canChange(ctx, d)) throw new Error("Only the deal's owner or a manager can do that");
+/** A deal the person may see, without locking it. */
+export async function loadDeal(tx: Tx, ctx: Ctx, id: string) {
+  const owners = await visibleOwners(tx, ctx);
+  const deal = await tx.deal.findFirst({ where: { id, companyId: ctx.companyId, AND: [dealVisibleWhere(ctx, owners)] } });
+  if (!deal) throw new Error("Deal not found");
+  return deal;
 }
-function mustBeOpen(d: { status: string }) {
+
+export const canChangeDeal = (ctx: Ctx, d: { ownerId: string }) => isManager(ctx) || d.ownerId === ctx.membershipId;
+export function mustChange(ctx: Ctx, d: { ownerId: string }) {
+  if (!canChangeDeal(ctx, d)) throw new Error("Only the deal's owner or a manager can do that");
+}
+export function mustBeOpen(d: { status: string }) {
   if (d.status !== "OPEN") throw new Error(`This deal is ${d.status.toLowerCase().replace("_", " ")}, so it cannot be changed this way`);
 }
 
@@ -321,7 +329,7 @@ export async function recordViewingOutcome(ctx: Ctx, viewingId: string, result: 
   if (result === "COMPLETED" && outcome.length < 3) throw new Error("Record how the viewing went");
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const { v, deal } = await loadViewing(tx, ctx, viewingId);
-    if (!canChange(ctx, deal) && v.agentId !== ctx.membershipId) throw new Error("Only the deal's owner, the agent who held it, or a manager can record the outcome");
+    if (!canChangeDeal(ctx, deal) && v.agentId !== ctx.membershipId) throw new Error("Only the deal's owner, the agent who held it, or a manager can record the outcome");
     if (v.status !== "SCHEDULED") throw new Error("The outcome of this viewing is already recorded");
     if (v.startsAt.getTime() > Date.now()) throw new Error("The viewing has not happened yet");
     await tx.viewing.update({ where: { id: v.id }, data: { status: result, outcome } });
@@ -527,7 +535,7 @@ export async function getDeal(ctx: Ctx, id: string) {
       names: Object.fromEntries(members.map((m) => [m.id, m.user.name])) as Record<string, string>,
       userNames: Object.fromEntries(members.map((m) => [m.userId, m.user.name])) as Record<string, string>,
       agents: members.filter((m) => m.status === "ACTIVE" && ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"].includes(m.role)).map((m) => ({ id: m.id, name: m.user.name })),
-      canChange: canChange(ctx, deal),
+      canChange: canChangeDeal(ctx, deal),
     };
   });
 }

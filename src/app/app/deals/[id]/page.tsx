@@ -35,7 +35,7 @@ export default async function DealPage({ params, searchParams }: { params: { id:
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
         <h1>{deal.ref} · {deal.title}</h1>
-        <p className="muted"><Link href={`/app/crm/clients/${deal.client.id}`}>{deal.client.ref} {deal.client.name}</Link> · <Link href={`/app/assets/${deal.asset.id}`}>{deal.asset.ref} {deal.asset.name}</Link> · {humanize(deal.type)} · owner {d.names[deal.ownerId] ?? "unknown"} <Link href="/app/deals">All deals</Link></p>
+        <p className="muted"><Link href={`/app/crm/clients/${deal.client.id}`}>{deal.client.ref} {deal.client.name}</Link> · <Link href={`/app/assets/${deal.asset.id}`}>{deal.asset.ref} {deal.asset.name}</Link> · {humanize(deal.type)} · owner {d.names[deal.ownerId] ?? "unknown"} <Link href="/app/deals">All deals</Link> · <Link href={`/app/deals/${deal.id}/file`}>Deal file</Link></p>
         <div className="row"><Pill status={deal.stage} label={humanize(deal.stage)} />{deal.status !== "OPEN" ? <Pill status={deal.status} label={humanize(deal.status)} /> : null}</div>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />

@@ -515,8 +515,10 @@ model Task {
   asset       Asset        @relation(fields: [assetId], references: [id], onDelete: Restrict)
   assignee    Membership?  @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
+  dealId      String?      @map("deal_id")
   @@index([companyId, status])
   @@index([assetId])
+  @@index([companyId, dealId])
   @@map("tasks")
 }
 
@@ -773,9 +775,13 @@ model Correspondence {
   actions          CorrespondenceAction[]
   attachments      CorrespondenceAttachment[]
 
+  clientId         String?                 @map("client_id")
+  dealId           String?                 @map("deal_id")
   @@unique([companyId, ref])
   @@index([companyId, status])
   @@index([companyId, responseDeadline])
+  @@index([companyId, dealId])
+  @@index([companyId, clientId])
   @@map("correspondence")
 }
 
@@ -2597,11 +2603,13 @@ model ClientActivity {
   system      Boolean      @default(false)
   createdById String       @map("created_by_id")
   createdAt   DateTime     @default(now()) @map("created_at")
+  dealId      String?      @map("deal_id")
   client      Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
   lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
   @@index([companyId, clientId, occurredAt])
   @@index([companyId, kind, dueOn])
+  @@index([companyId, dealId])
   @@map("client_activities")
 }
 
@@ -2742,6 +2750,8 @@ model Deal {
   events           DealEvent[]
   viewings         Viewing[]
   offers           Offer[]
+  documents        DealDocument[]
+  payments         DealPayment[]
 
   @@unique([companyId, ref])
   @@index([companyId, status, stage])
@@ -2820,4 +2830,67 @@ model Offer {
 
   @@index([dealId, createdAt])
   @@map("offers")
+}
+
+// ---------- Deal file: documents and payments (Phase 8b-2) ----------
+
+enum DealDocKind {
+  OFFER_LETTER
+  SALES_AGREEMENT
+  TENANCY_AGREEMENT
+  TITLE_DOCUMENT
+  SURVEY
+  IDENTITY
+  PROOF_OF_FUNDS
+  LEGAL
+  OTHER
+}
+
+enum DealPaymentKind {
+  BOOKING_DEPOSIT
+  PART_PAYMENT
+  BALANCE
+  AGENCY_FEE
+  LEGAL_FEE
+  REFUND
+  OTHER
+}
+
+/// A file on a deal, served only through an authorized route.
+model DealDocument {
+  id           String      @id @default(uuid())
+  companyId    String      @map("company_id")
+  dealId       String      @map("deal_id")
+  kind         DealDocKind
+  title        String
+  fileName     String      @map("file_name")
+  mimeType     String      @map("mime_type")
+  sizeBytes    Int         @map("size_bytes")
+  storageKey   String      @unique @map("storage_key")
+  uploadedById String      @map("uploaded_by_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  deal         Deal        @relation(fields: [dealId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, dealId])
+  @@map("deal_documents")
+}
+
+/// Money received or paid in connection with a deal. Never edited: a mistake is reversed by a second person, which adds a row.
+model DealPayment {
+  id           String          @id @default(uuid())
+  companyId    String          @map("company_id")
+  dealId       String          @map("deal_id")
+  kind         DealPaymentKind
+  amountKobo   BigInt          @map("amount_kobo")
+  paidOn       DateTime        @map("paid_on") @db.Date
+  method       String          @default("")
+  reference    String          @default("")
+  note         String          @default("")
+  reversesId   String?         @unique @map("reverses_id")
+  recordedById String          @map("recorded_by_id")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  deal         Deal            @relation(fields: [dealId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, dealId, paidOn])
+  @@map("deal_payments")
 }

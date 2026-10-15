@@ -22,7 +22,7 @@ export const DISPATCH_METHODS = ["Email", "Courier", "Hand delivery", "Registere
 type Upload = { name: string; type: string; bytes: Uint8Array };
 
 /** Records the user may see. Confidential items are limited to managers, the assignee and the creator. */
-function visibleWhere(ctx: Ctx): Prisma.CorrespondenceWhereInput {
+export function visibleWhere(ctx: Ctx): Prisma.CorrespondenceWhereInput {
   if (can(ctx.role, "correspondence.confidential")) return { companyId: ctx.companyId };
   return {
     companyId: ctx.companyId,

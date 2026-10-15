@@ -88,7 +88,7 @@ export async function getAsset(ctx: Ctx, assetId: string) {
         parties: { orderBy: { createdAt: "asc" } },
         documents: { orderBy: { createdAt: "desc" } },
         leases: { orderBy: { startDate: "desc" }, include: { charges: { orderBy: { dueDate: "asc" } } } },
-        tasks: { orderBy: { createdAt: "desc" }, include: { assignee: { include: { user: { select: { name: true } } } } } },
+        tasks: { where: { dealId: null }, orderBy: { createdAt: "desc" }, include: { assignee: { include: { user: { select: { name: true } } } } } },
         listing: { include: { enquiries: { orderBy: { createdAt: "desc" } } } },
       },
     });

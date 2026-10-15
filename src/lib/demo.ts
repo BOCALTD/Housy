@@ -39,6 +39,7 @@ import { registerCorrespondence, actOnCorrespondence } from "./services/correspo
 import { createPhysicalFile, issuePhysicalFile } from "./services/files";
 import { todayInLagos, toDateOnlyString } from "./dates";
 import type { Ctx } from "./services/context";
+import { addDealTask, recordDealPayment } from "./services/deal-file";
 import { counterOffer, createDeal, recordOffer, scheduleViewing } from "./services/deal";
 import { addClientActivity, addRequirement, createClient, createLead, setLeadStatus } from "./services/crm";
 
@@ -424,6 +425,8 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await scheduleViewing(alpha, buyerDeal.id, { date: daysFromToday(3), time: "10:00", minutes: "45", meetingPoint: "Main gate" });
   const firstOffer = await recordOffer(alpha, buyerDeal.id, { side: "CLIENT", amount: "95,000,000", note: "[DEMO] Opening offer" });
   await counterOffer(alpha, firstOffer.id, { amount: "105,000,000", note: "[DEMO] Owner's counter" });
+  await recordDealPayment(alpha, buyerDeal.id, { kind: "BOOKING_DEPOSIT", amount: "5,000,000", paidOn: daysFromToday(-1), method: "Bank transfer", reference: "[DEMO] TRF-0001" });
+  await addDealTask(alpha, buyerDeal.id, { title: "[DEMO] Ask the owner for the title documents", dueOn: daysFromToday(4) });
   const tenant = await createClient(manager, { name: "[DEMO] Amina Bello", phone: "0802 555 0102", city: "Abuja", confidential: true });
   await createLead(manager, tenant.id, { title: "[DEMO] Two-bedroom flat to rent in Abuja", budgetMax: "4,000,000" });
 

@@ -7,6 +7,8 @@ import { classifyDeadline, STATE_ORDER, type DeadlineState } from "../deadlines"
 import { assessmentBalance } from "../ledger-rules";
 import { isUnattendedUrgent, URGENT_UNATTENDED_HOURS } from "../maintenance-rules";
 import { can } from "../permissions";
+import { visibleOwners } from "./crm";
+import { dealVisibleWhere } from "./deal";
 import { assertCan, type Ctx } from "./context";
 
 // Obligations, reminders and the compliance calendar (master prompt Sections 13.2 and 13.4).
@@ -159,7 +161,7 @@ export async function cancelObligation(ctx: Ctx, obligationId: string, reasonInp
 
 export interface CalendarItem {
   kind: "OBLIGATION" | "LEASE_END" | "NOTICE" | "SERVICE_CHARGE" | "REVIEW" | "WORK_ORDER" | "URGENT_WORK" | "INSPECTION"
-    | "WARRANTY" | "DEFECTS_PERIOD" | "DEFECT" | "PROCUREMENT" | "RISK_REVIEW" | "MILESTONE" | "VALUATION";
+    | "WARRANTY" | "DEFECTS_PERIOD" | "DEFECT" | "PROCUREMENT" | "RISK_REVIEW" | "MILESTONE" | "VALUATION" | "VIEWING" | "FOLLOW_UP" | "DEAL_CLOSE";
   id: string;
   title: string;
   detail: string;
@@ -308,6 +310,30 @@ export async function complianceCalendar(ctx: Ctx) {
       for (const v of vals) {
         push({ kind: "VALUATION", id: v.id, title: `Valuation due: ${v.asset.name}`, dueDate: v.dueDate!, amountKobo: null, href: `/app/valuations/${v.id}`, detail: `${v.ref} · ${v.status === "IN_REVIEW" ? "waiting for approval" : "being prepared"}` });
       }
+    }
+
+    if (can(ctx.role, "crm.view")) {
+      const owners = await visibleOwners(tx, ctx);
+      const dealScope = dealVisibleWhere(ctx, owners);
+      const lagosDay = (d: Date) => new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(d)}T00:00:00.000Z`);
+      const viewings = await tx.viewing.findMany({
+        where: { companyId: ctx.companyId, status: "SCHEDULED", startsAt: { gte: today, lte: horizon }, deal: { is: dealScope } },
+        include: { deal: { select: { id: true, ref: true, title: true } } }, take: 200,
+      });
+      for (const v of viewings) {
+        const t = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hour12: false }).format(v.startsAt);
+        push({ kind: "VIEWING", id: v.id, title: `Viewing at ${t}: ${v.deal.title}`, dueDate: lagosDay(v.startsAt), amountKobo: null, href: `/app/deals/${v.deal.id}`, detail: v.deal.ref });
+      }
+      const followUps = await tx.clientActivity.findMany({
+        where: { companyId: ctx.companyId, kind: "FOLLOW_UP", doneAt: null, assigneeId: ctx.membershipId, dueOn: { not: null, lte: horizon } },
+        include: { client: { select: { id: true, ref: true, name: true } } }, take: 200,
+      });
+      for (const f of followUps) push({ kind: "FOLLOW_UP", id: f.id, title: `Follow up: ${f.subject}`, dueDate: f.dueOn!, amountKobo: null, href: `/app/crm/clients/${f.client.id}`, detail: `${f.client.ref} · ${f.client.name}` });
+      const closing = await tx.deal.findMany({
+        where: { companyId: ctx.companyId, status: { in: ["OPEN", "ON_HOLD"] }, expectedCloseOn: { not: null, lte: horizon }, AND: [dealScope] },
+        select: { id: true, ref: true, title: true, expectedCloseOn: true }, take: 200,
+      });
+      for (const c of closing) push({ kind: "DEAL_CLOSE", id: c.id, title: `Expected to close: ${c.title}`, dueDate: c.expectedCloseOn!, amountKobo: null, href: `/app/deals/${c.id}`, detail: c.ref });
     }
 
     items.sort((x, y) => STATE_ORDER[x.state] - STATE_ORDER[y.state] || x.dueDate.getTime() - y.dueDate.getTime());

@@ -7,7 +7,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import {
   addComparableAction, addDocumentAction, addEntryAction, assignAction, cancelAction, decideReportAction, issueAction, removeComparableAction, removeEntryAction,
   removeWorksheetAction, reviseReportAction, saveDraftAction, submitReportAction, updateInstructionAction, verifyComparableAction, worksheetAction,
@@ -80,7 +80,7 @@ export default async function ValuationPage({ params, searchParams }: { params: 
         <div><div className="small muted">Asset description</div><p>{inst.assetDescription || "Not yet described"}</p></div>
         {inst.scope ? <div><div className="small muted">Scope of work</div><p>{inst.scope}</p></div> : null}
         {prepare ? (
-          <details>
+          <details className="inline">
             <summary>Edit the instruction</summary>
             <form action={updateInstructionAction} className="stack" style={{ marginTop: 12 }}>
               {hidden}
@@ -108,7 +108,7 @@ export default async function ValuationPage({ params, searchParams }: { params: 
               <Field label="Assign to"><select name="assignedToId" defaultValue={inst.assignedToId ?? ""}><option value="">Not assigned</option>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></Field>
               <button className="btn" type="submit">Assign</button>
             </form>
-            <details>
+            <details className="inline">
               <summary>Cancel this instruction</summary>
               <form action={cancelAction} className="stack" style={{ marginTop: 12 }}>
                 {hidden}
@@ -123,17 +123,16 @@ export default async function ValuationPage({ params, searchParams }: { params: 
       {!editable ? <div className="flash notice" role="status">The evidence for this valuation is locked{inst.status === "IN_REVIEW" ? " while it is with the approver" : ""}. {inst.status === "IN_PROGRESS" ? "" : "A revision starts a new version."}</div> : null}
 
       <section className="card stack" aria-labelledby="ent-h">
-        <h2 id="ent-h">Premise, assumptions and limitations</h2>
+        <details className="inline"><summary id="ent-h"><strong>Premise, assumptions and limitations</strong> <span className="small muted">({entries.length})</span></summary>
         <p className="small muted">{inst.premise === "STANDARD" ? "State every assumption and limitation the value depends on." : `This is a ${humanize(inst.premise).toLowerCase()} valuation. Record the premise it rests on.`}</p>
         {entries.length === 0 ? <p className="muted">Nothing recorded yet.</p> : (
-          <ul className="timeline">
-            {entries.map((e) => (
+          <ShowMore noun="more statements" items={
+            entries.map((e) => (
               <li key={e.id}><div className="row between" style={{ width: "100%" }}>
                 <div><Pill status="OPEN" label={kindLabel(e.kind)} /> {e.text}<div className="small muted">{who(e.createdById)}</div></div>
                 {prepare ? <form action={removeEntryAction}>{hidden}<input type="hidden" name="entryId" value={e.id} /><button className="btn" type="submit">Remove</button></form> : null}
               </div></li>
-            ))}
-          </ul>
+            ))} />
         )}
         {prepare ? (
           <form action={addEntryAction} className="stack">
@@ -143,13 +142,14 @@ export default async function ValuationPage({ params, searchParams }: { params: 
             <button className="btn" type="submit">Add</button>
           </form>
         ) : null}
+      </details>
       </section>
 
       <section className="card stack" aria-labelledby="cmp-h">
-        <h2 id="cmp-h">Comparable evidence</h2>
+        <details className="inline"><summary id="cmp-h"><strong>Comparable evidence</strong> <span className="small muted">({comparables.length})</span></summary>
         {comparables.length === 0 ? <p className="muted">No comparables yet.</p> : (
-          <ul className="timeline">
-            {comparables.map((c) => (
+          <ShowMore noun="more comparables" limit={3} items={
+            comparables.map((c) => (
               <li key={c.id}><div className="stack" style={{ gap: 6, width: "100%" }}>
                 <div className="row between">
                   <div><strong>{c.address}</strong><div className="small muted">{humanize(c.kind)} · {formatDate(c.evidenceDate)} · {c.source}</div></div>
@@ -167,11 +167,10 @@ export default async function ValuationPage({ params, searchParams }: { params: 
                   </div>
                 ) : null}
               </div></li>
-            ))}
-          </ul>
+            ))} />
         )}
         {prepare ? (
-          <details>
+          <details className="inline">
             <summary>Add a comparable</summary>
             <form action={addComparableAction} className="stack" style={{ marginTop: 12 }}>
               {hidden}
@@ -190,10 +189,11 @@ export default async function ValuationPage({ params, searchParams }: { params: 
             </form>
           </details>
         ) : null}
+      </details>
       </section>
 
       <section className="card stack" aria-labelledby="ws-h">
-        <h2 id="ws-h">Valuation worksheets</h2>
+        <details className="inline"><summary id="ws-h"><strong>Valuation worksheets</strong> <span className="small muted">({worksheets.length})</span></summary>
         <p className="small muted">Each method records its inputs and works out an indicated value. The professional decides how to weigh them in the report.</p>
         {METHODS.map((m) => {
           const ws = wsFor(m);
@@ -210,7 +210,7 @@ export default async function ValuationPage({ params, searchParams }: { params: 
               {warns.map((w) => <p key={w} className="small" style={{ color: "var(--warn, inherit)" }}>Note: {w}</p>)}
               {ws?.note ? <p className="small muted">{ws.note}</p> : null}
               {prepare ? (
-                <details>
+                <details className="inline">
                   <summary>{ws ? "Change the inputs" : "Start this worksheet"}</summary>
                   <form action={worksheetAction} className="stack" style={{ marginTop: 12 }}>
                     {hidden}<input type="hidden" name="method" value={m} />
@@ -240,14 +240,13 @@ export default async function ValuationPage({ params, searchParams }: { params: 
             </div>
           );
         })}
+      </details>
       </section>
 
       <section className="card stack" aria-labelledby="doc-h">
-        <h2 id="doc-h">Supporting documents</h2>
+        <details className="inline"><summary id="doc-h"><strong>Supporting documents</strong> <span className="small muted">({documents.length})</span></summary>
         {documents.length === 0 ? <p className="muted">No documents attached.</p> : (
-          <ul className="timeline">
-            {documents.map((d) => <li key={d.id}><a href={`/app/valuation-docs/${d.id}`}>{d.title}</a><span className="small muted"> · {d.fileName} · {formatDate(d.createdAt)}</span></li>)}
-          </ul>
+          <ShowMore noun="more documents" items={documents.map((d) => <li key={d.id}><a href={`/app/valuation-docs/${d.id}`}>{d.title}</a><span className="small muted"> · {d.fileName} · {formatDate(d.createdAt)}</span></li>)} />
         )}
         {prepare ? (
           <form action={addDocumentAction} className="stack">
@@ -257,6 +256,7 @@ export default async function ValuationPage({ params, searchParams }: { params: 
             <button className="btn" type="submit">Attach</button>
           </form>
         ) : null}
+      </details>
       </section>
 
       <section className="card stack" aria-labelledby="rep-h">
@@ -321,7 +321,7 @@ export default async function ValuationPage({ params, searchParams }: { params: 
           </form>
         ) : null}
         {manage && (inst.status === "APPROVED" || inst.status === "ISSUED") ? (
-          <details>
+          <details className="inline">
             <summary>Revise the report</summary>
             <form action={reviseReportAction} className="stack" style={{ marginTop: 12 }}>
               {hidden}
@@ -334,14 +334,13 @@ export default async function ValuationPage({ params, searchParams }: { params: 
         {reports.length > 0 ? (
           <div>
             <h3>Versions</h3>
-            <ul className="timeline">
-              {reports.map((r) => (
+            <ShowMore noun="older versions" limit={3} items={
+              reports.map((r) => (
                 <li key={r.id}><div className="row between" style={{ width: "100%" }}>
                   <div>Version {r.version}{r.concludedValueKobo ? ` · ${formatKobo(r.concludedValueKobo)}` : ""}<div className="small muted">By {who(r.authorId)}{r.decidedById ? ` · decided by ${who(r.decidedById)}` : ""}{r.aiAssisted ? " · AI-assisted" : ""}</div></div>
                   <Pill status={r.status === "SUPERSEDED" ? "CANCELLED" : r.status === "IN_REVIEW" ? "PENDING" : r.status} label={humanize(r.status)} />
                 </div></li>
-              ))}
-            </ul>
+              ))} />
           </div>
         ) : null}
       </section>

@@ -103,6 +103,7 @@ form.stack { gap: 12px; }
 details.inline > summary { cursor: pointer; font-weight: 600; color: var(--primary); list-style: none; }
 details.inline > summary::-webkit-details-marker { display: none; }
 details.inline[open] > summary { margin-bottom: 12px; }
+details.inline[open] > summary ~ * + * { margin-top: 12px; }
 
 /* Messages */
 .flash { padding: 11px 14px; border-radius: 10px; font-size: 14px; }

@@ -5,7 +5,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { createInstructionAction } from "./actions";
 
 export const metadata = { title: "Valuations" };
@@ -32,8 +32,8 @@ export default async function ValuationsPage({ searchParams }: { searchParams?: 
       <section className="card">
         <h2>All valuations</h2>
         {d.rows.length === 0 ? <p className="muted">No valuations yet.</p> : (
-          <ul className="timeline">
-            {d.rows.map((r) => {
+          <ShowMore noun="more valuations" limit={8} items={
+            d.rows.map((r) => {
               const rep = r.reports[0];
               const late = ["INSTRUCTED", "IN_PROGRESS"].includes(r.status) && r.dueDate && r.dueDate.getTime() < Date.now() - 86_400_000;
               return (
@@ -49,14 +49,14 @@ export default async function ValuationsPage({ searchParams }: { searchParams?: 
                   <div className="row">{late ? <Pill status="OVERDUE" label="Overdue" /> : null}<Pill status={r.status} label={humanize(r.status)} /></div>
                 </div></li>
               );
-            })}
-          </ul>
+            })} />
         )}
       </section>
 
       {manage ? (
         <section className="card" aria-labelledby="new-h">
-          <h2 id="new-h">New instruction</h2>
+          <details className="inline">
+          <summary id="new-h">New instruction</summary>
           <form action={createInstructionAction} className="stack">
             <div className="fields">
               <Field label="Asset"><select name="assetId" required defaultValue=""><option value="" disabled>Choose an asset</option>{d.assets.map((a) => <option key={a.id} value={a.id}>{a.ref} · {a.name}</option>)}</select></Field>
@@ -79,6 +79,7 @@ export default async function ValuationsPage({ searchParams }: { searchParams?: 
             </div>
             <button className="btn primary" type="submit">Create instruction</button>
           </form>
+          </details>
         </section>
       ) : null}
     </div>

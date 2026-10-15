@@ -39,3 +39,20 @@ export function sp(searchParams: SP | undefined, key: string): string | undefine
   const v = searchParams?.[key];
   return Array.isArray(v) ? v[0] : v;
 }
+
+/** Show the first few items and fold the rest behind a "Show more" control, so long lists never stretch the page. */
+export function ShowMore({ items, limit = 5, noun = "more" }: { items: React.ReactNode[]; limit?: number; noun?: string }) {
+  const head = items.slice(0, limit);
+  const rest = items.slice(limit);
+  return (
+    <>
+      <ul className="timeline">{head}</ul>
+      {rest.length > 0 ? (
+        <details className="inline">
+          <summary>Show {rest.length} {noun}</summary>
+          <ul className="timeline">{rest}</ul>
+        </details>
+      ) : null}
+    </>
+  );
+}

@@ -42,9 +42,9 @@ open_page() {
 }
 for p in $PAGES; do
   open_page "administrator" "$TOKEN" "$p"
-  # The officer cannot open settings, team or new-asset pages, which are limited to managers.
+  # The officer cannot open settings, team or new-asset pages, which are limited to managers, or the sales pages, which are for agents and managers.
   case "$p" in
-    /app/settings|/app/team|/app/assets/new) ;;
+    /app/settings|/app/team|/app/assets/new|/app/crm|/app/crm/*) ;;
     *) open_page "officer" "$OFFICER_TOKEN" "$p" ;;
   esac
 done

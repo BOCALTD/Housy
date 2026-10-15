@@ -69,10 +69,10 @@ export function CollabNewForm({ kind, agent, company, targetName, hasCompany }: 
 
 const PermBoxes = ({ p }: { p?: { canComment: boolean; canTasks: boolean; canShare: boolean; canDocuments: boolean } }) => (
   <div className="row">
-    <label><input type="checkbox" name="canComment" defaultChecked={p?.canComment ?? true} /> Comment</label>
-    <label><input type="checkbox" name="canTasks" defaultChecked={p?.canTasks ?? true} /> Tasks</label>
-    <label><input type="checkbox" name="canShare" defaultChecked={p?.canShare ?? true} /> Share</label>
-    <label><input type="checkbox" name="canDocuments" defaultChecked={p?.canDocuments ?? true} /> Documents</label>
+    <label className="check"><input type="checkbox" name="canComment" defaultChecked={p?.canComment ?? true} /><span>Comment</span></label>
+    <label className="check"><input type="checkbox" name="canTasks" defaultChecked={p?.canTasks ?? true} /><span>Tasks</span></label>
+    <label className="check"><input type="checkbox" name="canShare" defaultChecked={p?.canShare ?? true} /><span>Share</span></label>
+    <label className="check"><input type="checkbox" name="canDocuments" defaultChecked={p?.canDocuments ?? true} /><span>Documents</span></label>
   </div>
 );
 
@@ -109,7 +109,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
             <Field label="A note to them (optional)"><input name="note" maxLength={500} /></Field>
             {company ? (
               <fieldset><legend className="small muted">Who will work on this for your company (you are included if you choose no one)</legend>
-                <div className="row">{extras.colleagues.map((m) => <label key={m.userId}><input type="checkbox" name="person" value={m.userId} /> {m.name}</label>)}</div></fieldset>
+                <div className="row">{extras.colleagues.map((m) => <label key={m.userId} className="check"><input type="checkbox" name="person" value={m.userId} /><span>{m.name}</span></label>)}</div></fieldset>
             ) : null}
             <div className="row"><button className="btn primary" type="submit" name="decision" value="accept">Accept</button><button className="btn" type="submit" name="decision" value="decline">Decline</button></div>
           </form></section>
@@ -165,7 +165,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
                 <form action={sharePropertyAction} className="stack">{id}
                   {extras.assets.length ? <Field label="One of your properties"><select name="assetId" defaultValue=""><option value="">Choose…</option>{extras.assets.map((a) => <option key={a.id} value={a.id}>{a.ref} {a.name}</option>)}</select></Field> : null}
                   <Field label="Or a published listing's reference"><input name="listingRef" placeholder="Listing reference" /></Field>
-                  <div className="row"><label><input type="checkbox" name="price" defaultChecked /> Show the price</label><label><input type="checkbox" name="address" /> Show the street address</label></div>
+                  <div className="row"><label className="check"><input type="checkbox" name="price" defaultChecked /><span>Show the price</span></label><label className="check"><input type="checkbox" name="address" /><span>Show the street address</span></label></div>
                   <Field label="Note"><input name="note" maxLength={500} /></Field>
                   <button className="btn" type="submit">Share property</button></form></details>
             ) : null}
@@ -174,7 +174,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
                 <form action={shareDealAction} className="stack">{id}
                   <p className="small muted">Pick only what the other company needs. The client, the notes and the rest of the deal stay with you.</p>
                   <Field label="Deal"><select name="dealId" required defaultValue="">{<option value="">Choose…</option>}{extras.deals.map((d) => <option key={d.id} value={d.id}>{d.ref} {d.title}</option>)}</select></Field>
-                  <div className="row"><label><input type="checkbox" name="stage" /> Stage</label><label><input type="checkbox" name="asking" /> Asking price</label><label><input type="checkbox" name="agreed" /> Agreed price</label><label><input type="checkbox" name="expectedClose" /> Expected close</label><label><input type="checkbox" name="propertyAddress" /> Street address</label></div>
+                  <div className="row"><label className="check"><input type="checkbox" name="stage" /><span>Stage</span></label><label className="check"><input type="checkbox" name="asking" /><span>Asking price</span></label><label className="check"><input type="checkbox" name="agreed" /><span>Agreed price</span></label><label className="check"><input type="checkbox" name="expectedClose" /><span>Expected close</span></label><label className="check"><input type="checkbox" name="propertyAddress" /><span>Street address</span></label></div>
                   <Field label="Note"><input name="note" maxLength={500} /></Field>
                   <button className="btn" type="submit">Share deal summary</button></form></details>
             ) : null}
@@ -204,7 +204,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
                   <div className="fields"><Field label="Title"><input name="title" required /></Field><Field label="Due"><input name="dueOn" type="date" /></Field>
                     <Field label="Assign to"><select name="assigneeId" defaultValue=""><option value="">Anyone</option>{w.participants.filter((p) => !p.revokedAt).map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}</select></Field></div>
                   <Field label="Details"><input name="description" maxLength={2000} /></Field>
-                  <label><input type="checkbox" name="milestone" /> This is a milestone</label>
+                  <label className="check"><input type="checkbox" name="milestone" /><span>This is a milestone</span></label>
                   <button className="btn" type="submit">Add</button></form></details>
             ) : null}
           </section>

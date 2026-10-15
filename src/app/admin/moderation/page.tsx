@@ -42,7 +42,7 @@ export default async function ModerationPage({ searchParams }: { searchParams?: 
               <details className="inline"><summary>Decide</summary>
                 <form action={resolveReportAction} className="stack"><input type="hidden" name="reportId" value={r.id} />
                   <Field label="What you decided and why"><input name="note" required minLength={3} maxLength={500} /></Field>
-                  <label><input type="checkbox" name="pause" /> Also pause {r.senderName}&apos;s messaging</label>
+                  <label className="check"><input type="checkbox" name="pause" /><span>Also pause {r.senderName}&apos;s messaging</span></label>
                   <div className="row"><button className="btn primary" type="submit" name="action" value="action">Uphold the report</button><button className="btn" type="submit" name="action" value="dismiss">Dismiss</button></div></form></details>
             </div></li>))} />
         )}

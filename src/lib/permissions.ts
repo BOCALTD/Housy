@@ -26,6 +26,10 @@ export type Action =
   | "maintenance.approve"
   | "maintenance.work"
   | "maintenance.verify"
+  | "inventory.manage"
+  | "inventory.move"
+  | "inventory.count"
+  | "inventory.approve"
   | "inspection.manage"
   | "inspection.conduct"
   | "inspection.approve"
@@ -74,6 +78,10 @@ const MATRIX: Record<Action, Role[]> = {
   "maintenance.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "maintenance.work": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "maintenance.verify": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "inventory.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "inventory.move": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "inventory.count": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "inventory.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "inspection.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "inspection.conduct": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "inspection.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],

@@ -275,6 +275,7 @@ export async function removeMaterial(ctx: Ctx, id: string, materialId: string) {
     if (wo.status === "COMPLETED" || wo.status === "CLOSED" || wo.status === "CANCELLED") throw new Error("Materials cannot be changed once the work is completed");
     const m = await tx.workOrderMaterial.findFirst({ where: { id: materialId, workOrderId: id, companyId: ctx.companyId } });
     if (!m) throw new Error("Material not found");
+    if (m.inventoryItemId) throw new Error("This material was issued from stock. Record a return in inventory instead.");
     await tx.workOrderMaterial.delete({ where: { id: materialId } });
     await event(tx, ctx, id, "MATERIAL_REMOVED", wo.status, wo.status, m.description);
   });

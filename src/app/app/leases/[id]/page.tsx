@@ -400,6 +400,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
 
               <div>
                 <h3 className="small muted">Handover</h3>
+                <p className="small"><Link href={`/app/handover-inventory/${lease.id}`}>Room-by-room handover inventory</Link></p>
                 {(["MOVE_IN", "MOVE_OUT"] as const).map((kind) => {
                   const h = lease.handovers.find((x) => x.kind === kind);
                   return (

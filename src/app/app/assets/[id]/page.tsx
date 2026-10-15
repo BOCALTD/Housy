@@ -184,7 +184,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
           <section className="card" aria-labelledby="maint-h">
             <div className="section-head">
               <h2 id="maint-h">Maintenance history</h2>
-              <Link className="small" href={`/app/maintenance?assetId=${asset.id}`}>Report a problem</Link>
+              <span className="small"><Link href={`/app/inventory?assetId=${asset.id}`}>Inventory</Link> · <Link href={`/app/maintenance?assetId=${asset.id}`}>Report a problem</Link></span>
             </div>
             {upkeep.rows.length === 0 ? <p className="muted">No work orders for this asset.</p> : (
               <>

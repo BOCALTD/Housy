@@ -428,3 +428,67 @@ test("materials total, unattended urgent orders and preventive occurrences", () 
   assert.equal(dueOccurrences(day("2026-03-01"), 3, 0, today, add).length, 2);
   assert.equal(dueOccurrences(day("2020-01-01"), 1, 0, today, add).length, 12);
 });
+
+import {
+  adjustmentProblem, compareSchedules, countApprovalProblem, countSubmissionProblem, isLowStock, movementProblem, reviewedDelta, signedDelta, varianceOf,
+} from "../../src/lib/inventory-rules";
+
+test("inventory: movements keep stock from going below zero and signs follow the kind", () => {
+  assert.equal(signedDelta("RECEIPT", 5), 5);
+  assert.equal(signedDelta("ISSUE", 5), -5);
+  assert.equal(signedDelta("TRANSFER", 5), 0);
+  assert.equal(movementProblem({ kind: "ISSUE", quantity: 3, balance: 2, toLocation: "", custodianChange: false }), "Only 2 in stock, so 3 cannot be taken out");
+  assert.equal(movementProblem({ kind: "ISSUE", quantity: 2, balance: 2, toLocation: "", custodianChange: false }), null);
+  assert.match(movementProblem({ kind: "RECEIPT", quantity: 0, balance: 2, toLocation: "", custodianChange: false })!, /one or more/);
+  assert.match(movementProblem({ kind: "TRANSFER", quantity: 1, balance: 2, toLocation: "", custodianChange: false })!, /moving to/);
+  assert.equal(movementProblem({ kind: "TRANSFER", quantity: 1, balance: 2, toLocation: "Store B", custodianChange: false }), null);
+});
+
+test("inventory: adjustments need a reason, a non-zero change and cannot take stock below zero", () => {
+  assert.match(adjustmentProblem({ kind: "LOSS", delta: -1, balance: 3, reason: "x" })!, /reason/);
+  assert.match(adjustmentProblem({ kind: "ADJUSTMENT", delta: 0, balance: 3, reason: "Recount found more" })!, /not zero/);
+  assert.match(adjustmentProblem({ kind: "LOSS", delta: 2, balance: 3, reason: "Stolen from site" })!, /reduces stock/);
+  assert.match(adjustmentProblem({ kind: "DAMAGE", delta: -4, balance: 3, reason: "Flood damage" })!, /Only 3/);
+  assert.equal(adjustmentProblem({ kind: "ADJUSTMENT", delta: 4, balance: 3, reason: "Found in the store" }), null);
+  assert.equal(reviewedDelta("LOSS", 2), -2);
+  assert.equal(reviewedDelta("ADJUSTMENT", 2, "UP"), 2);
+  assert.equal(reviewedDelta("ADJUSTMENT", 2, "DOWN"), -2);
+});
+
+test("inventory: low stock applies only to active consumables with a reorder level", () => {
+  assert.equal(isLowStock({ kind: "CONSUMABLE", status: "ACTIVE", quantity: 5, reorderLevel: 5 }), true);
+  assert.equal(isLowStock({ kind: "CONSUMABLE", status: "ACTIVE", quantity: 6, reorderLevel: 5 }), false);
+  assert.equal(isLowStock({ kind: "MOVABLE", status: "ACTIVE", quantity: 0, reorderLevel: 5 }), false);
+  assert.equal(isLowStock({ kind: "CONSUMABLE", status: "ACTIVE", quantity: 0, reorderLevel: null }), false);
+  assert.equal(isLowStock({ kind: "CONSUMABLE", status: "DISPOSED", quantity: 0, reorderLevel: 5 }), false);
+});
+
+test("inventory: counts need every line counted and an approver who did not count", () => {
+  assert.equal(varianceOf(10, 8), -2);
+  assert.equal(varianceOf(10, null), null);
+  assert.match(countSubmissionProblem([])!, /no items/);
+  assert.match(countSubmissionProblem([{ counted: 1 }, { counted: null }])!, /1 item has not/);
+  assert.equal(countSubmissionProblem([{ counted: 0 }]), null);
+  assert.match(countApprovalProblem({ approverId: "a", submittedById: "a", counterIds: [] })!, /someone who did not/);
+  assert.match(countApprovalProblem({ approverId: "a", submittedById: "b", counterIds: ["a"] })!, /someone who did not/);
+  assert.equal(countApprovalProblem({ approverId: "a", submittedById: "b", counterIds: ["b"] }), null);
+});
+
+test("inventory: move-in and move-out schedules are compared room by room", () => {
+  const inn = [
+    { room: "Lounge", description: "Sofa", quantity: 1, condition: "GOOD" as const },
+    { room: "Lounge", description: "Curtains", quantity: 2, condition: "GOOD" as const },
+    { room: "Kitchen", description: "Chairs", quantity: 4, condition: "GOOD" as const },
+    { room: "Kitchen", description: "Cooker", quantity: 1, condition: "FAIR" as const },
+    { room: "Bedroom", description: "Wardrobe", quantity: 1, condition: "GOOD" as const },
+  ];
+  const out = [
+    { room: "lounge", description: "sofa", quantity: 1, condition: "POOR" as const },
+    { room: "Lounge", description: "Curtains", quantity: 2, condition: "GOOD" as const },
+    { room: "Kitchen", description: "Chairs", quantity: 3, condition: "GOOD" as const },
+    { room: "Kitchen", description: "Cooker", quantity: 1, condition: "GOOD" as const },
+    { room: "Garden", description: "Hose", quantity: 1, condition: "GOOD" as const },
+  ];
+  const diff = Object.fromEntries(compareSchedules(inn, out).map((d) => [`${d.room.toLowerCase()}/${d.description.toLowerCase()}`, d.kind]));
+  assert.deepEqual(diff, { "lounge/sofa": "WORSE", "lounge/curtains": "SAME", "kitchen/chairs": "FEWER", "kitchen/cooker": "BETTER", "bedroom/wardrobe": "MISSING", "garden/hose": "NEW" });
+});

@@ -7,7 +7,7 @@ import { assertCan, type Ctx } from "./context";
 // Photographs attached to inspections, findings and work orders. A photograph is evidence, so the
 // record cannot be edited or removed once saved.
 
-export const PHOTO_SUBJECTS = ["inspection", "inspection_finding", "work_order"] as const;
+export const PHOTO_SUBJECTS = ["inspection", "inspection_finding", "work_order", "handover_line"] as const;
 export type PhotoSubject = (typeof PHOTO_SUBJECTS)[number];
 export const PHOTO_PHASES = ["BEFORE", "AFTER", "EVIDENCE"] as const;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);

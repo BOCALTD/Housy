@@ -92,6 +92,7 @@ model Membership {
   @@unique([companyId, userId])
   @@index([userId])
   @@map("memberships")
+  custodianOf         InventoryItem[]     @relation("ItemCustodian")
 }
 
 model Invitation {
@@ -173,6 +174,7 @@ model Asset {
   @@unique([companyId, ref])
   @@index([companyId, status])
   @@map("assets")
+  inventoryItems      InventoryItem[]
 }
 
 enum PartyRelationship {
@@ -305,6 +307,7 @@ model Lease {
   @@unique([companyId, ref])
   @@index([companyId, assetId])
   @@map("leases")
+  handoverSchedules   HandoverSchedule[]
 }
 
 model RentCharge {
@@ -1405,6 +1408,7 @@ model WorkOrderMaterial {
   unitCostKobo  BigInt    @map("unit_cost_kobo")
   recordedById  String    @map("recorded_by_id")
   createdAt     DateTime  @default(now()) @map("created_at")
+  inventoryItemId String?  @map("inventory_item_id")
   workOrder     WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
 
   @@index([companyId, workOrderId])
@@ -1435,4 +1439,206 @@ model PreventiveSchedule {
 
   @@index([companyId, active, nextDueOn])
   @@map("preventive_schedules")
+}
+
+// ---------- Inventory (Phase 6c) ----------
+
+enum InventoryKind {
+  FIXED_ASSET
+  MOVABLE
+  CONSUMABLE
+}
+
+enum InventoryItemStatus {
+  ACTIVE
+  DISPOSED
+}
+
+enum MovementKind {
+  RECEIPT
+  ISSUE
+  TRANSFER
+  RETURN
+  CONSUMPTION
+  ADJUSTMENT
+  LOSS
+  DAMAGE
+  DISPOSAL
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CountStatus {
+  OPEN
+  SUBMITTED
+  APPROVED
+  CANCELLED
+}
+
+enum ScheduleStatus {
+  DRAFT
+  ACKNOWLEDGED
+}
+
+/// A register entry for contents, equipment, tools or consumable stock. The balance is changed only by movements.
+model InventoryItem {
+  id            String              @id @default(uuid())
+  companyId     String              @map("company_id")
+  itemNo        String              @map("item_no")
+  code          String
+  name          String
+  category      String              @default("")
+  kind          InventoryKind
+  assetId       String?             @map("asset_id")
+  serialNumber  String              @default("") @map("serial_number")
+  model         String              @default("")
+  manufacturer  String              @default("")
+  unit          String              @default("pcs")
+  quantity      Int                 @default(0)
+  condition     ConditionRating     @default(GOOD)
+  location      String              @default("")
+  custodianId   String?             @map("custodian_id")
+  acquiredOn    DateTime?           @map("acquired_on") @db.Date
+  unitCostKobo  BigInt?             @map("unit_cost_kobo")
+  ownership     String              @default("Owned")
+  warrantyUntil DateTime?           @map("warranty_until") @db.Date
+  reorderLevel  Int?                @map("reorder_level")
+  lastVerifiedOn DateTime?          @map("last_verified_on") @db.Date
+  status        InventoryItemStatus @default(ACTIVE)
+  notes         String              @default("")
+  createdById   String              @map("created_by_id")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  asset         Asset?              @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  custodian     Membership?         @relation("ItemCustodian", fields: [custodianId], references: [id], onDelete: SetNull)
+  movements     InventoryMovement[]
+  adjustments   InventoryAdjustment[]
+  countLines    InventoryCountLine[]
+
+  @@unique([companyId, itemNo])
+  @@unique([companyId, code])
+  @@index([companyId, assetId])
+  @@map("inventory_items")
+}
+
+/// Every change to a balance, location or custody. Append-only. `delta` is signed; a transfer has delta 0.
+model InventoryMovement {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  itemId        String        @map("item_id")
+  kind          MovementKind
+  delta         Int
+  balanceAfter  Int           @map("balance_after")
+  fromLocation  String        @default("") @map("from_location")
+  toLocation    String        @default("") @map("to_location")
+  workOrderId   String?       @map("work_order_id")
+  reference     String        @default("")
+  note          String        @default("")
+  performedById String        @map("performed_by_id")
+  approvedById  String?       @map("approved_by_id")
+  adjustmentId  String?       @map("adjustment_id")
+  countId       String?       @map("count_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  item          InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, itemId, createdAt])
+  @@index([workOrderId])
+  @@map("inventory_movements")
+}
+
+/// A request to correct, write off or dispose of stock. Another person approves it before the balance changes.
+model InventoryAdjustment {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  itemId        String        @map("item_id")
+  kind          MovementKind
+  delta         Int
+  reason        String
+  status        RequestStatus @default(PENDING)
+  requestedById String        @map("requested_by_id")
+  decidedById   String?       @map("decided_by_id")
+  decidedAt     DateTime?     @map("decided_at")
+  decisionNote  String        @default("") @map("decision_note")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  item          InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, status])
+  @@map("inventory_adjustments")
+}
+
+/// A physical count (stocktake). Lines hold the expected balance when the count started and what was counted.
+model InventoryCount {
+  id            String       @id @default(uuid())
+  companyId     String       @map("company_id")
+  ref           String
+  title         String
+  assetId       String?      @map("asset_id")
+  status        CountStatus  @default(OPEN)
+  startedById   String       @map("started_by_id")
+  submittedById String?      @map("submitted_by_id")
+  decidedById   String?      @map("decided_by_id")
+  decidedAt     DateTime?    @map("decided_at")
+  decisionNote  String       @default("") @map("decision_note")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  lines         InventoryCountLine[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, status])
+  @@map("inventory_counts")
+}
+
+model InventoryCountLine {
+  id           String         @id @default(uuid())
+  companyId    String         @map("company_id")
+  countId      String         @map("count_id")
+  itemId       String         @map("item_id")
+  expectedQty  Int            @map("expected_qty")
+  countedQty   Int?           @map("counted_qty")
+  note         String         @default("")
+  countedById  String?        @map("counted_by_id")
+  count        InventoryCount @relation(fields: [countId], references: [id], onDelete: Restrict)
+  item         InventoryItem  @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([countId, itemId])
+  @@index([companyId, countId])
+  @@map("inventory_count_lines")
+}
+
+/// A room-by-room inventory schedule for a lease at move-in or move-out, acknowledged by the occupant.
+model HandoverSchedule {
+  id             String         @id @default(uuid())
+  companyId      String         @map("company_id")
+  leaseId        String         @map("lease_id")
+  kind           HandoverKind
+  status         ScheduleStatus @default(DRAFT)
+  acknowledgedBy String         @default("") @map("acknowledged_by")
+  acknowledgedOn DateTime?      @map("acknowledged_on") @db.Date
+  recordedById   String         @map("recorded_by_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  lease          Lease          @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+  lines          HandoverScheduleLine[]
+
+  @@unique([leaseId, kind])
+  @@index([companyId])
+  @@map("handover_schedules")
+}
+
+model HandoverScheduleLine {
+  id          String           @id @default(uuid())
+  companyId   String           @map("company_id")
+  scheduleId  String           @map("schedule_id")
+  room        String
+  description String
+  quantity    Int
+  condition   ConditionRating
+  notes       String           @default("")
+  sortOrder   Int              @default(0) @map("sort_order")
+  schedule    HandoverSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, scheduleId])
+  @@map("handover_schedule_lines")
 }

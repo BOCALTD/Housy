@@ -361,5 +361,60 @@ SELECT pg_temp.expect((SELECT count(*) FROM work_order_events) = 0, 'B cannot se
 SELECT pg_temp.expect((SELECT count(*) FROM preventive_schedules) = 0, 'B cannot see A schedules');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 18. Phase 6c: inventory is isolated, movements are append-only, balances and movement signs are bounded.
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO inventory_items (id, company_id, item_no, code, name, kind, quantity, created_by_id, updated_at)
+  VALUES ('ii-a', 'co-a', 'INV-0001', 'INV-0001', 'Generator', 'MOVABLE', 3, 'u1', now());
+INSERT INTO inventory_movements (id, company_id, item_id, kind, delta, balance_after, performed_by_id)
+  VALUES ('im-a', 'co-a', 'ii-a', 'RECEIPT', 3, 3, 'u1');
+DO $$ BEGIN
+  UPDATE inventory_movements SET note = 'edited' WHERE id = 'im-a';
+  RAISE EXCEPTION 'FAIL: stock movement was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: stock movements cannot be edited'; END $$;
+DO $$ BEGIN
+  DELETE FROM inventory_movements WHERE id = 'im-a';
+  RAISE EXCEPTION 'FAIL: stock movement was deleted';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: stock movements cannot be deleted'; END $$;
+DO $$ BEGIN
+  UPDATE inventory_items SET quantity = -1 WHERE id = 'ii-a';
+  RAISE EXCEPTION 'FAIL: negative stock was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: stock cannot be negative'; END $$;
+DO $$ BEGIN
+  INSERT INTO inventory_movements (id, company_id, item_id, kind, delta, balance_after, performed_by_id)
+    VALUES ('im-bad', 'co-a', 'ii-a', 'ISSUE', 2, 5, 'u1');
+  RAISE EXCEPTION 'FAIL: an issue that adds stock was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: an issue must reduce stock'; END $$;
+DO $$ BEGIN
+  INSERT INTO inventory_items (id, company_id, item_no, code, name, kind, quantity, created_by_id, updated_at)
+    VALUES ('ii-dup', 'co-a', 'INV-0002', 'INV-0001', 'Other', 'MOVABLE', 1, 'u1', now());
+  RAISE EXCEPTION 'FAIL: duplicate code was allowed';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: codes are unique per company'; END $$;
+DO $$ BEGIN
+  INSERT INTO inventory_adjustments (id, company_id, item_id, kind, delta, reason, status, requested_by_id)
+    VALUES ('ia-bad', 'co-a', 'ii-a', 'LOSS', -1, 'Stolen', 'APPROVED', 'u1');
+  RAISE EXCEPTION 'FAIL: approval without an approver was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a decided adjustment needs a decider'; END $$;
+INSERT INTO handover_schedules (id, company_id, lease_id, kind, recorded_by_id) SELECT 'hs-a', 'co-a', id, 'MOVE_IN', 'u1' FROM leases WHERE company_id = 'co-a' LIMIT 1;
+INSERT INTO handover_schedule_lines (id, company_id, schedule_id, room, description, quantity, condition)
+  VALUES ('hl-a', 'co-a', 'hs-a', 'Lounge', 'Sofa', 1, 'GOOD');
+UPDATE handover_schedules SET status = 'ACKNOWLEDGED', acknowledged_by = 'Tenant Name', acknowledged_on = '2026-01-01' WHERE id = 'hs-a';
+DO $$ BEGIN
+  UPDATE handover_schedule_lines SET quantity = 2 WHERE id = 'hl-a';
+  RAISE EXCEPTION 'FAIL: an acknowledged schedule line was edited';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: acknowledged schedule lines are frozen'; END $$;
+DO $$ BEGIN
+  INSERT INTO handover_schedule_lines (id, company_id, schedule_id, room, description, quantity, condition)
+    VALUES ('hl-b', 'co-a', 'hs-a', 'Lounge', 'Table', 1, 'GOOD');
+  RAISE EXCEPTION 'FAIL: a line was added to an acknowledged schedule';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: no lines can be added after acknowledgement'; END $$;
+DO $$ BEGIN
+  UPDATE handover_schedules SET acknowledged_by = 'Someone Else' WHERE id = 'hs-a';
+  RAISE EXCEPTION 'FAIL: an acknowledged schedule was changed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: acknowledged schedules are frozen'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM inventory_items) = 0, 'B cannot see A inventory');
+SELECT pg_temp.expect((SELECT count(*) FROM inventory_movements) = 0, 'B cannot see A stock movements');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

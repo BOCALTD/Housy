@@ -16,6 +16,10 @@ import {
   addMaterial, addWorkOrderPhoto, approveWorkOrder, assignWorkOrder, closeWorkOrder, completeWorkOrder, createContractor, createSchedule,
   reportWorkOrder, setProgress, triageWorkOrder,
 } from "./services/maintenance";
+import {
+  acknowledgeSchedule, addScheduleLine, createHandoverSchedule, createItem, decideAdjustment, decideCount, recordMovement, requestAdjustment,
+  saveCountLines, startCount, submitCount, useOnWorkOrder,
+} from "./services/inventory";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -273,6 +277,28 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     title: "Generator service", description: "Quarterly service", priority: "NORMAL", intervalMonths: "3", nextDueOn: daysFromToday(20), leadDays: "30",
     contractorId: sparky.id, estimatedCost: "45,000",
   });
+
+  // Inventory: stock with movements, a pending write-off, a submitted count and an acknowledged handover schedule.
+  const generator = await createItem(alpha, { name: "[DEMO] Standby generator 20kVA", category: "Equipment", kind: "FIXED_ASSET", assetId: shop.id, quantity: "1", unit: "pcs", location: "Generator house", serialNumber: "DEMO-GEN-0001", manufacturer: "Demo Power", unitCost: "4,500,000", condition: "FAIR" });
+  const cement = await createItem(alpha, { name: "[DEMO] Cement (50kg bags)", category: "Materials", kind: "CONSUMABLE", assetId: shop.id, quantity: "40", unit: "bags", location: "Store room", unitCost: "9,500", reorderLevel: "10" });
+  const paint = await createItem(alpha, { name: "[DEMO] Emulsion paint (20L)", category: "Materials", kind: "CONSUMABLE", assetId: duplex.id, quantity: "6", unit: "tins", location: "Store room", unitCost: "28,000", reorderLevel: "8" });
+  await recordMovement(officer, cement.id, { kind: "ISSUE", quantity: "5", reference: "DEMO-REQ-001", note: "Boundary wall repair" });
+  await recordMovement(officer, generator.id, { kind: "TRANSFER", toLocation: "Workshop", note: "Sent for service" });
+  await useOnWorkOrder(officer, cement.id, roofWo.id, { quantity: "2" });
+  await requestAdjustment(officer, paint.id, { kind: "DAMAGE", quantity: "1", reason: "Tin damaged in the store room" });
+  const wrongCount = await requestAdjustment(officer, cement.id, { kind: "ADJUSTMENT", quantity: "2", direction: "DOWN", reason: "Recount found two bags short" });
+  await decideAdjustment(manager, wrongCount.id, "approve", "");
+  const stocktake = await startCount(alpha, { title: "[DEMO] Shop store room count", assetId: shop.id });
+  {
+    const lines = await withTenant(alpha.companyId, alpha.userId, (tx) => tx.inventoryCountLine.findMany({ where: { countId: stocktake.id }, include: { item: { select: { itemNo: true } } } }));
+    await saveCountLines(officer, stocktake.id, Object.fromEntries(lines.map((l) => [l.id, { counted: String(l.item.itemNo === cement.itemNo ? l.expectedQty - 1 : l.expectedQty), note: l.item.itemNo === cement.itemNo ? "One torn bag" : "" }])));
+    await submitCount(officer, stocktake.id);
+  }
+  const moveIn = await createHandoverSchedule(officer, shopLease.id, "MOVE_IN");
+  await addScheduleLine(officer, moveIn.id, { room: "Main shop floor", description: "Ceiling fans", quantity: "3", condition: "GOOD" }, { ...demoPhoto, caption: "Fans" });
+  await addScheduleLine(officer, moveIn.id, { room: "Main shop floor", description: "Display shelving units", quantity: "6", condition: "FAIR", notes: "Two shelves chipped" });
+  await addScheduleLine(officer, moveIn.id, { room: "Storeroom", description: "Roller shutter", quantity: "1", condition: "GOOD" });
+  await acknowledgeSchedule(officer, moveIn.id, { acknowledgedBy: "[DEMO] Tenant Representative", acknowledgedOn: daysFromToday(-30) });
 
   // Approve only the demo listings, never real submissions waiting for review.
   for (const l of await reviewQueue(adminId)) {

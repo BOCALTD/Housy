@@ -5,6 +5,7 @@ import { parseNairaToKobo } from "../money";
 import { addMonthsClamped, parseDateOnly, todayInLagos } from "../dates";
 import { classifyDeadline, STATE_ORDER, type DeadlineState } from "../deadlines";
 import { assessmentBalance } from "../ledger-rules";
+import { isUnattendedUrgent, URGENT_UNATTENDED_HOURS } from "../maintenance-rules";
 import { assertCan, type Ctx } from "./context";
 
 // Obligations, reminders and the compliance calendar (master prompt Sections 13.2 and 13.4).
@@ -156,7 +157,7 @@ export async function cancelObligation(ctx: Ctx, obligationId: string, reasonInp
 // ---------- Calendar ----------
 
 export interface CalendarItem {
-  kind: "OBLIGATION" | "LEASE_END" | "NOTICE" | "SERVICE_CHARGE" | "REVIEW";
+  kind: "OBLIGATION" | "LEASE_END" | "NOTICE" | "SERVICE_CHARGE" | "REVIEW" | "WORK_ORDER" | "URGENT_WORK" | "INSPECTION";
   id: string;
   title: string;
   detail: string;
@@ -231,6 +232,33 @@ export async function complianceCalendar(ctx: Ctx) {
           href: `/app/service-charges/${a.period.id}`, detail: `${a.period.name} · ${a.lease.ref}`,
         });
       }
+    }
+
+    // Maintenance: open work with a target date, urgent work nobody has taken up, and inspections that are due.
+    const now = new Date();
+    const work = await tx.workOrder.findMany({
+      where: { companyId: ctx.companyId, status: { in: ["REPORTED", "TRIAGED", "APPROVED", "ASSIGNED", "IN_PROGRESS", "AWAITING_PARTS", "INSPECTION_REQUIRED"] } },
+      include: { asset: { select: { ref: true, name: true } } },
+    });
+    for (const w of work) {
+      const where = `${w.ref} · ${w.asset.ref} · ${w.asset.name}`;
+      const unattended = isUnattendedUrgent({ priority: w.priority, riskLevel: w.riskLevel, safetyRisk: w.safetyRisk, status: w.status, createdAt: w.createdAt, now, hours: URGENT_UNATTENDED_HOURS });
+      if (unattended) {
+        push({
+          kind: "URGENT_WORK", id: `${w.id}:urgent`, title: `Urgent and not yet in hand: ${w.title}`, dueDate: todayInLagos(w.createdAt), amountKobo: null,
+          href: `/app/maintenance/${w.id}`, detail: `${where} · reported over ${URGENT_UNATTENDED_HOURS} hours ago`,
+        });
+      }
+      if (w.targetDate) {
+        push({ kind: "WORK_ORDER", id: w.id, title: `Work due: ${w.title}`, dueDate: w.targetDate, amountKobo: null, href: `/app/maintenance/${w.id}`, detail: where });
+      }
+    }
+    const inspections = await tx.inspection.findMany({
+      where: { companyId: ctx.companyId, status: "SCHEDULED", scheduledFor: { lte: horizon } },
+      include: { asset: { select: { ref: true, name: true } } },
+    });
+    for (const i of inspections) {
+      push({ kind: "INSPECTION", id: i.id, title: `Inspection due: ${i.asset.name}`, dueDate: i.scheduledFor, amountKobo: null, href: `/app/inspections/${i.id}`, detail: `${i.ref} · ${i.asset.ref}` });
     }
 
     items.sort((x, y) => STATE_ORDER[x.state] - STATE_ORDER[y.state] || x.dueDate.getTime() - y.dueDate.getTime());

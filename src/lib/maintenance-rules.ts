@@ -70,6 +70,9 @@ export function materialsTotal(items: { quantity: number; unitCostKobo: bigint }
   return items.reduce((s, m) => s + BigInt(m.quantity) * m.unitCostKobo, 0n);
 }
 
+/** How long urgent work may sit before it is flagged on the compliance calendar. */
+export const URGENT_UNATTENDED_HOURS = 24;
+
 /** Whether an urgent order has sat unattended past the allowed time. Used for escalation. */
 export function isUnattendedUrgent(input: {
   priority: WoPriority; riskLevel: string; safetyRisk: boolean; status: WoStatus; createdAt: Date; now: Date; hours: number;

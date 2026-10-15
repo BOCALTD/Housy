@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listMaintenance, PRIORITIES, RISKS } from "@/lib/services/maintenance";
+import { inventorySummary } from "@/lib/services/inventory";
+import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -11,7 +13,7 @@ export const metadata = { title: "Maintenance" };
 
 export default async function MaintenancePage({ searchParams }: { searchParams?: SP }) {
   const member = await requireMember("asset.view");
-  const d = await listMaintenance(member);
+  const [d, inv] = await Promise.all([listMaintenance(member), inventorySummary(member)]);
   const urgent = (w: (typeof d.open)[number]) => w.priority === "EMERGENCY" || w.safetyRisk || w.riskLevel === "CRITICAL";
   const groups: { title: string; items: typeof d.open; empty: string }[] = [
     { title: "Needs triage or approval", items: d.open.filter((w) => w.status === "REPORTED" || w.status === "TRIAGED"), empty: "Nothing is waiting." },
@@ -58,6 +60,14 @@ export default async function MaintenancePage({ searchParams }: { searchParams?:
         <div className={`stat${d.overdue.length ? " alert" : ""}`}><b>{d.overdue.length}</b><span>Past their target date</span></div>
         <div className={`stat${d.open.filter(urgent).length ? " alert" : ""}`}><b>{d.open.filter(urgent).length}</b><span>Emergency, critical or safety</span></div>
         <div className="stat"><b>{groups[3].items.length}</b><span>Waiting for verification</span></div>
+        <div className={`stat${d.unattendedUrgent ? " alert" : ""}`}><b>{d.unattendedUrgent}</b><span>Urgent and not yet in hand</span></div>
+        <div className="stat"><b>{formatKobo(d.spentThisYearKobo)}</b><span>Spent on closed work this year</span></div>
+      </section>
+      <section className="stats" aria-label="Inventory summary">
+        <div className="stat"><b><Link href="/app/inventory">{inv.items}</Link></b><span>Inventory items</span></div>
+        <div className={`stat${inv.lowStock ? " alert" : ""}`}><b>{inv.lowStock}</b><span>Running low</span></div>
+        <div className={`stat${inv.pendingAdjustments ? " alert" : ""}`}><b>{inv.pendingAdjustments}</b><span>Stock changes awaiting approval</span></div>
+        <div className="stat"><b><Link href="/app/inventory/counts">{inv.openCounts}</Link></b><span>Counts in progress</span></div>
       </section>
       {can(member.role, "maintenance.manage") ? (
         <form action={generateAction}><button className="btn" type="submit">Create work orders that are due from recurring jobs</button></form>

@@ -128,19 +128,31 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - *Reports:* rent report by property and portfolio (billed, collected, arrears), arrears ageing, lease expiries and a CSV download.
 - Financial records are append-only at the database level for the runtime role, and money checks (no overpayment, no negative balances) are enforced by database constraints as well as by the application.
 
+**Built in Phase 6 (inspections, maintenance and inventory):**
+- *Inspections:* checklist templates for each asset class (starter set included), scheduling and assignment, a checklist copied into each inspection so later template edits cannot change it, findings with severity, safety flag, estimated cost and photographs, submission, approval by someone other than the inspector and submitter, optional repeat scheduling, and a condition history on each asset.
+- *Maintenance:* requests and work orders (reported, triaged, approved, assigned, in progress, awaiting parts, inspection required, completed, closed), priorities, risk and safety flags, contractor records with spend, estimated, approved and actual costs, materials, before and after photographs side by side, downtime, and an append-only event history. The cost approver cannot be the person who reported the work; the verifier cannot be the person who did it; completion needs notes plus an after photograph or a job card reference; closure is blocked if the actual cost is above the approved cost. A finding becomes one work order and the two stay linked. Recurring jobs create work orders ahead of each due date, once per due date, even when two people press the button together.
+- *Emergencies:* emergency work can be assigned and started before approval, but cannot be closed until its cost has been approved by someone else. Urgent work nobody has taken up within 24 hours shows on the compliance calendar.
+- *Inventory:* a register of contents, equipment and stock (fixed asset, movable or consumable) with item numbers, label codes, serial numbers, custodian, location, condition, reorder level and last-verified date. Balances change only through append-only movements (receipt, issue, transfer, return, consumption) that record who did them. Losses, damage, disposal and corrections need approval by a different person. Physical counts produce a variance report and need an approver who did not count; approval writes the differences as adjustments. Consumable stock can be issued to a work order, which adds it to that work order's materials.
+- *Handover inventories:* room-by-room schedules per lease for move-in and move-out, with quantities, conditions and photographs. After the occupant's acknowledgement is recorded the schedule is frozen by the database, and a move-in versus move-out comparison lists what is missing, fewer, worse or new. The comparison is a record for people to review; it does not decide any deposit deduction.
+- *Dashboards and alerts:* maintenance and inventory figures on the maintenance page; open work with a target date, urgent unattended work and due inspections on the compliance calendar and home dashboard.
+
 **Rules to know about:**
 - Several approvals need two different people (reconciliation, adjustments, renewals, service charge expenses). A company with one user cannot complete those steps until it adds a second member.
 - Reminders are in-app only. Nothing is emailed or messaged.
 - No tax rate or legal rule is built in. Obligations, amounts and jurisdictions are entered by the company, and items marked for professional review cannot be completed until a review is recorded.
 - Service charges are not pro-rated for part-period tenancies. A recurring obligation that falls on the 29th to 31st can drift earlier after a short month.
 - Floor areas are whole square metres.
+- Phase 6: photographs must be JPG, PNG or WEBP and up to 4 MB. There is no QR or barcode image generation or camera scanning; each item shows its label code to print, and a hardware scanner can type a code into the lookup box.
+- Phase 6: a physical count does not freeze stock. Differences are measured against the balance at the moment of approval, and the count line keeps what the books said when the count started.
+- Phase 6: handover inventory lines are not linked to register items, and there is no valuation of lost or damaged contents.
+- Phase 6: the "urgent and unattended" window is fixed at 24 hours.
 
 **Deferred to later phases:**
 - **Email and notifications:** no email sending yet. Invitation links are shown once to the administrator to share.
 - **Provider portal:** providers can't sign in to see their leads yet. Platform admins handle leads for now.
 - **Media and maps:** photo and video galleries, maps.
 - **Email capture:** linking emails to correspondence needs an email provider, which is not configured yet.
-- **Later modules:** valuation, construction, inventory, collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
+- **Later modules:** valuation, construction, collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
 - **Document storage:** document contents are stored in PostgreSQL (`stored_files`, protected by row-level security), capped at 4 MB per file. Move to an object store behind `src/lib/storage.ts` as volumes grow.
 
 **Not yet verified:**

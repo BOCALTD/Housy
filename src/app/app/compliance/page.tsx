@@ -13,7 +13,7 @@ export const metadata = { title: "Compliance calendar" };
 const STATE_LABEL = { ESCALATED: "Escalated", OVERDUE: "Overdue", DUE_SOON: "Due soon", LATER: "Later" } as const;
 const STATE_PILL = { ESCALATED: "OVERDUE", OVERDUE: "OVERDUE", DUE_SOON: "DUE", LATER: "OPEN" } as const;
 const KIND_LABEL: Record<CalendarItem["kind"], string> = {
-  OBLIGATION: "Obligation", LEASE_END: "Lease end", NOTICE: "Notice", SERVICE_CHARGE: "Service charge", REVIEW: "Review",
+  OBLIGATION: "Obligation", LEASE_END: "Lease end", NOTICE: "Notice", SERVICE_CHARGE: "Service charge", REVIEW: "Review", WORK_ORDER: "Maintenance", URGENT_WORK: "Urgent maintenance", INSPECTION: "Inspection",
 };
 
 function when(days: number) {

@@ -6,7 +6,7 @@ import { addMonthsClamped, parseDateOnly, todayInLagos } from "../dates";
 import { nextNumber } from "../numbering";
 import { lockKey } from "../locks";
 import {
-  closureProblem, completionProblem, dueOccurrences, materialsTotal, OPEN_STATUSES, transitionProblem, type WoStatus,
+  closureProblem, completionProblem, dueOccurrences, isUnattendedUrgent, materialsTotal, OPEN_STATUSES, transitionProblem, URGENT_UNATTENDED_HOURS, type WoStatus,
 } from "../maintenance-rules";
 import { can } from "../permissions";
 import { savePhoto, photosFor, type Upload } from "./photos";
@@ -475,8 +475,17 @@ export async function listMaintenance(ctx: Ctx) {
       tx.company.findUniqueOrThrow({ where: { id: ctx.companyId }, select: { escalationDays: true } }),
     ]);
     const names = Object.fromEntries(members.map((m) => [m.id, m.user.name]));
+    const now = new Date();
+    const spent = await tx.workOrder.aggregate({
+      where: { companyId: ctx.companyId, status: "CLOSED", closedAt: { gte: new Date(Date.UTC(today.getUTCFullYear(), 0, 1)) } },
+      _sum: { actualCostKobo: true },
+    });
+    const unattendedUrgent = open.filter((w) => isUnattendedUrgent({
+      priority: w.priority, riskLevel: w.riskLevel, safetyRisk: w.safetyRisk, status: w.status, createdAt: w.createdAt, now, hours: URGENT_UNATTENDED_HOURS,
+    })).length;
     return {
       today, open, closed, assets, contractors, names, escalationDays: company.escalationDays,
+      spentThisYearKobo: spent._sum.actualCostKobo ?? 0n, unattendedUrgent,
       members: members.map((m) => ({ id: m.id, name: m.user.name })),
       overdue: open.filter((w) => w.targetDate && w.targetDate < today),
     };

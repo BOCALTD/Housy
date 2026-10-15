@@ -83,6 +83,22 @@ jobs:
           SEED_DEMO_DATA: "true"
         run: scripts/ci-run.sh "Smoke test" scripts/smoke.sh
 
+      - name: Install browsers for the device check
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Device check (desktop, iPhone, Android, tablet)
+        env:
+          DEVICE_STRICT: ${{ vars.DEVICE_STRICT || 'false' }}
+        run: scripts/ci-run.sh "Device check" scripts/device-check.sh
+
+      - name: Save device screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-report
+          path: device-report
+          if-no-files-found: ignore
+
       - name: Save the resolved lockfile
         if: always()
         uses: actions/upload-artifact@v4

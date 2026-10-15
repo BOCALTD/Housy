@@ -7,7 +7,7 @@ import { TASK_KINDS, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/services/tasks
 import { PURPOSES } from "@/lib/services/listings";
 import { listTeam } from "@/lib/services/companies";
 import { formatKobo } from "@/lib/money";
-import { chargeState } from "@/lib/rent";
+import { chargeState, outstandingOf } from "@/lib/rent";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -59,46 +59,51 @@ export default async function AssetPage({ params, searchParams }: { params: { id
       <div className="two">
         <div className="stack-lg">
           {/* Leases and rent */}
+          {can(member.role, "finance.view") ? (
           <section className="card" aria-labelledby="leases-h">
             <div className="section-head"><h2 id="leases-h">Leases and rent</h2></div>
             {asset.leases.length === 0 ? <p className="muted">No leases recorded for this asset.</p> : null}
             <div className="stack">
               {asset.leases.map((l) => {
-                const outstanding = l.charges.reduce((s, c) => s + (c.amountKobo - c.paidKobo), 0n);
+                const outstanding = l.charges.reduce((sum, c) => sum + outstandingOf(c), 0n);
                 return (
                   <div key={l.id} className="stack" style={{ gap: 8 }}>
                     <div className="row between">
                       <div>
-                        <strong>{l.occupantName}</strong> <span className="mono small muted">{l.ref}</span>
+                        <strong>{l.occupantName}</strong> <Link href={`/app/leases/${l.id}`} className="mono small">{l.ref}</Link>
                         <div className="small muted">
-                          {formatDate(l.startDate)} to {formatDate(l.endDate)} · {formatKobo(l.rentKobo)} {humanize(l.frequency).toLowerCase()}
+                          {l.unit ? `${l.unit} · ` : ""}{formatDate(l.startDate)} to {formatDate(l.endDate)} · {formatKobo(l.rentKobo)}{" "}
+                          {l.frequency === "CUSTOM" ? `every ${l.intervalMonths} months` : humanize(l.frequency).toLowerCase()}
                           {l.depositKobo > 0n ? ` · deposit ${formatKobo(l.depositKobo)}` : ""}
                         </div>
                       </div>
-                      <span className="small">Outstanding <strong className="num">{formatKobo(outstanding)}</strong></span>
+                      <div className="stack" style={{ gap: 2, textAlign: "right" }}>
+                        <span className="small">Outstanding <strong className="num">{formatKobo(outstanding)}</strong></span>
+                        <Link href={`/app/leases/${l.id}`} className="small">Open lease: receipts, adjustments, deposit</Link>
+                      </div>
                     </div>
                     <div className="table-wrap">
                       <table>
                         <thead><tr><th>Due</th><th className="r">Amount</th><th className="r">Paid</th><th>Status</th><th></th></tr></thead>
                         <tbody>
                           {l.charges.map((c) => {
-                            const state = chargeState(c, today);
+                            const state = chargeState(c, today, l.graceDays);
                             return (
                               <tr key={c.id}>
                                 <td>{formatDate(c.dueDate)}</td>
-                                <td className="r">{formatKobo(c.amountKobo)}</td>
+                                <td className="r">{formatKobo(c.amountKobo + c.adjustedKobo)}</td>
                                 <td className="r">{formatKobo(c.paidKobo)}</td>
                                 <td><Pill status={state} /></td>
                                 <td>
-                                  {state !== "PAID" && can(member.role, "payment.record") ? (
+                                  {state !== "PAID" && state !== "WAIVED" && can(member.role, "payment.record") ? (
                                     <details className="inline">
                                       <summary className="small">Record payment</summary>
                                       <form action={recordPaymentAction} className="stack" style={{ minWidth: 220 }}>
                                         {hidden}
                                         <input type="hidden" name="chargeId" value={c.id} />
-                                        <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" defaultValue={koboToInput(c.amountKobo - c.paidKobo)} /></Field>
+                                        <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" defaultValue={koboToInput(outstandingOf(c))} /></Field>
                                         <Field label="Paid on"><input name="paidOn" type="date" required defaultValue={toDateOnlyString(today)} max={toDateOnlyString(today)} /></Field>
-                                        <Field label="Evidence" hint="Bank reference, receipt number or verified provider transaction.">
+                                        <Field label="Evidence" hint="Bank reference or receipt number. Each reference can be recorded once.">
                                           <input name="evidence" required />
                                         </Field>
                                         <button className="btn primary small" type="submit">Save payment</button>
@@ -123,6 +128,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                     <div className="fields">
                       <Field label="Tenant or occupier"><input name="occupantName" required /></Field>
                       <Field label="Contact"><input name="occupantContact" /></Field>
+                      <Field label="Unit" hint="Leave blank to let the whole property."><input name="unit" placeholder="For example Flat 3B" /></Field>
                     </div>
                     <div className="fields">
                       <Field label="Start date"><input name="startDate" type="date" required /></Field>
@@ -131,8 +137,15 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                     <div className="fields">
                       <Field label="Rent per period (₦)"><input name="rent" required inputMode="decimal" /></Field>
                       <Field label="Paid"><select name="frequency" defaultValue="YEARLY"><EnumOptions values={FREQUENCIES} /></select></Field>
+                      <Field label="Every how many months?" hint="Only for a custom frequency."><input name="intervalMonths" inputMode="numeric" /></Field>
                       <Field label="Deposit (₦)"><input name="deposit" inputMode="decimal" /></Field>
                     </div>
+                    <div className="fields">
+                      <Field label="Grace period (days)" hint="Rent is not overdue until after this many days."><input name="graceDays" inputMode="numeric" defaultValue="0" /></Field>
+                      <Field label="Notice period (days)"><input name="noticeDays" inputMode="numeric" defaultValue="0" /></Field>
+                      <Field label="Permitted use"><input name="permittedUse" /></Field>
+                    </div>
+                    <Field label="Other agreed terms" hint="Review, escalation, service charge and utility terms from the agreement."><textarea name="otherTerms" rows={3} /></Field>
                     <p className="small muted">The rent schedule is generated from these terms. Rent is due at the start of each period.</p>
                     <div className="row"><button className="btn primary" type="submit">Create lease</button></div>
                   </form>
@@ -140,6 +153,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
               ) : null}
             </div>
           </section>
+          ) : null}
 
           {/* Tasks */}
           <section className="card" aria-labelledby="tasks-h">

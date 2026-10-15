@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { prisma, withTenant } from "../../src/lib/db";
-import { registerCompany } from "../../src/lib/services/companies";
+import { registerCompany, inviteMember, acceptInvitation } from "../../src/lib/services/companies";
 import type { Ctx } from "../../src/lib/services/context";
 import type { Role } from "../../src/lib/permissions";
+import { todayInLagos, toDateOnlyString } from "../../src/lib/dates";
 
 export const PASSWORD = "integration-test-pw";
 
@@ -26,3 +27,18 @@ export async function newPlatformAdmin() {
 }
 
 export const PDF_BYTES = new Uint8Array(Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"));
+
+/** A second person in the same company with the given role (for checks that need two different people). */
+export async function addMember(ctx: Ctx, role: Role, label = "member"): Promise<Ctx> {
+  const email = `${label}-${randomUUID().slice(0, 8)}@example.test`;
+  const token = await inviteMember(ctx, { email, role });
+  const joined = await acceptInvitation(token, { name: `${label} ${role}`, password: PASSWORD });
+  const m = await withTenant(ctx.companyId, joined.userId, (tx) =>
+    tx.membership.findFirstOrThrow({ where: { companyId: ctx.companyId, userId: joined.userId } }));
+  return { userId: joined.userId, companyId: ctx.companyId, membershipId: m.id, role: m.role as Role };
+}
+
+/** A date-only string this many days from today in Lagos, for tests that must not depend on the calendar. */
+export function relativeDate(days: number): string {
+  return toDateOnlyString(new Date(todayInLagos().getTime() + days * 864e5));
+}

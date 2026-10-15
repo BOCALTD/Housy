@@ -44,12 +44,16 @@ END $$;
 console.log("db-setup: applying migrations");
 execFileSync("npx", ["prisma", "migrate", "deploy"], { env: { ...process.env, DATABASE_URL: ownerUrl }, stdio: "inherit" });
 
+// Tables the application may add to but never change or delete: the audit trail and financial records.
+const APPEND_ONLY = [
+  "activity_log", "correspondence_actions",
+  "rent_payments", "receipts", "receipt_reconciliations", "receipt_reversals", "deposit_entries",
+];
+
 execSql(`
 GRANT USAGE ON SCHEMA public TO estate_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO estate_app;
-REVOKE UPDATE, DELETE ON activity_log FROM estate_app;
-REVOKE UPDATE, DELETE ON rent_payments FROM estate_app;
-REVOKE UPDATE, DELETE ON correspondence_actions FROM estate_app;
+${APPEND_ONLY.map((t) => `REVOKE UPDATE, DELETE ON ${t} FROM estate_app;`).join("\n")}
 REVOKE ALL ON _prisma_migrations FROM estate_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO estate_app;
 `, "runtime role privileges granted");

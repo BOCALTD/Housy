@@ -18,24 +18,35 @@ REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | hea
 curl -s "http://localhost:3100/$REF" | grep -q "Verify this property" || fail "$REF has no verification link"
 [ "$(code /app)" = "307" ] || fail "/app returned $(code /app) for a signed-out visitor (expected 307)"
 
-# Signed-in pages: sign in as the demo administrator and open every page against real data.
+# Signed-in pages: sign in as the demo administrator and the demo officer, and open every page against real data.
 SESSION_OUT=$(npx tsx scripts/smoke-session.ts) || fail "could not create a smoke-test session: $SESSION_OUT"
-TOKEN=$(echo "$SESSION_OUT" | head -1)
-PAGES=$(echo "$SESSION_OUT" | tail -n +2)
-[ -n "$TOKEN" ] && [ -n "$PAGES" ] || fail "smoke session output was empty"
+TOKEN=$(echo "$SESSION_OUT" | sed -n 1p)
+OFFICER_TOKEN=$(echo "$SESSION_OUT" | sed -n 2p)
+PAGES=$(echo "$SESSION_OUT" | tail -n +3)
+[ -n "$TOKEN" ] && [ -n "$OFFICER_TOKEN" ] && [ -n "$PAGES" ] || fail "smoke session output was empty"
 COUNT=0
-for p in $PAGES; do
-  status=$(curl -s -o page.html -w '%{http_code}' -H "Cookie: sid=$TOKEN" "http://localhost:3100$p")
-  [ "$status" = "200" ] || fail "$p returned $status when signed in"
-  for marker in "Something went wrong" "This page does not exist"; do
-    if grep -q "$marker" page.html; then
-      echo "--- $p contains: $marker ---"
-      grep -o ".\{0,200\}$marker.\{0,200\}" page.html | head -3
-      echo "--- start of page ---"; head -c 1500 page.html; echo
-      fail "$p rendered an error page"
+open_page() {
+  local who="$1" cookie="$2" p="$3" status
+  status=$(curl -s -o page.html -w '%{http_code}' -H "Cookie: sid=$cookie" "http://localhost:3100$p")
+  [ "$status" = "200" ] || fail "$p returned $status for the $who"
+  # The error and not-found pages are also embedded in every page's script data, so look for the
+  # rendered heading element rather than the text.
+  for marker in "<h1>Something went wrong</h1>" "<h1>Not found</h1>"; do
+    if grep -qF "$marker" page.html; then
+      echo "--- $p rendered: $marker (for the $who) ---"
+      head -c 1500 page.html; echo
+      fail "$p rendered an error page for the $who"
     fi
   done
   COUNT=$((COUNT + 1))
+}
+for p in $PAGES; do
+  open_page "administrator" "$TOKEN" "$p"
+  # The officer cannot open settings, team or new-asset pages, which are limited to managers.
+  case "$p" in
+    /app/settings|/app/team|/app/assets/new) ;;
+    *) open_page "officer" "$OFFICER_TOKEN" "$p" ;;
+  esac
 done
 echo "Opened $COUNT signed-in pages without errors"
 echo "Smoke test passed"

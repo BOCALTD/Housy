@@ -6,7 +6,8 @@
 import { prisma, withTenant } from "./db";
 import { registerCompany, inviteMember, acceptInvitation } from "./services/companies";
 import { createAsset, addParty } from "./services/assets";
-import { createLease } from "./services/leases";
+import { createLease, getLease, recordLeasePayment, recordPayment } from "./services/leases";
+import { reconcileReceipt, recordDepositReceived, requestAdjustment } from "./services/ledger";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -18,6 +19,7 @@ import type { Ctx } from "./services/context";
 export const DEMO_PASSWORD = "demo-password-123";
 export const DEMO_USERS = [
   { email: "demo.alpha@example.test", role: "Company Super Admin, [DEMO] Alpha Estates" },
+  { email: "demo.manager@example.test", role: "Manager, [DEMO] Alpha Estates" },
   { email: "demo.officer@example.test", role: "Officer, [DEMO] Alpha Estates" },
   { email: "demo.beta@example.test", role: "Company Super Admin, [DEMO] Beta Property Managers" },
 ];
@@ -59,6 +61,9 @@ export async function createDemoData(adminId: string): Promise<boolean> {
 
   const token = await inviteMember(alpha, { email: "demo.officer@example.test", role: "OFFICER" });
   await acceptInvitation(token, { name: "Ope Demo (Officer)", password: DEMO_PASSWORD });
+  const managerToken = await inviteMember(alpha, { email: "demo.manager@example.test", role: "MANAGER" });
+  const managerJoined = await acceptInvitation(managerToken, { name: "Mary Demo (Manager)", password: DEMO_PASSWORD });
+  const manager = await ctxFor(managerJoined.userId, alpha.companyId);
 
   const duplex = await createAsset(alpha, {
     name: "[DEMO] 4-bedroom semi-detached duplex", assetClass: "RESIDENTIAL", category: "Duplex",
@@ -79,9 +84,10 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   });
   await addParty(alpha, shop.id, { partyName: "[DEMO] Mrs Demo Landlord", relationship: "LEGAL_OWNER", evidenceNote: "Management agreement on file (demo)" });
   const year = new Date().getUTCFullYear();
-  await createLease(alpha, shop.id, {
+  const shopLease = await createLease(alpha, shop.id, {
     occupantName: "[DEMO] Corner Pharmacy Ltd", startDate: `${year - 1}-01-01`, endDate: `${year + 1}-01-01`,
-    rent: "500,000", frequency: "QUARTERLY", deposit: "250,000",
+    rent: "500,000", frequency: "QUARTERLY", deposit: "250,000", graceDays: "5", noticeDays: "90",
+    permittedUse: "Pharmacy retail", otherTerms: "Demonstration terms. Rent review at renewal.",
   });
   await createTask(alpha, shop.id, { kind: "INSPECTION", title: "[DEMO] Quarterly condition inspection", priority: "NORMAL", dueOn: `${year}-01-15` });
 
@@ -98,6 +104,20 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   // Correspondence and files.
   const officerUser = await prisma.user.findUniqueOrThrow({ where: { email: "demo.officer@example.test" } });
   const officer = await ctxFor(officerUser.id, alpha.companyId);
+
+  // Rent ledger: a payment recorded by the manager and reconciled by the administrator, a late-fee request
+  // waiting for approval, and the deposit received.
+  const shopCharges = (await getLease(alpha, shopLease.id))!.lease.charges;
+  const demoReceipt = await recordLeasePayment(manager, shopLease.id, {
+    amount: "1,000,000", paidOn: `${year - 1}-04-03`, evidence: "DEMO-GTB-0001", method: "Bank transfer", payerName: "[DEMO] Corner Pharmacy Ltd",
+  });
+  await reconcileReceipt(alpha, demoReceipt.id, { statementRef: "Demo statement, April, line 12" });
+  await recordPayment(manager, shopCharges[2].id, { amount: "200,000", paidOn: `${year - 1}-07-10`, evidence: "DEMO-CASH-0002", method: "Cash" });
+  await requestAdjustment(officer, shopCharges[2].id, {
+    kind: "LATE_FEE", amount: "25,000", reason: "Demonstration: late fee under clause 7 of the lease",
+  });
+  await recordDepositReceived(officer, shopLease.id, { amount: "250,000", receivedOn: `${year - 1}-01-02`, evidence: "DEMO-DEP-0001" });
+
   await updateRefPrefix(alpha, "ALP");
   await addDepartment(alpha, { name: "[DEMO] Legal", code: "LEG" });
   await addDepartment(alpha, { name: "[DEMO] Property management", code: "PM" });

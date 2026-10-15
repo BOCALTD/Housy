@@ -242,6 +242,7 @@ enum RentFrequency {
   QUARTERLY
   HALF_YEARLY
   YEARLY
+  CUSTOM
 }
 
 enum LeaseStatus {
@@ -263,10 +264,19 @@ model Lease {
   frequency     RentFrequency
   depositKobo   BigInt        @default(0) @map("deposit_kobo")
   status        LeaseStatus   @default(ACTIVE)
+  // Contract terms (master prompt Section 12.1). A blank unit means the whole property.
+  unit           String       @default("")
+  graceDays      Int          @default(0) @map("grace_days")
+  noticeDays     Int          @default(0) @map("notice_days")
+  intervalMonths Int?         @map("interval_months")
+  permittedUse   String       @default("") @map("permitted_use")
+  otherTerms     String       @default("") @map("other_terms")
   createdById   String        @map("created_by_id")
   createdAt     DateTime      @default(now()) @map("created_at")
   asset         Asset         @relation(fields: [assetId], references: [id], onDelete: Restrict)
   charges       RentCharge[]
+  receipts      Receipt[]
+  depositEntries DepositEntry[]
 
   @@unique([companyId, ref])
   @@index([companyId, assetId])
@@ -279,28 +289,156 @@ model RentCharge {
   leaseId    String        @map("lease_id")
   dueDate    DateTime      @map("due_date") @db.Date
   amountKobo BigInt        @map("amount_kobo")
+  // Sum of approved adjustments (late fees add, waivers and credit notes subtract).
+  adjustedKobo BigInt      @default(0) @map("adjusted_kobo")
   paidKobo   BigInt        @default(0) @map("paid_kobo")
   lease      Lease         @relation(fields: [leaseId], references: [id], onDelete: Restrict)
   payments   RentPayment[]
+  adjustments RentAdjustment[]
 
   @@index([companyId, dueDate])
   @@index([leaseId])
   @@map("rent_charges")
 }
 
+// One row per charge a receipt was applied to. Insert-only.
 model RentPayment {
   id           String     @id @default(uuid())
   companyId    String     @map("company_id")
   chargeId     String     @map("charge_id")
+  receiptId    String     @map("receipt_id")
   amountKobo   BigInt     @map("amount_kobo")
   paidOn       DateTime   @map("paid_on") @db.Date
   evidence     String
   recordedById String     @map("recorded_by_id")
   createdAt    DateTime   @default(now()) @map("created_at")
   charge       RentCharge @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+  receipt      Receipt    @relation(fields: [receiptId], references: [id], onDelete: Restrict)
 
   @@index([chargeId])
+  @@index([receiptId])
   @@map("rent_payments")
+}
+
+// Per-company running numbers (receipts and similar), allocated atomically.
+model NumberCounter {
+  companyId  String @map("company_id")
+  kind       String
+  year       Int
+  lastNumber Int    @default(0) @map("last_number")
+
+  @@id([companyId, kind, year])
+  @@map("number_counters")
+}
+
+// A receipt is money received against a lease. It never changes after it is issued: reconciliation and
+// reversal are recorded as separate insert-only rows.
+model Receipt {
+  id             String        @id @default(uuid())
+  companyId      String        @map("company_id")
+  leaseId        String        @map("lease_id")
+  no             String
+  amountKobo     BigInt        @map("amount_kobo")
+  paidOn         DateTime      @map("paid_on") @db.Date
+  method         String        @default("")
+  payerName      String        @default("") @map("payer_name")
+  evidence       String
+  evidenceKey    String        @map("evidence_key")
+  recordedById   String        @map("recorded_by_id")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  lease          Lease         @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+  allocations    RentPayment[]
+  reconciliation ReceiptReconciliation?
+  reversal       ReceiptReversal?
+
+  @@unique([companyId, no])
+  @@index([companyId, evidenceKey])
+  @@index([leaseId])
+  @@map("receipts")
+}
+
+// Confirms a receipt against a bank statement line. Done by someone other than the person who recorded it.
+model ReceiptReconciliation {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  receiptId      String   @unique @map("receipt_id")
+  statementRef   String   @map("statement_ref")
+  note           String   @default("")
+  reconciledById String   @map("reconciled_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  receipt        Receipt  @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+
+  @@map("receipt_reconciliations")
+}
+
+model ReceiptReversal {
+  id           String   @id @default(uuid())
+  companyId    String   @map("company_id")
+  receiptId    String   @unique @map("receipt_id")
+  reason       String
+  reversedById String   @map("reversed_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  receipt      Receipt  @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+
+  @@map("receipt_reversals")
+}
+
+enum AdjustmentKind {
+  LATE_FEE
+  WAIVER
+  CREDIT_NOTE
+  CORRECTION
+}
+
+enum AdjustmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// A change to the amount due on one charge. It takes effect only when someone other than the requester approves it.
+model RentAdjustment {
+  id            String           @id @default(uuid())
+  companyId     String           @map("company_id")
+  chargeId      String           @map("charge_id")
+  kind          AdjustmentKind
+  amountKobo    BigInt           @map("amount_kobo")
+  reason        String
+  status        AdjustmentStatus @default(PENDING)
+  requestedById String           @map("requested_by_id")
+  decidedById   String?          @map("decided_by_id")
+  decidedAt     DateTime?        @map("decided_at")
+  decisionNote  String           @default("") @map("decision_note")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  charge        RentCharge       @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, status])
+  @@index([chargeId])
+  @@map("rent_adjustments")
+}
+
+enum DepositEntryKind {
+  RECEIVED
+  DEDUCTION
+  REFUND
+}
+
+// Security deposit ledger. Insert-only: the balance is received minus deductions minus refunds.
+model DepositEntry {
+  id           String           @id @default(uuid())
+  companyId    String           @map("company_id")
+  leaseId      String           @map("lease_id")
+  kind         DepositEntryKind
+  amountKobo   BigInt           @map("amount_kobo")
+  reason       String           @default("")
+  evidence     String           @default("")
+  entryDate    DateTime         @map("entry_date") @db.Date
+  recordedById String           @map("recorded_by_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  lease        Lease            @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+
+  @@index([leaseId])
+  @@map("deposit_entries")
 }
 
 // ---------- Tasks, inspections, maintenance ----------

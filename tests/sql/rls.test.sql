@@ -118,5 +118,92 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: correspondence history is append-only';
 END $$;
 
+-- 12. Phase 5a: the rent ledger is isolated by company, financial records are append-only, and the
+-- database itself refuses a charge that is paid beyond what is owed.
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO leases (id, company_id, asset_id, ref, occupant_name, start_date, end_date, rent_kobo, frequency, created_by_id)
+  VALUES ('l-a', 'co-a', 'as-a', 'LSE-00001', 'Corner Pharmacy', '2026-01-01', '2027-01-01', 50000000, 'QUARTERLY', 'u1');
+INSERT INTO rent_charges (id, company_id, lease_id, due_date, amount_kobo) VALUES ('rc-a', 'co-a', 'l-a', '2026-01-01', 50000000);
+INSERT INTO receipts (id, company_id, lease_id, no, amount_kobo, paid_on, evidence, evidence_key, recorded_by_id)
+  VALUES ('r-a', 'co-a', 'l-a', 'RCT-2026-00001', 30000000, '2026-01-02', 'GTB 0001', 'gtb0001', 'u1');
+INSERT INTO rent_payments (id, company_id, charge_id, receipt_id, amount_kobo, paid_on, evidence, recorded_by_id)
+  VALUES ('rp-a', 'co-a', 'rc-a', 'r-a', 30000000, '2026-01-02', 'GTB 0001', 'u1');
+UPDATE rent_charges SET paid_kobo = 30000000 WHERE id = 'rc-a';
+INSERT INTO receipt_reconciliations (id, company_id, receipt_id, statement_ref, reconciled_by_id)
+  VALUES ('rr-a', 'co-a', 'r-a', 'Statement 12 Jan line 4', 'u2');
+INSERT INTO rent_adjustments (id, company_id, charge_id, kind, amount_kobo, reason, requested_by_id)
+  VALUES ('ad-a', 'co-a', 'rc-a', 'LATE_FEE', 100000, 'Clause 7', 'u1');
+INSERT INTO deposit_entries (id, company_id, lease_id, kind, amount_kobo, evidence, entry_date, recorded_by_id)
+  VALUES ('de-a', 'co-a', 'l-a', 'RECEIVED', 25000000, 'GTB 0002', '2026-01-02', 'u1');
+INSERT INTO number_counters (company_id, kind, year, last_number) VALUES ('co-a', 'RECEIPT', 2026, 1);
+
+DO $$ BEGIN
+  UPDATE rent_charges SET paid_kobo = 50000001 WHERE id = 'rc-a';
+  RAISE EXCEPTION 'FAIL: overpaying a charge was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: database refuses a charge paid beyond what is owed';
+END $$;
+DO $$ BEGIN
+  UPDATE rent_charges SET adjusted_kobo = -30000000 WHERE id = 'rc-a';
+  RAISE EXCEPTION 'FAIL: an adjustment below the amount already paid was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: database refuses an adjustment below the amount already paid';
+END $$;
+DO $$ BEGIN
+  UPDATE rent_charges SET paid_kobo = -1 WHERE id = 'rc-a';
+  RAISE EXCEPTION 'FAIL: a negative paid amount was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: database refuses a negative paid amount';
+END $$;
+DO $$ BEGIN
+  INSERT INTO receipts (id, company_id, lease_id, no, amount_kobo, paid_on, evidence, evidence_key, recorded_by_id)
+    VALUES ('r-zero', 'co-a', 'l-a', 'RCT-2026-00002', 0, '2026-01-02', 'x', 'x', 'u1');
+  RAISE EXCEPTION 'FAIL: a zero receipt was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: database refuses a zero-value receipt';
+END $$;
+DO $$ BEGIN
+  INSERT INTO receipts (id, company_id, lease_id, no, amount_kobo, paid_on, evidence, evidence_key, recorded_by_id)
+    VALUES ('r-dup', 'co-a', 'l-a', 'RCT-2026-00001', 1, '2026-01-02', 'y', 'y', 'u1');
+  RAISE EXCEPTION 'FAIL: a duplicate receipt number was allowed';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: receipt numbers are unique within a company';
+END $$;
+
+-- Financial records are append-only for the application.
+DO $$ BEGIN UPDATE receipts SET amount_kobo = 1 WHERE id = 'r-a'; RAISE EXCEPTION 'FAIL: receipt update allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: receipts cannot be edited'; END $$;
+DO $$ BEGIN DELETE FROM receipts WHERE id = 'r-a'; RAISE EXCEPTION 'FAIL: receipt delete allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: receipts cannot be deleted'; END $$;
+DO $$ BEGIN UPDATE rent_payments SET amount_kobo = 1 WHERE id = 'rp-a'; RAISE EXCEPTION 'FAIL: payment update allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: payment allocations cannot be edited'; END $$;
+DO $$ BEGIN UPDATE receipt_reconciliations SET statement_ref = 'x' WHERE id = 'rr-a'; RAISE EXCEPTION 'FAIL: reconciliation update allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: reconciliations cannot be edited'; END $$;
+DO $$ BEGIN DELETE FROM receipt_reversals WHERE receipt_id = 'r-a'; RAISE EXCEPTION 'FAIL: reversal delete allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: reversals cannot be deleted'; END $$;
+DO $$ BEGIN UPDATE deposit_entries SET amount_kobo = 1 WHERE id = 'de-a'; RAISE EXCEPTION 'FAIL: deposit entry update allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: deposit entries cannot be edited'; END $$;
+
+-- Company B sees and changes nothing of company A's ledger.
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM leases) = 0, 'B cannot see A leases');
+SELECT pg_temp.expect((SELECT count(*) FROM rent_charges) = 0, 'B cannot see A rent charges');
+SELECT pg_temp.expect((SELECT count(*) FROM receipts) = 0, 'B cannot see A receipts');
+SELECT pg_temp.expect((SELECT count(*) FROM rent_payments) = 0, 'B cannot see A payment allocations');
+SELECT pg_temp.expect((SELECT count(*) FROM receipt_reconciliations) = 0, 'B cannot see A reconciliations');
+SELECT pg_temp.expect((SELECT count(*) FROM rent_adjustments) = 0, 'B cannot see A adjustments');
+SELECT pg_temp.expect((SELECT count(*) FROM deposit_entries) = 0, 'B cannot see A deposit ledger');
+SELECT pg_temp.expect((SELECT count(*) FROM number_counters) = 0, 'B cannot see A number counters');
+UPDATE rent_charges SET paid_kobo = 0 WHERE id = 'rc-a';
+DO $$ BEGIN
+  INSERT INTO receipts (id, company_id, lease_id, no, amount_kobo, paid_on, evidence, evidence_key, recorded_by_id)
+    VALUES ('r-x', 'co-a', 'l-a', 'RCT-2026-00009', 100, '2026-01-02', 'forged', 'forged', 'u2');
+  RAISE EXCEPTION 'FAIL: cross-company receipt was allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: cannot issue a receipt against another company''s lease';
+END $$;
+DO $$ BEGIN
+  INSERT INTO deposit_entries (id, company_id, lease_id, kind, amount_kobo, entry_date, recorded_by_id)
+    VALUES ('de-x', 'co-a', 'l-a', 'REFUND', 100, '2026-01-02', 'u2');
+  RAISE EXCEPTION 'FAIL: cross-company deposit refund was allowed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: cannot refund another company''s deposit';
+END $$;
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT pg_temp.expect((SELECT paid_kobo FROM rent_charges WHERE id = 'rc-a') = 30000000, 'A charge balance unchanged by B''s update attempt');
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

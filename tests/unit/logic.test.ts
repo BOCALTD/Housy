@@ -122,3 +122,126 @@ test("correspondence moves only through allowed steps", async () => {
   assert.equal(isOverdue("SENT", past, today), false, "a sent reply is no longer overdue");
   assert.equal(isOverdue("UNDER_REVIEW", null, today), false);
 });
+
+// ---------- Phase 5a: rent ledger rules ----------
+
+test("custom payment frequency needs a sensible interval", async () => {
+  const { periodMonths } = await import("../../src/lib/rent");
+  assert.equal(periodMonths("QUARTERLY"), 3);
+  assert.equal(periodMonths("CUSTOM", 2), 2);
+  assert.throws(() => periodMonths("CUSTOM", null), /1 to 120 months/);
+  assert.throws(() => periodMonths("CUSTOM", 0));
+  assert.throws(() => periodMonths("CUSTOM", 121));
+  assert.throws(() => periodMonths("CUSTOM", 1.5));
+  const charges = generateRentSchedule({ startDate: d("2026-01-01"), endDate: d("2026-12-31"), frequency: "CUSTOM", intervalMonths: 5, rentKobo: 10n });
+  assert.deepEqual(charges.map((c) => s(c.dueDate)), ["2026-01-01", "2026-06-01", "2026-11-01"]);
+});
+
+test("grace days move the overdue boundary, and adjustments change what is owed", async () => {
+  const { daysOverdue, outstandingOf, effectiveAmount } = await import("../../src/lib/rent");
+  const due = d("2026-06-01");
+  const c = { amountKobo: 100n, adjustedKobo: 0n, paidKobo: 0n, dueDate: due };
+  // Due 1 June with 5 grace days: on time through 6 June, overdue from 7 June.
+  assert.equal(chargeState(c, d("2026-06-06"), 5), "DUE");
+  assert.equal(chargeState(c, d("2026-06-07"), 5), "OVERDUE");
+  assert.equal(chargeState(c, d("2026-06-01"), 0), "DUE");
+  assert.equal(chargeState(c, d("2026-06-02"), 0), "OVERDUE");
+  assert.equal(daysOverdue(c, d("2026-06-06"), 5), 0);
+  assert.equal(daysOverdue(c, d("2026-06-07"), 5), 1);
+  assert.equal(daysOverdue(c, d("2026-07-01"), 0), 30);
+  assert.equal(daysOverdue({ ...c, paidKobo: 100n }, d("2026-07-01"), 0), 0, "a paid charge is never overdue");
+  // A late fee raises the amount due; paying the original amount leaves the fee outstanding.
+  const withFee = { ...c, adjustedKobo: 10n, paidKobo: 100n };
+  assert.equal(effectiveAmount(withFee), 110n);
+  assert.equal(outstandingOf(withFee), 10n);
+  assert.equal(chargeState(withFee, d("2026-06-01"), 0), "PART_PAID");
+  // A full waiver is WAIVED, not PAID; a partial waiver reduces what is owed.
+  assert.equal(chargeState({ ...c, adjustedKobo: -100n }, d("2026-06-02"), 0), "WAIVED");
+  assert.equal(outstandingOf({ ...c, adjustedKobo: -40n, paidKobo: 60n }), 0n);
+  assert.equal(chargeState({ ...c, adjustedKobo: -40n, paidKobo: 60n }, d("2026-06-02"), 0), "PAID");
+  assert.equal(applyPayment({ amountKobo: 100n, adjustedKobo: 10n, paidKobo: 100n }, 10n), 110n);
+  assert.throws(() => applyPayment({ amountKobo: 100n, adjustedKobo: -40n, paidKobo: 60n }, 1n), /fully paid/);
+});
+
+test("payment references are compared without regard to case, spaces or punctuation", async () => {
+  const { evidenceKey, receiptStatus, formatReceiptNo } = await import("../../src/lib/ledger-rules");
+  assert.equal(evidenceKey("GTB Transfer 0001"), evidenceKey("gtb-transfer/0001"));
+  assert.notEqual(evidenceKey("GTB 0001"), evidenceKey("GTB 0002"));
+  assert.equal(evidenceKey("--"), "");
+  assert.equal(receiptStatus({ reversed: false, reconciled: false }), "RECORDED");
+  assert.equal(receiptStatus({ reversed: false, reconciled: true }), "RECONCILED");
+  assert.equal(receiptStatus({ reversed: true, reconciled: true }), "REVERSED");
+  assert.equal(formatReceiptNo(2026, 7), "RCT-2026-00007");
+});
+
+test("a payment is applied to the oldest charges first and splits exactly", async () => {
+  const { allocatePayment } = await import("../../src/lib/ledger-rules");
+  const charges = [
+    { id: "c3", dueDate: d("2026-07-01"), outstandingKobo: 100n },
+    { id: "c1", dueDate: d("2026-01-01"), outstandingKobo: 40n },
+    { id: "c2", dueDate: d("2026-04-01"), outstandingKobo: 100n },
+    { id: "paid", dueDate: d("2025-10-01"), outstandingKobo: 0n },
+  ];
+  const a = allocatePayment(charges, 150n);
+  assert.deepEqual(a, [{ chargeId: "c1", amountKobo: 40n }, { chargeId: "c2", amountKobo: 100n }, { chargeId: "c3", amountKobo: 10n }]);
+  assert.equal(a.reduce((x, y) => x + y.amountKobo, 0n), 150n);
+  assert.deepEqual(allocatePayment(charges, 1n), [{ chargeId: "c1", amountKobo: 1n }]);
+  assert.equal(allocatePayment(charges, 240n).length, 3, "the whole balance can be paid in advance");
+  assert.throws(() => allocatePayment(charges, 241n), /more than the total outstanding/);
+  assert.throws(() => allocatePayment(charges, 0n));
+  assert.throws(() => allocatePayment([{ id: "x", dueDate: d("2026-01-01"), outstandingKobo: 0n }], 1n), /Nothing is outstanding/);
+  // Charges due the same day are ordered by id so the result is deterministic.
+  const tie = allocatePayment([{ id: "b", dueDate: d("2026-01-01"), outstandingKobo: 5n }, { id: "a", dueDate: d("2026-01-01"), outstandingKobo: 5n }], 6n);
+  assert.deepEqual(tie, [{ chargeId: "a", amountKobo: 5n }, { chargeId: "b", amountKobo: 1n }]);
+});
+
+test("adjustments have a direction and cannot go below what has been paid", async () => {
+  const { signedAdjustment, checkAdjustmentFits } = await import("../../src/lib/ledger-rules");
+  assert.equal(signedAdjustment("LATE_FEE", undefined, 50n), 50n);
+  assert.equal(signedAdjustment("LATE_FEE", "DECREASE", 50n), 50n, "a late fee always adds");
+  assert.equal(signedAdjustment("WAIVER", undefined, 50n), -50n);
+  assert.equal(signedAdjustment("CREDIT_NOTE", "INCREASE", 50n), -50n, "a credit note always reduces");
+  assert.equal(signedAdjustment("CORRECTION", "INCREASE", 50n), 50n);
+  assert.equal(signedAdjustment("CORRECTION", "DECREASE", 50n), -50n);
+  assert.throws(() => signedAdjustment("CORRECTION", undefined, 50n), /increases or decreases/);
+  assert.throws(() => signedAdjustment("WAIVER", undefined, 0n));
+  const c = { amountKobo: 100n, adjustedKobo: 0n, paidKobo: 60n };
+  assert.doesNotThrow(() => checkAdjustmentFits(c, -40n));
+  assert.throws(() => checkAdjustmentFits(c, -41n), /more than the amount still unpaid/);
+  assert.doesNotThrow(() => checkAdjustmentFits(c, 25n));
+});
+
+test("the deposit ledger enforces the agreed amount, the balance and the end of the tenancy", async () => {
+  const { depositTotals, checkDepositEntry } = await import("../../src/lib/ledger-rules");
+  const totals = depositTotals([
+    { kind: "RECEIVED", amountKobo: 200n }, { kind: "DEDUCTION", amountKobo: 30n }, { kind: "REFUND", amountKobo: 50n },
+  ]);
+  assert.deepEqual(totals, { received: 200n, deducted: 30n, refunded: 50n, balance: 120n });
+  const base = { agreedKobo: 250n, totals: { received: 200n, balance: 120n } };
+  assert.doesNotThrow(() => checkDepositEntry({ ...base, kind: "RECEIVED", amountKobo: 50n, tenancyEnded: false }));
+  assert.throws(() => checkDepositEntry({ ...base, kind: "RECEIVED", amountKobo: 51n, tenancyEnded: false }), /above the agreed/);
+  assert.throws(() => checkDepositEntry({ ...base, agreedKobo: 0n, kind: "RECEIVED", amountKobo: 1n, tenancyEnded: false }), /No deposit was agreed/);
+  assert.throws(() => checkDepositEntry({ ...base, kind: "REFUND", amountKobo: 10n, tenancyEnded: false }), /once the tenancy has ended/);
+  assert.doesNotThrow(() => checkDepositEntry({ ...base, kind: "REFUND", amountKobo: 120n, tenancyEnded: true }));
+  assert.throws(() => checkDepositEntry({ ...base, kind: "DEDUCTION", amountKobo: 121n, tenancyEnded: true }), /more than the deposit still held/);
+});
+
+test("units: a blank unit means the whole property", async () => {
+  const { unitsConflict } = await import("../../src/lib/ledger-rules");
+  assert.equal(unitsConflict("", ""), true);
+  assert.equal(unitsConflict("", "Flat 3B"), true);
+  assert.equal(unitsConflict("Flat 3B", ""), true);
+  assert.equal(unitsConflict("Flat 3B", " flat 3b "), true);
+  assert.equal(unitsConflict("Flat 3B", "Flat 3C"), false);
+});
+
+test("overdue amounts fall into ageing buckets at the boundaries", async () => {
+  const { ageingBucket } = await import("../../src/lib/ledger-rules");
+  assert.equal(ageingBucket(1), "1-30 days");
+  assert.equal(ageingBucket(30), "1-30 days");
+  assert.equal(ageingBucket(31), "31-60 days");
+  assert.equal(ageingBucket(60), "31-60 days");
+  assert.equal(ageingBucket(61), "61-90 days");
+  assert.equal(ageingBucket(90), "61-90 days");
+  assert.equal(ageingBucket(91), "Over 90 days");
+});

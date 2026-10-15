@@ -12,6 +12,13 @@ export type Action =
   | "document.download"
   | "lease.manage"
   | "payment.record"
+  | "payment.reverse"
+  | "payment.reconcile"
+  | "adjustment.request"
+  | "adjustment.approve"
+  | "deposit.manage"
+  | "deposit.settle"
+  | "finance.view"
   | "task.create"
   | "task.update.any"
   | "listing.manage"
@@ -34,6 +41,15 @@ const MATRIX: Record<Action, Role[]> = {
   "document.download": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER"],
   "lease.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "payment.record": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  // Rent ledger (master prompt Sections 12 and 13). Money received, adjusted or returned is recorded by
+  // one person and confirmed or approved by another.
+  "payment.reverse": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "payment.reconcile": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "adjustment.request": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "adjustment.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "deposit.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "deposit.settle": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "finance.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER", "VIEWER"],
   "task.create": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER"],
   "task.update.any": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "listing.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],

@@ -1,8 +1,8 @@
 /**
- * Used by scripts/smoke.sh. Signs in as the demo Company Super Admin by creating a session row,
- * then prints the session token on the first line, followed by every signed-in page worth opening
- * (one path per line). The smoke test opens each with that cookie and fails on any error page.
- * Add new pages here as modules are built, so CI renders them against real data.
+ * Used by scripts/smoke.sh. Signs in as the demo Company Super Admin and the demo Officer by creating
+ * session rows. Prints the administrator's token, then the officer's token, then every signed-in page
+ * worth opening (one path per line). The smoke test opens each with those cookies and fails on any
+ * error page. Add new pages here as modules are built, so CI renders them against real data.
  */
 import { prisma, withTenant, withUser } from "../src/lib/db";
 import { hashToken, newToken } from "../src/lib/tokens";
@@ -16,6 +16,11 @@ async function main() {
   await prisma.session.create({
     data: { userId: user.id, companyId, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 3600_000) },
   });
+  const officer = await prisma.user.findUniqueOrThrow({ where: { email: "demo.officer@example.test" } });
+  const officerToken = newToken();
+  await prisma.session.create({
+    data: { userId: officer.id, companyId, tokenHash: hashToken(officerToken), expiresAt: new Date(Date.now() + 3600_000) },
+  });
 
   const paths = new Set<string>([
     "/app", "/app/assets", "/app/assets/new", "/app/correspondence", "/app/correspondence/new",
@@ -24,9 +29,12 @@ async function main() {
   await withTenant(companyId, user.id, async (tx) => {
     for (const a of await tx.asset.findMany({ select: { id: true } })) paths.add(`/app/assets/${a.id}`);
     for (const c of await tx.correspondence.findMany({ select: { id: true } })) paths.add(`/app/correspondence/${c.id}`);
+    for (const l of await tx.lease.findMany({ select: { id: true } })) paths.add(`/app/leases/${l.id}`);
+    for (const r of await tx.receipt.findMany({ select: { id: true } })) paths.add(`/app/receipts/${r.id}`);
   });
 
   console.log(token);
+  console.log(officerToken);
   for (const p of paths) console.log(p);
 }
 

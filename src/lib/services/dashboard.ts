@@ -13,8 +13,10 @@ export async function dashboard(ctx: Ctx) {
       tx.task.count({ where: { ...where, status: { in: ["OPEN", "IN_PROGRESS"] } } }),
       tx.task.count({ where: { ...where, status: { in: ["OPEN", "IN_PROGRESS"] }, dueOn: { lt: today } } }),
       tx.$queryRaw<{ n: bigint; outstanding: bigint | null }[]>`
-        SELECT count(*)::bigint AS n, sum(amount_kobo - paid_kobo)::bigint AS outstanding
-        FROM rent_charges WHERE company_id = ${ctx.companyId} AND due_date < ${today} AND paid_kobo < amount_kobo`,
+        SELECT count(*)::bigint AS n, sum(c.amount_kobo + c.adjusted_kobo - c.paid_kobo)::bigint AS outstanding
+        FROM rent_charges c JOIN leases l ON l.id = c.lease_id
+        WHERE c.company_id = ${ctx.companyId} AND (c.due_date + l.grace_days) < ${today}
+          AND c.paid_kobo < c.amount_kobo + c.adjusted_kobo`,
       tx.lease.findMany({
         where: { ...where, status: "ACTIVE", endDate: { gte: today, lte: in90 } },
         include: { asset: { select: { id: true, name: true, ref: true } } },

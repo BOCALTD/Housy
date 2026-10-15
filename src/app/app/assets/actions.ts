@@ -64,9 +64,11 @@ export async function createLeaseAction(form: FormData) {
   return act(assetPath(id), async () => {
     const member = await requireMember("lease.manage");
     const lease = await createLease(member, id, {
-      occupantName: str(form, "occupantName"), occupantContact: str(form, "occupantContact"),
+      occupantName: str(form, "occupantName"), occupantContact: str(form, "occupantContact"), unit: str(form, "unit"),
       startDate: str(form, "startDate"), endDate: str(form, "endDate"), rent: str(form, "rent"),
-      frequency: str(form, "frequency") as never, deposit: optStr(form, "deposit"),
+      frequency: str(form, "frequency") as never, intervalMonths: optStr(form, "intervalMonths"),
+      deposit: optStr(form, "deposit"), graceDays: optStr(form, "graceDays"), noticeDays: optStr(form, "noticeDays"),
+      permittedUse: str(form, "permittedUse"), otherTerms: str(form, "otherTerms"),
     });
     return withNotice(assetPath(id), `Lease ${lease.ref} created with its rent schedule.`);
   });

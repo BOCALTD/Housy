@@ -120,12 +120,27 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - Documents expiring within 60 days, and dashboard alerts for all of the above.
 - Rate limits shared through the database, so they hold across serverless instances.
 
+**Built in Phase 5 (leases, rent, service charges and obligations):**
+- *Rent ledger:* leases per property or unit with grace periods, notice periods and custom payment intervals; rent schedules from the contract terms; receipts with unique numbers; payments applied oldest-charge-first, part payments, and each payment reference accepted once; reversal; reconciliation to a bank statement by someone other than the person who recorded it; late fees, waivers, credit notes and corrections that take effect only when a different person approves them; security deposit ledger with settlement after the tenancy ends; a ledger check that compares charges, payments and receipts.
+- *Lease lifecycle:* renewal proposals approved by a different person (which creates the next lease), notices with short-notice flags, append-only move-in and move-out handover records, and closure that removes untouched future rent while keeping arrears and payments.
+- *Service charges:* budgets per property and period, shared equally, by floor area or by fixed amounts using exact largest-remainder arithmetic; tenant collections with part payments and reversal; expenses approved by a different person and limited to what the fund holds; the fund balance is worked out from records and kept apart from rent.
+- *Obligations and reminders:* company-entered levies, taxes, permits and insurance with authority, jurisdiction, evidence, recurrence and an optional professional-review gate; configurable "due soon" and escalation windows; a compliance calendar that also shows lease ends, notice dates and unpaid service charges; dashboard alerts.
+- *Reports:* rent report by property and portfolio (billed, collected, arrears), arrears ageing, lease expiries and a CSV download.
+- Financial records are append-only at the database level for the runtime role, and money checks (no overpayment, no negative balances) are enforced by database constraints as well as by the application.
+
+**Rules to know about:**
+- Several approvals need two different people (reconciliation, adjustments, renewals, service charge expenses). A company with one user cannot complete those steps until it adds a second member.
+- Reminders are in-app only. Nothing is emailed or messaged.
+- No tax rate or legal rule is built in. Obligations, amounts and jurisdictions are entered by the company, and items marked for professional review cannot be completed until a review is recorded.
+- Service charges are not pro-rated for part-period tenancies. A recurring obligation that falls on the 29th to 31st can drift earlier after a short month.
+- Floor areas are whole square metres.
+
 **Deferred to later phases:**
 - **Email and notifications:** no email sending yet. Invitation links are shown once to the administrator to share.
 - **Provider portal:** providers can't sign in to see their leads yet. Platform admins handle leads for now.
 - **Media and maps:** photo and video galleries, maps.
 - **Email capture:** linking emails to correspondence needs an email provider, which is not configured yet.
-- **Later modules:** service charges, valuation, construction, inventory, collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
+- **Later modules:** valuation, construction, inventory, collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
 - **Document storage:** document contents are stored in PostgreSQL (`stored_files`, protected by row-level security), capped at 4 MB per file. Move to an object store behind `src/lib/storage.ts` as volumes grow.
 
 **Not yet verified:**

@@ -20,7 +20,8 @@ async function seeker(label = "seek") {
   return registerSeeker({ name: `${label} Person`, email: `${label}-${uid()}@example.test`, password: "integration-test-pw" });
 }
 async function planByCode(code: string) {
-  return prisma.subscriptionPlan.findUniqueOrThrow({ where: { code } });
+  // Plans are readable by a signed-in person, so read them as one.
+  return withUser("plan-reader", (tx) => tx.subscriptionPlan.findUniqueOrThrow({ where: { code } }));
 }
 /** Move a subscription's end date, as the clock would. */
 async function setEnd(adminId: string, subId: string, daysFromNow: number) {

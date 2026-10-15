@@ -30,7 +30,7 @@ async function main() {
   await prisma.session.create({ data: { userId: platform.id, companyId: null, tokenHash: hashToken(platformToken), expiresAt: new Date(Date.now() + 3600_000) } });
 
   const paths = new Set<string>([
-    "/me", "/me/following", "/me/notifications", "/me/plan", "/directory", "/directory?kind=companies", "/directory?kind=developers", "/app/profile", "/admin/plans", "/admin/collaborations", "/me/collaborations", `/me/collaborations/new?agent=${user.id}`, "/app/collaborations", "/app/collaborations/new", "/app/collaborations/report",
+    "/me", "/me/following", "/me/notifications", "/me/plan", "/directory", "/directory?kind=companies", "/directory?kind=developers", "/app/profile", "/admin/plans", "/admin/collaborations", "/admin/moderation", "/messages", `/messages/new?to=${user.id}`, "/me/collaborations", `/me/collaborations/new?agent=${user.id}`, "/app/collaborations", "/app/collaborations/new", "/app/collaborations/report",
     "/app", "/app/assets", "/app/assets/new", "/app/correspondence", "/app/correspondence/new",
     "/app/files", "/app/settings", "/app/team", "/app/service-charges", "/app/compliance", "/app/inspections", "/app/inspections/templates", "/app/maintenance", "/app/maintenance/contractors", "/app/maintenance/schedules", "/app/inventory", "/app/inventory/counts", "/app/valuations", "/app/projects", "/app/crm", "/app/crm/clients", "/app/crm/leads", "/app/crm/setup", "/app/deals", "/app/sales", "/app/sales/reports", "/app/commissions", "/app/reports", "/app/reports/rent.csv",
   ]);
@@ -50,6 +50,10 @@ async function main() {
     for (const x of await tx.deal.findMany({ select: { id: true } })) { paths.add(`/app/deals/${x.id}`); paths.add(`/app/deals/${x.id}/file`); }
     for (const c of await tx.collaboration.findMany({ select: { id: true, kind: true } })) { paths.add(`/app/collaborations/${c.id}`); if (c.kind === "SEEKER_AGENT") paths.add(`/me/collaborations/${c.id}`); }
     for (const r of await tx.receipt.findMany({ select: { id: true } })) paths.add(`/app/receipts/${r.id}`);
+  });
+
+  await withUser(seeker.id, async (tx) => {
+    for (const c of await tx.conversation.findMany({ select: { id: true } })) paths.add(`/messages/${c.id}`);
   });
 
   console.log(token);

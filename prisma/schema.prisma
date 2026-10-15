@@ -3393,3 +3393,107 @@ model CollabEvent {
   @@index([collaborationId, createdAt])
   @@map("collab_events")
 }
+
+// ---------- Phase 9c: secure messaging ----------
+
+enum MessageKind {
+  TEXT
+  PROPERTY
+  INSPECTION_REQUEST
+  INSPECTION_REPLY
+}
+
+enum ModerationStatus {
+  OPEN
+  ACTIONED
+  DISMISSED
+}
+
+model Conversation {
+  id              String               @id @default(uuid())
+  subject         String               @default("")
+  collaborationId String?              @map("collaboration_id")
+  createdById     String               @map("created_by_id")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  lastMessageAt   DateTime             @default(now()) @map("last_message_at")
+  members         ConversationMember[]
+  messages        Message[]
+
+  @@index([lastMessageAt])
+  @@index([createdById, createdAt])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  userId         String       @map("user_id")
+  name           String
+  lastReadAt     DateTime?    @map("last_read_at")
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String          @id @default(uuid())
+  conversationId String          @map("conversation_id")
+  senderId       String          @map("sender_id")
+  senderName     String          @map("sender_name")
+  kind           MessageKind     @default(TEXT)
+  body           String          @default("")
+  details        Json            @default("{}")
+  masked         Boolean         @default(false)
+  replyToId      String?         @map("reply_to_id")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  reports        MessageReport[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+  @@map("messages")
+}
+
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String   @map("blocker_id")
+  blockedId String   @map("blocked_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([blockerId, blockedId])
+  @@map("user_blocks")
+}
+
+model MessageReport {
+  id          String       @id @default(uuid())
+  messageId   String       @map("message_id")
+  reporterId  String       @map("reporter_id")
+  reporterName String      @map("reporter_name")
+  senderId    String       @map("sender_id")
+  reason      String
+  status      ModerationStatus @default(OPEN)
+  handledById String?      @map("handled_by_id")
+  handledAt   DateTime?    @map("handled_at")
+  handlerNote String       @default("") @map("handler_note")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  message     Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, reporterId])
+  @@index([status, senderId])
+  @@map("message_reports")
+}
+
+model MessagingRestriction {
+  id          String    @id @default(uuid())
+  userId      String    @unique @map("user_id")
+  reason      String
+  setById     String    @map("set_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  liftedAt    DateTime? @map("lifted_at")
+  liftedById  String?   @map("lifted_by_id")
+
+  @@map("messaging_restrictions")
+}

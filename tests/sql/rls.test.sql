@@ -938,5 +938,74 @@ SELECT set_config('app.platform_admin', '', true);
 SELECT set_config('app.user_id', 'u1', true);
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- ============================================================
+-- 28. Messaging: a conversation is read only by its members
+-- ============================================================
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', '', true);
+INSERT INTO conversations (id, created_by_id) VALUES ('cv-1', 'u1');
+INSERT INTO conversation_members (id, conversation_id, user_id, name) VALUES ('cm-1', 'cv-1', 'u1', 'One'), ('cm-2', 'cv-1', 'u5', 'Five');
+INSERT INTO messages (id, conversation_id, sender_id, sender_name, body) VALUES ('ms-1', 'cv-1', 'u1', 'One', 'Hello there');
+SELECT set_config('app.user_id', 'u5', true);
+SELECT pg_temp.expect((SELECT count(*) FROM messages WHERE id = 'ms-1') = 1, 'a member reads the message');
+SELECT pg_temp.expect((SELECT count(*) FROM conversations WHERE id = 'cv-1') = 1, 'a member sees the conversation');
+INSERT INTO messages (id, conversation_id, sender_id, sender_name, body) VALUES ('ms-2', 'cv-1', 'u5', 'Five', 'Hi back');
+DO $$ BEGIN
+  INSERT INTO messages (id, conversation_id, sender_id, sender_name, body) VALUES ('ms-x', 'cv-1', 'u1', 'One', 'Pretending to be someone else');
+  RAISE EXCEPTION 'FAIL: spoofed sender';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a member cannot send as someone else'; END $$;
+SELECT set_config('app.user_id', 'u3', true);
+SELECT pg_temp.expect((SELECT count(*) FROM messages) = 0, 'an outsider reads no messages');
+SELECT pg_temp.expect((SELECT count(*) FROM conversations) = 0, 'an outsider sees no conversations');
+SELECT pg_temp.expect((SELECT count(*) FROM conversation_members) = 0, 'an outsider sees no members');
+DO $$ BEGIN
+  INSERT INTO messages (id, conversation_id, sender_id, sender_name, body) VALUES ('ms-y', 'cv-1', 'u3', 'Three', 'Let me in');
+  RAISE EXCEPTION 'FAIL: outsider posted';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: an outsider cannot post into a conversation'; END $$;
+DO $$ BEGIN
+  INSERT INTO conversation_members (id, conversation_id, user_id, name) VALUES ('cm-x', 'cv-1', 'u3', 'Three');
+  RAISE EXCEPTION 'FAIL: outsider added themself';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: nobody can add themself to someone else''s conversation'; END $$;
+SELECT set_config('app.user_id', 'u5', true);
+DO $$ BEGIN
+  INSERT INTO conversation_members (id, conversation_id, user_id, name) VALUES ('cm-y', 'cv-1', 'u3', 'Three');
+  RAISE EXCEPTION 'FAIL: non-creator added a member';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the person who started a conversation can add to it'; END $$;
+DO $$ BEGIN
+  UPDATE messages SET body = 'edited' WHERE id = 'ms-1';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: a message was edited'; END IF;
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: messages cannot be edited'; END $$;
+
+-- Reports: the platform administrator reads only what was reported.
+SELECT set_config('app.user_id', 'u3', true);
+DO $$ BEGIN
+  INSERT INTO message_reports (id, message_id, reporter_id, reporter_name, sender_id, reason) VALUES ('mr-x', 'ms-1', 'u3', 'Three', 'u1', 'not mine to report');
+  RAISE EXCEPTION 'FAIL: outsider reported a message they cannot read';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: an outsider cannot report a message'; END $$;
+SELECT set_config('app.user_id', 'u5', true);
+INSERT INTO message_reports (id, message_id, reporter_id, reporter_name, sender_id, reason) VALUES ('mr-1', 'ms-1', 'u5', 'Five', 'u1', 'Asked for my phone number');
+SELECT set_config('app.user_id', 'u1', true);
+SELECT pg_temp.expect((SELECT count(*) FROM message_reports) = 0, 'the person reported cannot see the report');
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+SELECT pg_temp.expect((SELECT count(*) FROM messages) = 1, 'the administrator reads only the reported message, not the whole conversation');
+SELECT pg_temp.expect((SELECT count(*) FROM message_reports) = 1, 'the administrator sees the report');
+SELECT set_config('app.platform_admin', '', true);
+
+-- Blocks are private; the check function answers without revealing who blocked.
+SELECT set_config('app.user_id', 'u1', true);
+INSERT INTO user_blocks (id, blocker_id, blocked_id) VALUES ('ub-1', 'u1', 'u5');
+SELECT set_config('app.user_id', 'u5', true);
+SELECT pg_temp.expect((SELECT count(*) FROM user_blocks) = 0, 'a blocked person cannot read the block');
+SELECT pg_temp.expect(msg_blocked('u5', 'u1'), 'the block is still honoured for the blocked person');
+SELECT pg_temp.expect(NOT msg_blocked('u5', 'u3'), 'no block between unrelated people');
+
+-- Restrictions are the administrator's to set.
+DO $$ BEGIN
+  INSERT INTO messaging_restrictions (id, user_id, reason, set_by_id) VALUES ('mx-x', 'u5', 'self', 'u5');
+  RAISE EXCEPTION 'FAIL: a user restricted themself or another';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the administrator sets a restriction'; END $$;
+SELECT set_config('app.user_id', 'u1', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

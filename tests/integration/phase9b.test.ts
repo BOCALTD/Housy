@@ -184,7 +184,7 @@ test("what is shared is a copy of the fields ticked; the client, the CRM and the
   assert.ok(!text.includes("Agreed price"), "a field not ticked is not copied");
 
   // The partner has no way into the sharer's CRM, by service or by database.
-  await assert.rejects(getDeal(B, deal.id), /not found|access/i);
+  assert.equal(await getDeal(B, deal.id), null, "the partner cannot open the deal");
   assert.equal(await withTenant(B.companyId, B.userId, (tx) => tx.deal.count({ where: { id: deal.id } })), 0);
   assert.equal(await withTenant(B.companyId, B.userId, (tx) => tx.client.count({ where: { id: client.id } })), 0);
   assert.equal(await withTenant(B.companyId, B.userId, (tx) => tx.asset.count({ where: { id: asset.id } })), 0);

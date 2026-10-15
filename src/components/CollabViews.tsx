@@ -224,6 +224,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
             <div className="row between"><div><strong>{p.name}</strong> <span className="small muted">{p.side === "SENDER" ? c.senderName : c.recipientName}{p.expiresAt && !p.revokedAt ? ` · access ends ${when(p.expiresAt)}` : ""}</span></div>
               {p.revokedAt ? <Pill status="REVOKED" label="Removed" /> : <Pill status="ACTIVE" label="Has access" />}</div>
             {p.revokedAt ? <p className="small muted">Removed {when(p.revokedAt)}: {p.revokeReason}</p> : null}
+            {!p.revokedAt && w.me && p.userId !== w.me.userId && p.side !== w.me.side && open ? <p className="small"><Link href={`/messages/new?to=${p.userId}&collab=${c.id}`}>Message {p.name}</Link></p> : null}
             {!p.revokedAt && company && (w.side === p.side ? (p.side === "SENDER" ? canSender : canRecipient) : false) ? (
               <details className="inline"><summary>Change access</summary>
                 <form action={updateParticipantAction} className="stack">{id}{hidden("participantId", p.id)}<PermBoxes p={p} /><Field label="Access ends on (optional)"><input name="expiresOn" type="date" /></Field><button className="btn" type="submit">Save</button></form>

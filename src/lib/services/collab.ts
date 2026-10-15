@@ -682,7 +682,9 @@ export async function getWorkspace(a: Actor, id: string) {
         ])
       : [[], [], []];
     return {
-      collab: c, side, me, supervisor, participants, plan, mode, items, tasks, comments, events,
+      collab: c, side, me, supervisor, participants, plan, mode, tasks, comments, events,
+      // What the other side shared carries no identifier of their records, no storage key, and no record of how they chose to share it.
+      items: items.map((i) => (me && i.side === me.side ? i : { ...i, sourceId: "", sourceType: "", fileKey: i.fileKey ? "-" : null, details: { fields: ((i.details as { fields?: unknown } | null)?.fields ?? []) } as Prisma.JsonObject })),
       contentHidden: !showContent,
       canWrite: !!me && mode.write,
       can: me ? { comment: participantCan(me, "COMMENT"), tasks: participantCan(me, "TASKS"), share: participantCan(me, "SHARE"), documents: participantCan(me, "DOCUMENTS") } : { comment: false, tasks: false, share: false, documents: false },

@@ -33,6 +33,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams?: S
               <div><strong>{r.name}</strong> <span className="small muted">{r.sub}</span>{r.blurb ? <div className="small muted">{r.blurb}</div> : null}<div className="small muted">{r.followers} {r.followers === 1 ? "follower" : "followers"}</div></div>
               {session ? (
                 <div className="row">
+                  {r.kind === "AGENT" && r.acceptsMessages && r.targetId !== session.user.id ? <Link className="btn" href={`/messages/new?to=${r.targetId}`}>Message</Link> : null}
                   {r.kind === "AGENT" && !member && r.targetId !== session.user.id ? <Link className="btn" href={`/me/collaborations/new?agent=${r.targetId}`}>Invite to collaborate</Link> : null}
                   {r.kind !== "AGENT" && inviteCompany && r.targetId !== member?.companyId ? <Link className="btn" href={`/app/collaborations/new?company=${r.targetId}`}>Invite to collaborate</Link> : null}
                 <form action={r.following ? unfollowAction : followAction}>

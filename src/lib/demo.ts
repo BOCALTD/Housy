@@ -4,6 +4,7 @@
  * (master prompt Section 52).
  */
 import { asCompany, asPerson, createInvitation, respondInvitation, shareNote } from "./services/collab";
+import { startConversation } from "./services/messaging";
 import { prisma, withTenant, withUser } from "./db";
 import { registerCompany, inviteMember, acceptInvitation } from "./services/companies";
 import { createAsset, addParty } from "./services/assets";
@@ -465,6 +466,8 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await respondInvitation(asCompany(beta), pair.id, "accept", "[DEMO] Happy to work together");
   await shareNote(asCompany(alpha), pair.id, { title: "[DEMO] Viewing times", body: "Weekdays after 4pm." });
   await createInvitation(asPerson(seeker.userId), { kind: "SEEKER_AGENT", purpose: "SEARCH_ASSISTANCE", title: "[DEMO] Help me find a flat in Lekki", scope: "Two bedrooms.", agentUserId: alpha.userId }, true);
+
+  await startConversation(asPerson(seeker.userId), { toUserId: alpha.userId, subject: "[DEMO] A two-bedroom flat", body: "[DEMO] Hello, I am looking for a two-bedroom flat in Lekki. Is the terrace still available?" });
 
   return true;
 }

@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { unreadCount } from "@/lib/services/notifications";
+import { unreadConversationCount } from "@/lib/services/messaging";
+import { asPerson } from "@/lib/services/collab";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { logoutAction } from "./auth-actions";
 
@@ -24,6 +26,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   const unread = session ? await unreadCount(session.user.id).catch(() => 0) : 0;
+  const unreadMsgs = session ? await unreadConversationCount(asPerson(session.user.id)).catch(() => 0) : 0;
   return (
     <html lang="en-NG">
       <head>
@@ -49,6 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {session ? (
                 <>
                   {session.companyId ? <Link href="/app">Workspace</Link> : null}
+                  <Link href="/messages">Messages{unreadMsgs > 0 ? ` (${unreadMsgs})` : ""}</Link>
                   <Link href="/me">My account{unread > 0 ? ` (${unread})` : ""}</Link>
                   {session.user.isPlatformAdmin ? <Link href="/admin">Platform admin</Link> : null}
                   <form action={logoutAction}>

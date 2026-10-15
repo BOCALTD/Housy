@@ -14,6 +14,7 @@ const STATE_LABEL = { ESCALATED: "Escalated", OVERDUE: "Overdue", DUE_SOON: "Due
 const STATE_PILL = { ESCALATED: "OVERDUE", OVERDUE: "OVERDUE", DUE_SOON: "DUE", LATER: "OPEN" } as const;
 const KIND_LABEL: Record<CalendarItem["kind"], string> = {
   OBLIGATION: "Obligation", LEASE_END: "Lease end", NOTICE: "Notice", SERVICE_CHARGE: "Service charge", REVIEW: "Review", WORK_ORDER: "Maintenance", URGENT_WORK: "Urgent maintenance", INSPECTION: "Inspection",
+  WARRANTY: "Warranty", DEFECTS_PERIOD: "Defects period", DEFECT: "Defect", PROCUREMENT: "Materials", RISK_REVIEW: "Risk review", MILESTONE: "Milestone", VALUATION: "Valuation",
 };
 
 function when(days: number) {

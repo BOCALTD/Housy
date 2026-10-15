@@ -79,7 +79,7 @@ npm run test:integration   # the full vertical slice against a real database
 npm run db:check-drift     # migrations match prisma/schema.prisma
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs all of these, plus the type check, the production build, and a smoke test of the running app with demo data.
+GitHub Actions (`.github/workflows/ci.yml`) runs all of these, plus the type check, the production build, a smoke test of the running app with demo data, and a device check of every signed-in page on desktop, iPhone, Android and tablet profiles (`scripts/device-check.ts`). The device check is strict by default; set the repository variable `DEVICE_STRICT` to `false` to make it report without failing.
 
 ## Where things live
 
@@ -136,6 +136,19 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - *Handover inventories:* room-by-room schedules per lease for move-in and move-out, with quantities, conditions and photographs. After the occupant's acknowledgement is recorded the schedule is frozen by the database, and a move-in versus move-out comparison lists what is missing, fewer, worse or new. The comparison is a record for people to review; it does not decide any deposit deduction.
 - *Dashboards and alerts:* maintenance and inventory figures on the maintenance page; open work with a target date, urgent unattended work and due inspections on the compliance calendar and home dashboard.
 
+**Built in Phase 7 (valuation, construction and renovation):**
+- *Valuation instructions:* an instruction records the asset, purpose, basis of value, instruction, inspection and valuation dates, due date, and the professional assigned. Cancelled instructions stay on record.
+- *Worksheets and evidence:* configurable sales-comparison, income-capitalisation and cost-approach worksheets with exact integer arithmetic (money in kobo, rates in basis points, areas in hundredths of a square metre). Comparable evidence is verified by someone other than the person who added it, and a verified comparable is locked. Assumptions, special assumptions, limitations, the going-concern or gone-concern premise, and supporting documents are kept with the instruction.
+- *Reports:* a draft is saved and revised by the preparer. Submitting freezes a snapshot of the worksheets and evidence. A different person with approval rights approves or rejects it, and a database trigger refuses any change to an approved report. A revision is a new version. A report prepared with AI assistance cannot be approved until the approver confirms they reviewed it. AI never approves, signs or issues a valuation.
+- *Projects:* construction, renovation, fit-out and repair projects on an asset, with work packages, schedules, milestones, responsible people, progress and a late/behind flag. A project cannot start until a second person approves the budget.
+- *Cost control:* commitments (contracts and purchase orders), invoices, variations (against a contract or the budget, with time impact) and forecasts. Each is decided by someone other than the person who raised it, and the checks run again under a database lock at the moment of approval, so two approvals at once cannot overspend the budget or a contract. Cost reports show budget, committed, invoiced, paid and forecast.
+- *Delivery:* contractors and consultants appointed to a project, procurement requirements through ordered and delivered (a delivery can be booked straight into consumable stock), stock issued to a project, a risk register scored likelihood by impact (a high risk needs an owner and a plan), dated site inspections with photographs, progress reports, and quality checks. A work package cannot be marked done while a quality check is waiting or failed, and the person responsible for the work cannot pass or waive their own check.
+- *Completion and handover:* completion is requested, then approved by a different person after the checks run again. Defects can be raised during the works and through the defects liability period (0 to 60 months). A fix is verified by someone other than the fixer, a critical defect blocks completion, and a defect can be turned into one maintenance work order. Warranties and documents are kept with the project and linked to the asset. A handover checklist is created at completion, and the handover is recorded only when every item is ticked, no high or critical defect is open, and a recipient is named.
+- *Links:* the asset page shows its projects, warranties in force and latest approved valuation. A work order shows when a warranty is in force on its asset. Completion and handover are written to the asset's history.
+- *Alerts:* the compliance calendar includes warranty ends, defects-period ends, defect due dates, materials needed on site, risk reviews, milestones and valuation due dates. The dashboard has a folded Projects and valuations panel.
+- *Device testing:* every page in the signed-in smoke test is opened on seven emulated profiles (iPhone SE, iPhone 14 Pro Max, Pixel 7, Galaxy S9+, iPad, desktop Chrome and desktop Safari) and checked for sideways scrolling, small text, small touch targets, unlabelled fields, missing alt text and script errors. This runs in CI and fails the build. It uses emulation, not physical phones.
+- *Layout:* long lists and busy panels fold behind "show more" and expandable sections instead of stretching the page.
+
 **Rules to know about:**
 - Several approvals need two different people (reconciliation, adjustments, renewals, service charge expenses). A company with one user cannot complete those steps until it adds a second member.
 - Reminders are in-app only. Nothing is emailed or messaged.
@@ -146,13 +159,18 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - Phase 6: a physical count does not freeze stock. Differences are measured against the balance at the moment of approval, and the count line keeps what the books said when the count started.
 - Phase 6: handover inventory lines are not linked to register items, and there is no valuation of lost or damaged contents.
 - Phase 6: the "urgent and unattended" window is fixed at 24 hours.
+- Phase 7: valuation and project approvals need a second person. A company with one user can prepare but not approve.
+- Phase 7: the worksheets are calculation aids for a professional. The platform applies no valuation standard, rate or legal rule, and a valuation is not an opinion of value until a professional has approved it.
+- Phase 7: stock issued to a project is shown for information and is not added to the project's cost figures. Only approved commitments and invoices count as cost.
+- Phase 7: invoice payment is a record that someone marked an invoice paid. No payment is made by the platform.
+- Phase 7: older list pages (for example inventory and maintenance) have not yet been changed to fold long lists.
 
 **Deferred to later phases:**
 - **Email and notifications:** no email sending yet. Invitation links are shown once to the administrator to share.
 - **Provider portal:** providers can't sign in to see their leads yet. Platform admins handle leads for now.
 - **Media and maps:** photo and video galleries, maps.
 - **Email capture:** linking emails to correspondence needs an email provider, which is not configured yet.
-- **Later modules:** valuation, construction, collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
+- **Later modules:** collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
 - **Document storage:** document contents are stored in PostgreSQL (`stored_files`, protected by row-level security), capped at 4 MB per file. Move to an object store behind `src/lib/storage.ts` as volumes grow.
 
 **Not yet verified:**

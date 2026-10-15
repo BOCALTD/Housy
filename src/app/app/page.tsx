@@ -4,6 +4,7 @@ import { dashboard } from "@/lib/services/dashboard";
 import { correspondenceSummary } from "@/lib/services/correspondence";
 import { expiringDocuments, overdueFileCount } from "@/lib/services/files";
 import { complianceCalendar } from "@/lib/services/obligations";
+import { workOverview } from "@/lib/services/work-overview";
 import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -14,8 +15,8 @@ export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage({ searchParams }: { searchParams?: SP }) {
   const member = await requireMember();
-  const [d, corr, filesOverdue, expiring, calendar] = await Promise.all([
-    dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60), complianceCalendar(member),
+  const [d, corr, filesOverdue, expiring, calendar, work] = await Promise.all([
+    dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60), complianceCalendar(member), workOverview(member),
   ]);
   const escalated = calendar.items.filter((i) => i.state === "ESCALATED").length;
   const overdueDeadlines = calendar.items.filter((i) => i.state === "OVERDUE").length;
@@ -69,6 +70,37 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           <b>{expiring.length}</b><span>Documents expiring within 60 days</span>
         </Link>
       </section>
+
+      {work ? (
+        <section className="stack" aria-label="Projects and valuations">
+          <h2>Projects and valuations</h2>
+          <div className="stats">
+            {work.projects ? (
+              <>
+                <Link href="/app/projects" className="stat" style={{ textDecoration: "none" }}><b>{work.projects.active}</b><span>Active projects ({work.projects.planning} in planning)</span></Link>
+                <Link href="/app/projects" className={`stat${work.projects.completionForMe ? " alert" : ""}`} style={{ textDecoration: "none" }}><b>{work.projects.completionForMe}</b><span>Completions waiting for my approval</span></Link>
+                <Link href="/app/projects" className={`stat${work.projects.overdueDefects ? " alert" : ""}`} style={{ textDecoration: "none" }}><b>{work.projects.overdueDefects}</b><span>Overdue defects ({work.projects.openDefects} open)</span></Link>
+                <Link href="/app/projects" className={`stat${work.projects.lateProcurement ? " alert" : ""}`} style={{ textDecoration: "none" }}><b>{work.projects.lateProcurement}</b><span>Materials late</span></Link>
+              </>
+            ) : null}
+            {work.valuations ? (
+              <Link href="/app/valuations" className={`stat${work.valuations.overdue ? " alert" : ""}`} style={{ textDecoration: "none" }}><b>{work.valuations.inReview}</b><span>Valuations in review ({work.valuations.overdue} overdue)</span></Link>
+            ) : null}
+          </div>
+          {work.projects ? (
+            <details className="inline">
+              <summary>More project figures</summary>
+              <div className="stats">
+                <Link href="/app/projects" className={`stat${work.projects.overBudget ? " alert" : ""}`} style={{ textDecoration: "none" }}><b>{work.projects.overBudget}</b><span>Forecast over budget</span></Link>
+                <Link href="/app/projects" className={`stat${work.projects.highRisks ? " alert" : ""}`} style={{ textDecoration: "none" }}><b>{work.projects.highRisks}</b><span>High risks</span></Link>
+                <Link href="/app/projects" className={`stat${work.projects.failedChecks ? " alert" : ""}`} style={{ textDecoration: "none" }}><b>{work.projects.failedChecks}</b><span>Failed quality checks</span></Link>
+                <Link href="/app/compliance" className="stat" style={{ textDecoration: "none" }}><b>{work.projects.warrantiesEnding}</b><span>Warranties ending within 60 days</span></Link>
+                <Link href="/app/projects" className="stat" style={{ textDecoration: "none" }}><b>{work.projects.completionWaiting}</b><span>Completion requests open</span></Link>
+              </div>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
 
       <div className="two">
         <section className="card">

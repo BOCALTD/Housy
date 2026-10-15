@@ -6,6 +6,7 @@ import { addMonthsClamped, parseDateOnly, todayInLagos } from "../dates";
 import { classifyDeadline, STATE_ORDER, type DeadlineState } from "../deadlines";
 import { assessmentBalance } from "../ledger-rules";
 import { isUnattendedUrgent, URGENT_UNATTENDED_HOURS } from "../maintenance-rules";
+import { can } from "../permissions";
 import { assertCan, type Ctx } from "./context";
 
 // Obligations, reminders and the compliance calendar (master prompt Sections 13.2 and 13.4).
@@ -157,7 +158,8 @@ export async function cancelObligation(ctx: Ctx, obligationId: string, reasonInp
 // ---------- Calendar ----------
 
 export interface CalendarItem {
-  kind: "OBLIGATION" | "LEASE_END" | "NOTICE" | "SERVICE_CHARGE" | "REVIEW" | "WORK_ORDER" | "URGENT_WORK" | "INSPECTION";
+  kind: "OBLIGATION" | "LEASE_END" | "NOTICE" | "SERVICE_CHARGE" | "REVIEW" | "WORK_ORDER" | "URGENT_WORK" | "INSPECTION"
+    | "WARRANTY" | "DEFECTS_PERIOD" | "DEFECT" | "PROCUREMENT" | "RISK_REVIEW" | "MILESTONE" | "VALUATION";
   id: string;
   title: string;
   detail: string;
@@ -259,6 +261,53 @@ export async function complianceCalendar(ctx: Ctx) {
     });
     for (const i of inspections) {
       push({ kind: "INSPECTION", id: i.id, title: `Inspection due: ${i.asset.name}`, dueDate: i.scheduledFor, amountKobo: null, href: `/app/inspections/${i.id}`, detail: `${i.ref} · ${i.asset.ref}` });
+    }
+
+    // Projects (Phase 7): warranties ending, defects periods ending, defects to fix, materials needed, risk reviews and milestones.
+    if (can(ctx.role, "project.view")) {
+      const running = ["PLANNING", "ACTIVE", "ON_HOLD"] as const;
+      const warranties = await tx.projectWarranty.findMany({ where: { companyId: ctx.companyId, endsOn: { gte: today, lte: horizon } }, include: { project: { select: { id: true, ref: true } } } });
+      for (const w of warranties) {
+        push({ kind: "WARRANTY", id: w.id, title: `Warranty ends: ${w.title}`, dueDate: w.endsOn, amountKobo: null, href: `/app/projects/${w.project.id}/handover`, detail: `${w.project.ref} · ${w.provider}` });
+      }
+      const periods = await tx.project.findMany({ where: { companyId: ctx.companyId, status: "COMPLETED", defectsPeriodEnd: { gte: today, lte: horizon } }, select: { id: true, ref: true, title: true, defectsPeriodEnd: true } });
+      for (const q of periods) {
+        push({ kind: "DEFECTS_PERIOD", id: q.id, title: `Defects period ends: ${q.title}`, dueDate: q.defectsPeriodEnd!, amountKobo: null, href: `/app/projects/${q.id}/handover`, detail: `${q.ref} · raise any remaining defects before this date` });
+      }
+      const defects = await tx.projectDefect.findMany({ where: { companyId: ctx.companyId, status: { not: "VERIFIED" }, dueOn: { not: null } }, include: { project: { select: { id: true, ref: true } } } });
+      for (const d of defects) {
+        push({ kind: "DEFECT", id: d.id, title: `Defect to fix: ${d.title}`, dueDate: d.dueOn!, amountKobo: null, href: `/app/projects/${d.project.id}/handover`, detail: `${d.project.ref} · ${d.ref} · ${d.severity.toLowerCase()}` });
+      }
+      const items2 = await tx.procurementItem.findMany({
+        where: { companyId: ctx.companyId, status: { in: ["REQUIRED", "ORDERED"] }, requiredBy: { lte: horizon }, project: { status: { in: [...running] } } },
+        include: { project: { select: { id: true, ref: true } } },
+      });
+      for (const i of items2) {
+        push({ kind: "PROCUREMENT", id: i.id, title: `Needed on site: ${i.description}`, dueDate: i.requiredBy, amountKobo: null, href: `/app/projects/${i.project.id}/delivery`, detail: `${i.project.ref} · ${i.status === "ORDERED" ? "ordered, awaiting delivery" : "not yet ordered"}` });
+      }
+      const risks = await tx.projectRisk.findMany({
+        where: { companyId: ctx.companyId, status: { in: ["OPEN", "MITIGATING"] }, reviewOn: { not: null, lte: horizon } },
+        include: { project: { select: { id: true, ref: true } } },
+      });
+      for (const r of risks) {
+        push({ kind: "RISK_REVIEW", id: r.id, title: `Risk review: ${r.title}`, dueDate: r.reviewOn!, amountKobo: null, href: `/app/projects/${r.project.id}/delivery`, detail: `${r.project.ref} · ${r.ref}` });
+      }
+      const milestones = await tx.milestone.findMany({
+        where: { companyId: ctx.companyId, achievedOn: null, dueOn: { lte: horizon }, project: { status: { in: [...running] } } },
+        include: { project: { select: { id: true, ref: true } } },
+      });
+      for (const m of milestones) {
+        push({ kind: "MILESTONE", id: m.id, title: `Milestone: ${m.title}`, dueDate: m.dueOn, amountKobo: null, href: `/app/projects/${m.project.id}`, detail: m.project.ref });
+      }
+    }
+    if (can(ctx.role, "valuation.view")) {
+      const vals = await tx.valuationInstruction.findMany({
+        where: { companyId: ctx.companyId, status: { in: ["INSTRUCTED", "IN_PROGRESS", "IN_REVIEW"] }, dueDate: { not: null, lte: horizon } },
+        include: { asset: { select: { ref: true, name: true } } },
+      });
+      for (const v of vals) {
+        push({ kind: "VALUATION", id: v.id, title: `Valuation due: ${v.asset.name}`, dueDate: v.dueDate!, amountKobo: null, href: `/app/valuations/${v.id}`, detail: `${v.ref} · ${v.status === "IN_REVIEW" ? "waiting for approval" : "being prepared"}` });
+      }
     }
 
     items.sort((x, y) => STATE_ORDER[x.state] - STATE_ORDER[y.state] || x.dueDate.getTime() - y.dueDate.getTime());

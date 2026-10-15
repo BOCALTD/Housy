@@ -206,7 +206,7 @@ CREATE UNIQUE INDEX "variations_company_id_ref_key" ON "variations"("company_id"
 CREATE INDEX "variations_company_id_project_id_idx" ON "variations"("company_id", "project_id");
 
 -- CreateIndex
-CREATE INDEX "project_forecasts_company_id_project_id_work_package_id_created_at_idx" ON "project_forecasts"("company_id", "project_id", "work_package_id", "created_at");
+CREATE INDEX "project_forecasts_lookup_idx" ON "project_forecasts"("company_id", "project_id", "work_package_id", "created_at");
 
 -- AddForeignKey
 ALTER TABLE "projects" ADD CONSTRAINT "projects_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

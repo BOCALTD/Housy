@@ -2082,6 +2082,6 @@ model ProjectForecast {
   project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   workPackage   WorkPackage @relation(fields: [workPackageId], references: [id], onDelete: Cascade)
 
-  @@index([companyId, projectId, workPackageId, createdAt])
+  @@index([companyId, projectId, workPackageId, createdAt], map: "project_forecasts_lookup_idx")
   @@map("project_forecasts")
 }

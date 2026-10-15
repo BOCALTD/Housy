@@ -50,7 +50,7 @@ async function myLeadOn(tx: Tx, ctx: Ctx, clientId: string) {
   return (await tx.lead.count({ where: { companyId: ctx.companyId, clientId, ownerId: ctx.membershipId } })) > 0;
 }
 
-async function loadClient(tx: Tx, ctx: Ctx, id: string) {
+export async function loadClient(tx: Tx, ctx: Ctx, id: string) {
   const c = await tx.client.findFirst({ where: { id, companyId: ctx.companyId } });
   if (!c) throw new Error("Client not found");
   const owners = await visibleOwners(tx, ctx);
@@ -62,7 +62,7 @@ function canChange(ctx: Ctx, c: { ownerId: string }) {
   return isManager(ctx) || c.ownerId === ctx.membershipId;
 }
 
-async function activeAgent(tx: Tx, companyId: string, membershipId: string) {
+export async function activeAgent(tx: Tx, companyId: string, membershipId: string) {
   const m = await tx.membership.findFirst({ where: { id: membershipId, companyId, status: "ACTIVE", role: { in: ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"] } }, select: { id: true } });
   if (!m) throw new Error("Choose an active agent or manager of your company");
 }
@@ -337,16 +337,17 @@ export async function getClient(ctx: Ctx, id: string) {
     const owners = await visibleOwners(tx, ctx);
     const client = await tx.client.findFirst({ where: { id, companyId: ctx.companyId } });
     if (!client || !canSeeClient(ctx, owners, client, owners !== null && (await myLeadOn(tx, ctx, id)))) return null;
-    const [leads, activities, requirements, sources, members, dupes] = await Promise.all([
+    const [leads, activities, requirements, sources, members, dupes, deals] = await Promise.all([
       tx.lead.findMany({ where: { companyId: ctx.companyId, clientId: id }, orderBy: { createdAt: "desc" } }),
       tx.clientActivity.findMany({ where: { companyId: ctx.companyId, clientId: id }, orderBy: { occurredAt: "desc" }, take: 200 }),
       tx.propertyRequirement.findMany({ where: { companyId: ctx.companyId, clientId: id }, orderBy: { createdAt: "desc" }, include: { matches: true } }),
       (async () => { await ensureSources(tx, ctx.companyId); return tx.leadSource.findMany({ where: { companyId: ctx.companyId, active: true }, orderBy: { name: "asc" } }); })(),
       tx.membership.findMany({ where: { companyId: ctx.companyId }, include: { user: { select: { name: true } } } }),
       client.archivedAt ? Promise.resolve([]) : findDuplicates(tx, ctx.companyId, { id, name: client.name, emailNorm: client.emailNorm, phoneNorm: client.phoneNorm, city: client.city }),
+      tx.deal.findMany({ where: { companyId: ctx.companyId, clientId: id, ...(owners === null ? {} : { ownerId: { in: owners } }) }, orderBy: { createdAt: "desc" }, select: { id: true, ref: true, title: true, stage: true, status: true, ownerId: true, leadId: true } }),
     ]);
     return {
-      client, leads, activities, requirements, sources,
+      client, leads, activities, requirements, sources, deals,
       names: Object.fromEntries(members.map((m) => [m.id, m.user.name])) as Record<string, string>,
       userNames: Object.fromEntries(members.map((m) => [m.userId, m.user.name])) as Record<string, string>,
       agents: members.filter((m) => m.status === "ACTIVE" && ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"].includes(m.role)).map((m) => ({ id: m.id, name: m.user.name })),

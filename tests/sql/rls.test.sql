@@ -652,5 +652,47 @@ SELECT pg_temp.expect((SELECT count(*) FROM clients) = 0, 'B cannot see A client
 SELECT pg_temp.expect((SELECT count(*) FROM leads) = 0, 'B cannot see A leads');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 24. Phase 8b: deals, viewings and offers are isolated, and their rules hold in the database.
+INSERT INTO deals (id, company_id, ref, type, title, client_id, asset_id, owner_id, asking_kobo, created_by_id, updated_at) VALUES ('dl-a', 'co-a', 'DL-2026-0001', 'SALE', 'Sale of the flat', 'cl-a', 'as-a', 'u1', 5000000, 'u1', now());
+DO $$ BEGIN
+  UPDATE deals SET stage = 'AGREED' WHERE id = 'dl-a';
+  RAISE EXCEPTION 'FAIL: an agreed deal without an agreed price was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: an agreed deal has an agreed price'; END $$;
+DO $$ BEGIN
+  UPDATE deals SET status = 'COMPLETED' WHERE id = 'dl-a';
+  RAISE EXCEPTION 'FAIL: a completed status at the wrong stage was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: completion matches the stage'; END $$;
+DO $$ BEGIN
+  UPDATE deals SET status = 'CANCELLED' WHERE id = 'dl-a';
+  RAISE EXCEPTION 'FAIL: a cancelled deal without a reason was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a cancelled deal says why'; END $$;
+DO $$ BEGIN
+  UPDATE deals SET status = 'DISPUTED' WHERE id = 'dl-a';
+  RAISE EXCEPTION 'FAIL: a disputed deal without a reason was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a dispute says why'; END $$;
+DO $$ BEGIN
+  INSERT INTO viewings (id, company_id, deal_id, asset_id, agent_id, starts_at, ends_at, created_by_id, updated_at) VALUES ('vw-bad', 'co-a', 'dl-a', 'as-a', 'm1', now(), now(), 'u1', now());
+  RAISE EXCEPTION 'FAIL: a viewing that ends when it starts was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a viewing has a length'; END $$;
+INSERT INTO offers (id, company_id, deal_id, side, amount_kobo, recorded_by_id, updated_at) VALUES ('of-a', 'co-a', 'dl-a', 'CLIENT', 4500000, 'u1', now());
+DO $$ BEGIN
+  UPDATE offers SET status = 'ACCEPTED', decided_by_id = 'u1', accept_requested_by_id = 'u1' WHERE id = 'of-a';
+  RAISE EXCEPTION 'FAIL: the same person requested and approved an acceptance';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: acceptance is approved by a second person'; END $$;
+DO $$ BEGIN
+  UPDATE offers SET status = 'REJECTED' WHERE id = 'of-a';
+  RAISE EXCEPTION 'FAIL: a rejection without a reason was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a rejection says why'; END $$;
+INSERT INTO deal_events (id, company_id, deal_id, kind, summary, actor_id) VALUES ('de-a', 'co-a', 'dl-a', 'OPENED', 'Opened', 'u1');
+DO $$ BEGIN
+  UPDATE deal_events SET summary = 'Changed' WHERE id = 'de-a';
+  RAISE EXCEPTION 'FAIL: a deal event was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: deal history is append-only'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM deals) = 0, 'B cannot see A deals');
+SELECT pg_temp.expect((SELECT count(*) FROM offers) = 0, 'B cannot see A offers');
+SELECT pg_temp.expect((SELECT count(*) FROM deal_events) = 0, 'B cannot see A deal history');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

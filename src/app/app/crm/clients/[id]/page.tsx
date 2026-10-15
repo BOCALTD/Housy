@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { ACTIVITY_KINDS, CLIENT_KINDS, FINANCING, MATCH_STATUSES, TIMELINES, getClient, matchesFor } from "@/lib/services/crm";
+import { dealOptions } from "@/lib/services/deal";
 import { leadTransitionProblem, type LeadStatus } from "@/lib/crm-rules";
 import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { formatKobo } from "@/lib/money";
 import { humanize } from "@/lib/labels";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { createDealAction } from "../../../deals/actions";
 import {
   addActivityAction, addRequirementAction, archiveClientAction, assignLeadAction, completeFollowUpAction, createLeadAction, dismissDuplicateAction, leadStatusAction, matchStatusAction,
   mergeClientsAction, reassignClientAction, requirementActiveAction, updateClientAction, updateQualificationAction,
@@ -26,6 +28,7 @@ export default async function ClientPage({ params, searchParams }: { params: { i
   const merge = can(member.role, "crm.merge");
   const matches = await Promise.all(d.requirements.filter((r) => r.active).map(async (r) => [r.id, await matchesFor(member, r.id)] as const));
   const matchMap = new Map(matches);
+  const assets = manage ? await dealOptions(member) : [];
   return (
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
@@ -123,6 +126,28 @@ export default async function ClientPage({ params, searchParams }: { params: { i
               </div>
               <label className="row"><input type="checkbox" name="decisionMaker" /> Speaking to the decision maker</label>
               <button className="btn primary" type="submit">Open lead</button></form>
+          </details>
+        ) : null}
+      </section>
+
+      <section className="card">
+        <h2>Deals</h2>
+        {d.deals.length === 0 ? <p className="muted">No deals yet.</p> : (
+          <ShowMore noun="more deals" limit={3} items={d.deals.map((x) => (
+            <li key={x.id}><div className="row between" style={{ width: "100%" }}><div><Link href={`/app/deals/${x.id}`}><strong>{x.ref}</strong> {x.title}</Link><div className="small muted">Owner {d.names[x.ownerId] ?? "unknown"}</div></div><div className="row"><Pill status={x.stage} label={humanize(x.stage)} />{x.status !== "OPEN" ? <Pill status={x.status} label={humanize(x.status)} /> : null}</div></div></li>))} />
+        )}
+        {manage ? (
+          <details className="inline"><summary>Open a deal</summary>
+            <form action={createDealAction} className="stack"><input type="hidden" name="clientId" value={c.id} />
+              <div className="fields">
+                <Field label="Property"><select name="assetId" required defaultValue=""><option value="" disabled>Choose</option>{assets.map((a) => <option key={a.id} value={a.id}>{a.ref} · {a.name}</option>)}</select></Field>
+                <Field label="Type"><select name="type" defaultValue=""><option value="">From the listing</option><option value="SALE">Sale</option><option value="RENT">Rent</option><option value="LEASE">Lease</option></select></Field>
+                <Field label="From lead" hint="Only a qualified lead can become a deal."><select name="leadId" defaultValue=""><option value="">No lead</option>{d.leads.filter((l) => l.status === "QUALIFIED").map((l) => <option key={l.id} value={l.id}>{l.ref} · {l.title}</option>)}</select></Field>
+                <Field label="Asking price (₦)" hint="Leave empty to use the listing price."><input name="asking" inputMode="decimal" /></Field>
+                <Field label="Expected to close"><input name="expectedCloseOn" type="date" /></Field>
+              </div>
+              <Field label="Title"><input name="title" /></Field>
+              <button className="btn primary" type="submit">Open deal</button></form>
           </details>
         ) : null}
       </section>

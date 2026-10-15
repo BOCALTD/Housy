@@ -181,6 +181,7 @@ model Asset {
   inventoryItems      InventoryItem[]
   valuations          ValuationInstruction[]
   projects            Project[]
+  deals            Deal[]
 }
 
 enum PartyRelationship {
@@ -2515,6 +2516,7 @@ model Client {
   @@index([companyId, emailNorm])
   @@index([companyId, phoneNorm])
   @@map("clients")
+  deals            Deal[]
 }
 
 /// Two client records a person has looked at and decided are not the same.
@@ -2645,4 +2647,177 @@ model RequirementMatch {
   @@unique([requirementId, listingId])
   @@index([companyId, listingId])
   @@map("requirement_matches")
+}
+
+// ---------- Deals: the transaction pipeline (Phase 8b) ----------
+
+enum DealType {
+  SALE
+  RENT
+  LEASE
+}
+
+enum DealStage {
+  ENQUIRY
+  VIEWING
+  OFFER
+  NEGOTIATION
+  AGREED
+  LEGAL
+  COMPLETED
+}
+
+enum DealStatus {
+  OPEN
+  ON_HOLD
+  DISPUTED
+  COMPLETED
+  CANCELLED
+}
+
+enum DealEventKind {
+  OPENED
+  STAGE
+  STATUS
+  REASSIGNED
+  VIEWING
+  OFFER
+  NOTE
+}
+
+enum ViewingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum OfferSide {
+  CLIENT
+  OWNER
+}
+
+enum OfferStatus {
+  OPEN
+  COUNTERED
+  REJECTED
+  WITHDRAWN
+  ACCEPTANCE_REQUESTED
+  ACCEPTED
+}
+
+/// A transaction from enquiry to completion: one client, one property, one owner.
+model Deal {
+  id               String     @id @default(uuid())
+  companyId        String     @map("company_id")
+  ref              String
+  type             DealType
+  stage            DealStage  @default(ENQUIRY)
+  status           DealStatus @default(OPEN)
+  title            String
+  clientId         String     @map("client_id")
+  leadId           String?    @unique @map("lead_id")
+  assetId          String     @map("asset_id")
+  listingId        String?    @map("listing_id")
+  ownerId          String     @map("owner_id")
+  askingKobo       BigInt     @map("asking_kobo")
+  agreedKobo       BigInt?    @map("agreed_kobo")
+  agreedAt         DateTime?  @map("agreed_at")
+  expectedCloseOn  DateTime?  @map("expected_close_on") @db.Date
+  holdReason       String     @default("") @map("hold_reason")
+  disputeReason    String     @default("") @map("dispute_reason")
+  disputedById     String?    @map("disputed_by_id")
+  disputedAt       DateTime?  @map("disputed_at")
+  disputeOutcome   String     @default("") @map("dispute_outcome")
+  cancelReason     String     @default("") @map("cancel_reason")
+  cancelledById    String?    @map("cancelled_by_id")
+  cancelledAt      DateTime?  @map("cancelled_at")
+  completedById    String?    @map("completed_by_id")
+  completedAt      DateTime?  @map("completed_at")
+  createdById      String     @map("created_by_id")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  client           Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  asset            Asset      @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  events           DealEvent[]
+  viewings         Viewing[]
+  offers           Offer[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, status, stage])
+  @@index([companyId, ownerId])
+  @@index([clientId])
+  @@index([assetId])
+  @@map("deals")
+}
+
+/// Every stage change, status change, reassignment and notable step on a deal. Never edited.
+model DealEvent {
+  id         String        @id @default(uuid())
+  companyId  String        @map("company_id")
+  dealId     String        @map("deal_id")
+  kind       DealEventKind
+  fromStage  DealStage?    @map("from_stage")
+  toStage    DealStage?    @map("to_stage")
+  fromStatus DealStatus?   @map("from_status")
+  toStatus   DealStatus?   @map("to_status")
+  summary    String
+  reason     String        @default("")
+  actorId    String        @map("actor_id")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  deal       Deal          @relation(fields: [dealId], references: [id], onDelete: Restrict)
+
+  @@index([dealId, createdAt])
+  @@map("deal_events")
+}
+
+/// A booked viewing or inspection appointment at the property.
+model Viewing {
+  id             String        @id @default(uuid())
+  companyId      String        @map("company_id")
+  dealId         String        @map("deal_id")
+  assetId        String        @map("asset_id")
+  agentId        String        @map("agent_id")
+  startsAt       DateTime      @map("starts_at")
+  endsAt         DateTime      @map("ends_at")
+  meetingPoint   String        @default("") @map("meeting_point")
+  status         ViewingStatus @default(SCHEDULED)
+  outcome        String        @default("")
+  cancelReason   String        @default("") @map("cancel_reason")
+  rescheduledCount Int         @default(0) @map("rescheduled_count")
+  createdById    String        @map("created_by_id")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deal           Deal          @relation(fields: [dealId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, agentId, startsAt])
+  @@index([companyId, assetId, startsAt])
+  @@index([dealId])
+  @@map("viewings")
+}
+
+/// An offer or counteroffer. A counteroffer points to the offer it answers, which keeps the negotiation history.
+model Offer {
+  id                  String      @id @default(uuid())
+  companyId           String      @map("company_id")
+  dealId              String      @map("deal_id")
+  parentId            String?     @map("parent_id")
+  side                OfferSide
+  amountKobo          BigInt      @map("amount_kobo")
+  conditions          String      @default("")
+  validUntil          DateTime?   @map("valid_until") @db.Date
+  status              OfferStatus @default(OPEN)
+  note                String      @default("")
+  recordedById        String      @map("recorded_by_id")
+  acceptRequestedById String?     @map("accept_requested_by_id")
+  acceptRequestedAt   DateTime?   @map("accept_requested_at")
+  decidedById         String?     @map("decided_by_id")
+  decidedAt           DateTime?   @map("decided_at")
+  decisionNote        String      @default("") @map("decision_note")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+  deal                Deal        @relation(fields: [dealId], references: [id], onDelete: Restrict)
+
+  @@index([dealId, createdAt])
+  @@map("offers")
 }

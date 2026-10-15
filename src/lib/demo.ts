@@ -39,6 +39,7 @@ import { registerCorrespondence, actOnCorrespondence } from "./services/correspo
 import { createPhysicalFile, issuePhysicalFile } from "./services/files";
 import { todayInLagos, toDateOnlyString } from "./dates";
 import type { Ctx } from "./services/context";
+import { counterOffer, createDeal, recordOffer, scheduleViewing } from "./services/deal";
 import { addClientActivity, addRequirement, createClient, createLead, setLeadStatus } from "./services/crm";
 
 export const DEMO_PASSWORD = "demo-password-123";
@@ -419,6 +420,10 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await addClientActivity(alpha, buyer.id, { kind: "CALL", subject: "[DEMO] Intro call", body: "Wants to view in two weeks.", leadId: buyerLead.id });
   await addClientActivity(alpha, buyer.id, { kind: "FOLLOW_UP", subject: "[DEMO] Send shortlist", dueOn: daysFromToday(2), leadId: buyerLead.id });
   await addRequirement(alpha, buyer.id, { purpose: "SALE", assetClass: "RESIDENTIAL", city: "Lagos", state: "Lagos", bedroomsMin: "3", budgetMax: "150,000,000", leadId: buyerLead.id });
+  const buyerDeal = await createDeal(alpha, { clientId: buyer.id, leadId: buyerLead.id, assetId: duplex.id, type: "SALE", asking: "110,000,000", title: "[DEMO] Sale of the duplex to Chinedu Okafor" });
+  await scheduleViewing(alpha, buyerDeal.id, { date: daysFromToday(3), time: "10:00", minutes: "45", meetingPoint: "Main gate" });
+  const firstOffer = await recordOffer(alpha, buyerDeal.id, { side: "CLIENT", amount: "95,000,000", note: "[DEMO] Opening offer" });
+  await counterOffer(alpha, firstOffer.id, { amount: "105,000,000", note: "[DEMO] Owner's counter" });
   const tenant = await createClient(manager, { name: "[DEMO] Amina Bello", phone: "0802 555 0102", city: "Abuja", confidential: true });
   await createLead(manager, tenant.id, { title: "[DEMO] Two-bedroom flat to rent in Abuja", budgetMax: "4,000,000" });
 

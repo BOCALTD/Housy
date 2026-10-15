@@ -83,6 +83,7 @@ model Membership {
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   tasks     Task[]       @relation("TaskAssignee")
+  inspections Inspection[] @relation("InspectionInspector")
   correspondence Correspondence[] @relation("CorrespondenceAssignee")
   heldFiles PhysicalFile[] @relation("FileHolder")
 
@@ -159,6 +160,7 @@ model Asset {
   leases              Lease[]
   serviceCharges      ServiceChargePeriod[]
   obligations         Obligation[]
+  inspections         Inspection[]
   tasks               Task[]
   listing             Listing?
   correspondence      Correspondence[]
@@ -1097,4 +1099,175 @@ model ObligationFiling {
   obligation     Obligation @relation(fields: [obligationId], references: [id], onDelete: Restrict)
 
   @@map("obligation_filings")
+}
+
+// ---------- Inspections (Phase 6a) ----------
+
+enum InspectionPurpose {
+  ROUTINE
+  PRE_LEASE
+  MOVE_IN
+  MOVE_OUT
+  VALUATION
+  MAINTENANCE_ASSESSMENT
+  CONSTRUCTION
+  CONDITION_SURVEY
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  SUBMITTED
+  APPROVED
+  CANCELLED
+}
+
+enum ConditionRating {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  CRITICAL
+}
+
+enum CheckResult {
+  PENDING
+  PASS
+  ATTENTION
+  FAIL
+  NOT_APPLICABLE
+}
+
+enum DefectSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// A reusable checklist. Starting an inspection copies its items, so later edits never change history.
+model InspectionTemplate {
+  id          String      @id @default(uuid())
+  companyId   String      @map("company_id")
+  name        String
+  assetClass  AssetClass? @map("asset_class")
+  active      Boolean     @default(true)
+  createdById String      @map("created_by_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  items       InspectionTemplateItem[]
+  inspections Inspection[]
+
+  @@unique([companyId, name])
+  @@map("inspection_templates")
+}
+
+model InspectionTemplateItem {
+  id         String             @id @default(uuid())
+  companyId  String             @map("company_id")
+  templateId String             @map("template_id")
+  category   String
+  prompt     String
+  sortOrder  Int                @map("sort_order")
+  template   InspectionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, sortOrder])
+  @@map("inspection_template_items")
+}
+
+model Inspection {
+  id               String            @id @default(uuid())
+  companyId        String            @map("company_id")
+  assetId          String            @map("asset_id")
+  templateId       String?           @map("template_id")
+  leaseId          String?           @map("lease_id")
+  ref              String
+  purpose          InspectionPurpose
+  status           InspectionStatus  @default(SCHEDULED)
+  scheduledFor     DateTime          @map("scheduled_for") @db.Date
+  location         String            @default("")
+  inspectorId      String?           @map("inspector_id")
+  responsibleId    String?           @map("responsible_id")
+  participants     String            @default("")
+  conductedOn      DateTime?         @map("conducted_on") @db.Date
+  conditionRating  ConditionRating?  @map("condition_rating")
+  summary          String            @default("")
+  recommendedActions String          @default("") @map("recommended_actions")
+  estimatedRepairKobo BigInt?        @map("estimated_repair_kobo")
+  followUpBy       DateTime?         @map("follow_up_by") @db.Date
+  operatingHours   Int?              @map("operating_hours")
+  technicalNotes   String            @default("") @map("technical_notes")
+  recurrenceMonths Int?              @map("recurrence_months")
+  rolledFromId     String?           @unique @map("rolled_from_id")
+  submittedById    String?           @map("submitted_by_id")
+  submittedAt      DateTime?         @map("submitted_at")
+  decidedById      String?           @map("decided_by_id")
+  decidedAt        DateTime?         @map("decided_at")
+  returnNote       String            @default("") @map("return_note")
+  cancelReason     String            @default("") @map("cancel_reason")
+  createdById      String            @map("created_by_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  asset            Asset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  template         InspectionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  inspector        Membership?       @relation("InspectionInspector", fields: [inspectorId], references: [id], onDelete: SetNull)
+  rolledFrom       Inspection?       @relation("InspectionRollover", fields: [rolledFromId], references: [id], onDelete: Restrict)
+  rolledTo         Inspection?       @relation("InspectionRollover")
+  responses        InspectionResponse[]
+  findings         InspectionFinding[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, status, scheduledFor])
+  @@index([assetId, conductedOn])
+  @@map("inspections")
+}
+
+model InspectionResponse {
+  id           String      @id @default(uuid())
+  companyId    String      @map("company_id")
+  inspectionId String      @map("inspection_id")
+  category     String
+  prompt       String
+  sortOrder    Int         @map("sort_order")
+  result       CheckResult @default(PENDING)
+  note         String      @default("")
+  inspection   Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Restrict)
+
+  @@unique([inspectionId, sortOrder])
+  @@map("inspection_responses")
+}
+
+model InspectionFinding {
+  id             String         @id @default(uuid())
+  companyId      String         @map("company_id")
+  inspectionId   String         @map("inspection_id")
+  title          String
+  description    String         @default("")
+  location       String         @default("")
+  severity       DefectSeverity
+  safetyRisk     Boolean        @default(false) @map("safety_risk")
+  estimatedCostKobo BigInt?     @map("estimated_cost_kobo")
+  recommendedAction String      @default("") @map("recommended_action")
+  createdById    String         @map("created_by_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  inspection     Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, inspectionId])
+  @@map("inspection_findings")
+}
+
+/// A photograph attached to an inspection, finding or (later) work order. Append-only.
+model EvidencePhoto {
+  id           String   @id @default(uuid())
+  companyId    String   @map("company_id")
+  subjectType  String   @map("subject_type")
+  subjectId    String   @map("subject_id")
+  phase        String   @default("EVIDENCE")
+  caption      String   @default("")
+  fileName     String   @map("file_name")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  storageKey   String   @unique @map("storage_key")
+  uploadedById String   @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([companyId, subjectType, subjectId])
+  @@map("evidence_photos")
 }

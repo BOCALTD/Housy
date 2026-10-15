@@ -11,6 +11,7 @@ import { reconcileReceipt, recordDepositReceived, requestAdjustment } from "./se
 import { proposeRenewal, recordHandover, recordNotice } from "./services/lifecycle";
 import { assessPeriod, createServicePeriod, decideExpense, recordCollection, requestExpense } from "./services/service-charges";
 import { completeObligation, createObligation } from "./services/obligations";
+import { addFinding, decideInspection, installStarterTemplates, saveInspectionRecord, scheduleInspection, submitInspection } from "./services/inspections";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -199,6 +200,44 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     assetId: shop.id, kind: "PERMIT", title: "[DEMO] Signage permit", authority: "[DEMO] Local authority", dueDate: daysFromToday(-60),
   });
   await completeObligation(officer, permit.id, { completedOn: daysFromToday(-65), evidence: "DEMO-PERMIT-0001" });
+
+  // Inspections: one approved (and repeating), one waiting for approval, one overdue.
+  await installStarterTemplates(alpha);
+  const templates = await withTenant(alpha.companyId, alpha.userId, (tx) =>
+    tx.inspectionTemplate.findMany({ where: { companyId: alpha.companyId }, include: { items: true } }));
+  const commercial = templates.find((t) => t.name === "Commercial property inspection")!;
+  const residential = templates.find((t) => t.name === "Residential property inspection")!;
+  const demoPhoto = { name: "demo.png", type: "image/png", bytes: new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==", "base64")) };
+  const answerAll = async (inspectionId: string, templateItems: number, failIndex: number | null) => {
+    const rows = await withTenant(alpha.companyId, alpha.userId, (tx) => tx.inspectionResponse.findMany({ where: { inspectionId }, orderBy: { sortOrder: "asc" } }));
+    const responses: Record<string, { result: "PASS" | "FAIL"; note: string }> = {};
+    rows.forEach((r, i) => { responses[r.id] = i === failIndex ? { result: "FAIL", note: "Demonstration: water stain on ceiling" } : { result: "PASS", note: "" }; });
+    return { responses, count: templateItems };
+  };
+  const approved = await scheduleInspection(alpha, shop.id, {
+    templateId: commercial.id, purpose: "ROUTINE", scheduledFor: daysFromToday(-40), inspectorId: officer.membershipId, recurrenceMonths: "6", location: "Whole shop",
+  });
+  {
+    const { responses } = await answerAll(approved.id, commercial.items.length, 1);
+    await saveInspectionRecord(officer, approved.id, {
+      conductedOn: daysFromToday(-39), conditionRating: "FAIR", summary: "Demonstration: generally sound, a roof leak over the storeroom.",
+      recommendedActions: "Repair roof flashing", estimatedRepair: "180,000", followUpBy: daysFromToday(20), responses,
+    });
+    await addFinding(officer, approved.id, {
+      title: "Roof leak above storeroom", severity: "HIGH", location: "Storeroom", estimatedCost: "180,000", recommendedAction: "Replace flashing and reseal",
+    }, { ...demoPhoto, phase: "EVIDENCE", caption: "Water stain" });
+    await submitInspection(officer, approved.id);
+    await decideInspection(alpha, approved.id, "approve", "");
+  }
+  const waiting = await scheduleInspection(alpha, duplex.id, {
+    templateId: residential.id, purpose: "CONDITION_SURVEY", scheduledFor: daysFromToday(-3), inspectorId: officer.membershipId,
+  });
+  {
+    const { responses } = await answerAll(waiting.id, residential.items.length, null);
+    await saveInspectionRecord(officer, waiting.id, { conductedOn: daysFromToday(-2), conditionRating: "GOOD", summary: "Demonstration: in good order.", responses });
+    await submitInspection(officer, waiting.id);
+  }
+  await scheduleInspection(alpha, plaza.id, { templateId: commercial.id, purpose: "ROUTINE", scheduledFor: daysFromToday(-5), inspectorId: officer.membershipId });
 
   // Approve only the demo listings, never real submissions waiting for review.
   for (const l of await reviewQueue(adminId)) {

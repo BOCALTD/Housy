@@ -330,3 +330,46 @@ test("CSV output escapes cells and neutralises spreadsheet formulas", () => {
   assert.equal(koboToPlain(5n), "0.05");
   assert.equal(koboToPlain(-150n), "-1.50");
 });
+
+// ---------- Phase 6a rules ----------
+import { conditionChange, inspectionWarnings, parseChecklist, STARTER_TEMPLATES, submissionProblem } from "../../src/lib/inspection-rules";
+
+test("inspection warnings flag ratings that disagree with the findings, without blocking", () => {
+  const none = inspectionWarnings({ rating: "GOOD", responses: [{ result: "PASS", note: "" }], findings: [] });
+  assert.deepEqual(none, []);
+  const w = inspectionWarnings({
+    rating: "GOOD",
+    responses: [{ result: "FAIL", note: "" }, { result: "ATTENTION", note: "" }],
+    findings: [{ severity: "CRITICAL", safetyRisk: true, recommendedAction: "" }],
+  });
+  assert.ok(w.some((x) => /although 1 checklist item failed/.test(x)));
+  assert.ok(w.some((x) => /serious finding was recorded/.test(x)));
+  assert.ok(w.some((x) => /critical finding/.test(x)));
+  assert.ok(w.some((x) => /no note/.test(x)));
+  assert.ok(w.some((x) => /safety risk has no recommended action/.test(x)));
+  assert.ok(inspectionWarnings({ rating: "POOR", responses: [{ result: "PASS", note: "" }], findings: [] }).some((x) => /explain it/.test(x)));
+  assert.ok(inspectionWarnings({ rating: "FAIR", responses: [{ result: "FAIL", note: "x" }], findings: [] }).some((x) => /no finding was recorded/.test(x)));
+});
+
+test("an inspection can be submitted only when complete, and condition change is signed", () => {
+  const ok = { conductedOn: day("2026-05-01"), today: day("2026-05-02"), rating: "FAIR" as const, summary: "Minor leaks", responses: [{ result: "PASS" as const }] };
+  assert.equal(submissionProblem(ok), null);
+  assert.match(submissionProblem({ ...ok, conductedOn: null })!, /date/);
+  assert.match(submissionProblem({ ...ok, conductedOn: day("2026-05-03") })!, /future/);
+  assert.match(submissionProblem({ ...ok, responses: [{ result: "PENDING" }] })!, /every checklist item/);
+  assert.match(submissionProblem({ ...ok, rating: null })!, /rating/);
+  assert.match(submissionProblem({ ...ok, summary: "ok" })!, /summary/);
+  assert.equal(conditionChange("GOOD", "POOR"), 2);
+  assert.equal(conditionChange("POOR", "GOOD"), -2);
+});
+
+test("checklists parse from pasted lines and every asset class has a starter", () => {
+  assert.deepEqual(parseChecklist("Roof | Gutters clear\n\nSecurity|Locks work\nPlain item here"), [
+    { category: "Roof", prompt: "Gutters clear" }, { category: "Security", prompt: "Locks work" }, { category: "General", prompt: "Plain item here" },
+  ]);
+  assert.throws(() => parseChecklist("   \n"), /at least one/);
+  assert.throws(() => parseChecklist("Roof | x"), /too short/);
+  const classes = new Set(STARTER_TEMPLATES.map((t) => t.assetClass));
+  for (const c of ["RESIDENTIAL", "COMMERCIAL", "LAND", "INDUSTRIAL", "PLANT_MACHINERY", "OTHER"]) assert.ok(classes.has(c as never), c);
+  assert.ok(STARTER_TEMPLATES.every((t) => t.items.length >= 4));
+});

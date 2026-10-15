@@ -6,6 +6,7 @@ import { FREQUENCIES } from "@/lib/services/leases";
 import { TASK_KINDS, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/services/tasks";
 import { PURPOSES } from "@/lib/services/listings";
 import { listTeam } from "@/lib/services/companies";
+import { conditionHistory } from "@/lib/services/inspections";
 import { formatKobo } from "@/lib/money";
 import { chargeState, outstandingOf } from "@/lib/rent";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
@@ -32,6 +33,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
   const { asset, history, actorNames } = result;
   const team = can(member.role, "task.create") ? (await listTeam(member)).members.filter((m) => m.status === "ACTIVE") : [];
   const today = todayInLagos();
+  const condition = await conditionHistory(member, asset.id);
   const listing = asset.listing;
   const hidden = <input type="hidden" name="assetId" value={asset.id} />;
 
@@ -155,6 +157,26 @@ export default async function AssetPage({ params, searchParams }: { params: { id
             </div>
           </section>
           ) : null}
+
+          {/* Condition history */}
+          <section className="card" aria-labelledby="cond-h">
+            <div className="section-head">
+              <h2 id="cond-h">Condition history</h2>
+              <Link className="small" href={`/app/inspections?assetId=${asset.id}`}>Inspections</Link>
+            </div>
+            {condition.length === 0 ? <p className="muted">No approved inspections yet.</p> : (
+              <ul className="timeline">
+                {[...condition].reverse().map((c) => (
+                  <li key={c.id}>
+                    <div>
+                      <div><Link href={`/app/inspections/${c.id}`}>{humanize(c.rating)}</Link> · {humanize(c.purpose)}{c.change !== null && c.change !== 0 ? ` · ${c.change > 0 ? "worse" : "better"} than the one before` : ""}</div>
+                      <div className="small muted">{c.conductedOn ? formatDate(c.conductedOn) : "—"} · {c.ref}{c.summary ? ` · ${c.summary.slice(0, 120)}` : ""}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           {/* Tasks */}
           <section className="card" aria-labelledby="tasks-h">

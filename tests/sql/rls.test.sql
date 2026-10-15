@@ -294,5 +294,40 @@ SELECT pg_temp.expect((SELECT count(*) FROM obligations) = 0, 'B cannot see A ob
 SELECT pg_temp.expect((SELECT count(*) FROM obligation_filings) = 0, 'B cannot see A filings');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 16. Phase 6a: inspections are isolated, photographs are append-only, references are unique per company.
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO inspections (id, company_id, asset_id, ref, purpose, scheduled_for, created_by_id)
+  VALUES ('in-a', 'co-a', 'as-a', 'INS-00001', 'ROUTINE', '2026-03-01', 'u1');
+INSERT INTO inspection_responses (id, company_id, inspection_id, category, prompt, sort_order)
+  VALUES ('ir-a', 'co-a', 'in-a', 'Roof', 'Is the roof sound?', 1);
+INSERT INTO inspection_findings (id, company_id, inspection_id, title, severity, created_by_id)
+  VALUES ('if-a', 'co-a', 'in-a', 'Leaking gutter', 'MEDIUM', 'u1');
+INSERT INTO evidence_photos (id, company_id, subject_type, subject_id, file_name, mime_type, size_bytes, storage_key, uploaded_by_id)
+  VALUES ('ep-a', 'co-a', 'inspection_finding', 'if-a', 'gutter.jpg', 'image/jpeg', 1000, 'k-a.jpg', 'u1');
+DO $$ BEGIN
+  INSERT INTO inspections (id, company_id, asset_id, ref, purpose, scheduled_for, created_by_id)
+    VALUES ('in-dup', 'co-a', 'as-a', 'INS-00001', 'ROUTINE', '2026-03-01', 'u1');
+  RAISE EXCEPTION 'FAIL: duplicate inspection reference was allowed';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: inspection references are unique'; END $$;
+DO $$ BEGIN
+  INSERT INTO inspection_responses (id, company_id, inspection_id, category, prompt, sort_order)
+    VALUES ('ir-dup', 'co-a', 'in-a', 'Roof', 'Again', 1);
+  RAISE EXCEPTION 'FAIL: duplicate checklist position was allowed';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: checklist positions are unique'; END $$;
+DO $$ BEGIN
+  UPDATE evidence_photos SET caption = 'edited' WHERE id = 'ep-a';
+  RAISE EXCEPTION 'FAIL: photograph record was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: photograph records cannot be edited'; END $$;
+DO $$ BEGIN
+  UPDATE inspection_findings SET estimated_cost_kobo = -1 WHERE id = 'if-a';
+  RAISE EXCEPTION 'FAIL: negative estimate was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: estimates cannot be negative'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM inspections) = 0, 'B cannot see A inspections');
+SELECT pg_temp.expect((SELECT count(*) FROM inspection_responses) = 0, 'B cannot see A checklist responses');
+SELECT pg_temp.expect((SELECT count(*) FROM inspection_findings) = 0, 'B cannot see A findings');
+SELECT pg_temp.expect((SELECT count(*) FROM evidence_photos) = 0, 'B cannot see A photographs');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

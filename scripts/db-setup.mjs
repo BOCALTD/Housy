@@ -48,7 +48,7 @@ execFileSync("npx", ["prisma", "migrate", "deploy"], { env: { ...process.env, DA
 const APPEND_ONLY = [
   "activity_log", "correspondence_actions",
   "rent_payments", "receipts", "receipt_reconciliations", "receipt_reversals", "deposit_entries",
-  "lease_notices", "lease_handovers", "service_collections", "service_collection_reversals", "obligation_filings",
+  "lease_notices", "lease_handovers", "service_collections", "service_collection_reversals", "obligation_filings", "evidence_photos",
 ];
 
 execSql(`

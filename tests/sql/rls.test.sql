@@ -205,5 +205,35 @@ END $$;
 SELECT set_config('app.company_id', 'co-a', true);
 SELECT pg_temp.expect((SELECT paid_kobo FROM rent_charges WHERE id = 'rc-a') = 30000000, 'A charge balance unchanged by B''s update attempt');
 
+-- 13. Phase 5b: lifecycle records are isolated, handover and notices cannot be edited, a lease renews once.
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO lease_handovers (id, company_id, lease_id, kind, handover_on, keys_count, condition_notes, acknowledged_by, recorded_by_id)
+  VALUES ('h-1', 'co-a', 'l-a', 'MOVE_IN', '2026-01-02', 2, 'Good order', 'Tenant rep', 'u2');
+INSERT INTO lease_notices (id, company_id, lease_id, given_by, given_on, effective_on, reason, recorded_by_id)
+  VALUES ('n-1', 'co-a', 'l-a', 'TENANT', '2026-01-02', '2026-04-02', 'Relocating', 'u2');
+DO $$ BEGIN
+  INSERT INTO lease_handovers (id, company_id, lease_id, kind, handover_on, keys_count, condition_notes, acknowledged_by, recorded_by_id)
+    VALUES ('h-2', 'co-a', 'l-a', 'MOVE_IN', '2026-01-03', 2, 'Again', 'Tenant rep', 'u2');
+  RAISE EXCEPTION 'FAIL: second move-in handover was allowed';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: one move-in handover per lease'; END $$;
+DO $$ BEGIN
+  INSERT INTO lease_notices (id, company_id, lease_id, given_by, given_on, effective_on, reason, recorded_by_id)
+    VALUES ('n-2', 'co-a', 'l-a', 'TENANT', '2026-02-02', '2026-01-02', 'Backwards', 'u2');
+  RAISE EXCEPTION 'FAIL: notice effective before it was given was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: notice dates must be in order'; END $$;
+DO $$ BEGIN
+  UPDATE lease_handovers SET condition_notes = 'Edited' WHERE id = 'h-1';
+  RAISE EXCEPTION 'FAIL: handover was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: handovers cannot be edited'; END $$;
+DO $$ BEGIN
+  DELETE FROM lease_notices WHERE id = 'n-1';
+  RAISE EXCEPTION 'FAIL: notice was deleted';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: notices cannot be deleted'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM lease_handovers) = 0, 'B cannot see A handovers');
+SELECT pg_temp.expect((SELECT count(*) FROM lease_notices) = 0, 'B cannot see A notices');
+SELECT pg_temp.expect((SELECT count(*) FROM lease_renewals) = 0, 'B cannot see A renewals');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

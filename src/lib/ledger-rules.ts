@@ -137,3 +137,42 @@ export function ageingBucket(daysOverdue: number): AgeingBucket {
   if (daysOverdue <= 90) return "61-90 days";
   return "Over 90 days";
 }
+
+// ---------- Lease lifecycle (Phase 5b) ----------
+
+const DAY_MS = 86_400_000;
+export function daysBetween(from: Date, to: Date): number {
+  return Math.round((to.getTime() - from.getTime()) / DAY_MS);
+}
+
+/** How much warning a notice gives, compared with the notice period in the lease. */
+export function noticeAdequacy(givenOn: Date, effectiveOn: Date, requiredDays: number) {
+  const days = daysBetween(givenOn, effectiveOn);
+  return { days, requiredDays, short: days < requiredDays };
+}
+
+/** A renewal must start on or after the old lease ends (so the two never overlap) and run forward. */
+export function checkRenewalPeriod(oldEnd: Date, start: Date, end: Date): string | null {
+  if (start.getTime() < oldEnd.getTime()) return "The renewal cannot start before the current lease ends";
+  if (end.getTime() <= start.getTime()) return "The renewal must end after it starts";
+  return null;
+}
+
+/**
+ * Rules for closing a lease. `ENDED` is for a lease that has run its course; `TERMINATED` ends it early.
+ * Returns the first problem, or null.
+ */
+export function checkClosure(input: {
+  outcome: "ENDED" | "TERMINATED"; closedOn: Date; today: Date; startDate: Date; endDate: Date;
+  reason: string; hasMoveOut: boolean; status: string;
+}): string | null {
+  if (input.status !== "ACTIVE") return "This lease is already closed";
+  if (input.closedOn.getTime() > input.today.getTime()) return "The closing date cannot be in the future";
+  if (input.closedOn.getTime() < input.startDate.getTime()) return "The closing date cannot be before the lease started";
+  if (input.outcome === "ENDED" && input.endDate.getTime() > input.today.getTime()) {
+    return "This lease has not reached its end date. Use early termination to close it now.";
+  }
+  if (input.outcome === "TERMINATED" && input.reason.trim().length < 5) return "Give the reason for terminating the lease";
+  if (!input.hasMoveOut) return "Record the move-out handover before closing the lease";
+  return null;
+}

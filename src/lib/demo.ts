@@ -8,6 +8,7 @@ import { registerCompany, inviteMember, acceptInvitation } from "./services/comp
 import { createAsset, addParty } from "./services/assets";
 import { createLease, getLease, recordLeasePayment, recordPayment } from "./services/leases";
 import { reconcileReceipt, recordDepositReceived, requestAdjustment } from "./services/ledger";
+import { proposeRenewal, recordHandover, recordNotice } from "./services/lifecycle";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -117,6 +118,18 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     kind: "LATE_FEE", amount: "25,000", reason: "Demonstration: late fee under clause 7 of the lease",
   });
   await recordDepositReceived(officer, shopLease.id, { amount: "250,000", receivedOn: `${year - 1}-01-02`, evidence: "DEMO-DEP-0001" });
+
+  // Lifecycle: the move-in on record, a notice, and a renewal waiting for the administrator.
+  await recordHandover(officer, shopLease.id, {
+    kind: "MOVE_IN", handoverOn: `${year - 1}-01-02`, keysCount: "3", meterReadings: "Electricity 10412, water 0231",
+    conditionNotes: "Demonstration: premises handed over clean, shutters and locks working.", acknowledgedBy: "[DEMO] Corner Pharmacy representative",
+  });
+  await recordNotice(manager, shopLease.id, {
+    givenBy: "LANDLORD", givenOn: `${year}-01-05`, effectiveOn: `${year + 1}-01-01`, reason: "Demonstration: notice of rent review at renewal",
+  });
+  await proposeRenewal(manager, shopLease.id, {
+    startDate: `${year + 1}-01-01`, endDate: `${year + 3}-01-01`, rent: "600,000", note: "Demonstration: 20% increase at renewal",
+  });
 
   await updateRefPrefix(alpha, "ALP");
   await addDepartment(alpha, { name: "[DEMO] Legal", code: "LEG" });

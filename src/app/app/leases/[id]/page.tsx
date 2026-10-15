@@ -12,7 +12,9 @@ import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
 import {
   approveAdjustmentAction, depositReceivedAction, reconcileReceiptAction, recordLeasePaymentAction,
   rejectAdjustmentAction, requestAdjustmentAction, reverseReceiptAction, settleDepositAction,
+  approveRenewalAction, closeLeaseAction, proposeRenewalAction, recordHandoverAction, recordNoticeAction, rejectRenewalAction,
 } from "../actions";
+import { noticeAdequacy } from "@/lib/ledger-rules";
 
 export const metadata = { title: "Lease" };
 
@@ -66,6 +68,9 @@ export default async function LeasePage({ params, searchParams }: { params: { id
             {lease.status === "ACTIVE" && lease.endDate <= today ? <Pill status="OVERDUE" label="Term ended" /> : null}
           </div>
         </div>
+        {lease.renewedFrom ? <p className="small muted">Renewal of <Link href={`/app/leases/${lease.renewedFrom.id}`}>{lease.renewedFrom.ref}</Link></p> : null}
+        {lease.renewedTo ? <p className="small muted">Renewed as <Link href={`/app/leases/${lease.renewedTo.id}`}>{lease.renewedTo.ref}</Link></p> : null}
+        {lease.closedOn ? <p className="small muted">Closed on {formatDate(lease.closedOn)}{lease.closeReason ? `: ${lease.closeReason}` : ""}</p> : null}
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 
@@ -311,6 +316,142 @@ export default async function LeasePage({ params, searchParams }: { params: { id
                 </details>
               ) : <p className="small muted" style={{ marginTop: 12 }}>The deposit can be settled once the tenancy has ended.</p>
             ) : null}
+          </section>
+
+          {/* Lifecycle */}
+          <section className="card" aria-labelledby="life-h">
+            <h2 id="life-h">Renewal, notice and handover</h2>
+            <div className="stack">
+              <div>
+                <h3 className="small muted">Renewal</h3>
+                {lease.renewals.length === 0 ? <p className="muted small">No renewal proposed.</p> : (
+                  <ul className="timeline">
+                    {lease.renewals.map((r) => (
+                      <li key={r.id}>
+                        <div>
+                          <div>{formatDate(r.proposedStart)} to {formatDate(r.proposedEnd)} at <strong>{formatKobo(r.proposedRentKobo)}</strong> <Pill status={r.status} /></div>
+                          <div className="small muted">Proposed by {who(r.requestedById)}{r.decidedById ? ` · decided by ${who(r.decidedById)}` : ""}{r.note ? ` · ${r.note}` : ""}</div>
+                          {r.status === "PENDING" ? (
+                            <div className="row" style={{ marginTop: 6 }}>
+                              {can(member.role, "renewal.approve") && r.requestedById !== member.userId ? (
+                                <form action={approveRenewalAction} className="row">{hidden}<input type="hidden" name="renewalId" value={r.id} /><input type="hidden" name="note" value="" /><button className="btn primary" type="submit">Approve renewal</button></form>
+                              ) : null}
+                              {can(member.role, "lease.manage") ? (
+                                <form action={rejectRenewalAction} className="row">{hidden}<input type="hidden" name="renewalId" value={r.id} /><input type="hidden" name="note" value="" /><button className="btn" type="submit">{r.requestedById === member.userId ? "Withdraw" : "Reject"}</button></form>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {can(member.role, "lease.manage") && lease.status === "ACTIVE" && !lease.renewedTo && !lease.renewals.some((r) => r.status === "PENDING") ? (
+                  <details className="inline" style={{ marginTop: 8 }}>
+                    <summary>Propose a renewal</summary>
+                    <form action={proposeRenewalAction} className="stack">
+                      {hidden}
+                      <div className="fields">
+                        <Field label="Starts" hint="On or after the current end date."><input name="startDate" type="date" required defaultValue={toDateOnlyString(lease.endDate)} min={toDateOnlyString(lease.endDate)} /></Field>
+                        <Field label="Ends"><input name="endDate" type="date" required /></Field>
+                      </div>
+                      <Field label="Rent per period (₦)"><input name="rent" required inputMode="decimal" defaultValue={koboToInput(lease.rentKobo)} /></Field>
+                      <Field label="Note"><input name="note" /></Field>
+                      <p className="small muted">The new lease keeps the tenant, unit, frequency and terms. The deposit stays on this lease until it is settled.</p>
+                      <button className="btn primary" type="submit">Propose renewal</button>
+                    </form>
+                  </details>
+                ) : null}
+              </div>
+
+              <div>
+                <h3 className="small muted">Notices</h3>
+                {lease.notices.length === 0 ? <p className="muted small">No notices recorded.</p> : (
+                  <ul className="timeline">
+                    {lease.notices.map((n) => {
+                      const adq = noticeAdequacy(n.givenOn, n.effectiveOn, lease.noticeDays);
+                      return (
+                        <li key={n.id}>
+                          <div>
+                            <div>{humanize(n.givenBy)} notice given {formatDate(n.givenOn)}, effective {formatDate(n.effectiveOn)} {adq.short ? <Pill status="OVERDUE" label="Short notice" /> : null}</div>
+                            <div className="small muted">{adq.days} days of notice (lease requires {adq.requiredDays}) · {n.reason} · {who(n.recordedById)}</div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {can(member.role, "lease.manage") && lease.status === "ACTIVE" ? (
+                  <details className="inline" style={{ marginTop: 8 }}>
+                    <summary>Record a notice</summary>
+                    <form action={recordNoticeAction} className="stack">
+                      {hidden}
+                      <Field label="Given by"><select name="givenBy" defaultValue="TENANT"><option value="TENANT">Tenant</option><option value="LANDLORD">Landlord</option></select></Field>
+                      <div className="fields">
+                        <Field label="Given on"><input name="givenOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
+                        <Field label="Takes effect on"><input name="effectiveOn" type="date" required /></Field>
+                      </div>
+                      <Field label="Type or reason"><input name="reason" required placeholder="For example: notice to vacate" /></Field>
+                      <button className="btn primary" type="submit">Save notice</button>
+                    </form>
+                  </details>
+                ) : null}
+              </div>
+
+              <div>
+                <h3 className="small muted">Handover</h3>
+                {(["MOVE_IN", "MOVE_OUT"] as const).map((kind) => {
+                  const h = lease.handovers.find((x) => x.kind === kind);
+                  return (
+                    <div key={kind} style={{ marginBottom: 10 }}>
+                      {h ? (
+                        <div>
+                          <strong>{humanize(kind)}</strong> on {formatDate(h.handoverOn)} · {h.keysCount} key{h.keysCount === 1 ? "" : "s"} · acknowledged by {h.acknowledgedBy}
+                          <div className="small muted">{h.conditionNotes}{h.meterReadings ? ` · Meters: ${h.meterReadings}` : ""}{h.issues ? ` · Issues: ${h.issues}` : ""} · recorded by {who(h.recordedById)}</div>
+                        </div>
+                      ) : can(member.role, "handover.record") ? (
+                        <details className="inline">
+                          <summary>Record {humanize(kind).toLowerCase()} handover</summary>
+                          <form action={recordHandoverAction} className="stack">
+                            {hidden}
+                            <input type="hidden" name="kind" value={kind} />
+                            <div className="fields">
+                              <Field label="Handover date"><input name="handoverOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
+                              <Field label="Keys handed over"><input name="keysCount" required inputMode="numeric" defaultValue="1" /></Field>
+                            </div>
+                            <Field label="Meter readings" hint="Electricity, water, gas."><input name="meterReadings" /></Field>
+                            <Field label="Condition of the premises"><textarea name="conditionNotes" required rows={3} /></Field>
+                            <Field label="Issues to follow up"><input name="issues" /></Field>
+                            <Field label="Acknowledged by" hint="Name of the tenant or representative who signed."><input name="acknowledgedBy" required /></Field>
+                            <p className="small muted">A handover record cannot be edited once saved.</p>
+                            <button className="btn primary" type="submit">Save handover</button>
+                          </form>
+                        </details>
+                      ) : <p className="small muted">{humanize(kind)} handover not recorded.</p>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {can(member.role, "lease.close") && lease.status === "ACTIVE" ? (
+                <details className="inline">
+                  <summary>Close this lease</summary>
+                  <form action={closeLeaseAction} className="stack">
+                    {hidden}
+                    <Field label="Outcome">
+                      <select name="outcome" defaultValue={lease.endDate <= today ? "ENDED" : "TERMINATED"}>
+                        <option value="ENDED">Ended (term completed)</option>
+                        <option value="TERMINATED">Terminated early</option>
+                      </select>
+                    </Field>
+                    <Field label="Closing date"><input name="closedOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
+                    <Field label="Reason" hint="Required for early termination."><input name="reason" /></Field>
+                    <p className="small muted">Needs the move-out handover. Rent not yet due and untouched by payments is removed; arrears stay on the lease for collection.</p>
+                    <button className="btn danger" type="submit">Close lease</button>
+                  </form>
+                </details>
+              ) : null}
+            </div>
           </section>
 
           {/* Terms */}

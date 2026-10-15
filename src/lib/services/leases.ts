@@ -45,15 +45,22 @@ const leaseSchema = z.object({
   otherTerms: z.string().trim().max(3000).default(""),
 });
 
+export type LeaseData = z.output<typeof leaseSchema>;
+
 /** Create a lease and its full rent schedule in one transaction (master prompt Section 12.2). */
 export async function createLease(ctx: Ctx, assetId: string, input: z.input<typeof leaseSchema>) {
   assertCan(ctx, "lease.manage");
   const data = leaseSchema.parse(input);
+  return withTenant(ctx.companyId, ctx.userId, (tx) => insertLease(tx, ctx, assetId, data, null));
+}
+
+/** Shared by lease creation and approved renewals. The caller has checked permission. */
+export async function insertLease(tx: Tx, ctx: Ctx, assetId: string, data: LeaseData, renewedFromId: string | null) {
   const intervalMonths = data.frequency === "CUSTOM" ? data.intervalMonths : null;
   const schedule = generateRentSchedule({
     startDate: data.startDate, endDate: data.endDate, frequency: data.frequency, rentKobo: data.rent, intervalMonths,
   });
-  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+  {
     const asset = await tx.asset.findFirst({ where: { id: assetId, companyId: ctx.companyId } });
     if (!asset) throw new Error("Asset not found");
     // Two leases may share a property only if they are for different units.
@@ -73,7 +80,7 @@ export async function createLease(ctx: Ctx, assetId: string, input: z.input<type
         occupantContact: data.occupantContact, unit: data.unit, startDate: data.startDate, endDate: data.endDate,
         rentKobo: data.rent, frequency: data.frequency, intervalMonths, depositKobo: data.deposit,
         graceDays: data.graceDays ?? 0, noticeDays: data.noticeDays ?? 0,
-        permittedUse: data.permittedUse, otherTerms: data.otherTerms, createdById: ctx.userId,
+        permittedUse: data.permittedUse, otherTerms: data.otherTerms, renewedFromId, createdById: ctx.userId,
       },
     });
     await tx.rentCharge.createMany({
@@ -91,10 +98,10 @@ export async function createLease(ctx: Ctx, assetId: string, input: z.input<type
       companyId: ctx.companyId, actorId: ctx.userId, entityType: "lease", entityId: lease.id,
       action: "lease.created",
       detail: { ref, occupant: data.occupantName, unit: data.unit, charges: schedule.length, frequency: data.frequency,
-                rentKobo: data.rent.toString() },
+                rentKobo: data.rent.toString(), ...(renewedFromId ? { renewedFrom: renewedFromId } : {}) },
     });
     return lease;
-  });
+  }
 }
 
 const paymentSchema = z.object({
@@ -207,6 +214,11 @@ export async function getLease(ctx: Ctx, leaseId: string) {
         charges: { orderBy: { dueDate: "asc" }, include: { adjustments: { orderBy: { createdAt: "desc" } } } },
         receipts: { orderBy: { createdAt: "desc" }, include: { allocations: true, reconciliation: true, reversal: true } },
         depositEntries: { orderBy: { createdAt: "asc" } },
+        renewals: { orderBy: { createdAt: "desc" } },
+        notices: { orderBy: { createdAt: "desc" } },
+        handovers: { orderBy: { createdAt: "asc" } },
+        renewedFrom: { select: { id: true, ref: true } },
+        renewedTo: { select: { id: true, ref: true } },
       },
     });
     if (!lease) return null;
@@ -228,6 +240,9 @@ export async function getLease(ctx: Ctx, leaseId: string) {
       }
     }
     for (const e of lease.depositEntries) userIds.add(e.recordedById);
+    for (const r of lease.renewals) { userIds.add(r.requestedById); if (r.decidedById) userIds.add(r.decidedById); }
+    for (const n of lease.notices) userIds.add(n.recordedById);
+    for (const h of lease.handovers) userIds.add(h.recordedById);
     for (const h of history) if (h.actorId) userIds.add(h.actorId);
     const users = await tx.user.findMany({ where: { id: { in: Array.from(userIds) } }, select: { id: true, name: true } });
     return { lease, history, names: Object.fromEntries(users.map((u) => [u.id, u.name])) as Record<string, string> };

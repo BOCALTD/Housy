@@ -271,12 +271,21 @@ model Lease {
   intervalMonths Int?         @map("interval_months")
   permittedUse   String       @default("") @map("permitted_use")
   otherTerms     String       @default("") @map("other_terms")
+  // Closure (Section 12.3) and renewal chain. A renewal is a new lease that points back at the old one.
+  closedOn       DateTime?    @map("closed_on") @db.Date
+  closeReason    String       @default("") @map("close_reason")
+  renewedFromId  String?      @unique @map("renewed_from_id")
   createdById   String        @map("created_by_id")
   createdAt     DateTime      @default(now()) @map("created_at")
   asset         Asset         @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  renewedFrom   Lease?        @relation("Renewal", fields: [renewedFromId], references: [id], onDelete: Restrict)
+  renewedTo     Lease?        @relation("Renewal")
   charges       RentCharge[]
   receipts      Receipt[]
   depositEntries DepositEntry[]
+  renewals      LeaseRenewal[]
+  notices       LeaseNotice[]
+  handovers     LeaseHandover[]
 
   @@unique([companyId, ref])
   @@index([companyId, assetId])
@@ -833,4 +842,80 @@ model RateLimit {
   count       Int
 
   @@map("rate_limits")
+}
+
+enum RenewalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NoticeParty {
+  TENANT
+  LANDLORD
+}
+
+enum HandoverKind {
+  MOVE_IN
+  MOVE_OUT
+}
+
+/// A proposed renewal. Approval by a different person creates the new lease.
+model LeaseRenewal {
+  id              String        @id @default(uuid())
+  companyId       String        @map("company_id")
+  leaseId         String        @map("lease_id")
+  proposedStart   DateTime      @map("proposed_start") @db.Date
+  proposedEnd     DateTime      @map("proposed_end") @db.Date
+  proposedRentKobo BigInt       @map("proposed_rent_kobo")
+  note            String        @default("")
+  status          RenewalStatus @default(PENDING)
+  requestedById   String        @map("requested_by_id")
+  decidedById     String?       @map("decided_by_id")
+  decidedAt       DateTime?     @map("decided_at")
+  decisionNote    String        @default("") @map("decision_note")
+  newLeaseId      String?       @unique @map("new_lease_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  lease           Lease         @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, leaseId])
+  @@map("lease_renewals")
+}
+
+/// A notice to quit, to vacate or of non-renewal. Append-only.
+model LeaseNotice {
+  id           String      @id @default(uuid())
+  companyId    String      @map("company_id")
+  leaseId      String      @map("lease_id")
+  givenBy      NoticeParty @map("given_by")
+  givenOn      DateTime    @map("given_on") @db.Date
+  effectiveOn  DateTime    @map("effective_on") @db.Date
+  reason       String
+  recordedById String      @map("recorded_by_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  lease        Lease       @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, leaseId])
+  @@map("lease_notices")
+}
+
+/// A signed-off move-in or move-out record. Append-only, one of each kind per lease.
+model LeaseHandover {
+  id                    String       @id @default(uuid())
+  companyId             String       @map("company_id")
+  leaseId               String       @map("lease_id")
+  kind                  HandoverKind
+  handoverOn            DateTime     @map("handover_on") @db.Date
+  keysCount             Int          @map("keys_count")
+  meterReadings         String       @default("") @map("meter_readings")
+  conditionNotes        String       @map("condition_notes")
+  issues                String       @default("")
+  acknowledgedBy        String       @map("acknowledged_by")
+  recordedById          String       @map("recorded_by_id")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  lease                 Lease        @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+
+  @@unique([leaseId, kind])
+  @@index([companyId])
+  @@map("lease_handovers")
 }

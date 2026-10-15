@@ -6,6 +6,7 @@ import { recordLeasePayment, recordPayment } from "@/lib/services/leases";
 import {
   decideAdjustment, reconcileReceipt, recordDepositReceived, requestAdjustment, reverseReceipt, settleDeposit,
 } from "@/lib/services/ledger";
+import { closeLease, decideRenewal, proposeRenewal, recordHandover, recordNotice } from "@/lib/services/lifecycle";
 
 const leasePath = (id: string) => `/app/leases/${encodeURIComponent(id)}`;
 
@@ -90,5 +91,69 @@ export async function settleDepositAction(form: FormData) {
       kind: str(form, "kind") as never, amount: str(form, "amount"), reason: str(form, "reason"), evidence: str(form, "evidence"),
     });
     return withNotice(leasePath(id), "Deposit settlement recorded.");
+  });
+}
+
+export async function proposeRenewalAction(form: FormData) {
+  const id = str(form, "leaseId");
+  return act(leasePath(id), async () => {
+    const member = await requireMember("lease.manage");
+    await proposeRenewal(member, id, {
+      startDate: str(form, "startDate"), endDate: str(form, "endDate"), rent: str(form, "rent"), note: str(form, "note"),
+    });
+    return withNotice(leasePath(id), "Renewal proposed. It takes effect when someone else approves it.");
+  });
+}
+
+export async function approveRenewalAction(form: FormData) {
+  const id = str(form, "leaseId");
+  return act(leasePath(id), async () => {
+    const member = await requireMember("renewal.approve");
+    const created = await decideRenewal(member, str(form, "renewalId"), "approve", str(form, "note"));
+    return withNotice(created ? `/app/leases/${encodeURIComponent(created.id)}` : leasePath(id), "Renewal approved. The new lease and its rent schedule are ready.");
+  });
+}
+
+export async function rejectRenewalAction(form: FormData) {
+  const id = str(form, "leaseId");
+  return act(leasePath(id), async () => {
+    const member = await requireMember("lease.manage");
+    await decideRenewal(member, str(form, "renewalId"), "reject", str(form, "note"));
+    return withNotice(leasePath(id), "Renewal rejected.");
+  });
+}
+
+export async function recordNoticeAction(form: FormData) {
+  const id = str(form, "leaseId");
+  return act(leasePath(id), async () => {
+    const member = await requireMember("lease.manage");
+    const { adequacy } = await recordNotice(member, id, {
+      givenBy: str(form, "givenBy") as never, givenOn: str(form, "givenOn"), effectiveOn: str(form, "effectiveOn"), reason: str(form, "reason"),
+    });
+    return withNotice(leasePath(id), adequacy.short
+      ? `Notice recorded. It gives ${adequacy.days} days, shorter than the ${adequacy.requiredDays}-day notice period in the lease.`
+      : "Notice recorded.");
+  });
+}
+
+export async function recordHandoverAction(form: FormData) {
+  const id = str(form, "leaseId");
+  return act(leasePath(id), async () => {
+    const member = await requireMember("handover.record");
+    await recordHandover(member, id, {
+      kind: str(form, "kind") as never, handoverOn: str(form, "handoverOn"), keysCount: str(form, "keysCount"),
+      meterReadings: str(form, "meterReadings"), conditionNotes: str(form, "conditionNotes"), issues: str(form, "issues"),
+      acknowledgedBy: str(form, "acknowledgedBy"),
+    });
+    return withNotice(leasePath(id), "Handover recorded.");
+  });
+}
+
+export async function closeLeaseAction(form: FormData) {
+  const id = str(form, "leaseId");
+  return act(leasePath(id), async () => {
+    const member = await requireMember("lease.close");
+    const r = await closeLease(member, id, { outcome: str(form, "outcome") as never, closedOn: str(form, "closedOn"), reason: str(form, "reason") });
+    return withNotice(leasePath(id), `Lease closed. ${r.removedCharges} future rent charge${r.removedCharges === 1 ? "" : "s"} removed.`);
   });
 }

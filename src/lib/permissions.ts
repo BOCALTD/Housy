@@ -18,6 +18,9 @@ export type Action =
   | "adjustment.approve"
   | "deposit.manage"
   | "deposit.settle"
+  | "renewal.approve"
+  | "lease.close"
+  | "handover.record"
   | "finance.view"
   | "task.create"
   | "task.update.any"
@@ -49,6 +52,9 @@ const MATRIX: Record<Action, Role[]> = {
   "adjustment.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "deposit.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "deposit.settle": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "renewal.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "lease.close": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "handover.record": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "finance.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER", "VIEWER"],
   "task.create": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER"],
   "task.update.any": ["COMPANY_SUPER_ADMIN", "MANAGER"],

@@ -134,11 +134,11 @@ test("the budget is approved by a second person, and the project starts only aft
 test("commitments need a second person and cannot exceed the approved budget, even when approved at the same moment", async () => {
   const env = await setup("p-cmt");
   const { p, a } = await active(env);
-  await assert.rejects(requestCommitment(env.viewer, p.id, { supplierName: "X", description: "Works", amount: "1,000" } as never), /permission/i);
+  await assert.rejects(requestCommitment(env.viewer, p.id, { supplierName: "Xavier Ltd", description: "Works", amount: "1,000" } as never), /permission/i);
   await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "", description: "Works", amount: "1,000" } as never), /supplier/i);
-  await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "X", description: "Works", amount: "12,000,000" } as never), /more than the approved budget/i);
-  await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "X", description: "Works", amount: "0" } as never), /more than zero/i);
-  await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "X", description: "Works", amount: "1,000", workPackageId: "nope" } as never), /Work package not found/i);
+  await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "Xavier Ltd", description: "Works", amount: "12,000,000" } as never), /more than the approved budget/i);
+  await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "Xavier Ltd", description: "Works", amount: "0" } as never), /more than zero/i);
+  await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "Xavier Ltd", description: "Works", amount: "1,000", workPackageId: "nope" } as never), /Work package not found/i);
   const c = await requestCommitment(env.officer, p.id, { supplierName: "Roofers Ltd", description: "Roof", amount: "5,000,000", workPackageId: a.id } as never);
   assert.match(c.ref, /^CMT-\d{4}-0001$/);
   await assert.rejects(decideCommitment(env.officer, c.id, "approve", ""), /permission/i);
@@ -150,8 +150,8 @@ test("commitments need a second person and cannot exceed the approved budget, ev
   await decideCommitment(env.admin, own.id, "reject", "Not needed");
 
   // 5m is committed of 11m. Two more requests of 4m each pass the check on their own, but only one can be approved.
-  const x = await requestCommitment(env.officer, p.id, { supplierName: "X", description: "Works", amount: "4,000,000" } as never);
-  const y = await requestCommitment(env.officer, p.id, { supplierName: "Y", description: "Works", amount: "4,000,000" } as never);
+  const x = await requestCommitment(env.officer, p.id, { supplierName: "Xavier Ltd", description: "Works", amount: "4,000,000" } as never);
+  const y = await requestCommitment(env.officer, p.id, { supplierName: "Yusuf Ltd", description: "Works", amount: "4,000,000" } as never);
   const results = await Promise.allSettled([decideCommitment(env.manager, x.id, "approve", ""), decideCommitment(env.admin, y.id, "approve", "")]);
   assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
   assert.match(String((results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason), /more than the approved budget/i);
@@ -325,7 +325,7 @@ test("progress, milestones and project status follow their rules", async () => {
   await assert.rejects(holdProject(env.admin, p.id, "x"), /why/i);
   await holdProject(env.admin, p.id, "Rainy season");
   await assert.rejects(setProgress(env.officer, b.id, "IN_PROGRESS", "30"), /must be active/i);
-  await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "X", description: "Works", amount: "1,000" } as never), /must be active/i);
+  await assert.rejects(requestCommitment(env.officer, p.id, { supplierName: "Xavier Ltd", description: "Works", amount: "1,000" } as never), /must be active/i);
   await resumeProject(env.admin, p.id);
   await assert.rejects(resumeProject(env.admin, p.id), /on hold/i);
 });
@@ -334,7 +334,7 @@ test("a project cannot be cancelled with requests waiting or invoices unpaid, an
   const env = await setup("p-can");
   const { p, a } = await active(env);
   const c = await commit(env, p.id, "2,000,000", a.id);
-  const waiting = await requestCommitment(env.officer, p.id, { supplierName: "Z", description: "Works", amount: "1,000" } as never);
+  const waiting = await requestCommitment(env.officer, p.id, { supplierName: "Zeta Ltd", description: "Works", amount: "1,000" } as never);
   await assert.rejects(cancelProject(env.admin, p.id, "No longer needed"), /waiting/i);
   await decideCommitment(env.manager, waiting.id, "reject", "Not needed");
   const inv = await recordInvoice(env.officer, c.id, { invoiceNo: "I-1", invoiceDate: relativeDate(-1), amount: "1,000,000" } as never);

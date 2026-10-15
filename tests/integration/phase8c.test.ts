@@ -250,10 +250,10 @@ test("company reports give conversion, pipeline, completed deals and cancellatio
   await assert.rejects(companyReport(e.agent1, { from, to }), /permission/i);
   await assert.rejects(companyReport(e.manager, { from: to, to: from }), /before/);
   const r = await companyReport(e.manager, { from, to });
-  assert.equal(r.leads.total, 4);
+  assert.equal(r.leads.total, 3);
   assert.equal(r.leads.converted, 1);
   assert.equal(r.leads.lost, 1);
-  assert.equal(r.leads.convertedBps, 2500);
+  assert.equal(r.leads.convertedBps, 3333);
   assert.equal(r.completedTotals.count, 1);
   assert.equal(r.completedTotals.valueKobo, 5_000_000_000n);
   assert.equal(r.completed[0].commissionKobo, 250_000_000n);

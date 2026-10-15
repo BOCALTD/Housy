@@ -40,7 +40,7 @@ test("two companies collaborate on an authorised deal, and neither gains unrestr
   const client = await createClient(aAgent, { name: "Confidential Buyer Eze", phone: "08034445566", email: "eze@example.test" } as never);
   const lead = await createLead(aAgent, client.id, { title: "Wants a duplex", ownerId: aAgent.membershipId } as never);
   await addClientActivity(aAgent, client.id, { kind: "CALL", subject: "Budget", body: "Can stretch to 300m" } as never);
-  const deal = await createDeal(aAgent, { clientId: client.id, leadId: lead.id, assetId: asset.id, type: "SALE", asking: "250,000,000" } as never);
+  const deal = await createDeal(aAgent, { clientId: client.id, assetId: asset.id, type: "SALE", asking: "250,000,000" } as never);
   const secondClient = await createClient(aAgent, { name: "Another Client", phone: "08031112233" } as never);
   const second = await createDeal(aAgent, { clientId: secondClient.id, assetId: other.id, type: "SALE", asking: "90,000,000" } as never);
 

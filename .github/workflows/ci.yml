@@ -90,7 +90,7 @@ jobs:
 
       - name: Device check (desktop, iPhone, Android, tablet)
         env:
-          DEVICE_STRICT: ${{ vars.DEVICE_STRICT || 'false' }}
+          DEVICE_STRICT: ${{ vars.DEVICE_STRICT || 'true' }}
         run: scripts/ci-run.sh "Device check" scripts/device-check.sh
 
       - name: Save device screenshots and report

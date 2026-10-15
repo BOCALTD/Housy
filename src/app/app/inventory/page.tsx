@@ -30,13 +30,13 @@ export default async function InventoryPage({ searchParams }: { searchParams?: S
         <h2 id="find-h">Find an item</h2>
         <form action={lookupCodeAction} className="row">
           <label className="visually-hidden" htmlFor="code">Scan or type a code</label>
-          <input id="code" name="code" placeholder="Scan or type a code or serial number" required style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)", minWidth: 260 }} />
+          <input id="code" name="code" placeholder="Scan or type a code or serial number" required style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)", flex: "1 1 260px", minWidth: 0 }} />
           <button className="btn" type="submit">Open item</button>
         </form>
         <p className="small muted">A barcode scanner types the code into this box. Each item&apos;s code is shown on its page so it can be printed on a label.</p>
         <form method="get" className="row">
           <label className="visually-hidden" htmlFor="q">Search</label>
-          <input id="q" name="q" defaultValue={q} placeholder="Search by name, category or serial number" style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)", minWidth: 260 }} />
+          <input id="q" name="q" defaultValue={q} placeholder="Search by name, category or serial number" style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)", flex: "1 1 260px", minWidth: 0 }} />
           <select name="assetId" defaultValue={assetId ?? ""} aria-label="Asset"><option value="">All assets</option>{d.assets.map((a) => <option key={a.id} value={a.id}>{a.ref} · {a.name}</option>)}</select>
           <button className="btn" type="submit">Search</button>
         </form>

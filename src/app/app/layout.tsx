@@ -9,12 +9,12 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   return (
     <div className="stack-lg">
       {member ? (
-        <div className="row between card" style={{ padding: "12px 16px" }}>
+        <div className="row between card workspace-bar" style={{ padding: "12px 16px" }}>
           <div>
             <strong>{member.companyName}</strong>
             <span className="small muted"> · {member.userName}, {ROLE_LABELS[member.role]}</span>
           </div>
-          <nav className="nav" aria-label="Workspace">
+          <nav className="nav nav-scroll" aria-label="Workspace">
             <Link href="/app">Dashboard</Link>
             <Link href="/app/assets">Assets</Link>
             <Link href="/app/correspondence">Correspondence</Link>

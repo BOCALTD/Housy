@@ -108,7 +108,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
                           {can(member.role, "adjustment.request") ? (
                             <details className="inline">
                               <summary className="small">Adjust</summary>
-                              <form action={requestAdjustmentAction} className="stack" style={{ minWidth: 240 }}>
+                              <form action={requestAdjustmentAction} className="stack" style={{ flex: "1 1 240px", minWidth: 0 }}>
                                 {hidden}
                                 <input type="hidden" name="chargeId" value={c.id} />
                                 <Field label="Type">
@@ -167,7 +167,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
                           {can(member.role, "payment.reconcile") && r.recordedById !== member.userId ? (
                             <details className="inline">
                               <summary className="small">Reconcile</summary>
-                              <form action={reconcileReceiptAction} className="stack" style={{ minWidth: 260 }}>
+                              <form action={reconcileReceiptAction} className="stack" style={{ flex: "1 1 260px", minWidth: 0 }}>
                                 {hidden}
                                 <input type="hidden" name="receiptId" value={r.id} />
                                 <Field label="Bank statement date and line, or transaction reference"><input name="statementRef" required /></Field>
@@ -179,7 +179,7 @@ export default async function LeasePage({ params, searchParams }: { params: { id
                           {can(member.role, "payment.reverse") ? (
                             <details className="inline">
                               <summary className="small">Reverse</summary>
-                              <form action={reverseReceiptAction} className="stack" style={{ minWidth: 260 }}>
+                              <form action={reverseReceiptAction} className="stack" style={{ flex: "1 1 260px", minWidth: 0 }}>
                                 {hidden}
                                 <input type="hidden" name="receiptId" value={r.id} />
                                 <Field label="Reason" hint="The receipt stays on file, marked reversed."><input name="reason" required /></Field>

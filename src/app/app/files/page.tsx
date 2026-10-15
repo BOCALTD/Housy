@@ -91,7 +91,7 @@ export default async function FilesPage({ searchParams }: { searchParams?: SP })
                       {manage && f.status === "IN_REGISTRY" ? (
                         <details className="inline">
                           <summary className="small">Issue</summary>
-                          <form action={issueFileAction} className="stack" style={{ minWidth: 220 }}>
+                          <form action={issueFileAction} className="stack" style={{ flex: "1 1 220px", minWidth: 0 }}>
                             <input type="hidden" name="fileId" value={f.id} />
                             <Field label="To"><select name="holderId" required defaultValue="">
                               <option value="" disabled>Choose</option>{members.map((m) => <option key={m.id} value={m.id}>{m.user.name}</option>)}

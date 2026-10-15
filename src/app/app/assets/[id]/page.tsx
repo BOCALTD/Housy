@@ -102,7 +102,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                                   {state !== "PAID" && state !== "WAIVED" && can(member.role, "payment.record") ? (
                                     <details className="inline">
                                       <summary className="small">Record payment</summary>
-                                      <form action={recordPaymentAction} className="stack" style={{ minWidth: 220 }}>
+                                      <form action={recordPaymentAction} className="stack" style={{ flex: "1 1 220px", minWidth: 0 }}>
                                         {hidden}
                                         <input type="hidden" name="chargeId" value={c.id} />
                                         <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" defaultValue={koboToInput(outstandingOf(c))} /></Field>

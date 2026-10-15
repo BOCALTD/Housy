@@ -31,7 +31,7 @@ const PROFILES: { name: string; device: string; engine: "chromium" | "webkit"; s
 // Pages that get a screenshot on the profiles that take them.
 const SHOT_PATTERNS = ["/", "/login", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id"];
 
-interface Issue { kind: string; page: string; profile: string; detail: string }
+interface Issue { kind: string; page: string; profile: string; detail: string; items: string[] }
 const issues: Issue[] = [];
 
 const pattern = (p: string) => p.replace(/\/[0-9a-f]{8}-[0-9a-f-]{27}/g, "/:id").replace(/\/(PROP|prop)-[A-Z0-9]+/g, "/:id");
@@ -86,24 +86,27 @@ async function inspect(page: Page, touch: boolean) {
         if (t === "hidden" || !visible(el)) continue;
         const s = getComputedStyle(el);
         if (el.tagName === "A" && s.display === "inline") continue; // links inside a sentence
-        const r = el.getBoundingClientRect();
+        const holder = (t === "checkbox" || t === "radio") ? (el.closest("label") ?? el) : el;
+        const r = holder.getBoundingClientRect();
         if (r.height < 44 || (r.width < 44 && (el.textContent ?? "").trim().length < 4)) tiny.push(`${label(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
       }
     }
     out.tiny = tiny;
     let small = 0;
+    const smallItems: string[] = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let lowest = 99;
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       const el = n.parentElement;
       if (!el || !(n.textContent ?? "").trim() || !visible(el)) continue;
       const fs = parseFloat(getComputedStyle(el).fontSize);
-      if (fs < 12) { small += 1; lowest = Math.min(lowest, fs); }
+      if (fs < 12) { small += 1; lowest = Math.min(lowest, fs); if (smallItems.length < 6) smallItems.push(`${label(el)} ${fs}px`); }
     }
     out.smallText = small;
+    out.smallItems = smallItems;
     out.lowest = lowest;
     out.noAlt = Array.from(document.querySelectorAll("img:not([alt])")).filter(visible).length;
-    return out as { overflow: number; wide: string[]; viewport: string; smallFields: string[]; unlabelled: string[]; tiny: string[]; smallText: number; lowest: number; noAlt: number };
+    return out as { overflow: number; wide: string[]; viewport: string; smallFields: string[]; unlabelled: string[]; tiny: string[]; smallText: number; smallItems: string[]; lowest: number; noAlt: number };
   }, touch);
 }
 
@@ -141,23 +144,30 @@ async function main() {
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
       page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-      const add = (kind: string, detail: string) => issues.push({ kind, page: p, profile: prof.name, detail });
+      const add = (kind: string, detail: string, items: string[] = []) => issues.push({ kind, page: p, profile: prof.name, detail, items });
       try {
         const res = await page.goto(`${BASE}${p}`, { waitUntil: "networkidle", timeout: 30000 });
         if (!res || res.status() >= 400) add("http", `status ${res?.status()}`);
         if (!auth || p.startsWith("/app")) {
           const r = await inspect(page, touch);
           if (!/width=device-width/.test(r.viewport)) add("viewport", `viewport meta is "${r.viewport}"`);
-          if (r.overflow > 1) add("sideways-scroll", `page is ${r.overflow}px wider than the screen. ${r.wide.join("; ")}`);
-          if (touch && r.smallFields.length) add("small-input-text", `${r.smallFields.length} field(s) under 16px make iOS zoom on focus: ${r.smallFields.slice(0, 3).join("; ")}`);
-          if (touch && r.tiny.length) add("small-touch-target", `${r.tiny.length} control(s) under 44px: ${r.tiny.slice(0, 4).join("; ")}`);
-          if (r.smallText) add("small-text", `${r.smallText} text run(s) under 12px (smallest ${r.lowest}px)`);
-          if (r.unlabelled.length) add("unlabelled-field", `${r.unlabelled.length}: ${r.unlabelled.slice(0, 3).join("; ")}`);
+          if (r.overflow > 1) add("sideways-scroll", `page is ${r.overflow}px wider than the screen`, r.wide);
+          if (touch && r.smallFields.length) add("small-input-text", `${r.smallFields.length} field(s) under 16px`, r.smallFields);
+          if (touch && r.tiny.length) add("small-touch-target", `${r.tiny.length} control(s) under 44px`, r.tiny);
+          if (r.smallText) add("small-text", `${r.smallText} text run(s) under 12px (smallest ${r.lowest}px)`, r.smallItems);
+          if (r.unlabelled.length) add("unlabelled-field", `${r.unlabelled.length} field(s)`, r.unlabelled);
           if (r.noAlt) add("image-no-alt", `${r.noAlt} image(s) without alt text`);
         }
         for (const e of errors.slice(0, 3)) add("script-error", e.slice(0, 200));
         const wantShot = prof.shots && (SHOT_PATTERNS.includes(pattern(p)) || issues.some((i) => i.page === p && i.profile === prof.name && i.kind === "sideways-scroll"));
-        if (wantShot) await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
+        if (wantShot && prof.engine === "webkit") {
+          // Full-page captures of tall pages come out black in WebKit, so take screen-sized tiles instead.
+          const vh = page.viewportSize()!.height;
+          for (let t = 0; t < 3; t += 1) {
+            await page.evaluate((y) => window.scrollTo(0, y), t * vh);
+            await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}__${t}.jpg`, type: "jpeg", quality: 55 });
+          }
+        } else if (wantShot) await page.screenshot({ path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
       } catch (e) {
         add("load-failed", String(e).slice(0, 200));
       }
@@ -169,28 +179,38 @@ async function main() {
   }
   await Promise.all(Object.values(browsers).map((b) => b.close()));
 
-  // Group the same problem on the same page across profiles for a readable report.
-  const grouped = new Map<string, { kind: string; page: string; profiles: string[]; detail: string }>();
+  // Group by kind, then by the element that has the problem, with the pages and profiles it appears on.
+  const byKind = new Map<string, Map<string, { pages: Set<string>; profiles: Set<string> }>>();
   for (const i of issues) {
-    const k = `${i.kind}|${i.page}|${i.detail}`;
-    const g = grouped.get(k) ?? { kind: i.kind, page: i.page, profiles: [], detail: i.detail };
-    g.profiles.push(i.profile);
-    grouped.set(k, g);
+    const kinds = byKind.get(i.kind) ?? new Map();
+    byKind.set(i.kind, kinds);
+    const keys = i.items.length ? i.items : [i.detail];
+    for (const raw of keys) {
+      const key = raw.replace(/\d+(\.\d+)?x\d+(\.\d+)?/g, "WxH").replace(/right=\d+/, "").replace(/(\d+(\.\d+)?)px/, "Npx").slice(0, 160);
+      const g = kinds.get(key) ?? { pages: new Set<string>(), profiles: new Set<string>() };
+      g.pages.add(pattern(i.page)); g.profiles.add(i.profile.split(" (")[0]);
+      kinds.set(key, g);
+    }
   }
-  const byKind = new Map<string, number>();
-  for (const g of grouped.values()) byKind.set(g.kind, (byKind.get(g.kind) ?? 0) + 1);
   const md = [
     "## Device check", "", `${pages.length} pages on ${PROFILES.length} profiles.`, "",
     "| Profile | Screen | Pages | Problems |", "|---|---|---|---|", ...rows, "",
-    "### Problems by kind", "", ...[...byKind].map(([k, n]) => `- ${k}: ${n}`), "",
-    "### Details", "", ...[...grouped.values()].slice(0, 400).map((g) => `- **${g.kind}** ${g.page} (${g.profiles.length} profile${g.profiles.length === 1 ? "" : "s"}: ${g.profiles.map((x) => x.split(" ")[0] + " " + (x.split(" ")[1] ?? "")).join(", ")}) ${g.detail}`),
+    ...[...byKind].flatMap(([kind, m]) => [
+      `### ${kind} (${m.size} distinct)`, "",
+      ...[...m].sort((a, b) => b[1].pages.size - a[1].pages.size).slice(0, 40).map(([k, g]) => `- ${k} | ${g.pages.size} page(s): ${[...g.pages].slice(0, 4).join(", ")} | ${[...g.profiles].join(", ")}`), "",
+    ]),
   ].join("\n");
   writeFileSync(`${OUT}/report.md`, md);
-  writeFileSync(`${OUT}/issues.json`, JSON.stringify([...grouped.values()], null, 1));
+  writeFileSync(`${OUT}/issues.json`, JSON.stringify(issues, null, 1));
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md.slice(0, 900000));
   console.log(md.split("\n").slice(0, 60).join("\n"));
   const esc = (t: string) => t.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
-  console.log(`::notice title=Device report::${esc(md.slice(0, 60000))}`);
+  const chunks: string[] = [];
+  let cur = "";
+  for (const line of md.split("\n")) { if (cur.length + line.length > 3300) { chunks.push(cur); cur = ""; } cur += line + "\n"; }
+  if (cur) chunks.push(cur);
+  chunks.slice(0, 14).forEach((c, n) => console.log(`::notice title=Device report ${n + 1}::${esc(c)}`));
+  const grouped = { size: issues.length };
   if (STRICT && grouped.size > 0) process.exit(1);
 }
 

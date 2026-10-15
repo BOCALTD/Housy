@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { PLATFORM_NAME } from "@/lib/labels";
@@ -8,6 +8,16 @@ import { logoutAction } from "./auth-actions";
 export const metadata: Metadata = {
   title: { default: PLATFORM_NAME, template: `%s · ${PLATFORM_NAME}` },
   description: "Discover verified property and manage property portfolios in one place.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#14284B" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B1222" },
+  ],
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

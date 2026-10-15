@@ -17,4 +17,18 @@ REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | hea
 [ -n "$REF" ] || fail "no property link on the home page"
 curl -s "http://localhost:3100/$REF" | grep -q "Verify this property" || fail "$REF has no verification link"
 [ "$(code /app)" = "307" ] || fail "/app returned $(code /app) for a signed-out visitor (expected 307)"
+
+# Signed-in pages: sign in as the demo administrator and open every page against real data.
+SESSION_OUT=$(npx tsx scripts/smoke-session.ts) || fail "could not create a smoke-test session: $SESSION_OUT"
+TOKEN=$(echo "$SESSION_OUT" | head -1)
+PAGES=$(echo "$SESSION_OUT" | tail -n +2)
+[ -n "$TOKEN" ] && [ -n "$PAGES" ] || fail "smoke session output was empty"
+COUNT=0
+for p in $PAGES; do
+  status=$(curl -s -o page.html -w '%{http_code}' -H "Cookie: sid=$TOKEN" "http://localhost:3100$p")
+  [ "$status" = "200" ] || fail "$p returned $status when signed in"
+  if grep -q "Something went wrong" page.html || grep -q "This page does not exist" page.html; then fail "$p rendered an error page"; fi
+  COUNT=$((COUNT + 1))
+done
+echo "Opened $COUNT signed-in pages without errors"
 echo "Smoke test passed"

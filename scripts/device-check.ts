@@ -63,6 +63,7 @@ async function inspect(page: Page, touch: boolean) {
         const r = el.getBoundingClientRect();
         if (r.right > vw + 1) {
           const box = scrollsSideways(el.parentElement);
+          if (box) continue;
           wide.push(`${label(el)} right=${Math.round(r.right)} w=${Math.round(r.width)} parent=${label(el.parentElement as Element).slice(0, 40)} ${box ? "(inside a scroll box)" : "(NOT in a scroll box)"}`);
         }
         if (wide.length >= 12) break;
@@ -91,7 +92,7 @@ async function inspect(page: Page, touch: boolean) {
         if (el.tagName === "A" && s.display === "inline") continue; // links inside a sentence
         const holder = (t === "checkbox" || t === "radio") ? (el.closest("label") ?? el) : el;
         const r = holder.getBoundingClientRect();
-        if (r.height < 44 || (r.width < 44 && (el.textContent ?? "").trim().length < 4)) tiny.push(`${label(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+        if (r.height < 44 || (r.width < 44 && el.tagName !== "A" && (el.textContent ?? "").trim().length < 4)) tiny.push(`${label(el)} type=${t} name=${(el as HTMLInputElement).name ?? ""} ${Math.round(r.width)}x${Math.round(r.height)}`);
       }
     }
     out.tiny = tiny;

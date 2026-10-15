@@ -17,7 +17,7 @@ export default async function CollaborationsPage({ searchParams }: { searchParam
       <div className="stack" style={{ gap: 6 }}><h1>Collaborations</h1>
         <p className="muted">Work with another company, or with a seeker, in a shared workspace. Neither side sees the other&apos;s records. {supervisor ? <><Link href="/app/collaborations/report">Report</Link> · </> : null}<Link href="/directory?kind=companies">Find companies</Link></p></div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
-      {supervisor ? <CollabList data={data} base="/app/collaborations" newHref="/app/collaborations/new" /> : <CollabList data={{ ...data, toAnswer: [] }} base="/app/collaborations" newHref="/directory?kind=companies" />}
+      <CollabList data={data} base="/app/collaborations" newHref={supervisor ? "/app/collaborations/new" : undefined} />
     </div>
   );
 }

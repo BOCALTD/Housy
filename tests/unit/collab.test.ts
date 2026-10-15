@@ -62,6 +62,8 @@ test("a deal is shared as a copy of the ticked fields only, with nothing about t
   const text = JSON.stringify(none);
   assert.ok(!text.includes("Hidden Close"));
   assert.ok(!text.includes("85000000"));
+  const named = dealSnapshot({ ...deal, title: "Ikeja terrace house for Chinedu Client" }, property, { stage: false, asking: false, agreed: false, expectedClose: false, propertyAddress: false, note: "" }, money, day);
+  assert.ok(!JSON.stringify(named).includes("Chinedu"), "the deal's own title can name the client, so it is never copied");
   const all = dealSnapshot(deal, property, { stage: true, asking: true, agreed: true, expectedClose: true, propertyAddress: true, note: "  Please keep this between us  " }, money, day);
   assert.deepEqual(all.fields.map((f) => f.label), ["Type", "Property", "Location", "Address", "Stage", "Asking price", "Expected closing", "Note from the sharer"]);
   assert.ok(!all.fields.some((f) => f.label === "Agreed price"), "no price has been agreed at the negotiation stage");

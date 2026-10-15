@@ -7,7 +7,7 @@ import { asCompany, pendingIncoming } from "@/lib/services/collab";
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   await requireUser();
   const member = await getMember();
-  const incoming = member && can(member.role, "collab.company") ? await pendingIncoming(asCompany(member)).catch(() => 0) : 0;
+  const incoming = member && can(member.role, "collab.view") ? await pendingIncoming(asCompany(member)).catch(() => 0) : 0;
   return (
     <div className="stack-lg">
       {member ? (

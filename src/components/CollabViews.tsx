@@ -25,7 +25,7 @@ function Row({ r, base }: { r: ListedCollab; base: string }) {
   );
 }
 
-export function CollabList({ data, base, newHref }: { data: Listing; base: string; newHref: string }) {
+export function CollabList({ data, base, newHref }: { data: Listing; base: string; newHref?: string }) {
   const block = (title: string, rows: ListedCollab[], empty: string) => (
     <section className="card"><h2>{title}</h2>{rows.length === 0 ? <p className="muted">{empty}</p> : <ShowMore noun="more" limit={5} items={rows.map((r) => <Row key={r.c.id} r={r} base={base} />)} />}</section>
   );
@@ -36,7 +36,7 @@ export function CollabList({ data, base, newHref }: { data: Listing; base: strin
         <div className="stat"><b>{data.active.length}</b><span>Open workspaces</span></div>
         <div className="stat"><b>{data.sent.length}</b><span>Invitations out</span></div>
       </section>
-      <div><Link className="btn primary" href={newHref}>New invitation</Link></div>
+      {newHref ? <div><Link className="btn primary" href={newHref}>New invitation</Link></div> : null}
       {block("Waiting for your answer", data.toAnswer, "No invitations are waiting.")}
       {block("Open workspaces", data.active, "No open workspaces.")}
       {block("Invitations you sent", data.sent, "Nothing is waiting for an answer.")}

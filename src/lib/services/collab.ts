@@ -719,10 +719,9 @@ export async function listCollaborations(a: Actor) {
 }
 
 export async function pendingIncoming(a: Actor): Promise<number> {
-  if (a.companyId && !may(a, "collab.company")) return 0;
-  return run(a, async (tx) => tx.collaboration.count({
-    where: { status: "PENDING", expiresAt: { gt: new Date() }, NOT: { senderUserId: a.userId }, ...(a.companyId ? { recipientCompanyId: a.companyId, kind: "COMPANY_COMPANY" } : { recipientUserId: a.userId }) },
-  }));
+  const mine: Prisma.CollaborationWhereInput[] = [{ kind: "SEEKER_AGENT", recipientUserId: a.userId }];
+  if (a.companyId && may(a, "collab.company")) mine.push({ kind: "COMPANY_COMPANY", recipientCompanyId: a.companyId });
+  return run(a, (tx) => tx.collaboration.count({ where: { status: "PENDING", expiresAt: { gt: new Date() }, NOT: { senderUserId: a.userId }, OR: mine } }));
 }
 
 /** Companies this one could invite: listed profiles other than its own. */

@@ -93,7 +93,9 @@ export function dealSnapshot(deal: DealForShare, property: PropertyForShare, o: 
   if (o.expectedClose && deal.expectedCloseOn) fields.push({ label: "Expected closing", value: formatDay(deal.expectedCloseOn) });
   const note = o.note.trim().slice(0, 500);
   if (note) fields.push({ label: "Note from the sharer", value: note });
-  return { title: deal.title.slice(0, 160), summary: `${human(deal.type)} of ${property.name}`, fields };
+  // The deal's own title is never copied: by default it names the client ("<property> for <client>").
+  const title = `${human(deal.type)} of ${property.name}`.slice(0, 160);
+  return { title, summary: title, fields };
 }
 
 export function propertySnapshot(p: PropertyForShare, o: { address: boolean; price: boolean; note: string }, formatMoney: (k: bigint) => string): Snapshot {

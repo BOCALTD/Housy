@@ -303,3 +303,30 @@ test("notice adequacy, renewal period and closure rules", () => {
   assert.match(checkClosure({ ...base, outcome: "ENDED" })!, /not reached its end date/);
   assert.equal(checkClosure({ ...base, outcome: "ENDED", today: day("2027-01-01"), closedOn: day("2027-01-01") }), null);
 });
+
+// ---------- Phase 5d rules ----------
+import { classifyDeadline } from "../../src/lib/deadlines";
+import { csvCell, koboToPlain, toCsv } from "../../src/lib/csv";
+
+test("deadlines move from later to due soon, overdue and escalated on exact day boundaries", () => {
+  const today = day("2026-06-10");
+  const c = (due: string) => classifyDeadline(day(due), today, 30, 7);
+  assert.deepEqual(c("2026-07-11"), { state: "LATER", days: 31 });
+  assert.deepEqual(c("2026-07-10"), { state: "DUE_SOON", days: 30 });
+  assert.deepEqual(c("2026-06-10"), { state: "DUE_SOON", days: 0 });
+  assert.deepEqual(c("2026-06-09"), { state: "OVERDUE", days: -1 });
+  assert.deepEqual(c("2026-06-04"), { state: "OVERDUE", days: -6 });
+  assert.deepEqual(c("2026-06-03"), { state: "ESCALATED", days: -7 });
+});
+
+test("CSV output escapes cells and neutralises spreadsheet formulas", () => {
+  assert.equal(csvCell('He said "hi", twice'), '"He said ""hi"", twice"');
+  assert.equal(csvCell("=HYPERLINK(\"x\")"), '"\'=HYPERLINK(""x"")"');
+  assert.equal(csvCell("+1"), "'+1");
+  assert.equal(csvCell(-5), "-5");
+  assert.equal(csvCell(null), "");
+  assert.equal(toCsv(["a", "b"], [["x", 1n]]), "a,b\r\nx,1\r\n");
+  assert.equal(koboToPlain(123456n), "1234.56");
+  assert.equal(koboToPlain(5n), "0.05");
+  assert.equal(koboToPlain(-150n), "-1.50");
+});

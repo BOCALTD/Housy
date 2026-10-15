@@ -24,7 +24,7 @@ async function main() {
 
   const paths = new Set<string>([
     "/app", "/app/assets", "/app/assets/new", "/app/correspondence", "/app/correspondence/new",
-    "/app/files", "/app/settings", "/app/team", "/app/service-charges",
+    "/app/files", "/app/settings", "/app/team", "/app/service-charges", "/app/compliance", "/app/reports", "/app/reports/rent.csv",
   ]);
   await withTenant(companyId, user.id, async (tx) => {
     for (const a of await tx.asset.findMany({ select: { id: true } })) paths.add(`/app/assets/${a.id}`);

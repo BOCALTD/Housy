@@ -2,7 +2,7 @@
 
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import { addDepartment, setMemberDepartment, updateRefPrefix } from "@/lib/services/settings";
+import { addDepartment, setMemberDepartment, updateReminderSettings, updateRefPrefix } from "@/lib/services/settings";
 
 export async function prefixAction(form: FormData) {
   return act("/app/settings", async () => {
@@ -25,5 +25,13 @@ export async function memberDepartmentAction(form: FormData) {
     const member = await requireMember("settings.manage");
     await setMemberDepartment(member, str(form, "membershipId"), optStr(form, "departmentId") ?? null);
     return withNotice("/app/settings", "Member updated.");
+  });
+}
+
+export async function reminderSettingsAction(form: FormData) {
+  return act("/app/settings", async () => {
+    const member = await requireMember("settings.manage");
+    await updateReminderSettings(member, { leadDays: str(form, "leadDays"), escalationDays: str(form, "escalationDays") });
+    return withNotice("/app/settings", "Reminder settings saved.");
   });
 }

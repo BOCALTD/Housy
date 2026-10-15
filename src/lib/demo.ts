@@ -10,6 +10,7 @@ import { createLease, getLease, recordLeasePayment, recordPayment } from "./serv
 import { reconcileReceipt, recordDepositReceived, requestAdjustment } from "./services/ledger";
 import { proposeRenewal, recordHandover, recordNotice } from "./services/lifecycle";
 import { assessPeriod, createServicePeriod, decideExpense, recordCollection, requestExpense } from "./services/service-charges";
+import { completeObligation, createObligation } from "./services/obligations";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
@@ -180,6 +181,24 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await requestExpense(officer, period.id, {
     description: "[DEMO] Lift servicing", supplier: "[DEMO] Lift Co", amount: "250,000", incurredOn: daysFromToday(-1), evidence: "DEMO-INV-0102",
   });
+
+  // Obligations: one overdue, one due soon that repeats, one needing professional review, one already done.
+  await createObligation(alpha, {
+    assetId: duplex.id, kind: "LAND_USE_CHARGE", title: `[DEMO] Land use charge ${year}`, authority: "[DEMO] Lands Bureau",
+    jurisdiction: "Lagos State", amount: "150,000", dueDate: daysFromToday(-20), notes: "Demonstration only. Enter the real assessed amount.",
+  });
+  await createObligation(alpha, {
+    assetId: plaza.id, kind: "INSURANCE", title: "[DEMO] Building insurance renewal", authority: "[DEMO] Insurer",
+    dueDate: daysFromToday(12), recurrenceMonths: "12", amount: "900,000",
+  });
+  await createObligation(alpha, {
+    kind: "WITHHOLDING_TAX", title: "[DEMO] Withholding tax remittance on rent", authority: "[DEMO] Tax authority",
+    dueDate: daysFromToday(45), requiresProfessionalReview: true, notes: "Demonstration: confirm the treatment with the tax adviser.",
+  });
+  const permit = await createObligation(alpha, {
+    assetId: shop.id, kind: "PERMIT", title: "[DEMO] Signage permit", authority: "[DEMO] Local authority", dueDate: daysFromToday(-60),
+  });
+  await completeObligation(officer, permit.id, { completedOn: daysFromToday(-65), evidence: "DEMO-PERMIT-0001" });
 
   // Approve only the demo listings, never real submissions waiting for review.
   for (const l of await reviewQueue(adminId)) {

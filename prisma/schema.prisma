@@ -59,6 +59,10 @@ model Company {
   slug        String       @unique
   // Organization prefix used in correspondence references, for example "ALP" in ALP/LEG/2026/0007.
   refPrefix   String       @default("REF") @map("ref_prefix")
+  // Reminders (Section 13.4): how many days ahead something shows as due soon, and how many days
+  // overdue before it is escalated to administrators.
+  reminderLeadDays Int     @default(30) @map("reminder_lead_days")
+  escalationDays   Int     @default(7) @map("escalation_days")
   createdAt   DateTime     @default(now()) @map("created_at")
   memberships Membership[]
   invitations Invitation[]
@@ -154,6 +158,7 @@ model Asset {
   documents           AssetDocument[]
   leases              Lease[]
   serviceCharges      ServiceChargePeriod[]
+  obligations         Obligation[]
   tasks               Task[]
   listing             Listing?
   correspondence      Correspondence[]
@@ -1027,4 +1032,69 @@ model ServiceExpense {
 
   @@index([companyId, periodId])
   @@map("service_expenses")
+}
+
+enum ObligationKind {
+  LAND_USE_CHARGE
+  TENEMENT_RATE
+  GROUND_RENT
+  CONSENT_FEE
+  STAMP_DUTY
+  WITHHOLDING_TAX
+  PERMIT
+  INSURANCE
+  OTHER
+}
+
+enum ObligationStatus {
+  OPEN
+  SATISFIED
+  CANCELLED
+}
+
+/// A tax, levy, permit, insurance or similar duty with a deadline (master prompt Section 13.2).
+/// Rates and rules are entered by the company; none are built in.
+model Obligation {
+  id            String           @id @default(uuid())
+  companyId     String           @map("company_id")
+  assetId       String?          @map("asset_id")
+  kind          ObligationKind
+  title         String
+  authority     String           @default("")
+  jurisdiction  String           @default("")
+  amountKobo    BigInt?          @map("amount_kobo")
+  dueDate       DateTime         @map("due_date") @db.Date
+  recurrenceMonths Int?          @map("recurrence_months")
+  nextReviewOn  DateTime?        @map("next_review_on") @db.Date
+  requiresProfessionalReview Boolean @default(false) @map("requires_professional_review")
+  reviewedBy    String           @default("") @map("reviewed_by")
+  reviewedOn    DateTime?        @map("reviewed_on") @db.Date
+  notes         String           @default("")
+  status        ObligationStatus @default(OPEN)
+  cancelReason  String           @default("") @map("cancel_reason")
+  rolledFromId  String?          @unique @map("rolled_from_id")
+  createdById   String           @map("created_by_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  asset         Asset?           @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  rolledFrom    Obligation?      @relation("Rollover", fields: [rolledFromId], references: [id], onDelete: Restrict)
+  rolledTo      Obligation?      @relation("Rollover")
+  filing        ObligationFiling?
+
+  @@index([companyId, status, dueDate])
+  @@map("obligations")
+}
+
+/// Evidence that an obligation was met. Append-only.
+model ObligationFiling {
+  id             String     @id @default(uuid())
+  companyId      String     @map("company_id")
+  obligationId   String     @unique @map("obligation_id")
+  completedOn    DateTime   @map("completed_on") @db.Date
+  amountPaidKobo BigInt?    @map("amount_paid_kobo")
+  evidence       String
+  recordedById   String     @map("recorded_by_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  obligation     Obligation @relation(fields: [obligationId], references: [id], onDelete: Restrict)
+
+  @@map("obligation_filings")
 }

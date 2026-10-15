@@ -4,7 +4,7 @@ import { listTeam } from "@/lib/services/companies";
 import { formatReference } from "@/lib/correspondence-rules";
 import { todayInLagos } from "@/lib/dates";
 import { Field, Flash, sp, type SP } from "@/components/ui";
-import { departmentAction, memberDepartmentAction, prefixAction } from "./actions";
+import { departmentAction, memberDepartmentAction, prefixAction, reminderSettingsAction } from "./actions";
 
 export const metadata = { title: "Company settings" };
 
@@ -28,6 +28,18 @@ export default async function SettingsPage({ searchParams }: { searchParams?: SP
               <input name="refPrefix" id="refPrefix" defaultValue={company.refPrefix} maxLength={8} aria-label="Reference prefix" className="mono"
                      style={{ width: 140, border: "1px solid var(--line)", borderRadius: 9, padding: "9px 11px", background: "var(--surface)" }} />
               <button className="btn" type="submit">Save prefix</button>
+            </form>
+          </section>
+
+          <section className="card stack">
+            <h2>Reminders</h2>
+            <p className="small muted">Deadlines show as due soon this many days ahead, and as escalated once they are overdue by the second number of days. Reminders appear in the app; no emails or messages are sent.</p>
+            <form action={reminderSettingsAction} className="stack">
+              <div className="fields">
+                <Field label="Due soon, days ahead"><input name="leadDays" inputMode="numeric" required defaultValue={company.reminderLeadDays} /></Field>
+                <Field label="Escalate after, days overdue"><input name="escalationDays" inputMode="numeric" required defaultValue={company.escalationDays} /></Field>
+              </div>
+              <button className="btn" type="submit">Save reminder settings</button>
             </form>
           </section>
 

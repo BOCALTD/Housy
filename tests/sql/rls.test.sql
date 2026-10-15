@@ -270,5 +270,29 @@ SELECT pg_temp.expect((SELECT count(*) FROM service_collections) = 0, 'B cannot 
 SELECT pg_temp.expect((SELECT count(*) FROM service_expenses) = 0, 'B cannot see A expenses');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 15. Phase 5d: obligations are isolated, filings are append-only, settings are bounded.
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO obligations (id, company_id, asset_id, kind, title, due_date, created_by_id)
+  VALUES ('ob-a', 'co-a', 'as-a', 'LAND_USE_CHARGE', 'Land use charge', '2026-03-31', 'u1');
+INSERT INTO obligation_filings (id, company_id, obligation_id, completed_on, evidence, recorded_by_id)
+  VALUES ('of-a', 'co-a', 'ob-a', '2026-03-01', 'Receipt 123', 'u1');
+DO $$ BEGIN
+  INSERT INTO obligation_filings (id, company_id, obligation_id, completed_on, evidence, recorded_by_id)
+    VALUES ('of-b', 'co-a', 'ob-a', '2026-03-02', 'Receipt 124', 'u1');
+  RAISE EXCEPTION 'FAIL: second filing was allowed';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: one filing per obligation'; END $$;
+DO $$ BEGIN
+  UPDATE obligation_filings SET evidence = 'edited' WHERE id = 'of-a';
+  RAISE EXCEPTION 'FAIL: filing was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: filings cannot be edited'; END $$;
+DO $$ BEGIN
+  UPDATE companies SET reminder_lead_days = 0 WHERE id = 'co-a';
+  RAISE EXCEPTION 'FAIL: zero lead days was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: reminder lead days are bounded'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM obligations) = 0, 'B cannot see A obligations');
+SELECT pg_temp.expect((SELECT count(*) FROM obligation_filings) = 0, 'B cannot see A filings');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

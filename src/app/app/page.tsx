@@ -3,6 +3,7 @@ import { requireMember } from "@/lib/auth";
 import { dashboard } from "@/lib/services/dashboard";
 import { correspondenceSummary } from "@/lib/services/correspondence";
 import { expiringDocuments, overdueFileCount } from "@/lib/services/files";
+import { complianceCalendar } from "@/lib/services/obligations";
 import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -13,9 +14,12 @@ export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage({ searchParams }: { searchParams?: SP }) {
   const member = await requireMember();
-  const [d, corr, filesOverdue, expiring] = await Promise.all([
-    dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60),
+  const [d, corr, filesOverdue, expiring, calendar] = await Promise.all([
+    dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60), complianceCalendar(member),
   ]);
+  const escalated = calendar.items.filter((i) => i.state === "ESCALATED").length;
+  const overdueDeadlines = calendar.items.filter((i) => i.state === "OVERDUE").length;
+  const dueSoon = calendar.items.filter((i) => i.state === "DUE_SOON").length;
   const s = (k: string) => d.statusCounts[k] ?? 0;
 
   return (
@@ -48,6 +52,15 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
         </Link>
         <Link href="/app/correspondence?view=mine" className="stat" style={{ textDecoration: "none" }}>
           <b>{corr.mine}</b><span>Letters assigned to me</span>
+        </Link>
+        <Link href="/app/compliance" className={`stat${escalated ? " alert" : ""}`} style={{ textDecoration: "none" }}>
+          <b>{escalated}</b><span>Escalated deadlines (overdue {calendar.escalationDays}+ days)</span>
+        </Link>
+        <Link href="/app/compliance" className={`stat${overdueDeadlines ? " alert" : ""}`} style={{ textDecoration: "none" }}>
+          <b>{overdueDeadlines}</b><span>Overdue deadlines</span>
+        </Link>
+        <Link href="/app/compliance" className="stat" style={{ textDecoration: "none" }}>
+          <b>{dueSoon}</b><span>Deadlines due in {calendar.leadDays} days</span>
         </Link>
         <Link href="/app/files?view=overdue" className={`stat${filesOverdue ? " alert" : ""}`} style={{ textDecoration: "none" }}>
           <b>{filesOverdue}</b><span>Files overdue for return</span>

@@ -8,7 +8,8 @@ status=$?
 if [ $status -ne 0 ]; then
   node -e '
     const s = require("fs").readFileSync("ci-output.log", "utf8").split("\n");
-    const i = s.findIndex((l) => /not ok|error|Error|failed/.test(l));
+    let i = s.findIndex((l) => /^\s*not ok/.test(l));
+    if (i < 0) i = s.findIndex((l) => /not ok|error|Error|failed/.test(l));
     const out = (i < 0 ? s.slice(-150) : s.slice(Math.max(0, i - 10), i + 150)).join("\n").slice(0, 60000);
     console.log("::error title=" + process.argv[1] + "::" + out.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A"));
   ' "$title"

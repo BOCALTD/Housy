@@ -11,7 +11,7 @@ import sys
 src = open(sys.argv[1], encoding="utf-8").read()
 src = re.sub(r"//.*", "", src)
 
-enums = {m.group(1): re.findall(r"^\s*([A-Z_]+)\s*$", m.group(2), re.M)
+enums = {m.group(1): re.findall(r"^\s*([A-Z0-9_]+)\s*$", m.group(2), re.M)
          for m in re.finditer(r"enum (\w+) \{([^}]*)\}", src)}
 models = {m.group(1): m.group(2) for m in re.finditer(r"model (\w+) \{(.*?)\n\}", src, re.S)}
 

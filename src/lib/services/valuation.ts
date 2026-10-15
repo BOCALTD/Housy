@@ -533,12 +533,12 @@ export async function getValuation(ctx: Ctx, id: string) {
   });
 }
 
-/** The latest approved or issued valuation for an asset (null if none). Shown on the asset and used by later reports. */
+/** The approved valuation that currently stands for an asset (null if none). A revision in progress does not hide it. */
 export async function latestValuationForAsset(tx: Tx, companyId: string, assetId: string) {
-  const inst = await tx.valuationInstruction.findFirst({
-    where: { companyId, assetId, status: { in: ["APPROVED", "ISSUED"] } }, orderBy: { valuationDate: "desc" },
-    include: { reports: { where: { status: "APPROVED" }, take: 1 } },
+  const report = await tx.valuationReport.findFirst({
+    where: { companyId, status: "APPROVED", instruction: { assetId } }, orderBy: { decidedAt: "desc" },
+    include: { instruction: { select: { id: true, ref: true, valuationDate: true, basis: true } } },
   });
-  if (!inst || inst.reports.length === 0) return null;
-  return { id: inst.id, ref: inst.ref, valuationDate: inst.valuationDate, basis: inst.basis, valueKobo: inst.reports[0].concludedValueKobo };
+  if (!report) return null;
+  return { id: report.instruction.id, ref: report.instruction.ref, valuationDate: report.instruction.valuationDate, basis: report.instruction.basis, valueKobo: report.concludedValueKobo };
 }

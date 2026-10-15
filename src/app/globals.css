@@ -228,3 +228,5 @@ input[type="file"] { max-width: 100%; font-size: 14px; }
 }
 input[type="file"] { width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 input[type="file"]::file-selector-button { min-height: 32px; margin-right: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); padding: 4px 12px; font: inherit; font-weight: 600; cursor: pointer; color: inherit; }
+/* Grid children may shrink below their content width, so a long select or word never pushes the page wider than the screen. */
+.stack > *, .stack-lg > *, .two > *, .fields > *, .grid > * { min-width: 0; }

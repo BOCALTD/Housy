@@ -567,6 +567,9 @@ export async function addClientActivity(ctx: Ctx, clientId: string, raw: z.input
       if (assigneeId !== ctx.membershipId) {
         if (!isManager(ctx) && c.ownerId !== ctx.membershipId) throw new Error("Only the client's owner or a manager can give a follow-up to someone else");
         await activeAgent(tx, ctx.companyId, assigneeId);
+        const who = await tx.membership.findFirstOrThrow({ where: { id: assigneeId, companyId: ctx.companyId }, select: { role: true } });
+        const sees = who.role !== "AGENT" || assigneeId === c.ownerId || (await tx.lead.count({ where: { companyId: ctx.companyId, clientId, ownerId: assigneeId } })) > 0;
+        if (!sees) throw new Error("That agent cannot see this client. Give them a lead on the client first");
       }
     } else assigneeId = null;
     const a = await tx.clientActivity.create({

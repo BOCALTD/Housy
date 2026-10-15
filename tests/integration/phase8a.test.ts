@@ -71,7 +71,8 @@ test("an agent sees only their own clients, a team lead sees the team, confident
   const outsider = await newCompany("scope-out");
   assert.equal((await listClients(outsider)).rows.length, 0);
   await assert.rejects(addTeam(e.agent1, { name: "Nope" }), /permission/i);
-  await assert.rejects(addBranch(e.manager, { name: "Main", code: "MN" }), /permission/i);
+  await assert.rejects(addBranch(e.agent1, { name: "Main", code: "MN" }), /permission/i);
+  await addBranch(e.manager, { name: "Main", code: "MN" });
   await setTeamLead(e.admin, team.id, null);
   assert.equal((await listClients(e.agent1)).rows.length, 1);
 });
@@ -162,7 +163,7 @@ test("follow-ups must be dated in the future, appear for the assignee, and compl
   const c = await createClient(e.agent1, person("Bola Tinubu-Smith", { phone: "08090001111" }));
   await assert.rejects(addClientActivity(e.agent1, c.id, { kind: "FOLLOW_UP", subject: "Call back" }), /due/i);
   await assert.rejects(addClientActivity(e.agent1, c.id, { kind: "FOLLOW_UP", subject: "Call back", dueOn: relativeDate(-1) }), /past/i);
-  await assert.rejects(addClientActivity(e.agent1, c.id, { kind: "FOLLOW_UP", subject: "Call back", dueOn: relativeDate(1), assigneeId: e.agent2.membershipId }), /owner or a manager/);
+  await assert.rejects(addClientActivity(e.agent1, c.id, { kind: "FOLLOW_UP", subject: "Call back", dueOn: relativeDate(1), assigneeId: e.agent2.membershipId }), /cannot see this client/);
   const f = await addClientActivity(e.agent1, c.id, { kind: "FOLLOW_UP", subject: "Call back", dueOn: relativeDate(2) });
   assert.equal((await myFollowUps(e.agent1, 7)).length, 1);
   assert.equal((await myFollowUps(e.agent1, 1)).length, 0);

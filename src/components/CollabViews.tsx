@@ -6,7 +6,7 @@ import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import type { getWorkspace, listCollaborations, ListedCollab } from "@/lib/services/collab";
 import {
-  addCommentAction, addParticipantAction, addTaskAction, cancelAction, createInvitationAction, endAction, refreshItemAction, respondAction, resumeAction, revokeItemAction, revokeParticipantAction,
+  commentAction, addParticipantAction, addTaskAction, cancelAction, createInvitationAction, endAction, refreshItemAction, respondAction, resumeAction, revokeItemAction, revokeParticipantAction,
   sendAction, shareDealAction, shareDocumentAction, shareNoteAction, sharePropertyAction, suspendAction, taskStatusAction, updateParticipantAction,
 } from "@/app/collaborations/actions";
 
@@ -213,7 +213,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
             {w.comments.length === 0 ? <p className="muted">No comments yet.</p> : (
               <ShowMore noun="more comments" limit={5} items={w.comments.map((m) => <li key={m.id}><div><strong>{m.authorName}</strong> <span className="small muted">{dt(m.createdAt)}</span><div>{m.body}</div></div></li>)} />
             )}
-            {w.canWrite && w.can.comment ? <form action={addCommentAction} className="row">{id}<input name="body" required placeholder="Write a comment" aria-label="Comment" style={{ flex: 1 }} /><button className="btn" type="submit">Send</button></form> : null}
+            {w.canWrite && w.can.comment ? <form action={commentAction} className="row">{id}<input name="body" required placeholder="Write a comment" aria-label="Comment" style={{ flex: 1 }} /><button className="btn" type="submit">Send</button></form> : null}
           </section>
         </>
       ) : null}

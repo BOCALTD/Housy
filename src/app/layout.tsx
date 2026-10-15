@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
+import { unreadCount } from "@/lib/services/notifications";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { logoutAction } from "./auth-actions";
 
@@ -22,6 +23,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
+  const unread = session ? await unreadCount(session.user.id).catch(() => 0) : 0;
   return (
     <html lang="en-NG">
       <head>
@@ -43,9 +45,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </Link>
             <nav className="nav" aria-label="Main">
               <Link href="/">Find property</Link>
+              <Link href="/directory">Agents and companies</Link>
               {session ? (
                 <>
-                  <Link href="/app">Workspace</Link>
+                  {session.companyId ? <Link href="/app">Workspace</Link> : null}
+                  <Link href="/me">My account{unread > 0 ? ` (${unread})` : ""}</Link>
                   {session.user.isPlatformAdmin ? <Link href="/admin">Platform admin</Link> : null}
                   <form action={logoutAction}>
                     <button className="btn ghost small" type="submit">Sign out</button>
@@ -54,6 +58,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               ) : (
                 <>
                   <Link href="/login">Sign in</Link>
+                  <Link href="/join">Create an account</Link>
                   <Link href="/signup" className="btn primary small">Register a company</Link>
                 </>
               )}

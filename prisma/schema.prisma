@@ -2990,3 +2990,194 @@ model CommissionSplit {
   @@index([companyId, membershipId])
   @@map("commission_splits")
 }
+
+// ---------- Phase 9: subscriptions, following, profiles and notifications ----------
+
+enum PlanAudience {
+  SEEKER
+  AGENT
+  COMPANY
+}
+
+enum BillingPeriod {
+  NONE
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum SubscriptionOwner {
+  USER
+  COMPANY
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  CANCELLED
+}
+
+enum SubscriptionEventKind {
+  ASSIGNED
+  RENEWED
+  PLAN_CHANGED
+  CANCELLED
+}
+
+enum FollowTarget {
+  AGENT
+  COMPANY
+  DEVELOPER
+}
+
+enum ProfileKind {
+  COMPANY
+  DEVELOPER
+}
+
+/// A plan the platform administrator controls: name, price, billing period, trial, expiry policy and entitlements.
+model SubscriptionPlan {
+  id            String             @id @default(uuid())
+  code          String             @unique
+  name          String
+  audience      PlanAudience
+  priceKobo     BigInt?            @map("price_kobo")
+  billingPeriod BillingPeriod      @default(NONE) @map("billing_period")
+  trialDays     Int                @default(0) @map("trial_days")
+  graceDays     Int                @default(7) @map("grace_days")
+  readOnlyDays  Int                @default(30) @map("read_only_days")
+  active        Boolean            @default(true)
+  sortOrder     Int                @default(0) @map("sort_order")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  entitlements  PlanEntitlement[]
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+/// One feature a plan allows. `limit` is a count where the feature is counted; null means no count applies.
+model PlanEntitlement {
+  id     String           @id @default(uuid())
+  planId String           @map("plan_id")
+  key    String
+  limit  Int?
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+  @@map("plan_entitlements")
+}
+
+/// What a person or a company holds now. Exactly one of the two owners is set. Payment is recorded by the platform administrator
+/// until the payments module exists; the period end drives the grace, read-only and suspended states.
+model Subscription {
+  id             String             @id @default(uuid())
+  ownerKind      SubscriptionOwner  @map("owner_kind")
+  ownerUserId    String?            @unique @map("owner_user_id")
+  ownerCompanyId String?            @unique @map("owner_company_id")
+  planId         String             @map("plan_id")
+  status         SubscriptionStatus @default(ACTIVE)
+  startedAt      DateTime           @default(now()) @map("started_at")
+  periodEnd      DateTime           @map("period_end")
+  cancelledAt    DateTime?          @map("cancelled_at")
+  createdById    String             @map("created_by_id")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  plan           SubscriptionPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  events         SubscriptionEvent[]
+
+  @@map("subscriptions")
+}
+
+/// The billing history of one subscription. Append-only.
+model SubscriptionEvent {
+  id             String                @id @default(uuid())
+  subscriptionId String                @map("subscription_id")
+  kind           SubscriptionEventKind
+  fromPlanId     String?               @map("from_plan_id")
+  toPlanId       String                @map("to_plan_id")
+  periodEnd      DateTime              @map("period_end")
+  note           String                @default("")
+  actorId        String                @map("actor_id")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  subscription   Subscription          @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@map("subscription_events")
+}
+
+/// Platform-wide settings the administrator controls (messaging limits, contact policy, invitation expiry).
+model PlatformSetting {
+  key         String   @id
+  value       String
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedById String?  @map("updated_by_id")
+
+  @@map("platform_settings")
+}
+
+/// A person following an agent (target is the agent's user), a company or a developer (target is the company). Following grants no access to anything.
+model Follow {
+  id         String       @id @default(uuid())
+  followerId String       @map("follower_id")
+  targetKind FollowTarget @map("target_kind")
+  targetId   String       @map("target_id")
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  @@unique([followerId, targetKind, targetId])
+  @@index([targetKind, targetId])
+  @@map("follows")
+}
+
+/// What an agent chooses to show the public. Nothing is listed until the agent ticks "listed".
+model AgentProfile {
+  id              String   @id @default(uuid())
+  membershipId    String   @unique @map("membership_id")
+  userId          String   @map("user_id")
+  companyId       String   @map("company_id")
+  displayName     String   @map("display_name")
+  companyName     String   @default("") @map("company_name")
+  headline        String   @default("")
+  bio             String   @default("")
+  listed          Boolean  @default(false)
+  acceptsMessages Boolean  @default(true) @map("accepts_messages")
+  followerCount   Int      @default(0) @map("follower_count")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([listed])
+  @@map("agent_profiles")
+}
+
+/// What a company chooses to show the public, as a company or as a developer.
+model CompanyProfile {
+  id            String      @id @default(uuid())
+  companyId     String      @unique @map("company_id")
+  kind          ProfileKind @default(COMPANY)
+  displayName   String      @map("display_name")
+  tagline       String      @default("")
+  about         String      @default("")
+  listed        Boolean     @default(false)
+  followerCount Int         @default(0) @map("follower_count")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([listed, kind])
+  @@map("company_profiles")
+}
+
+/// An in-app notice for one person. Nothing is emailed or sent to a phone.
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  kind      String
+  title     String
+  body      String    @default("")
+  link      String    @default("")
+  createdAt DateTime  @default(now()) @map("created_at")
+  readAt    DateTime? @map("read_at")
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}

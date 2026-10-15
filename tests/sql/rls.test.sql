@@ -748,5 +748,104 @@ SELECT pg_temp.expect((SELECT count(*) FROM deal_commissions) = 0, 'B cannot see
 SELECT pg_temp.expect((SELECT count(*) FROM commission_splits) = 0, 'B cannot see A commission splits');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 26. Phase 9a: plans, subscriptions, following, public profiles and notices are protected in the database.
+SELECT set_config('app.user_id', 'u1', true);
+SELECT pg_temp.expect((SELECT count(*) FROM subscription_plans) >= 6, 'a signed-in person reads the starting plans');
+SELECT pg_temp.expect((SELECT count(*) FROM plan_entitlements WHERE key = 'COLLAB_SEEKER_AGENT') >= 1, 'the starting plans carry their features');
+DO $$ BEGIN
+  INSERT INTO subscription_plans (id, code, name, audience, updated_at) VALUES ('pl-x', 'sneaky', 'Sneaky', 'SEEKER', now());
+  RAISE EXCEPTION 'FAIL: a non-administrator created a plan';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the platform administrator creates plans'; END $$;
+SELECT set_config('app.platform_admin', 'on', true);
+DO $$ BEGIN
+  INSERT INTO subscription_plans (id, code, name, audience, grace_days, updated_at) VALUES ('pl-bad', 'bad-plan', 'Bad', 'SEEKER', -1, now());
+  RAISE EXCEPTION 'FAIL: negative grace days were allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: grace days cannot be negative'; END $$;
+DO $$ BEGIN
+  INSERT INTO subscription_plans (id, code, name, audience, updated_at) VALUES ('pl-bad', 'BAD CODE', 'Bad', 'SEEKER', now());
+  RAISE EXCEPTION 'FAIL: a malformed plan code was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: plan codes are tidy'; END $$;
+INSERT INTO subscription_plans (id, code, name, audience, updated_at) VALUES ('pl-t', 'test-plan', 'Test plan', 'SEEKER', now());
+DO $$ BEGIN
+  INSERT INTO subscriptions (id, owner_kind, owner_user_id, owner_company_id, plan_id, period_end, created_by_id, updated_at) VALUES ('sb-bad', 'USER', 'u1', 'co-a', 'pl-t', now() + interval '30 days', 'adm', now());
+  RAISE EXCEPTION 'FAIL: a subscription with two owners was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a subscription has exactly one owner'; END $$;
+DO $$ BEGIN
+  INSERT INTO subscriptions (id, owner_kind, owner_user_id, plan_id, started_at, period_end, created_by_id, updated_at) VALUES ('sb-bad', 'USER', 'u1', 'pl-t', now(), now() - interval '1 day', 'adm', now());
+  RAISE EXCEPTION 'FAIL: a subscription ending before it started was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a subscription period is forward'; END $$;
+INSERT INTO subscriptions (id, owner_kind, owner_user_id, plan_id, period_end, created_by_id, updated_at) VALUES ('sb-u1', 'USER', 'u1', 'pl-t', now() + interval '30 days', 'adm', now());
+INSERT INTO subscriptions (id, owner_kind, owner_company_id, plan_id, period_end, created_by_id, updated_at) VALUES ('sb-ca', 'COMPANY', 'co-a', 'pl-t', now() + interval '30 days', 'adm', now());
+DO $$ BEGIN
+  UPDATE subscriptions SET status = 'CANCELLED' WHERE id = 'sb-u1';
+  RAISE EXCEPTION 'FAIL: a cancelled subscription without a date was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a cancellation is dated'; END $$;
+SELECT set_config('app.platform_admin', '', true);
+SELECT pg_temp.expect((SELECT count(*) FROM subscriptions) = 2, 'the owner of a person plan and a company plan sees them from the right context');
+SELECT set_config('app.user_id', 'u2', true);
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM subscriptions) = 0, 'another person and company cannot see them');
+DO $$ BEGIN
+  UPDATE subscriptions SET period_end = now() + interval '900 days';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: a non-administrator changed a subscription'; END IF;
+  RAISE NOTICE 'ok: nobody but the administrator changes subscriptions';
+END $$;
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', 'co-a', true);
+DO $$ BEGIN
+  UPDATE subscriptions SET period_end = now() + interval '900 days' WHERE id = 'sb-u1';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: an owner changed their own subscription'; END IF;
+  RAISE NOTICE 'ok: owners cannot extend their own subscription';
+END $$;
+
+-- Following belongs to the follower; the count is kept without exposing who follows.
+SELECT set_config('app.user_id', 'u9', true);
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO agent_profiles (id, membership_id, user_id, company_id, display_name, listed, updated_at) VALUES ('ap-9', 'm9', 'u9', 'co-a', 'Agent Nine', true, now());
+INSERT INTO agent_profiles (id, membership_id, user_id, company_id, display_name, listed, updated_at) VALUES ('ap-8', 'm8', 'u9', 'co-a', 'Hidden Agent', false, now());
+DO $$ BEGIN
+  INSERT INTO agent_profiles (id, membership_id, user_id, company_id, display_name, updated_at) VALUES ('ap-x', 'm7', 'u1', 'co-a', 'Someone else', now());
+  RAISE EXCEPTION 'FAIL: a profile was written for another person';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a profile can only be written by its owner'; END $$;
+INSERT INTO company_profiles (id, company_id, display_name, listed, updated_at) VALUES ('cp-a', 'co-a', 'Alpha Estates', true, now());
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', '', true);
+SELECT pg_temp.expect((SELECT count(*) FROM agent_profiles) = 1, 'the public sees only listed agent profiles');
+SELECT pg_temp.expect((SELECT count(*) FROM company_profiles) = 1, 'the public sees listed company profiles');
+DO $$ BEGIN
+  INSERT INTO follows (id, follower_id, target_kind, target_id) VALUES ('fw-self', 'u1', 'AGENT', 'u1');
+  RAISE EXCEPTION 'FAIL: a person followed themselves';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: nobody follows themselves'; END $$;
+DO $$ BEGIN
+  INSERT INTO follows (id, follower_id, target_kind, target_id) VALUES ('fw-x', 'u2', 'AGENT', 'u9');
+  RAISE EXCEPTION 'FAIL: a follow was recorded for someone else';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a follow is recorded only by the follower'; END $$;
+INSERT INTO follows (id, follower_id, target_kind, target_id) VALUES ('fw-1', 'u1', 'AGENT', 'u9');
+INSERT INTO follows (id, follower_id, target_kind, target_id) VALUES ('fw-2', 'u1', 'COMPANY', 'co-a');
+DO $$ BEGIN
+  INSERT INTO follows (id, follower_id, target_kind, target_id) VALUES ('fw-dup', 'u1', 'AGENT', 'u9');
+  RAISE EXCEPTION 'FAIL: the same follow was recorded twice';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: a follow is recorded once'; END $$;
+SELECT pg_temp.expect((SELECT follower_count FROM agent_profiles WHERE id = 'ap-9') = 1, 'the agent follower count follows the follows table');
+SELECT pg_temp.expect((SELECT follower_count FROM company_profiles WHERE id = 'cp-a') = 1, 'the company follower count follows the follows table');
+SELECT set_config('app.user_id', 'u2', true);
+SELECT pg_temp.expect((SELECT count(*) FROM follows) = 0, 'nobody can read another person''s follows');
+SELECT set_config('app.user_id', 'u1', true);
+DELETE FROM follows WHERE id = 'fw-1';
+SELECT pg_temp.expect((SELECT follower_count FROM agent_profiles WHERE id = 'ap-9') = 0, 'unfollowing lowers the count');
+
+-- Notices: anyone signed in leaves one; only its owner reads it.
+INSERT INTO notifications (id, user_id, kind, title) VALUES ('nt-1', 'u2', 'test', 'For u2');
+SELECT pg_temp.expect((SELECT count(*) FROM notifications) = 0, 'the sender cannot read the notice they left');
+SELECT set_config('app.user_id', 'u2', true);
+SELECT pg_temp.expect((SELECT count(*) FROM notifications) = 1, 'the recipient reads their notice');
+SELECT set_config('app.user_id', '', true);
+DO $$ BEGIN
+  INSERT INTO notifications (id, user_id, kind, title) VALUES ('nt-2', 'u2', 'test', 'Anonymous');
+  RAISE EXCEPTION 'FAIL: a signed-out visitor left a notice';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only signed-in people leave notices'; END $$;
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

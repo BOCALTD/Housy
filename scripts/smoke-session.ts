@@ -1,6 +1,6 @@
 /**
  * Used by scripts/smoke.sh. Signs in as the demo Company Super Admin and the demo Officer by creating
- * session rows. Prints the administrator's token, then the officer's token, then every signed-in page
+ * session rows. Prints the administrator's token, the officer's, a seeker's (no company) and the platform administrator's, then every signed-in page
  * worth opening (one path per line). The smoke test opens each with those cookies and fails on any
  * error page. Add new pages here as modules are built, so CI renders them against real data.
  */
@@ -22,7 +22,15 @@ async function main() {
     data: { userId: officer.id, companyId, tokenHash: hashToken(officerToken), expiresAt: new Date(Date.now() + 3600_000) },
   });
 
+  const seeker = await prisma.user.findUniqueOrThrow({ where: { email: "demo.seeker@example.test" } });
+  const seekerToken = newToken();
+  await prisma.session.create({ data: { userId: seeker.id, companyId: null, tokenHash: hashToken(seekerToken), expiresAt: new Date(Date.now() + 3600_000) } });
+  const platform = await prisma.user.findFirstOrThrow({ where: { isPlatformAdmin: true } });
+  const platformToken = newToken();
+  await prisma.session.create({ data: { userId: platform.id, companyId: null, tokenHash: hashToken(platformToken), expiresAt: new Date(Date.now() + 3600_000) } });
+
   const paths = new Set<string>([
+    "/me", "/me/following", "/me/notifications", "/me/plan", "/directory", "/directory?kind=companies", "/directory?kind=developers", "/app/profile", "/admin/plans",
     "/app", "/app/assets", "/app/assets/new", "/app/correspondence", "/app/correspondence/new",
     "/app/files", "/app/settings", "/app/team", "/app/service-charges", "/app/compliance", "/app/inspections", "/app/inspections/templates", "/app/maintenance", "/app/maintenance/contractors", "/app/maintenance/schedules", "/app/inventory", "/app/inventory/counts", "/app/valuations", "/app/projects", "/app/crm", "/app/crm/clients", "/app/crm/leads", "/app/crm/setup", "/app/deals", "/app/sales", "/app/sales/reports", "/app/commissions", "/app/reports", "/app/reports/rent.csv",
   ]);
@@ -45,6 +53,8 @@ async function main() {
 
   console.log(token);
   console.log(officerToken);
+  console.log(seekerToken);
+  console.log(platformToken);
   for (const p of paths) console.log(p);
 }
 

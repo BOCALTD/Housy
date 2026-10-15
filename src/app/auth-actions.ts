@@ -6,6 +6,7 @@ import { createSession, destroySession, getSession, setActiveCompany, verifyPass
 import { act, str } from "@/lib/forms";
 import { rateLimit } from "@/lib/ratelimit";
 import { acceptInvitation, myCompanies, registerCompany } from "@/lib/services/companies";
+import { registerSeeker } from "@/lib/services/community";
 
 function clientIp() {
   return headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
@@ -20,6 +21,15 @@ export async function signupAction(form: FormData) {
     });
     await createSession(userId, companyId);
     return "/app?notice=" + encodeURIComponent("Your company workspace is ready.");
+  });
+}
+
+export async function joinAction(form: FormData) {
+  return act("/join", async () => {
+    if (!(await rateLimit(`signup:${clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
+    const { userId } = await registerSeeker({ name: str(form, "name"), email: str(form, "email"), password: str(form, "password") });
+    await createSession(userId, null);
+    return "/me?notice=" + encodeURIComponent("Your account is ready.");
   });
 }
 
@@ -38,7 +48,8 @@ export async function loginAction(form: FormData) {
     await createSession(user.id, companies[0]?.companyId ?? null);
     const next = str(form, "next");
     if (next.startsWith("/") && !next.startsWith("//")) return next;
-    return user.isPlatformAdmin && companies.length === 0 ? "/admin" : "/app";
+    if (companies.length === 0) return user.isPlatformAdmin ? "/admin" : "/me";
+    return "/app";
   });
 }
 

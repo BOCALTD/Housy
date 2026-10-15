@@ -122,7 +122,10 @@ async function main() {
   const sessionOut = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
   const lines = sessionOut.trim().split("\n");
   const token = lines[0];
-  const all = lines.slice(2).filter((p) => !p.endsWith(".csv"));
+  const seekerToken = lines[2];
+  const platformToken = lines[3];
+  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/directory") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
+  const all = lines.slice(4).filter((p) => !p.endsWith(".csv"));
   const seen = new Set<string>();
   const signedIn: string[] = [];
   for (const p of all) {
@@ -133,7 +136,7 @@ async function main() {
   }
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
-  const publicPages = ["/", "/login", "/signup", ...(prop ? [`/${prop}`] : [])];
+  const publicPages = ["/", "/login", "/signup", "/join", ...(prop ? [`/${prop}`] : [])];
   const pages = [...publicPages.map((p) => ({ p, auth: false })), ...signedIn.map((p) => ({ p, auth: true }))];
   mkdirSync(`${OUT}/screens`, { recursive: true });
 
@@ -147,7 +150,14 @@ async function main() {
     await context.addCookies([{ name: "sid", value: token, domain: "localhost", path: "/" }]);
     const touch = !!d.hasTouch;
     let pageCount = 0;
+    let signedInAs = token;
     for (const { p, auth } of pages) {
+      const wanted = auth ? tokenFor(p) : token;
+      if (wanted !== signedInAs) {
+        await context.clearCookies();
+        await context.addCookies([{ name: "sid", value: wanted, domain: "localhost", path: "/" }]);
+        signedInAs = wanted;
+      }
       const page = await context.newPage();
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
@@ -156,7 +166,7 @@ async function main() {
       try {
         const res = await page.goto(`${BASE}${p}`, { waitUntil: "networkidle", timeout: 30000 });
         if (!res || res.status() >= 400) add("http", `status ${res?.status()}`);
-        if (!auth || p.startsWith("/app")) {
+        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/admin")) {
           const r = await inspect(page, touch);
           if (!/width=device-width/.test(r.viewport)) add("viewport", `viewport meta is "${r.viewport}"`);
           if (r.overflow > 1) add("sideways-scroll", `page is ${r.overflow}px wider than the screen`, r.wide);

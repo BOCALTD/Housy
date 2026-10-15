@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { reviewQueue } from "@/lib/services/listings";
@@ -29,6 +30,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: SP })
       <div className="stack" style={{ gap: 4 }}>
         <p className="eyebrow">Platform Super Super Admin</p>
         <h1>Platform administration</h1>
+        <p className="small"><Link href="/admin/plans">Plans, subscriptions and messaging limits</Link></p>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 

@@ -43,6 +43,8 @@ import { addCommissionRule, proposeCommission } from "./services/commission";
 import { addDealTask, recordDealPayment } from "./services/deal-file";
 import { completeDeal, counterOffer, createDeal, decideAcceptance, moveStage, recordOffer, requestAcceptance, scheduleViewing } from "./services/deal";
 import { addClientActivity, addRequirement, createClient, createLead, setLeadStatus } from "./services/crm";
+import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./services/community";
+import { assignSubscription } from "./services/subscriptions";
 
 export const DEMO_PASSWORD = "demo-password-123";
 export const DEMO_USERS = [
@@ -50,6 +52,7 @@ export const DEMO_USERS = [
   { email: "demo.manager@example.test", role: "Manager, [DEMO] Alpha Estates" },
   { email: "demo.officer@example.test", role: "Officer, [DEMO] Alpha Estates" },
   { email: "demo.beta@example.test", role: "Company Super Admin, [DEMO] Beta Property Managers" },
+  { email: "demo.seeker@example.test", role: "Property seeker (no company)" },
 ];
 
 /**
@@ -441,6 +444,20 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await proposeCommission(alpha, soldDeal.id, { ruleId: demoRule.id, splits: [{ membershipId: alpha.membershipId, role: "SELLING_AGENT", share: "100" }] });
   const tenant = await createClient(manager, { name: "[DEMO] Amina Bello", phone: "0802 555 0102", city: "Abuja", confidential: true });
   await createLead(manager, tenant.id, { title: "[DEMO] Two-bedroom flat to rent in Abuja", budgetMax: "4,000,000" });
+
+  // Public profiles, a seeker with a plan who follows them, so the directory and account pages have something real to show.
+  await saveAgentProfile(alpha, { displayName: "[DEMO] Ada Demo", headline: "[DEMO] Lekki and Ikoyi sales", bio: "Demonstration profile.", listed: true, acceptsMessages: true });
+  await saveCompanyProfile(alpha, { kind: "COMPANY", displayName: "[DEMO] Alpha Estates", tagline: "[DEMO] Sales and property management", about: "Demonstration profile.", listed: true });
+  await saveCompanyProfile(beta, { kind: "DEVELOPER", displayName: "[DEMO] Beta Developments", tagline: "[DEMO] Residential estates", about: "Demonstration profile.", listed: true });
+  const seeker = await registerSeeker({ name: "[DEMO] Seyi Seeker", email: "demo.seeker@example.test", password: DEMO_PASSWORD });
+  const premium = await prisma.subscriptionPlan.findUniqueOrThrow({ where: { code: "premium-seeker" } });
+  const inAYear = toDateOnlyString(new Date(Date.now() + 365 * 864e5));
+  await assignSubscription(adminId, { planId: premium.id, periodEnd: inAYear, email: "demo.seeker@example.test", note: "[DEMO] Demonstration subscription" });
+  const proCompany = await prisma.subscriptionPlan.findUniqueOrThrow({ where: { code: "company-professional" } });
+  await assignSubscription(adminId, { planId: proCompany.id, periodEnd: inAYear, companyId: alpha.companyId, note: "[DEMO] Demonstration subscription" });
+  await assignSubscription(adminId, { planId: proCompany.id, periodEnd: inAYear, companyId: beta.companyId, note: "[DEMO] Demonstration subscription" });
+  await follow(seeker.userId, "AGENT", alpha.userId);
+  await follow(seeker.userId, "DEVELOPER", beta.companyId);
 
   return true;
 }

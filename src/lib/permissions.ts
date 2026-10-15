@@ -60,7 +60,13 @@ export type Action =
   | "correspondence.assign"
   | "correspondence.approve"
   | "correspondence.confidential"
-  | "file.manage";
+  | "file.manage"
+  | "crm.view"
+  | "crm.manage"
+  | "crm.assign"
+  | "crm.merge"
+  | "crm.configure"
+  | "crm.approve";
 
 const MATRIX: Record<Action, Role[]> = {
   "asset.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER", "VIEWER"],
@@ -126,6 +132,13 @@ const MATRIX: Record<Action, Role[]> = {
   "correspondence.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "correspondence.confidential": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "file.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  // CRM (master prompt Phase 8). Agents see their own clients, leads and deals (and a team lead sees the team's); managers see all.
+  "crm.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],
+  "crm.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],
+  "crm.assign": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "crm.merge": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "crm.configure": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "crm.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
 };
 
 export function can(role: Role, action: Action): boolean {

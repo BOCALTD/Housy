@@ -78,7 +78,11 @@ model Membership {
   role      MemberRole   @default(VIEWER)
   status    MemberStatus @default(ACTIVE)
   departmentId String?   @map("department_id")
+  branchId  String?      @map("branch_id")
+  teamId    String?      @map("team_id")
   createdAt DateTime     @default(now()) @map("created_at")
+  branch    Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  team      Team?        @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
   company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
@@ -2403,4 +2407,242 @@ model HandoverItem {
 
   @@index([companyId, projectId, sortOrder])
   @@map("handover_items")
+}
+
+// ---------- CRM (Phase 8) ----------
+
+enum ClientKind {
+  INDIVIDUAL
+  ORGANISATION
+}
+
+enum SalesLeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+}
+
+enum ActivityKind {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  WHATSAPP
+  FOLLOW_UP
+}
+
+enum Timeline {
+  UNKNOWN
+  IMMEDIATE
+  WITHIN_3_MONTHS
+  WITHIN_6_MONTHS
+  LATER
+}
+
+enum Financing {
+  UNKNOWN
+  CASH
+  MORTGAGE_APPROVED
+  MORTGAGE_PENDING
+}
+
+enum MatchStatus {
+  SUGGESTED
+  SENT
+  INTERESTED
+  REJECTED
+}
+
+/// A branch office of the company.
+model Branch {
+  id        String       @id @default(uuid())
+  companyId String       @map("company_id")
+  name      String
+  code      String
+  createdAt DateTime     @default(now()) @map("created_at")
+  members   Membership[]
+  teams     Team[]
+
+  @@unique([companyId, code])
+  @@map("branches")
+}
+
+/// A sales team inside a branch. A team lead can see the work of their team.
+model Team {
+  id        String       @id @default(uuid())
+  companyId String       @map("company_id")
+  branchId  String?      @map("branch_id")
+  name      String
+  leadId    String?      @map("lead_id")
+  createdAt DateTime     @default(now()) @map("created_at")
+  branch    Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  members   Membership[] @relation("TeamMembers")
+
+  @@unique([companyId, name])
+  @@map("teams")
+}
+
+/// A person or organisation the company deals with. Contact details are kept in a normal form so duplicates can be found.
+model Client {
+  id               String       @id @default(uuid())
+  companyId        String       @map("company_id")
+  ref              String
+  kind             ClientKind   @default(INDIVIDUAL)
+  name             String
+  email            String       @default("")
+  emailNorm        String       @default("") @map("email_norm")
+  phone            String       @default("")
+  phoneNorm        String       @default("") @map("phone_norm")
+  address          String       @default("")
+  city             String       @default("")
+  notes            String       @default("")
+  ownerId          String       @map("owner_id")
+  confidential     Boolean      @default(false)
+  marketingConsent Boolean      @default(false) @map("marketing_consent")
+  archivedAt       DateTime?    @map("archived_at")
+  mergedIntoId     String?      @map("merged_into_id")
+  createdById      String       @map("created_by_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  leads            Lead[]
+  activities       ClientActivity[]
+  requirements     PropertyRequirement[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, ownerId])
+  @@index([companyId, emailNorm])
+  @@index([companyId, phoneNorm])
+  @@map("clients")
+}
+
+/// Two client records a person has looked at and decided are not the same.
+model ClientNotDuplicate {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  clientAId   String   @map("client_a_id")
+  clientBId   String   @map("client_b_id")
+  decidedById String   @map("decided_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([companyId, clientAId, clientBId])
+  @@map("client_not_duplicates")
+}
+
+model LeadSource {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  leads     Lead[]
+
+  @@unique([companyId, name])
+  @@map("lead_sources")
+}
+
+model Lead {
+  id               String     @id @default(uuid())
+  companyId        String     @map("company_id")
+  ref              String
+  clientId         String     @map("client_id")
+  sourceId         String?    @map("source_id")
+  sourceEnquiryId  String?    @unique @map("source_enquiry_id")
+  listingId        String?    @map("listing_id")
+  title            String
+  status           SalesLeadStatus @default(NEW)
+  ownerId          String     @map("owner_id")
+  assignedById     String?    @map("assigned_by_id")
+  assignedAt       DateTime?  @map("assigned_at")
+  budgetMaxKobo    BigInt?    @map("budget_max_kobo")
+  timeline         Timeline   @default(UNKNOWN)
+  financing        Financing  @default(UNKNOWN)
+  decisionMaker    Boolean    @default(false) @map("decision_maker")
+  score            Int        @default(0)
+  qualifiedById    String?    @map("qualified_by_id")
+  qualifiedAt      DateTime?  @map("qualified_at")
+  lostReason       String     @default("") @map("lost_reason")
+  convertedAt      DateTime?  @map("converted_at")
+  createdById      String     @map("created_by_id")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  client           Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  source           LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  activities       ClientActivity[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, status])
+  @@index([companyId, ownerId])
+  @@index([companyId, clientId])
+  @@map("leads")
+}
+
+/// A note, call, meeting, message or follow-up on a client. Follow-ups have a due date and are ticked off when done.
+model ClientActivity {
+  id          String       @id @default(uuid())
+  companyId   String       @map("company_id")
+  clientId    String       @map("client_id")
+  leadId      String?      @map("lead_id")
+  kind        ActivityKind
+  subject     String
+  body        String       @default("")
+  occurredAt  DateTime     @default(now()) @map("occurred_at")
+  dueOn       DateTime?    @map("due_on") @db.Date
+  assigneeId  String?      @map("assignee_id")
+  doneAt      DateTime?    @map("done_at")
+  doneById    String?      @map("done_by_id")
+  system      Boolean      @default(false)
+  createdById String       @map("created_by_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, clientId, occurredAt])
+  @@index([companyId, kind, dueOn])
+  @@map("client_activities")
+}
+
+/// What a client is looking for. Published listings are matched against it.
+model PropertyRequirement {
+  id           String         @id @default(uuid())
+  companyId    String         @map("company_id")
+  clientId     String         @map("client_id")
+  leadId       String?        @map("lead_id")
+  purpose      ListingPurpose
+  assetClass   String         @default("") @map("asset_class")
+  city         String         @default("")
+  state        String         @default("")
+  bedroomsMin  Int?           @map("bedrooms_min")
+  budgetMinKobo BigInt?       @map("budget_min_kobo")
+  budgetMaxKobo BigInt        @map("budget_max_kobo")
+  notes        String         @default("")
+  active       Boolean        @default(true)
+  createdById  String         @map("created_by_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  client       Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  matches      RequirementMatch[]
+
+  @@index([companyId, clientId])
+  @@index([companyId, active, purpose])
+  @@map("property_requirements")
+}
+
+/// Where a suggested listing stands for a requirement: suggested, sent to the client, or the client's response.
+model RequirementMatch {
+  id            String              @id @default(uuid())
+  companyId     String              @map("company_id")
+  requirementId String              @map("requirement_id")
+  listingId     String              @map("listing_id")
+  status        MatchStatus         @default(SUGGESTED)
+  note          String              @default("")
+  updatedById   String              @map("updated_by_id")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  requirement   PropertyRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([requirementId, listingId])
+  @@index([companyId, listingId])
+  @@map("requirement_matches")
 }

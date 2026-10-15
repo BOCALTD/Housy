@@ -620,5 +620,37 @@ SELECT pg_temp.expect((SELECT count(*) FROM project_documents) = 0, 'B cannot se
 SELECT pg_temp.expect((SELECT count(*) FROM handover_items) = 0, 'B cannot see A handover items');
 SELECT set_config('app.company_id', 'co-a', true);
 
+-- 23. Phase 8a: CRM records are isolated, and lead and activity rules hold in the database.
+INSERT INTO clients (id, company_id, ref, name, owner_id, created_by_id, updated_at) VALUES ('cl-a', 'co-a', 'CLT-2026-0001', 'Ada Obi', 'u1', 'u1', now());
+DO $$ BEGIN
+  INSERT INTO clients (id, company_id, ref, name, owner_id, created_by_id, updated_at) VALUES ('cl-bad', 'co-a', 'CLT-2026-0002', ' ', 'u1', 'u1', now());
+  RAISE EXCEPTION 'FAIL: a blank client name was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a client has a name'; END $$;
+INSERT INTO leads (id, company_id, ref, client_id, title, owner_id, created_by_id, updated_at) VALUES ('ld-a', 'co-a', 'LD-2026-0001', 'cl-a', 'Wants a flat', 'u1', 'u1', now());
+DO $$ BEGIN
+  UPDATE leads SET status = 'QUALIFIED' WHERE id = 'ld-a';
+  RAISE EXCEPTION 'FAIL: a qualified lead without a budget was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: qualified leads have a budget, timeline and qualifier'; END $$;
+DO $$ BEGIN
+  UPDATE leads SET status = 'LOST' WHERE id = 'ld-a';
+  RAISE EXCEPTION 'FAIL: a lost lead without a reason was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a lost lead has a reason'; END $$;
+DO $$ BEGIN
+  INSERT INTO client_activities (id, company_id, client_id, kind, subject, created_by_id) VALUES ('ca-bad', 'co-a', 'cl-a', 'FOLLOW_UP', 'Call back', 'u1');
+  RAISE EXCEPTION 'FAIL: a follow-up without a due date was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: follow-ups have a due date'; END $$;
+DO $$ BEGIN
+  INSERT INTO property_requirements (id, company_id, client_id, purpose, budget_max_kobo, budget_min_kobo, created_by_id, updated_at) VALUES ('rq-bad', 'co-a', 'cl-a', 'RENT', 100, 200, 'u1', now());
+  RAISE EXCEPTION 'FAIL: a minimum above the maximum budget was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: budget range runs upward'; END $$;
+DO $$ BEGIN
+  INSERT INTO client_not_duplicates (id, company_id, client_a_id, client_b_id, decided_by_id) VALUES ('nd-bad', 'co-a', 'z', 'a', 'u1');
+  RAISE EXCEPTION 'FAIL: an unordered pair was allowed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: not-duplicate pairs are stored in order'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM clients) = 0, 'B cannot see A clients');
+SELECT pg_temp.expect((SELECT count(*) FROM leads) = 0, 'B cannot see A leads');
+SELECT set_config('app.company_id', 'co-a', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

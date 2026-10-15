@@ -39,6 +39,7 @@ import { registerCorrespondence, actOnCorrespondence } from "./services/correspo
 import { createPhysicalFile, issuePhysicalFile } from "./services/files";
 import { todayInLagos, toDateOnlyString } from "./dates";
 import type { Ctx } from "./services/context";
+import { addClientActivity, addRequirement, createClient, createLead, setLeadStatus } from "./services/crm";
 
 export const DEMO_PASSWORD = "demo-password-123";
 export const DEMO_USERS = [
@@ -410,6 +411,16 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   for (const l of await reviewQueue(adminId)) {
     if (l.title.startsWith("[DEMO]")) await reviewListing(adminId, l.id, "approve", "Demo data approved automatically");
   }
+
+  // Clients, leads, a follow-up and a requirement, so the sales pages have something real to show.
+  const buyer = await createClient(alpha, { name: "[DEMO] Chinedu Okafor", email: "demo.chinedu@example.test", phone: "0803 555 0101", city: "Lagos", marketingConsent: true });
+  const buyerLead = await createLead(alpha, buyer.id, { title: "[DEMO] Three-bedroom duplex in Lekki", budgetMax: "120,000,000", timeline: "WITHIN_3_MONTHS", financing: "CASH", decisionMaker: true });
+  await setLeadStatus(alpha, buyerLead.id, "QUALIFIED");
+  await addClientActivity(alpha, buyer.id, { kind: "CALL", subject: "[DEMO] Intro call", body: "Wants to view in two weeks.", leadId: buyerLead.id });
+  await addClientActivity(alpha, buyer.id, { kind: "FOLLOW_UP", subject: "[DEMO] Send shortlist", dueOn: daysFromToday(2), leadId: buyerLead.id });
+  await addRequirement(alpha, buyer.id, { purpose: "SALE", assetClass: "RESIDENTIAL", city: "Lagos", state: "Lagos", bedroomsMin: "3", budgetMax: "150,000,000", leadId: buyerLead.id });
+  const tenant = await createClient(manager, { name: "[DEMO] Amina Bello", phone: "0802 555 0102", city: "Abuja", confidential: true });
+  await createLead(manager, tenant.id, { title: "[DEMO] Two-bedroom flat to rent in Abuja", budgetMax: "4,000,000" });
 
   return true;
 }

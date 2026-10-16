@@ -20,6 +20,7 @@ export default async function ReelPage({ params, searchParams }: { params: { id:
   const here = `/reels/${reel.id}?page=${page}`;
   return (
     <div className="stack-lg" style={{ maxWidth: 640 }}>
+      <h1 className="visually-hidden">Reel by {reel.authorName}</h1>
       <p className="small"><Link href="/reels">Back to reels</Link></p>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <ReelView r={reel} back={here} signedIn={!!viewerId} detail />

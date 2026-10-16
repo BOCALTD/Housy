@@ -198,3 +198,23 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 
 **Not yet verified:**
 - The code was written in an environment that could not download packages. Row-level security tests and unit tests were run there. The type check, build, integration tests and smoke test run in GitHub Actions on first push, so check the Actions tab before relying on the build.
+
+
+## Built in Phase 10: referrals, vacancy reports and rewards
+
+- **One reward engine** for both programmes. A reward has one source, the policy version it was earned under, a status
+  (not eligible, under review, eligible, approved, payable, paid, rejected, cancelled, disputed) and an append-only ledger.
+  A source earns each event once. Policies are never edited: a change retires the old version and starts a new one.
+- **Money rules.** Approval needs a budget for the month and stays inside it. After approval a safety period passes and the source
+  (listing still published, subscription not cancelled, owner permission still in place) is checked again before the reward is payable.
+  A payout is created by one administrator and verified, with the bank reference, by a different one. A failed payment returns the
+  rewards to payable. A reward already paid whose source is later reversed is flagged for a person, not clawed back.
+- **Referrals.** `/r/CODE` counts a visit and sets one first-party cookie. Sign-up captures the attribution inside the campaign window.
+  Same mailbox, same name, bursts and brand-new referrers hold the reward for a person; nothing is decided automatically.
+- **Vacancy reports.** A report is a sighting and never publishes anything. Seven review stages, forward only. Duplicates are linked by
+  address or by position and kind; the earliest report owns the reward unless an administrator overrides with a reason. Owner permission
+  lives on a separate lead. Reporters control outside contact and whether the owner is told their name; the public never is.
+- **Fraud signals** (copied photographs, repeated text, report bursts, repeat rejections, positions outside Nigeria) send a report to a person.
+- **Appeals and disputes** once per decision, decided by an administrator. Rewards can be paused per person.
+- **Figures for administrators** are area-level only; areas with fewer than three reports are not broken out.
+- Pages: `/referrals`, `/rewards`, `/vacancies`, `/admin/rewards`, `/admin/rewards/payouts`, `/admin/referrals`, `/admin/vacancies`.

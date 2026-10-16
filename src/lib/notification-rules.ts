@@ -11,7 +11,7 @@ const PROMOTIONAL_KINDS = new Set(["promo", "marketing", "campaign"]);
 export const ALERT_KINDS = new Set(["alert.property", "alert.availability", "alert.agent"]);
 
 export function categoryOf(kind: string): Category {
-  if (ESSENTIAL_KINDS.has(kind) || kind.startsWith("security.")) return "ESSENTIAL";
+  if (ESSENTIAL_KINDS.has(kind) || kind.startsWith("security.") || kind.startsWith("billing.")) return "ESSENTIAL";
   if (PROMOTIONAL_KINDS.has(kind) || kind.startsWith("promo.")) return "PROMOTIONAL";
   return "ACTIVITY";
 }

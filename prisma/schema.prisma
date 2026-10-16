@@ -4514,3 +4514,174 @@ model WatchedListing {
   @@index([listingId])
   @@map("watched_listings")
 }
+
+// ---------- Phase 13: payments, invoices and the finance ledgers ----------
+
+enum InvoicePurpose {
+  SUBSCRIPTION
+  AD_CAMPAIGN
+}
+
+enum BillingInvoiceStatus {
+  OPEN
+  PAID
+  VOID
+}
+
+enum PaymentProviderKind {
+  PAYSTACK
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REVIEW
+}
+
+enum RefundStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum FinanceLedger {
+  SUBSCRIPTION
+  ADVERTISING
+}
+
+enum FinanceEntryKind {
+  PAYMENT
+  REFUND
+  SPEND
+  ADJUSTMENT
+}
+
+/// What someone owes the platform: a subscription period or an advertising budget. The amount is fixed when it is raised.
+model Invoice {
+  id           String            @id @default(uuid())
+  ref          String            @unique
+  purpose      InvoicePurpose
+  ownerKind    SubscriptionOwner @map("owner_kind")
+  ownerUserId  String?           @map("owner_user_id")
+  ownerCompanyId String?         @map("owner_company_id")
+  ownerName    String            @map("owner_name")
+  subjectId    String            @map("subject_id")
+  description  String
+  amountKobo   BigInt            @map("amount_kobo")
+  periodMonths Int               @default(0) @map("period_months")
+  renewal      Boolean           @default(false)
+  reminderStage String           @default("") @map("reminder_stage")
+  status       BillingInvoiceStatus @default(OPEN)
+  dueOn        DateTime?         @map("due_on")
+  appliedAt    DateTime?         @map("applied_at")
+  previousEnd  DateTime?         @map("previous_end")
+  coversTo     DateTime?         @map("covers_to")
+  paidAt       DateTime?         @map("paid_at")
+  voidedAt     DateTime?         @map("voided_at")
+  voidReason   String            @default("") @map("void_reason")
+  createdById  String            @map("created_by_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  payments     Payment[]
+  refunds      Refund[]
+
+  @@index([ownerUserId, createdAt])
+  @@index([ownerCompanyId, createdAt])
+  @@index([status, createdAt])
+  @@index([purpose, subjectId])
+  @@map("invoices")
+}
+
+/// One attempt to pay an invoice. Success is only ever set from a verified provider message, a verification call to the provider, or a person's recorded confirmation.
+model Payment {
+  id            String              @id @default(uuid())
+  ref           String              @unique
+  invoiceId     String              @map("invoice_id")
+  provider      PaymentProviderKind
+  providerRef   String?             @map("provider_ref")
+  providerTxId  String              @default("") @map("provider_tx_id")
+  amountKobo    BigInt              @map("amount_kobo")
+  receivedKobo  BigInt?             @map("received_kobo")
+  refundedKobo  BigInt              @default(0) @map("refunded_kobo")
+  status        PaymentStatus       @default(PENDING)
+  failureReason String              @default("") @map("failure_reason")
+  reviewNote    String              @default("") @map("review_note")
+  checkoutUrl   String              @default("") @map("checkout_url")
+  initiatedById String              @map("initiated_by_id")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  settledAt     DateTime?           @map("settled_at")
+  invoice       Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  refunds       Refund[]
+
+  @@unique([provider, providerRef])
+  @@index([invoiceId])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+/// Every message the provider sent that passed signature checks, once. The pair (provider, event id) is unique, so a repeated message is recognised and not processed again. Append-only.
+model PaymentEvent {
+  id          String              @id @default(uuid())
+  provider    PaymentProviderKind
+  eventId     String              @map("event_id")
+  kind        String
+  reference   String              @default("")
+  amountKobo  BigInt?             @map("amount_kobo")
+  outcome     String
+  note        String              @default("")
+  payloadHash String              @map("payload_hash")
+  receivedAt  DateTime            @default(now()) @map("received_at")
+
+  @@unique([provider, eventId])
+  @@index([reference])
+  @@index([receivedAt])
+  @@map("payment_events")
+}
+
+/// Money given back. A full refund of a subscription payment takes back the time it bought; a refund of advertising covers only budget not yet spent.
+model Refund {
+  id            String       @id @default(uuid())
+  ref           String       @unique
+  paymentId     String       @map("payment_id")
+  invoiceId     String       @map("invoice_id")
+  amountKobo    BigInt       @map("amount_kobo")
+  reason        String
+  status        RefundStatus @default(PENDING)
+  providerRef   String       @default("") @map("provider_ref")
+  failureReason String       @default("") @map("failure_reason")
+  requestedById String       @map("requested_by_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  completedAt   DateTime?    @map("completed_at")
+  payment       Payment      @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  invoice       Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([paymentId])
+  @@index([status, createdAt])
+  @@map("refunds")
+}
+
+/// The platform's own books for subscriptions and advertising. Append-only. Each entry points to a verified provider event or to the person who authorised it; a mistake is corrected by a new entry, never by changing an old one.
+/// Commissions, referral rewards and vacancy rewards keep their own ledgers where they already live.
+model FinanceEntry {
+  id         String           @id @default(uuid())
+  ledger     FinanceLedger
+  kind       FinanceEntryKind
+  account    String
+  amountKobo BigInt           @map("amount_kobo")
+  entryKey   String?          @unique @map("entry_key")
+  invoiceId  String?          @map("invoice_id")
+  paymentId  String?          @map("payment_id")
+  refundId   String?          @map("refund_id")
+  campaignId String?          @map("campaign_id")
+  eventId    String?          @map("event_id")
+  actorId    String?          @map("actor_id")
+  note       String           @default("")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  @@index([ledger, createdAt])
+  @@index([invoiceId])
+  @@index([paymentId])
+  @@index([campaignId])
+  @@map("finance_entries")
+}

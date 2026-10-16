@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { mySubscription } from "@/lib/services/subscriptions";
 import { ENTITLEMENT_LABELS } from "@/lib/subscription-rules";
@@ -30,7 +31,7 @@ export default async function PlanPage() {
           <>
             <h2>Free</h2>
             <p>{p.explanation} Following agents and companies and browsing property are free. Collaborating with an agent needs a paid plan.</p>
-            <p className="small muted">Plans are set up by the platform for now. Online payment is not available yet.</p>
+            <p className="small"><Link href="/me/billing">See the plans you can buy</Link></p>
           </>
         )}
       </section>

@@ -1306,5 +1306,64 @@ DO $$ BEGIN
 EXCEPTION WHEN check_violation OR insufficient_privilege THEN RAISE NOTICE 'ok: quiet hours must differ and be real'; END $$;
 SELECT set_config('app.user_id', '', true);
 
+-- 36. Phase 14a: people see their own invoices and payments only; provider messages and the books are the platform's alone; the books explain every entry and are append-only.
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+INSERT INTO invoices (id, ref, purpose, owner_kind, owner_user_id, owner_name, subject_id, description, amount_kobo, created_by_id) VALUES ('iv-1', 'INV-T0001', 'SUBSCRIPTION', 'USER', 'u1', 'U1', 'plan-x', 'Plan', 500000, 'u1');
+INSERT INTO invoices (id, ref, purpose, owner_kind, owner_company_id, owner_name, subject_id, description, amount_kobo, created_by_id) VALUES ('iv-2', 'INV-T0002', 'SUBSCRIPTION', 'COMPANY', 'co-a', 'Alpha', 'plan-x', 'Plan', 900000, 'u1');
+INSERT INTO payments (id, ref, invoice_id, provider, provider_ref, amount_kobo, initiated_by_id) VALUES ('py-1', 'PAY-T0001', 'iv-1', 'PAYSTACK', 'PAY-T0001', 500000, 'u1');
+INSERT INTO payment_events (id, provider, event_id, kind, outcome, payload_hash) VALUES ('pe-1', 'PAYSTACK', 'charge.success:1', 'charge.success', 'APPLIED', 'h');
+INSERT INTO finance_entries (id, ledger, kind, account, amount_kobo, event_id, entry_key) VALUES ('fe-1', 'SUBSCRIPTION', 'PAYMENT', 'REVENUE', 500000, 'pe-1', 'pay:py-1');
+DO $$ BEGIN
+  INSERT INTO payment_events (id, provider, event_id, kind, outcome, payload_hash) VALUES ('pe-2', 'PAYSTACK', 'charge.success:1', 'charge.success', 'APPLIED', 'h');
+  RAISE EXCEPTION 'FAIL: a repeated provider message was stored twice';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: a repeated provider message is recognised'; END $$;
+DO $$ BEGIN
+  INSERT INTO finance_entries (id, ledger, kind, account, amount_kobo, event_id, entry_key) VALUES ('fe-2', 'SUBSCRIPTION', 'PAYMENT', 'REVENUE', 500000, 'pe-1', 'pay:py-1');
+  RAISE EXCEPTION 'FAIL: a payment was entered in the books twice';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: a payment is entered once'; END $$;
+DO $$ BEGIN
+  INSERT INTO finance_entries (id, ledger, kind, account, amount_kobo) VALUES ('fe-3', 'SUBSCRIPTION', 'PAYMENT', 'REVENUE', 100);
+  RAISE EXCEPTION 'FAIL: an entry with no source';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: every entry has a verified event or a person behind it'; END $$;
+DO $$ BEGIN
+  INSERT INTO payments (id, ref, invoice_id, provider, provider_ref, amount_kobo, received_kobo, refunded_kobo, initiated_by_id) VALUES ('py-bad', 'PAY-T0009', 'iv-1', 'PAYSTACK', 'PAY-T0009', 500000, 500000, 600000, 'u1');
+  RAISE EXCEPTION 'FAIL: refunded more than was received';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a payment cannot be refunded beyond what was received'; END $$;
+DO $$ BEGIN
+  UPDATE finance_entries SET amount_kobo = 1 WHERE id = 'fe-1';
+  RAISE EXCEPTION 'FAIL: the books were changed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: the books are append-only'; END $$;
+DO $$ BEGIN
+  UPDATE payment_events SET outcome = 'IGNORED' WHERE id = 'pe-1';
+  RAISE EXCEPTION 'FAIL: a provider message was changed';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: provider messages are append-only'; END $$;
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+SELECT pg_temp.expect((SELECT count(*) FROM invoices) = 1, 'a person sees their own invoice');
+SELECT pg_temp.expect((SELECT count(*) FROM payments) = 1, 'a person sees payments on their own invoice');
+SELECT pg_temp.expect((SELECT count(*) FROM payment_events) = 0, 'a person cannot read provider messages');
+SELECT pg_temp.expect((SELECT count(*) FROM finance_entries) = 0, 'a person cannot read the books');
+DO $$ BEGIN
+  INSERT INTO payments (id, ref, invoice_id, provider, provider_ref, amount_kobo, status, settled_at, initiated_by_id) VALUES ('py-self', 'PAY-T0003', 'iv-1', 'MANUAL', 'FREE', 500000, 'SUCCEEDED', now(), 'u1');
+  RAISE EXCEPTION 'FAIL: a person marked their own payment as paid';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a person cannot record a payment'; END $$;
+DO $$ BEGIN
+  UPDATE invoices SET status = 'PAID', paid_at = now() WHERE id = 'iv-1';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: a person paid their own invoice'; END IF;
+  RAISE NOTICE 'ok: a person cannot mark an invoice paid';
+END $$;
+SELECT set_config('app.user_id', 'u2', true);
+SELECT pg_temp.expect((SELECT count(*) FROM invoices) = 0, 'another person sees no invoices');
+SELECT pg_temp.expect((SELECT count(*) FROM payments) = 0, 'another person sees no payments');
+SELECT set_config('app.user_id', 'u3', true);
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT pg_temp.expect((SELECT count(*) FROM invoices) = 1, 'a company sees its own invoice');
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM invoices) = 0, 'another company sees none');
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', '', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

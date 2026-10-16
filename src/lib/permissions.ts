@@ -69,9 +69,14 @@ export type Action =
   | "crm.approve"
   | "crm.report"
   | "collab.view"
-  | "collab.company";
+  | "collab.company"
+  | "billing.view"
+  | "billing.manage";
 
 const MATRIX: Record<Action, Role[]> = {
+  // Plans, invoices and advertising budgets: only the company administrator commits the company to spending money.
+  "billing.view": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "billing.manage": ["COMPANY_SUPER_ADMIN"],
   "asset.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER", "VIEWER"],
   "asset.create": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "asset.update": ["COMPANY_SUPER_ADMIN", "MANAGER"],

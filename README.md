@@ -234,3 +234,15 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
   may answer without their name shown. Administrators see averages, spread, monthly trend, paged suggestions, a status and note, and a CSV.
 - Pages: `/app/promotions`, `/admin/promotions`, `/feedback`, `/admin/feedback`.
 - **Not built:** online payment of promotion fees (recorded by hand), email or SMS reminders (the prompt is in-app), per-property boost purchase.
+
+## Built in Phase 12: reviews, awards, completed deals, and reels
+
+**Verified reviews and reputation.** A review is tied to a real interaction: a two-sided conversation that is a day old, or a single-use link the company issues after a completed deal or viewing. Suspicious patterns (a brand-new account, a burst of reviews, copied wording, a referral from the target) hold a review for a person to check. Agents can reply, dispute or report; the platform moderates. Reputation scores store their inputs and a hash, so they can be recomputed. Plans, Gold status and promotions are not inputs (tested).
+
+**Top Agent of the Month.** An administrator computes a finished month from verified completed sales, listings the platform approved that month, published reels (up to a cap of 8) and published verified reviews (one per reviewer). Each run stores its facts and settings so `verifyRun` can recompute it. Runs are DRAFT, PUBLISHED, then FROZEN after a 7-day correction period with no open disputes. The top three get Gold, Diamond and Silver plaques; the leaderboard and archive are public. Weights and thresholds are set in `/admin/awards`.
+
+**Recently sold, rented and leased.** A manager authorises showing a completed deal and the platform approves it. Only the category, bedrooms, area and completion date are shown, never price, names or documents. Entries age off after 90 days or as soon as the deal stops being completed.
+
+**Reels and social.** Listed agents post short MP4/WebM clips (4 MB limit, see below). The platform checks every reel before it is public. People can like, save (private), share (once per person), comment (no links) and report. Three different reporters hide a reel and two hide a comment until the platform decides. Discovery ("For you", "Following", "Popular") ranks by engagement from other people on accounts at least a day old, decayed over time, plus the people you follow and areas you have engaged with. Paid plans and promotions are not inputs and self-engagement and brand-new accounts count for nothing (tested). Activity notices (new reel from someone you follow, comments, like milestones, moderation outcomes) are in-app only.
+
+**Limits to know about.** Clips are stored in PostgreSQL and the request limit is 4.5 MB, so reels are capped at 4 MB (about 10 to 20 seconds). Real hosting (object storage with transcoding and thumbnails) belongs with the production setup. There is no automated content analysis: moderation is by a person plus reports.

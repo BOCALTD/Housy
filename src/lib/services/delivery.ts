@@ -79,7 +79,13 @@ export async function processOutbox(o: { now?: Date; driver?: EmailDriver | null
 
   // An email left "sending" by a run that stopped halfway goes back in the queue after 15 minutes.
   await system((tx) => tx.emailOutbox.updateMany({ where: { status: "SENDING", nextAttemptAt: { lt: new Date(now.getTime() - 15 * 60_000) } }, data: { status: "QUEUED" } }));
-  const due = await system((tx) => tx.emailOutbox.findMany({ where: dueWhere, orderBy: { createdAt: "asc" }, take: o.limit ?? 200 }));
+  // Work in batches of 200 until nothing is due or the cap for one run is reached, so a long queue cannot starve later emails.
+  const cap = o.limit ?? 5000;
+  let handled = 0;
+  for (;;) {
+  const due = await system((tx) => tx.emailOutbox.findMany({ where: dueWhere, orderBy: { createdAt: "asc" }, take: Math.min(200, cap - handled) }));
+  if (!due.length) break;
+  handled += due.length;
   for (const item of due) {
     const claimed = await system((tx) => tx.emailOutbox.updateMany({ where: { id: item.id, status: { in: ["QUEUED", "FAILED"] } }, data: { status: "SENDING", nextAttemptAt: now } }));
     if (claimed.count === 0) continue;
@@ -99,6 +105,8 @@ export async function processOutbox(o: { now?: Date; driver?: EmailDriver | null
       headers: link ? { "List-Unsubscribe": `<${unsubscribeUrl(user!.id, link)}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined,
     });
     await settle(item.id, item.userId, item.kind, item.attempts, driver.name, res, now, sum);
+  }
+  if (handled >= cap) break;
   }
   await sendDigests(driver, now, sum);
   return sum;

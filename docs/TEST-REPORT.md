@@ -2,7 +2,7 @@
 
 Everything runs on every push in GitHub Actions (`.github/workflows/ci.yml`): migrations are applied as on Vercel, then type check, unit tests, integration tests against a real PostgreSQL 16 using the restricted app role with row-level security, a backup-and-restore check, a production build, a smoke test of the running app, and a device check in desktop Chrome and emulated iPhone, Android and tablet browsers.
 
-**Totals:** see the CI summary of the release commit ("Test totals" notices). At the time of writing: __TOTALS__
+**Totals:** see the CI summary of the release commit ("Test totals" notices). At the time of writing: 194 unit tests and 305 integration tests, all passing; the device check opened 133 distinct pages on 7 browser profiles (desktop Chrome, desktop Safari, two iPhones, two Androids, an iPad) and, after the fixes listed under SECURITY-FINDINGS and below, found nothing. The backup check dumped a 3.6 MB database (183 tables, 92,476 rows) in 1.0 s and restored it in 2.6 s with every table, security setting and money total identical.
 
 ## Coverage against the Phase 16 work list
 
@@ -40,3 +40,14 @@ Everything runs on every push in GitHub Actions (`.github/workflows/ci.yml`): mi
 | Import | file totals | Rent scheduled, paid and owed in the file equal the database after import (`phase16d`) |
 
 **Taxes.** The product tracks tax obligations (land use charge, withholding tax, stamp duty and similar) as dated obligations with amounts and filings that people enter. It does not compute any tax, so there was no tax calculation to validate. Tax rates and rules for Nigerian property are the owner's decision with an accountant; none should be added without a specification and an independent check like the ones above.
+
+## What the new accessibility checks found
+There was no skip-to-content link anywhere, so one was added before the checks first ran. On their first run the checks then found six pages with no main heading (account home, sign-in security, two advertising pages, an advertising detail page, and a reel page); all now have one. They also flagged the calendar button of date fields as having no focus mark; that was the check being wrong (the browser reports the field, not its inner button), and it now skips date fields. Keyboard order, visible focus, language, names on controls, repeated ids and reduced motion found nothing across the 133 pages.
+
+## What these tests do not show
+- **Whole journeys in a browser.** Services are tested directly and pages are loaded, but no script clicks through "sign up, add an asset, create a lease, record a payment" in a browser.
+- **Real devices.** All phone and tablet results are from emulated browsers (Chrome and WebKit engines at phone sizes). Nobody has used it on a real handset, on a real mobile network, or with a screen reader.
+- **Screen readers and contrast.** The checks look for names, labels, headings and focus; they do not run a screen reader and they do not measure colour contrast.
+- **Email and payment providers.** Both are tested with fakes only. No real email has been sent; no real Paystack message has been received.
+- **Load.** No test with many simultaneous visitors.
+- **Real data.** All tests use generated data.

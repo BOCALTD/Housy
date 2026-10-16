@@ -6,7 +6,9 @@ import { listingExtras } from "@/lib/services/promotions";
 import { GoldBadge, PremiumTag, PriceBlock, PromoEnds, PromoRibbon } from "@/components/Promo";
 import { formatDate } from "@/lib/dates";
 import { Field, Flash, HouseIcon, sp, type SP } from "@/components/ui";
-import { enquiryAction } from "./actions";
+import { getSession } from "@/lib/auth";
+import { isWatching } from "@/lib/services/alerts";
+import { enquiryAction, watchAction } from "./actions";
 import { VerifyModal, type ProviderView } from "./VerifyModal";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +22,8 @@ export default async function PropertyPage({ params, searchParams }: { params: {
   const listing = await getPublicListing(params.ref);
   if (!listing) notFound();
   const extras = await listingExtras(listing);
+  const session = await getSession();
+  const watching = session ? await isWatching(session.user.id, listing.id) : false;
   const provider = await getFeaturedProvider();
   const prefs = parsePrefs(cookies().get("pv_pref")?.value);
   const autoOpen = !!provider && shouldAutoShow(prefs, listing.purpose) && !sp(searchParams, "notice");
@@ -56,6 +60,10 @@ export default async function PropertyPage({ params, searchParams }: { params: {
       </article>
 
       <aside className="card stack">
+        {session ? (
+          <form action={watchAction}><input type="hidden" name="ref" value={listing.publicRef} /><input type="hidden" name="on" value={watching ? "0" : "1"} />
+            <button className="btn" type="submit" aria-pressed={watching}>{watching ? "Watching: stop" : "Watch this property"}</button></form>
+        ) : null}
         <h2>Send an enquiry</h2>
         <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
         <form action={enquiryAction} className="stack">

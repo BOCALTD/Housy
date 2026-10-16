@@ -4482,3 +4482,35 @@ model NotificationLog {
   @@index([outcome, createdAt])
   @@map("notification_log")
 }
+
+// ---------- Phase 13b: saved searches and watched properties ----------
+
+/// A search a person saved so they can be told about new matches. Only they can see or change it.
+model SavedSearch {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  name       String
+  purpose    String   @default("")
+  city       String   @default("")
+  q          String   @default("")
+  maxKobo    BigInt?  @map("max_kobo")
+  minBeds    Int?     @map("min_beds")
+  alertsOn   Boolean  @default(true) @map("alerts_on")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([alertsOn, city])
+  @@map("saved_searches")
+}
+
+/// A property a person is watching, to be told when it is no longer available or comes back.
+model WatchedListing {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  listingId String   @map("listing_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, listingId])
+  @@index([listingId])
+  @@map("watched_listings")
+}

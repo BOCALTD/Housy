@@ -6,6 +6,8 @@ import { DoneCard } from "@/components/Done";
 import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "@/components/Promo";
 import { humanize } from "@/lib/labels";
 import { HouseIcon, sp, type SP } from "@/components/ui";
+import { getSession } from "@/lib/auth";
+import { saveSearchAction } from "@/app/me/saved/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
   };
   const [listings, done] = await Promise.all([searchListingsRanked(filters), homeSections()]);
   const searching = Object.values(filters).some(Boolean);
+  const session = searching ? await getSession() : null;
 
   return (
     <div className="stack-lg">
@@ -40,6 +43,15 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
           <h2>{searching ? `${listings.length} ${listings.length === 1 ? "property" : "properties"} found` : "Latest listings"}</h2>
           {searching ? <Link href="/" className="small">Clear search</Link> : null}
         </div>
+        {searching && session ? (
+          <details className="inline"><summary>Save this search and get alerts</summary>
+            <form action={saveSearchAction} className="stack">
+              <input type="hidden" name="back" value="/" />
+              {(["city", "purpose", "q", "maxPrice", "minBeds"] as const).map((k) => filters[k] ? <input key={k} type="hidden" name={k} value={filters[k]} /> : null)}
+              <label className="field">Name this search<input name="name" required maxLength={80} defaultValue={[filters.city, filters.purpose === "SALE" ? "Buy" : filters.purpose ? humanize(filters.purpose) : ""].filter(Boolean).join(" ") || "My search"} /></label>
+              <button className="btn" type="submit">Save search</button>
+            </form></details>
+        ) : searching ? <p className="small muted"><Link href="/login">Sign in</Link> to save this search and be told about new matches.</p> : null}
         {listings.length === 0 ? (
           <div className="card"><p className="muted">{searching ? "No published properties match that search. Try a wider area or a higher price." : "No properties have been published yet."}</p></div>
         ) : (

@@ -54,6 +54,7 @@ import { issueInvite, moderateReview, submitReview } from "./services/reviews";
 import { monthKey } from "./reward-rules";
 import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./services/community";
 import { assignSubscription } from "./services/subscriptions";
+import { saveSearch, watchListing } from "./services/alerts";
 import { addComment, moderateReel, toggleLike, uploadReel } from "./services/reels";
 import { displayQueue, requestDisplay, reviewDisplay } from "./services/completed";
 
@@ -511,6 +512,9 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await moderateReel(adminId, demoReel.id, "publish", "");
   await toggleLike(seeker.userId, demoReel.id);
   await addComment(seeker.userId, demoReel.id, "[DEMO] Lovely layout. Is the garden shared?");
+  // A saved search and a watched property for the demo seeker, so the alert pages have something in them.
+  await saveSearch(seeker.userId, { name: "[DEMO] Two-bed rental in Lekki", purpose: "RENT", city: "Lekki", q: "", maxPrice: "5,000,000", minBeds: "2" } as never);
+  if (demoListing) await watchListing(seeker.userId, demoListing.publicRef);
   await submitRating(seeker.userId, { overall: 4 as never, ease: 4 as never, trust: 5 as never, support: "" as never, suggestion: "[DEMO] Show more photos on each property.", anonymous: false });
 
   return true;

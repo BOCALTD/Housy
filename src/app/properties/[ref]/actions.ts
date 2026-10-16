@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { act, str, withNotice, messageFor } from "@/lib/forms";
 import { createEnquiry } from "@/lib/services/listings";
+import { unwatchListing, watchListing } from "@/lib/services/alerts";
+import { requireUser } from "@/lib/auth";
 import { parsePrefs, recordRecommendationEvent, submitLead } from "@/lib/services/verification";
 
 const PREF_COOKIE = "pv_pref";
@@ -72,4 +74,14 @@ export async function submitLeadAction(form: FormData): Promise<{ ok: true; ref:
 
 export async function clearVerificationPrefsAction() {
   cookies().delete(PREF_COOKIE);
+}
+
+export async function watchAction(form: FormData) {
+  const ref = str(form, "ref");
+  const back = `/properties/${encodeURIComponent(ref)}`;
+  return act(back, async () => {
+    const u = await requireUser();
+    if (str(form, "on") === "1") { await watchListing(u.id, ref); return withNotice(back, "You are watching this property. We will tell you if it stops being available."); }
+    await unwatchListing(u.id, ref); return withNotice(back, "You stopped watching this property.");
+  });
 }

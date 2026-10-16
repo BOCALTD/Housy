@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { enqueueEmail } from "./notifications";
+import { announceNewProfile } from "./alerts";
 import type { Prisma } from "@prisma/client";
 import { prisma, withPublic, withTenant, withUser } from "../db";
 import { hashPassword } from "../auth-hash";
@@ -34,15 +35,20 @@ const agentSchema = z.object({
 export async function saveAgentProfile(ctx: Ctx, raw: z.input<typeof agentSchema>) {
   assertCan(ctx, "crm.view");
   const d = agentSchema.parse(raw);
-  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+  let newlyListed = false as boolean;
+  const saved = await withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const company = await tx.company.findFirstOrThrow({ where: { id: ctx.companyId }, select: { name: true } });
     const data = { displayName: d.displayName, companyName: company.name, headline: d.headline, bio: d.bio, listed: d.listed, acceptsMessages: d.acceptsMessages };
+    const before = await tx.agentProfile.findUnique({ where: { membershipId: ctx.membershipId } });
+    newlyListed = d.listed && !before?.listed;
     return tx.agentProfile.upsert({
       where: { membershipId: ctx.membershipId },
       create: { membershipId: ctx.membershipId, userId: ctx.userId, companyId: ctx.companyId, ...data },
       update: data,
     });
   });
+  if (newlyListed) { try { await announceNewProfile("agent", saved.displayName, `/agents/${saved.userId}`); } catch (e) { console.error("onboarding notice failed", e); } }
+  return saved;
 }
 
 const companySchema = z.object({
@@ -56,11 +62,15 @@ const companySchema = z.object({
 export async function saveCompanyProfile(ctx: Ctx, raw: z.input<typeof companySchema>) {
   assertCan(ctx, "settings.manage");
   const d = companySchema.parse(raw);
-  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+  let newlyListed = false as boolean;
+  const saved = await withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const existing = await tx.companyProfile.findUnique({ where: { companyId: ctx.companyId } });
     if (existing && existing.kind !== d.kind && existing.followerCount > 0) throw new Error("This profile has followers, so it cannot change between company and developer");
+    newlyListed = d.listed && !existing?.listed;
     return tx.companyProfile.upsert({ where: { companyId: ctx.companyId }, create: { companyId: ctx.companyId, ...d }, update: d });
   });
+  if (newlyListed) { try { await announceNewProfile("company", saved.displayName, `/companies/${saved.companyId}`); } catch (e) { console.error("onboarding notice failed", e); } }
+  return saved;
 }
 
 export async function myProfiles(ctx: Ctx) {

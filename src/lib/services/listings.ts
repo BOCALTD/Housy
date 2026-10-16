@@ -1,4 +1,5 @@
 import { referralEvent } from "./referrals";
+import { alertNewListing, alertWatchers, notifyEnquiry } from "./alerts";
 import { vacancyListingPublished } from "./vacancies";
 import { z } from "zod";
 import { withTenant, withPublic, withPlatformAdmin } from "../db";
@@ -78,6 +79,9 @@ export async function setListingStatus(ctx: Ctx, assetId: string, to: "PENDING_R
       companyId: ctx.companyId, actorId: ctx.userId, entityType: "listing", entityId: listing.id,
       action: "listing.status_changed", detail: { from: listing.status, to },
     });
+    return listing;
+  }).then(async (listing) => {
+    if (to === "UNAVAILABLE") { try { await alertWatchers(listing.id, "No longer available"); } catch (e) { console.error("watcher alert failed", e); } }
   });
 }
 
@@ -112,6 +116,13 @@ export async function reviewListing(adminUserId: string, listingId: string, deci
   });
   if (published) await vacancyListingPublished(published.id);
   if (published) await referralEvent("REFERRAL_LISTING_PUBLISHED", { companyId: published.companyId }, { type: "listing", id: published.id, label: published.title });
+  // Tell the people who asked for it. A failure here must never undo the approval.
+  if (published) {
+    try {
+      const r = await alertNewListing(published.id);
+      if (r.skipped === "already announced") await alertWatchers(published.id, "Available again");
+    } catch (e) { console.error("property alert failed", e); }
+  }
 }
 
 // ---------- Public marketplace ----------
@@ -165,4 +176,5 @@ export async function createEnquiry(publicRef: string, input: z.input<typeof enq
       action: "enquiry.received", detail: { enquiryId: enquiry.id },
     });
   });
+  try { await notifyEnquiry(listing, data.name, data.message); } catch (e) { console.error("enquiry notice failed", e); }
 }

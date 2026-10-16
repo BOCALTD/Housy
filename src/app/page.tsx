@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { PURPOSES } from "@/lib/services/listings";
 import { searchListingsRanked } from "@/lib/services/promotions";
+import { homeSections, KIND_LABEL, type Kind } from "@/lib/services/completed";
+import { DoneCard } from "@/components/Done";
 import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "@/components/Promo";
 import { humanize } from "@/lib/labels";
 import { HouseIcon, sp, type SP } from "@/components/ui";
@@ -12,7 +14,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
     q: sp(searchParams, "q"), purpose: sp(searchParams, "purpose"), city: sp(searchParams, "city"),
     maxPrice: sp(searchParams, "maxPrice"), minBeds: sp(searchParams, "minBeds"),
   };
-  const listings = await searchListingsRanked(filters);
+  const [listings, done] = await Promise.all([searchListingsRanked(filters), homeSections()]);
   const searching = Object.values(filters).some(Boolean);
 
   return (
@@ -62,6 +64,14 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
           </div>
         )}
       </section>
+      {(Object.keys(KIND_LABEL) as Kind[]).some((k) => done[k].length) ? (
+        <section className="stack">
+          <div className="row between"><h2>Recently completed</h2><Link href="/completed" className="small">See all</Link></div>
+          {(Object.keys(KIND_LABEL) as Kind[]).filter((k) => done[k].length).map((k) => (
+            <div key={k} className="stack"><h3>{KIND_LABEL[k]}</h3><div className="grid">{done[k].map((c) => <DoneCard key={c.id} c={c} />)}</div><Link href={`/completed?kind=${k}`} className="small">More {KIND_LABEL[k].toLowerCase()}</Link></div>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

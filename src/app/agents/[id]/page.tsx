@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { ensureReputation, publicAgent, publicReviews } from "@/lib/services/reviews";
 import { BADGES, CATEGORIES, type BadgeKey } from "@/lib/reputation-rules";
-import { Field, Flash, sp, type SP } from "@/components/ui";
+import { Field, Flash, ShowMore, sp, type SP } from "@/components/ui";
+import { awardsFor } from "@/lib/services/awards";
+import { PlaqueBadge } from "@/components/Awards";
 import { BadgeRow, ReviewCard, ScoreLine } from "@/components/Reputation";
 import { reportReviewAction } from "../../reviews/actions";
 
@@ -18,6 +20,7 @@ export default async function AgentPage({ params, searchParams }: { params: { id
   if (!agent) notFound();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const [rep, list, session] = await Promise.all([ensureReputation("AGENT", agent.userId), publicReviews("AGENT", agent.userId, page), getSession()]);
+  const awards = (await awardsFor([agent.userId])).get(agent.userId) ?? [];
   const badges = (rep?.badges as string[] | undefined) ?? [];
   const comps = (rep?.components as Record<string, number> | undefined) ?? {};
   const here = `/agents/${agent.userId}`;
@@ -29,6 +32,7 @@ export default async function AgentPage({ params, searchParams }: { params: { id
         {agent.headline ? <p className="muted">{agent.headline}</p> : null}
         <ScoreLine score={rep?.score ?? 0} count={rep?.reviewCount ?? 0} average={rep?.average ?? 0} />
         <BadgeRow badges={badges} />
+        {awards.length ? <ShowMore noun="more awards" limit={3} items={awards.map((a) => <li key={a.month}><PlaqueBadge plaque={a.plaque} month={a.month} /></li>)} /> : null}
         {agent.bio ? <p style={{ whiteSpace: "pre-line", maxWidth: "65ch" }}>{agent.bio}</p> : null}
         <details className="inline"><summary>How reputation is worked out</summary>
           <p className="small">Built from verified reviews (newer and better-evidenced ones count more), how quickly new conversations are answered, completed deals, and complaints that were upheld. Paid plans, promotions and advertising are not part of it.</p>

@@ -1192,5 +1192,49 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FAIL: history was edited';
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: review history is append-only'; END $$;
 
+-- 33. Phase 12b: only published rankings are public; disputes are private; completed deals are public only when approved, and only for the company's own eyes before that.
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+INSERT INTO award_runs (id, month, version, status, config, inputs_hash, computed_by_id, published_at, published_by_id) VALUES
+  ('ar-1', '2026-08', 1, 'PUBLISHED', '{}', 'h', 'padmin', now(), 'padmin'),
+  ('ar-2', '2026-09', 1, 'DRAFT', '{}', 'h', 'padmin', NULL, NULL);
+INSERT INTO award_entries (id, run_id, user_id, display_name, eligible, sales, posts, reviews, avg_rating, rating_score, norm_sales, norm_posts, norm_rating, score, rank, plaque, facts) VALUES
+  ('ae-1', 'ar-1', 'u1', 'One', true, 2, 2, 3, 5, 4.2, 1, 1, 1, 100, 1, 'GOLD', '{}'),
+  ('ae-2', 'ar-2', 'u1', 'One', true, 2, 2, 3, 5, 4.2, 1, 1, 1, 100, 1, 'GOLD', '{}');
+INSERT INTO award_disputes (id, run_id, user_id, reason) VALUES ('ad-1', 'ar-1', 'u1', 'A sale is missing from my total');
+INSERT INTO completed_displays (id, deal_id, company_id, kind, category, city, state, completed_at, status, authorised_by_id, authorisation, reviewed_by_id, reviewed_at) VALUES
+  ('cd-1', 'dl-1', 'co-a', 'SOLD', 'Flat', 'Lekki', 'Lagos', now(), 'APPROVED', 'u1', 'Owner and buyer agreed by email', 'padmin', now()),
+  ('cd-2', 'dl-2', 'co-a', 'RENTED', 'Flat', 'Ikeja', 'Lagos', now(), 'REQUESTED', 'u1', 'Owner and tenant agreed in writing', NULL, NULL);
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', '', true);
+SELECT pg_temp.expect((SELECT count(*) FROM award_runs) = 1, 'the public sees only the published run');
+SELECT pg_temp.expect((SELECT count(*) FROM award_entries) = 1, 'the public sees only the lines of a published run');
+SELECT pg_temp.expect((SELECT count(*) FROM award_disputes) = 0, 'the public sees no disputes');
+SELECT pg_temp.expect((SELECT count(*) FROM completed_displays) = 1, 'the public sees only the approved completed deal');
+SELECT set_config('app.user_id', 'u1', true);
+SELECT pg_temp.expect((SELECT count(*) FROM award_entries) = 2, 'an agent sees their own lines, even in a draft');
+SELECT pg_temp.expect((SELECT count(*) FROM award_disputes) = 1, 'an agent sees their own dispute');
+SELECT set_config('app.user_id', 'u3', true);
+SELECT pg_temp.expect((SELECT count(*) FROM award_disputes) = 0, 'another person cannot see the dispute');
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT pg_temp.expect((SELECT count(*) FROM completed_displays) = 2, 'the company sees its own pending request');
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM completed_displays) = 1, 'another company sees only the approved one');
+SELECT set_config('app.company_id', '', true);
+DO $$ BEGIN
+  INSERT INTO award_runs (id, month, version, status, config, inputs_hash, computed_by_id) VALUES ('ar-x', '2026-07', 1, 'DRAFT', '{}', 'h', 'u3');
+  RAISE EXCEPTION 'FAIL: a ranking was made by a non-administrator';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the administrator makes a ranking'; END $$;
+DO $$ BEGIN
+  INSERT INTO completed_displays (id, deal_id, company_id, kind, category, city, state, completed_at, status, authorised_by_id, authorisation, reviewed_by_id, reviewed_at)
+    VALUES ('cd-x', 'dl-x', 'co-a', 'SOLD', 'Flat', 'Lekki', 'Lagos', now(), 'APPROVED', 'u3', 'I approve myself right now', 'u3', now());
+  RAISE EXCEPTION 'FAIL: a completed deal was approved by its requester';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: nobody approves their own completed deal'; END $$;
+DO $$ BEGIN
+  INSERT INTO award_runs (id, month, version, status, config, inputs_hash, computed_by_id) VALUES ('ar-bad', '2026-13', 1, 'DRAFT', '{}', 'h', 'padmin');
+  RAISE EXCEPTION 'FAIL: bad month';
+EXCEPTION WHEN insufficient_privilege OR check_violation THEN RAISE NOTICE 'ok: a month must be real'; END $$;
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

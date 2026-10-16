@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma, withUser } from "../db";
 import { logActivity } from "../audit";
@@ -124,12 +125,18 @@ async function sendDigests(driver: EmailDriver, now: Date, sum: RunSummary) {
     const prefRow = await system((tx) => tx.notificationPref.findUnique({ where: { userId } }));
     if (inQuiet(lagosHour(now), prefRow?.quietStart ?? null, prefRow?.quietEnd ?? null)) continue;
     const gap = (prefRow?.digest === "DAILY" ? 24 : 12) * 3600_000;
-    const last = await system((tx) => tx.emailOutbox.findFirst({ where: { userId, template: "digest", status: { in: ["SENT", "FAILED"] } }, orderBy: { createdAt: "desc" } }));
-    if (last && now.getTime() - (last.sentAt ?? last.createdAt).getTime() < (last.status === "FAILED" ? 30 * 60_000 : gap)) continue;
+    const last = await system((tx) => tx.emailOutbox.findFirst({ where: { userId, template: "digest", status: { in: ["SENT", "DEAD"] } }, orderBy: { createdAt: "desc" } }));
+    if (last && now.getTime() - (last.sentAt ?? last.createdAt).getTime() < (last.status === "DEAD" ? 30 * 60_000 : gap)) continue;
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } });
     const items = await system((tx) => tx.emailOutbox.findMany({ where: { userId, status: "HELD" }, orderBy: { createdAt: "asc" }, take: DIGEST_MAX_ITEMS }));
     if (!user || !items.length) continue;
-    const digest = await system((tx) => tx.emailOutbox.create({ data: { userId, kind: "digest", category: "ACTIVITY", template: "digest", vars: { items: items.map((i) => ({ title: (i.vars as { title?: string }).title ?? "", body: (i.vars as { body?: string }).body ?? "", link: (i.vars as { link?: string }).link ?? "" })) } as never, dedupeKey: `digest:${userId}:${now.toISOString()}`, status: "SENDING" } }));
+    // Claim the held emails first, so two runs at the same moment cannot both send a digest for them.
+    const claimed = await system((tx) => tx.emailOutbox.updateMany({ where: { id: { in: items.map((i) => i.id) }, status: "HELD" }, data: { status: "SENDING", nextAttemptAt: now } }));
+    if (claimed.count !== items.length) {
+      await system((tx) => tx.emailOutbox.updateMany({ where: { id: { in: items.map((i) => i.id) }, status: "SENDING", nextAttemptAt: now }, data: { status: "HELD" } }));
+      continue;
+    }
+    const digest = await system((tx) => tx.emailOutbox.create({ data: { userId, kind: "digest", category: "ACTIVITY", template: "digest", vars: { items: items.map((i) => ({ title: (i.vars as { title?: string }).title ?? "", body: (i.vars as { body?: string }).body ?? "", link: (i.vars as { link?: string }).link ?? "" })) } as never, dedupeKey: `digest:${userId}:${randomUUID()}`, status: "SENDING" } }));
     const msg = renderEmail("digest", digest.vars as Record<string, unknown>, layoutFor(user, "ACTIVITY", "digest"));
     const res = await driver.send({ to: user.email, ...msg, idempotencyKey: digest.id, headers: { "List-Unsubscribe": `<${unsubscribeUrl(user.id, "ACTIVITY")}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } });
     if (res.ok) {
@@ -137,7 +144,8 @@ async function sendDigests(driver: EmailDriver, now: Date, sum: RunSummary) {
       await system((tx) => tx.emailOutbox.updateMany({ where: { id: { in: items.map((i) => i.id) } }, data: { status: "DIGESTED", digestId: digest.id } }));
       await log(userId, "digest", "SENT", `${items.length} items`); sum.digests++;
     } else {
-      await system((tx) => tx.emailOutbox.update({ where: { id: digest.id }, data: { status: "FAILED", attempts: 1, lastError: res.error, provider: driver.name } }));
+      await system((tx) => tx.emailOutbox.update({ where: { id: digest.id }, data: { status: "DEAD", attempts: 1, lastError: res.error, provider: driver.name } }));
+      await system((tx) => tx.emailOutbox.updateMany({ where: { id: { in: items.map((i) => i.id) } }, data: { status: "HELD" } }));
       await log(userId, "digest", "RETRY", res.error);
     }
   }
@@ -148,7 +156,8 @@ async function sendDigests(driver: EmailDriver, now: Date, sum: RunSummary) {
 export async function retryEmails(adminId: string, which: "DEAD" | "FAILED" | string[]) {
   await adminOnly(adminId);
   return system(async (tx) => {
-    const where = Array.isArray(which) ? { id: { in: which }, status: { in: ["DEAD", "FAILED"] as ("DEAD" | "FAILED")[] } } : { status: which };
+    // A failed digest is not retried as a message of its own: its emails go back to waiting and join the next digest.
+    const where = Array.isArray(which) ? { id: { in: which }, status: { in: ["DEAD", "FAILED"] as ("DEAD" | "FAILED")[] }, template: { not: "digest" } } : { status: which, template: { not: "digest" } };
     const r = await tx.emailOutbox.updateMany({ where, data: { status: "QUEUED", attempts: 0, nextAttemptAt: new Date(), lastError: "" } });
     await logActivity(tx, { companyId: null, actorId: adminId, entityType: "email_outbox", entityId: "retry", action: "email.retried", detail: { count: r.count } });
     return r.count;

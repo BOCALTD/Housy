@@ -75,7 +75,7 @@ test("a new approved property reaches only the people who asked, once, and never
   await reviewListing(admin.id, listing.id, "approve", "ok");
 
   for (const u of [match, fan, local]) assert.equal((await alertsFor(u.id, listing.publicRef)).length, 1, "asked for it, told once");
-  for (const u of [noMatch, stranger, off, member]) assert.equal((await alertsFor(u.id, listing.publicRef)).length, 0, "not relevant, not told");
+  for (const u of [noMatch, stranger, off, { id: member.userId }]) assert.equal((await alertsFor(u.id, listing.publicRef)).length, 0, "not relevant, not told");
   assert.match((await alertsFor(match.id, listing.publicRef))[0].body, /saved/);
   assert.match((await alertsFor(fan.id, listing.publicRef))[0].body, /follow/);
   assert.match((await alertsFor(local.id, listing.publicRef))[0].body, /area/);

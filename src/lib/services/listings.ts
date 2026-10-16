@@ -1,3 +1,4 @@
+import { referralEvent } from "./referrals";
 import { z } from "zod";
 import { withTenant, withPublic, withPlatformAdmin } from "../db";
 import { logActivity } from "../audit";
@@ -94,7 +95,7 @@ export async function reviewQueue(adminUserId: string) {
 
 export async function reviewListing(adminUserId: string, listingId: string, decision: "approve" | "reject", note: string) {
   if (decision === "reject" && note.trim().length < 3) throw new Error("Give the company a reason for rejecting the listing");
-  await withPlatformAdmin(adminUserId, async (tx) => {
+  const published = await withPlatformAdmin(adminUserId, async (tx) => {
     const listing = await tx.listing.findUnique({ where: { id: listingId } });
     if (!listing || listing.status !== "PENDING_REVIEW") throw new Error("That listing is not awaiting review");
     const status = decision === "approve" ? "PUBLISHED" : "DRAFT";
@@ -106,7 +107,9 @@ export async function reviewListing(adminUserId: string, listingId: string, deci
       companyId: listing.companyId, actorId: adminUserId, entityType: "listing", entityId: listing.id,
       action: decision === "approve" ? "listing.approved" : "listing.rejected", detail: { note: note.trim() },
     });
+    return decision === "approve" ? { companyId: listing.companyId, id: listing.id, title: listing.title } : null;
   });
+  if (published) await referralEvent("REFERRAL_LISTING_PUBLISHED", { companyId: published.companyId }, { type: "listing", id: published.id, label: published.title });
 }
 
 // ---------- Public marketplace ----------

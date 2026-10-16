@@ -47,7 +47,7 @@ open_page() {
 }
 for p in $PAGES; do
   case "$p" in
-    /me*|/directory*|/messages*) open_page "seeker" "$SEEKER_TOKEN" "$p"; continue ;;
+    /me*|/directory*|/messages*|/referrals*|/rewards*|/vacancies*) open_page "seeker" "$SEEKER_TOKEN" "$p"; continue ;;
     /admin*) open_page "platform administrator" "$PLATFORM_TOKEN" "$p"; continue ;;
   esac
   open_page "administrator" "$TOKEN" "$p"

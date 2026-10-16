@@ -7,6 +7,17 @@ import { act, str } from "@/lib/forms";
 import { rateLimit } from "@/lib/ratelimit";
 import { acceptInvitation, myCompanies, registerCompany } from "@/lib/services/companies";
 import { registerSeeker } from "@/lib/services/community";
+import { captureReferral } from "@/lib/services/referrals";
+import { cookies } from "next/headers";
+
+/** The first-party cookie /r/CODE sets: "CODE.milliseconds". Read once at sign-up and then cleared. */
+async function takeReferral() {
+  const jar = cookies();
+  const raw = jar.get("ref")?.value ?? "";
+  const [code = "", at = ""] = raw.split(".");
+  if (raw) jar.set("ref", "", { path: "/", maxAge: 0 });
+  return code ? { code, at: Number(at) } : null;
+}
 
 function clientIp() {
   return headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
@@ -19,6 +30,7 @@ export async function signupAction(form: FormData) {
       companyName: str(form, "companyName"), name: str(form, "name"),
       email: str(form, "email"), password: str(form, "password"),
     });
+    await captureReferral({ id: userId, name: str(form, "name"), email: str(form, "email").toLowerCase(), companyId }, "COMPANY", await takeReferral());
     await createSession(userId, companyId);
     return "/app?notice=" + encodeURIComponent("Your company workspace is ready.");
   });
@@ -28,6 +40,7 @@ export async function joinAction(form: FormData) {
   return act("/join", async () => {
     if (!(await rateLimit(`signup:${clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
     const { userId } = await registerSeeker({ name: str(form, "name"), email: str(form, "email"), password: str(form, "password") });
+    await captureReferral({ id: userId, name: str(form, "name"), email: str(form, "email").toLowerCase() }, "SEEKER", await takeReferral());
     await createSession(userId, null);
     return "/me?notice=" + encodeURIComponent("Your account is ready.");
   });

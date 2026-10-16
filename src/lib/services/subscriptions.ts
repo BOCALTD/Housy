@@ -1,3 +1,5 @@
+import { referralEvent } from "./referrals";
+import { reverseSource } from "./rewards";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma, withPlatformAdmin, withUser, withTenant, type Tx } from "../db";
@@ -135,6 +137,14 @@ export interface AssignInput { planId: string; periodEnd: string; trial?: boolea
 
 /** Give a person or a company a plan, or move them to another one, until the end of a day. Payment is recorded by hand for now. */
 export async function assignSubscription(adminId: string, input: AssignInput) {
+  const sub = await assignSubscriptionInner(adminId, input);
+  if (!input.trial && sub.plan.priceKobo && sub.plan.priceKobo > 0n) {
+    await referralEvent("REFERRAL_SUBSCRIBED", { companyId: sub.ownerCompanyId, userId: sub.ownerUserId }, { type: "subscription", id: sub.id, label: `${sub.plan.name} plan` });
+  }
+  return sub;
+}
+
+async function assignSubscriptionInner(adminId: string, input: AssignInput) {
   await assertPlatformAdmin(adminId);
   const periodEnd = endOfDay(input.periodEnd);
   if (periodEnd.getTime() <= Date.now()) throw new Error("Choose an end date in the future");
@@ -167,7 +177,7 @@ export async function assignSubscription(adminId: string, input: AssignInput) {
       await tx.subscriptionEvent.create({ data: { subscriptionId: sub.id, kind: "ASSIGNED", toPlanId: plan.id, periodEnd, note, actorId: adminId } });
     }
     await logActivity(tx, { companyId: owner.kind === "COMPANY" ? owner.companyId : null, actorId: adminId, entityType: "subscription", entityId: sub.id, action: existing ? "subscription.plan_changed" : "subscription.assigned", detail: { plan: plan.code, periodEnd: periodEnd.toISOString() } });
-    return sub;
+    return Object.assign(sub, { plan });
   });
 }
 
@@ -196,6 +206,7 @@ export async function cancelSubscription(adminId: string, subscriptionId: string
     await tx.subscriptionEvent.create({ data: { subscriptionId: sub.id, kind: "CANCELLED", fromPlanId: sub.planId, toPlanId: sub.planId, periodEnd: sub.periodEnd, note: noteInput.trim().slice(0, 300), actorId: adminId } });
     await logActivity(tx, { companyId: sub.ownerCompanyId, actorId: adminId, entityType: "subscription", entityId: sub.id, action: "subscription.cancelled", detail: {} });
   });
+  await reverseSource("subscription", subscriptionId, "The subscription was cancelled.");
 }
 
 export async function listSubscriptions(adminId: string, limit = 200) {

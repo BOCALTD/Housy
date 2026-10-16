@@ -3497,3 +3497,262 @@ model MessagingRestriction {
 
   @@map("messaging_restrictions")
 }
+
+// ---------- Phase 10a: rewards and referrals ----------
+
+enum RewardProgramme {
+  REFERRAL
+  VACANCY
+}
+
+enum RewardEvent {
+  REFERRAL_REGISTERED
+  REFERRAL_LISTING_PUBLISHED
+  REFERRAL_SUBSCRIBED
+  REFERRAL_CUSTOM
+  VACANCY_VERIFIED
+  VACANCY_LISTED
+  VACANCY_TRANSACTION
+}
+
+enum RewardStatus {
+  NOT_ELIGIBLE
+  UNDER_REVIEW
+  ELIGIBLE
+  APPROVED
+  PAYABLE
+  PAID
+  REJECTED
+  CANCELLED
+  DISPUTED
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum ReferralAudience {
+  SEEKER
+  OWNER
+  AGENT
+  COMPANY
+  DEVELOPER
+  VENDOR
+  SUBSCRIBER
+  LISTING
+  OTHER
+}
+
+enum AttributionStatus {
+  REGISTERED
+  QUALIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum ReviewState {
+  CLEAR
+  FLAGGED
+  CLEARED
+  CONFIRMED_ABUSE
+}
+
+enum DisputeStatus {
+  OPEN
+  UPHELD
+  DENIED
+}
+
+enum DisputeSubject {
+  REWARD
+  VACANCY_REPORT
+}
+
+/// A reward amount for one programme event. Never edited: a change retires it and adds the next version, so a dispute can be judged on the policy in force at the time.
+model RewardPolicy {
+  id             String          @id @default(uuid())
+  programme      RewardProgramme
+  event          RewardEvent
+  campaignId     String?         @map("campaign_id")
+  version        Int
+  name           String
+  amountKobo     BigInt          @map("amount_kobo")
+  holdDays       Int             @default(14) @map("hold_days")
+  perPersonLimit Int?            @map("per_person_limit")
+  active         Boolean         @default(true)
+  terms          String          @default("")
+  retiredAt      DateTime?       @map("retired_at")
+  createdById    String          @map("created_by_id")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  @@index([programme, event, active])
+  @@map("reward_policies")
+}
+
+/// The most the platform will approve for a programme in one month.
+model RewardBudget {
+  id          String          @id @default(uuid())
+  programme   RewardProgramme
+  month       String
+  limitKobo   BigInt          @map("limit_kobo")
+  updatedById String          @map("updated_by_id")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  @@unique([programme, month])
+  @@map("reward_budgets")
+}
+
+model Reward {
+  id            String          @id @default(uuid())
+  ref           String          @unique
+  userId        String          @map("user_id")
+  programme     RewardProgramme
+  event         RewardEvent
+  policyId      String?         @map("policy_id")
+  policyVersion Int?            @map("policy_version")
+  amountKobo    BigInt          @map("amount_kobo")
+  status        RewardStatus
+  reason        String          @default("")
+  flag          String          @default("")
+  sourceType    String          @map("source_type")
+  sourceId      String          @map("source_id")
+  sourceLabel   String          @default("") @map("source_label")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  approvedAt    DateTime?       @map("approved_at")
+  approvedById  String?         @map("approved_by_id")
+  payableAt     DateTime?       @map("payable_at")
+  paidAt        DateTime?       @map("paid_at")
+  payoutId      String?         @map("payout_id")
+  ledger        RewardLedgerEntry[]
+
+  @@unique([sourceType, sourceId, event])
+  @@index([userId, status])
+  @@index([status, payableAt])
+  @@map("rewards")
+}
+
+/// Every change to a reward, kept for good. Rows are never updated or deleted.
+model RewardLedgerEntry {
+  id         String        @id @default(uuid())
+  rewardId   String        @map("reward_id")
+  userId     String        @map("user_id")
+  fromStatus RewardStatus? @map("from_status")
+  toStatus   RewardStatus  @map("to_status")
+  amountKobo BigInt        @map("amount_kobo")
+  actorId    String?       @map("actor_id")
+  actorName  String        @map("actor_name")
+  note       String        @default("")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  reward     Reward        @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+
+  @@index([rewardId, createdAt])
+  @@index([userId, createdAt])
+  @@map("reward_ledger")
+}
+
+model RewardPayout {
+  id            String       @id @default(uuid())
+  ref           String       @unique
+  userId        String       @map("user_id")
+  amountKobo    BigInt       @map("amount_kobo")
+  status        PayoutStatus @default(PENDING)
+  method        String       @default("BANK_TRANSFER")
+  reference     String       @default("")
+  note          String       @default("")
+  failureReason String       @default("") @map("failure_reason")
+  createdById   String       @map("created_by_id")
+  createdByName String       @map("created_by_name")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  verifiedById  String?      @map("verified_by_id")
+  verifiedAt    DateTime?    @map("verified_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("reward_payouts")
+}
+
+model RewardRestriction {
+  id         String    @id @default(uuid())
+  userId     String    @unique @map("user_id")
+  reason     String
+  setById    String    @map("set_by_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  liftedAt   DateTime? @map("lifted_at")
+  liftedById String?   @map("lifted_by_id")
+
+  @@map("reward_restrictions")
+}
+
+model RewardDispute {
+  id           String         @id @default(uuid())
+  subjectType  DisputeSubject @map("subject_type")
+  subjectId    String         @map("subject_id")
+  userId       String         @map("user_id")
+  reason       String
+  status       DisputeStatus  @default(OPEN)
+  resolution   String         @default("")
+  resolvedById String?        @map("resolved_by_id")
+  resolvedAt   DateTime?      @map("resolved_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([subjectType, subjectId])
+  @@map("reward_disputes")
+}
+
+model ReferralCampaign {
+  id                    String           @id @default(uuid())
+  name                  String
+  audience              ReferralAudience
+  event                 RewardEvent
+  description           String           @default("")
+  startsOn              DateTime         @map("starts_on")
+  endsOn                DateTime?        @map("ends_on")
+  attributionDays       Int              @default(30) @map("attribution_days")
+  qualifyWithinDays     Int              @default(60) @map("qualify_within_days")
+  maxRewardsPerReferrer Int?             @map("max_rewards_per_referrer")
+  active                Boolean          @default(true)
+  createdById           String           @map("created_by_id")
+  createdAt             DateTime         @default(now()) @map("created_at")
+
+  @@index([active, audience])
+  @@map("referral_campaigns")
+}
+
+model ReferralCode {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  code      String   @unique
+  active    Boolean  @default(true)
+  clicks    Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("referral_codes")
+}
+
+model ReferralAttribution {
+  id                String            @id @default(uuid())
+  ref               String            @unique
+  codeId            String            @map("code_id")
+  referrerId        String            @map("referrer_id")
+  referredUserId    String            @unique @map("referred_user_id")
+  referredName      String            @map("referred_name")
+  referredCompanyId String?           @map("referred_company_id")
+  campaignId        String            @map("campaign_id")
+  registeredAt      DateTime          @default(now()) @map("registered_at")
+  status            AttributionStatus @default(REGISTERED)
+  signals           String            @default("")
+  reviewState       ReviewState       @default(CLEAR) @map("review_state")
+  reviewNote        String            @default("") @map("review_note")
+  reviewedById      String?           @map("reviewed_by_id")
+  rejectReason      String            @default("") @map("reject_reason")
+  qualifiedAt       DateTime?         @map("qualified_at")
+
+  @@index([referrerId])
+  @@index([campaignId, status])
+  @@index([referredCompanyId])
+  @@map("referral_attributions")
+}

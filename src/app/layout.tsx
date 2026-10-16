@@ -52,6 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {session ? (
                 <>
                   {session.companyId ? <Link href="/app">Workspace</Link> : null}
+                  <Link href="/referrals">Earn</Link>
                   <Link href="/messages">Messages{unreadMsgs > 0 ? ` (${unreadMsgs})` : ""}</Link>
                   <Link href="/me">My account{unread > 0 ? ` (${unread})` : ""}</Link>
                   {session.user.isPlatformAdmin ? <Link href="/admin">Platform admin</Link> : null}

@@ -1007,5 +1007,41 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the administrator sets a restriction'; END $$;
 SELECT set_config('app.user_id', 'u1', true);
 
+-- 29. Rewards: people read only their own; only the administrator writes; the ledger cannot be edited.
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+INSERT INTO rewards (id, ref, user_id, programme, event, amount_kobo, status, source_type, source_id, updated_at) VALUES ('rw-1', 'RW-1', 'u1', 'REFERRAL', 'REFERRAL_REGISTERED', 100000, 'ELIGIBLE', 'user', 'x1', now());
+INSERT INTO reward_ledger (id, reward_id, user_id, to_status, amount_kobo, actor_name) VALUES ('rl-1', 'rw-1', 'u1', 'ELIGIBLE', 100000, 'Platform');
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+SELECT pg_temp.expect((SELECT count(*) FROM rewards) = 1, 'a person reads their own reward');
+SELECT pg_temp.expect((SELECT count(*) FROM reward_ledger) = 1, 'a person reads their own ledger');
+SELECT set_config('app.user_id', 'u3', true);
+SELECT pg_temp.expect((SELECT count(*) FROM rewards) = 0, 'another person cannot read the reward');
+SELECT pg_temp.expect((SELECT count(*) FROM reward_ledger) = 0, 'another person cannot read the ledger');
+DO $$ BEGIN
+  INSERT INTO rewards (id, ref, user_id, programme, event, amount_kobo, status, source_type, source_id, updated_at) VALUES ('rw-x', 'RW-X', 'u3', 'REFERRAL', 'REFERRAL_REGISTERED', 999999, 'ELIGIBLE', 'user', 'x2', now());
+  RAISE EXCEPTION 'FAIL: a person created their own reward';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a person cannot create a reward'; END $$;
+SELECT set_config('app.user_id', 'u1', true);
+DO $$ DECLARE n int; BEGIN
+  UPDATE rewards SET status = 'APPROVED' WHERE id = 'rw-1';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL: a person approved their own reward'; END IF;
+  RAISE NOTICE 'ok: a person cannot approve their own reward';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a person cannot approve their own reward'; END $$;
+DO $$ BEGIN
+  INSERT INTO reward_disputes (id, subject_type, subject_id, user_id, reason, status) VALUES ('rd-x', 'REWARD', 'rw-1', 'u1', 'long enough reason here', 'UPHELD');
+  RAISE EXCEPTION 'FAIL: a person decided their own dispute';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a dispute can only be opened'; END $$;
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+DO $$ BEGIN
+  UPDATE reward_ledger SET note = 'edited' WHERE id = 'rl-1';
+  RAISE EXCEPTION 'FAIL: ledger was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: the ledger is append-only'; END $$;
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

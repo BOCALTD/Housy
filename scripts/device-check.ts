@@ -124,7 +124,7 @@ async function main() {
   const token = lines[0];
   const seekerToken = lines[2];
   const platformToken = lines[3];
-  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
+  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
   const all = lines.slice(4).filter((p) => !p.endsWith(".csv"));
   const seen = new Set<string>();
   const signedIn: string[] = [];
@@ -166,7 +166,7 @@ async function main() {
       try {
         const res = await page.goto(`${BASE}${p}`, { waitUntil: "networkidle", timeout: 30000 });
         if (!res || res.status() >= 400) add("http", `status ${res?.status()}`);
-        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/admin")) {
+        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/admin")) {
           const r = await inspect(page, touch);
           if (!/width=device-width/.test(r.viewport)) add("viewport", `viewport meta is "${r.viewport}"`);
           if (r.overflow > 1) add("sideways-scroll", `page is ${r.overflow}px wider than the screen`, r.wide);

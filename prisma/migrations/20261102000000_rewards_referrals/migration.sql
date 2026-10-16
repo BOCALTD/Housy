@@ -319,7 +319,7 @@ CREATE POLICY admin_only ON "reward_budgets" FOR ALL USING (app_platform_admin()
 ALTER TABLE "reward_disputes" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "reward_disputes" FORCE ROW LEVEL SECURITY;
 CREATE POLICY read_own ON "reward_disputes" FOR SELECT USING (user_id = app_current_user() OR app_platform_admin());
-CREATE POLICY open_own ON "reward_disputes" FOR INSERT WITH CHECK (user_id = app_current_user() AND status = 'OPEN');
+CREATE POLICY open_own ON "reward_disputes" FOR INSERT WITH CHECK ((user_id = app_current_user() AND status = 'OPEN') OR app_platform_admin());
 CREATE POLICY admin_update ON "reward_disputes" FOR UPDATE USING (app_platform_admin()) WITH CHECK (app_platform_admin());
 
 ALTER TABLE "referral_codes" ENABLE ROW LEVEL SECURITY;

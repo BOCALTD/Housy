@@ -198,7 +198,7 @@ export async function renewSubscription(adminId: string, subscriptionId: string,
 /** Stop a subscription at the end of the period already paid for. */
 export async function cancelSubscription(adminId: string, subscriptionId: string, noteInput = "") {
   await assertPlatformAdmin(adminId);
-  return withPlatformAdmin(adminId, async (tx) => {
+  await withPlatformAdmin(adminId, async (tx) => {
     const sub = await tx.subscription.findUnique({ where: { id: subscriptionId } });
     if (!sub) throw new Error("Subscription not found");
     if (sub.status === "CANCELLED") throw new Error("This subscription is already cancelled");

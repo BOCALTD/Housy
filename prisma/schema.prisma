@@ -3756,3 +3756,130 @@ model ReferralAttribution {
   @@index([referredCompanyId])
   @@map("referral_attributions")
 }
+
+// ---------- Phase 10b: vacancy reports (the whistle-blower programme) ----------
+
+enum VacancyStage {
+  SUBMITTED
+  DUPLICATE_CHECK
+  INITIAL_REVIEW
+  LOCATION_VERIFICATION
+  AVAILABILITY_CONFIRMATION
+  OWNER_VERIFICATION
+  REWARD_REVIEW
+}
+
+enum VacancyOutcome {
+  OPEN
+  APPROVED
+  REJECTED
+  NEEDS_INFO
+  MERGED
+  WITHDRAWN
+}
+
+enum VacancyLeadStatus {
+  CONTACTING
+  AUTHORISED
+  DECLINED
+  WITHDRAWN
+}
+
+/// Someone saw a vacant property and told us. This is a sighting, not a listing: nothing here is ever published.
+model VacancyReport {
+  id               String         @id @default(uuid())
+  ref              String         @unique
+  reporterId       String         @map("reporter_id")
+  reporterName     String         @map("reporter_name")
+  propertyType     String         @map("property_type")
+  purpose          String         @default("UNKNOWN")
+  bedrooms         Int?
+  address          String
+  area             String
+  city             String
+  state            String
+  lat              Float?
+  lng              Float?
+  addressKey       String         @map("address_key")
+  description      String
+  descriptionHash  String         @map("description_hash")
+  observedOn       DateTime       @map("observed_on") @db.Date
+  ownerContact     String         @default("") @map("owner_contact")
+  allowContact     Boolean        @default(false) @map("allow_contact")
+  showNameToOwner  Boolean        @default(false) @map("show_name_to_owner")
+  stage            VacancyStage   @default(SUBMITTED)
+  outcome          VacancyOutcome @default(OPEN)
+  signals          String         @default("")
+  flagged          Boolean        @default(false)
+  clusterId        String         @map("cluster_id")
+  duplicateOfId    String?        @map("duplicate_of_id")
+  mergedIntoId     String?        @map("merged_into_id")
+  reviewNote       String         @default("") @map("review_note")
+  rejectReason     String         @default("") @map("reject_reason")
+  question         String         @default("")
+  reply            String         @default("")
+  appealedAt       DateTime?      @map("appealed_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  closedAt         DateTime?      @map("closed_at")
+  files            VacancyFile[]
+  events           VacancyEvent[]
+  lead             VacancyLead?
+
+  @@index([reporterId, createdAt])
+  @@index([stage, outcome])
+  @@index([clusterId])
+  @@index([addressKey])
+  @@index([descriptionHash])
+  @@index([state, city, area])
+  @@map("vacancy_reports")
+}
+
+model VacancyFile {
+  id        String        @id @default(uuid())
+  reportId  String        @map("report_id")
+  name      String
+  mimeType  String        @map("mime_type")
+  sizeBytes Int           @map("size_bytes")
+  sha256    String
+  bytes     Bytes
+  createdAt DateTime      @default(now()) @map("created_at")
+  report    VacancyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([sha256])
+  @@map("vacancy_files")
+}
+
+/// The history of a report. Entries marked toReporter are shown to the person who reported; the rest are the reviewers' own notes.
+model VacancyEvent {
+  id         String         @id @default(uuid())
+  reportId   String         @map("report_id")
+  stage      VacancyStage?
+  outcome    VacancyOutcome?
+  actorName  String         @map("actor_name")
+  note       String         @default("")
+  toReporter Boolean        @default(true) @map("to_reporter")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  report     VacancyReport  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, createdAt])
+  @@map("vacancy_events")
+}
+
+/// Permission to advertise is a separate matter from having seen the property. A lead records who we spoke to and whether they agreed.
+model VacancyLead {
+  id                String            @id @default(uuid())
+  reportId          String            @unique @map("report_id")
+  status            VacancyLeadStatus @default(CONTACTING)
+  contactName       String            @map("contact_name")
+  authorisationNote String            @default("") @map("authorisation_note")
+  authorisedAt      DateTime?         @map("authorised_at")
+  listingId         String?           @map("listing_id")
+  createdById       String            @map("created_by_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  report            VacancyReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("vacancy_leads")
+}

@@ -45,6 +45,10 @@ import { addCommissionRule, proposeCommission } from "./services/commission";
 import { addDealTask, recordDealPayment } from "./services/deal-file";
 import { completeDeal, counterOffer, createDeal, decideAcceptance, moveStage, recordOffer, requestAcceptance, scheduleViewing } from "./services/deal";
 import { addClientActivity, addRequirement, createClient, createLead, setLeadStatus } from "./services/crm";
+import { createCampaign, getOrCreateCode } from "./services/referrals";
+import { savePolicy, setBudget } from "./services/rewards";
+import { submitVacancy } from "./services/vacancies";
+import { monthKey } from "./reward-rules";
 import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./services/community";
 import { assignSubscription } from "./services/subscriptions";
 
@@ -468,6 +472,15 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await createInvitation(asPerson(seeker.userId), { kind: "SEEKER_AGENT", purpose: "SEARCH_ASSISTANCE", title: "[DEMO] Help me find a flat in Lekki", scope: "Two bedrooms.", agentUserId: alpha.userId }, true);
 
   await startConversation(asPerson(seeker.userId), { toUserId: alpha.userId, subject: "[DEMO] A two-bedroom flat", body: "[DEMO] Hello, I am looking for a two-bedroom flat in Lekki. Is the terrace still available?" });
+
+  // Rewards: a referral campaign with its reward and a budget, a referral link, and one vacancy report waiting for review.
+  const campaign = await createCampaign(adminId, { name: "[DEMO] Invite a friend", audience: "SEEKER", event: "REFERRAL_REGISTERED", description: "[DEMO] Demonstration campaign.", startsOn: toDateOnlyString(new Date(Date.now() - 864e5)), attributionDays: "30", qualifyWithinDays: "60" } as never);
+  await savePolicy(adminId, { programme: "REFERRAL", event: "REFERRAL_REGISTERED", campaignId: campaign.id, name: "[DEMO] Friend signs up", amount: "1000", holdDays: "14", terms: "[DEMO] Demonstration terms." } as never);
+  await savePolicy(adminId, { programme: "VACANCY", event: "VACANCY_VERIFIED", name: "[DEMO] Verified vacancy", amount: "2000", holdDays: "14", terms: "[DEMO] Demonstration terms." } as never);
+  await setBudget(adminId, "REFERRAL", monthKey(new Date()), "100000");
+  await setBudget(adminId, "VACANCY", monthKey(new Date()), "100000");
+  await getOrCreateCode(seeker.userId);
+  await submitVacancy(seeker.userId, { propertyType: "FLAT", purpose: "RENT", bedrooms: "2", address: "[DEMO] 14 Admiralty Way", area: "Lekki Phase 1", city: "Lagos", state: "Lagos", description: "[DEMO] A two-bedroom flat with a to-let board on the gate and no sign of anyone living there.", observedOn: toDateOnlyString(new Date()), allowContact: false, showNameToOwner: false, understood: true }, []);
 
   return true;
 }

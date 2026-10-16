@@ -287,6 +287,16 @@ export async function sourceProblem(tx: Tx, r: Pick<RewardRow, "sourceType" | "s
       const s = await tx.subscription.findUnique({ where: { id: r.sourceId }, select: { status: true, cancelledAt: true } });
       return s && !s.cancelledAt && s.status !== "CANCELLED" ? null : "The subscription was cancelled.";
     }
+    case "vacancy_report": {
+      const v = await tx.vacancyReport.findUnique({ where: { id: r.sourceId }, select: { outcome: true } });
+      return v?.outcome === "APPROVED" ? null : "The vacancy report is no longer approved.";
+    }
+    case "vacancy_lead": {
+      const l = await tx.vacancyLead.findUnique({ where: { id: r.sourceId }, select: { status: true, listingId: true } });
+      if (!l || l.status !== "AUTHORISED" || !l.listingId) return "The owner's permission is no longer in place.";
+      const listing = await tx.listing.findUnique({ where: { id: l.listingId }, select: { status: true } });
+      return listing?.status === "PUBLISHED" ? null : "The listing is no longer published.";
+    }
     default: return null;
   }
 }

@@ -1,4 +1,5 @@
 import { referralEvent } from "./referrals";
+import { vacancyListingPublished } from "./vacancies";
 import { z } from "zod";
 import { withTenant, withPublic, withPlatformAdmin } from "../db";
 import { logActivity } from "../audit";
@@ -109,6 +110,7 @@ export async function reviewListing(adminUserId: string, listingId: string, deci
     });
     return decision === "approve" ? { companyId: listing.companyId, id: listing.id, title: listing.title } : null;
   });
+  if (published) await vacancyListingPublished(published.id);
   if (published) await referralEvent("REFERRAL_LISTING_PUBLISHED", { companyId: published.companyId }, { type: "listing", id: published.id, label: published.title });
 }
 

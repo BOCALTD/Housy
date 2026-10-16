@@ -1043,5 +1043,45 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: the ledger is appen
 SELECT set_config('app.platform_admin', '', true);
 SELECT set_config('app.user_id', 'u1', true);
 
+-- 30. Vacancy reports: only the reporter and the review team can read one; nobody else, not even an owner or another reporter.
+SELECT set_config('app.user_id', 'u1', true);
+INSERT INTO vacancy_reports (id, ref, reporter_id, reporter_name, property_type, address, area, city, state, address_key, description, description_hash, observed_on, cluster_id, updated_at)
+  VALUES ('vr-1', 'VR-1', 'u1', 'One', 'FLAT', '12 Allen Avenue', 'Ikeja', 'Lagos', 'Lagos', 'k', 'A two bedroom flat with a to-let board outside', 'h', current_date, 'vr-1', now());
+INSERT INTO vacancy_files (id, report_id, name, mime_type, size_bytes, sha256, bytes) VALUES ('vf-1', 'vr-1', 'a.jpg', 'image/jpeg', 3, 'abc', '\x010203');
+SELECT pg_temp.expect((SELECT count(*) FROM vacancy_reports) = 1, 'the reporter reads their own report');
+SELECT pg_temp.expect((SELECT count(*) FROM vacancy_files) = 1, 'the reporter reads their own photo');
+DO $$ BEGIN
+  INSERT INTO vacancy_reports (id, ref, reporter_id, reporter_name, property_type, address, area, city, state, address_key, description, description_hash, observed_on, cluster_id, updated_at)
+    VALUES ('vr-x', 'VR-X', 'u3', 'Three', 'FLAT', 'x', 'x', 'x', 'x', 'k', 'A report filed in somebody else''s name', 'h', current_date, 'vr-x', now());
+  RAISE EXCEPTION 'FAIL: reported as someone else';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: nobody can file a report in another name'; END $$;
+DO $$ DECLARE n int; BEGIN
+  UPDATE vacancy_reports SET outcome = 'APPROVED', stage = 'REWARD_REVIEW', closed_at = now() WHERE id = 'vr-1';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL: a reporter approved their own report'; END IF;
+  RAISE NOTICE 'ok: a reporter cannot approve their own report';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a reporter cannot approve their own report'; END $$;
+SELECT set_config('app.user_id', 'u3', true);
+SELECT pg_temp.expect((SELECT count(*) FROM vacancy_reports) = 0, 'another reporter cannot read the report');
+SELECT pg_temp.expect((SELECT count(*) FROM vacancy_files) = 0, 'another reporter cannot read the photo');
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+INSERT INTO vacancy_events (id, report_id, actor_name, note, to_reporter) VALUES ('ve-1', 'vr-1', 'Review', 'Shown to the reporter', true), ('ve-2', 'vr-1', 'Review', 'Internal note', false);
+INSERT INTO vacancy_leads (id, report_id, contact_name, created_by_id, updated_at) VALUES ('vl-1', 'vr-1', 'The owner', 'padmin', now());
+SELECT pg_temp.expect((SELECT count(*) FROM vacancy_reports) = 1, 'the review team reads the report');
+SELECT pg_temp.expect((SELECT count(*) FROM vacancy_events) = 2, 'the review team reads every note');
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+SELECT pg_temp.expect((SELECT count(*) FROM vacancy_events) = 1, 'the reporter sees only the history meant for them');
+SELECT pg_temp.expect((SELECT count(*) FROM vacancy_leads) = 0, 'the reporter cannot see the owner lead');
+DO $$ BEGIN
+  INSERT INTO vacancy_events (id, report_id, actor_name, note) VALUES ('ve-x', 'vr-1', 'One', 'forged history');
+  RAISE EXCEPTION 'FAIL: reporter wrote history';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the review team writes history'; END $$;
+DO $$ BEGIN
+  UPDATE vacancy_events SET note = 'edited' WHERE id = 've-1';
+  RAISE EXCEPTION 'FAIL: history was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: history is append-only'; END $$;
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

@@ -16,7 +16,7 @@ enums = {m.group(1): re.findall(r"^\s*([A-Z0-9_]+)\s*$", m.group(2), re.M)
 models = {m.group(1): m.group(2) for m in re.finditer(r"model (\w+) \{(.*?)\n\}", src, re.S)}
 
 SCALAR = {"String": "TEXT", "Boolean": "BOOLEAN", "Int": "INTEGER", "BigInt": "BIGINT",
-          "DateTime": "TIMESTAMP(3)", "Json": "JSONB", "Bytes": "BYTEA"}
+          "DateTime": "TIMESTAMP(3)", "Json": "JSONB", "Bytes": "BYTEA", "Float": "DOUBLE PRECISION"}
 ONDELETE = {"Restrict": "RESTRICT", "Cascade": "CASCADE", "SetNull": "SET NULL", "NoAction": "NO ACTION"}
 
 only_models = set(sys.argv[2].split(",")) if len(sys.argv) > 2 and sys.argv[2] else None

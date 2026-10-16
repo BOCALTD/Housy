@@ -18,7 +18,7 @@ import { can } from "@/lib/permissions";
 import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import {
   addPartyAction, createLeaseAction, createTaskAction, listingStatusAction, recordPaymentAction,
-  saveListingAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
+  saveListingAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
 } from "../actions";
 
 export const metadata = { title: "Asset" };
@@ -356,6 +356,22 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                 <Field label="Reason"><input name="reason" required /></Field>
                 <button className="btn" type="submit">Update status</button>
               </form>
+            </section>
+          ) : null}
+
+          {can(member.role, "asset.update") ? (
+            <section className="card">
+              <h2>Map position</h2>
+              <p className="small muted">{asset.lat !== null ? `Set to ${asset.lat.toFixed(4)}, ${asset.lng?.toFixed(4)}. Public listings show only an area about 1 km wide.` : `Not set: the map places this property at the centre of ${asset.city || asset.state || "its area"}.`}</p>
+              <details className="inline"><summary>{asset.lat !== null ? "Change position" : "Set position"}</summary>
+                <form action={setPositionAction} className="stack">
+                  {hidden}
+                  <Field label="Latitude" hint="For example 6.4698"><input name="lat" required inputMode="decimal" defaultValue={asset.lat ?? ""} /></Field>
+                  <Field label="Longitude" hint="For example 3.5852"><input name="lng" required inputMode="decimal" defaultValue={asset.lng ?? ""} /></Field>
+                  <button className="btn" type="submit">Save position</button>
+                </form>
+                {asset.lat !== null ? <form action={setPositionAction}>{hidden}<input type="hidden" name="clear" value="1" /><input type="hidden" name="lat" value="" /><input type="hidden" name="lng" value="" /><button className="btn small" type="submit">Clear position</button></form> : null}
+              </details>
             </section>
           ) : null}
 

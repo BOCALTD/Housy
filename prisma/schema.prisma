@@ -154,6 +154,8 @@ model Asset {
   address             String              @default("")
   city                String              @default("")
   state               String              @default("")
+  lat                 Float?
+  lng                 Float?
   status              AssetStatus         @default(ACTIVE)
   companyRelationship CompanyRelationship @map("company_relationship")
   acquisitionCostKobo BigInt?             @map("acquisition_cost_kobo")
@@ -569,6 +571,9 @@ model Listing {
   description String         @default("")
   city        String
   state       String
+  /// Approximate position only (rounded to about 1 km). The exact position of an asset is never published.
+  lat         Float?
+  lng         Float?
   status      ListingStatus  @default(DRAFT)
   reviewNote  String         @default("") @map("review_note")
   postedById  String?        @map("posted_by_id")
@@ -4792,4 +4797,71 @@ model ListingViewKey {
   @@id([listingId, day, viewerKey])
   @@index([listingId, day])
   @@map("listing_view_keys")
+}
+
+
+// ---------- Phase 14: AI assistance, analytics and location ----------
+
+enum AiRunStatus {
+  OK
+  FALLBACK
+  ERROR
+  LIMITED
+  DENIED
+}
+
+enum AiSuggestionKind {
+  DOCUMENT_CATEGORY
+  CORRESPONDENCE_SUMMARY
+}
+
+enum AiSuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// One use of the assistant, kept for audit. It records what was asked of which feature and what happened, never the text itself.
+model AiRun {
+  id          String      @id @default(uuid())
+  companyId   String?     @map("company_id")
+  userId      String?     @map("user_id")
+  visitorKey  String      @default("") @map("visitor_key")
+  feature     String
+  provider    String
+  status      AiRunStatus
+  inputChars  Int         @default(0) @map("input_chars")
+  outputChars Int         @default(0) @map("output_chars")
+  ms          Int         @default(0)
+  subjectType String      @default("") @map("subject_type")
+  subjectId   String      @default("") @map("subject_id")
+  note        String      @default("")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([feature, createdAt])
+  @@map("ai_runs")
+}
+
+/// Something the assistant (or the built-in rules) proposes. It changes nothing until a person with the right role accepts it.
+model AiSuggestion {
+  id           String             @id @default(uuid())
+  companyId    String             @map("company_id")
+  kind         AiSuggestionKind
+  subjectType  String             @map("subject_type")
+  subjectId    String             @map("subject_id")
+  payload      Json
+  source       String
+  confidence   Int                @default(0)
+  status       AiSuggestionStatus @default(PENDING)
+  createdById  String             @map("created_by_id")
+  reviewedById String?            @map("reviewed_by_id")
+  reviewedAt   DateTime?          @map("reviewed_at")
+  reviewNote   String             @default("") @map("review_note")
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  @@index([companyId, status])
+  @@index([subjectType, subjectId])
+  @@map("ai_suggestions")
 }

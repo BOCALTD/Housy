@@ -41,6 +41,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
           <input name="minBeds" defaultValue={filters.minBeds ?? ""} placeholder="Min bedrooms" inputMode="numeric" aria-label="Minimum bedrooms" />
           <button className="btn primary" type="submit">Search</button>
         </form>
+        <p className="small" style={{ margin: 0 }}><Link href="/find" style={{ color: "inherit", textDecoration: "underline" }}>Or describe what you want in a sentence</Link></p>
       </section>
 
       <SponsoredStrip items={sponsored} where={searching ? "search" : "home"} />

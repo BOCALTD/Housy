@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { distanceKm, locate, publicPosition, validPosition } from "../geo-rules";
 import { withTenant } from "../db";
 import { logActivity } from "../audit";
 import { parseNairaToKobo } from "../money";
@@ -212,5 +213,31 @@ export async function getDocumentForDownload(ctx: Ctx, documentId: string) {
       action: "document.downloaded", detail: { title: doc.title },
     });
     return { doc, bytes };
+  });
+}
+
+/**
+ * Set or clear where an asset is on the map. The position must be inside Nigeria and near the city named on the record.
+ * A listing for the asset carries only a copy blurred to about one kilometre; the exact position stays inside the company.
+ */
+export async function setAssetPosition(ctx: Ctx, assetId: string, input: { lat: string; lng: string } | null) {
+  assertCan(ctx, "asset.update");
+  let pos: { lat: number; lng: number } | null = null;
+  if (input && (input.lat.trim() || input.lng.trim())) {
+    const lat = Number(input.lat.trim()), lng = Number(input.lng.trim());
+    if (!validPosition(lat, lng)) throw new Error("Enter a latitude and longitude inside Nigeria, for example 6.4698 and 3.5852");
+    pos = { lat, lng };
+  }
+  await withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const asset = await tx.asset.findFirst({ where: { id: assetId, companyId: ctx.companyId } });
+    if (!asset) throw new Error("Asset not found");
+    if (pos) {
+      const near = locate({ city: asset.city, state: asset.state });
+      if (near && distanceKm(near, pos) > 120) throw new Error(`That position is far from ${asset.city || asset.state}. Check the latitude and longitude, or correct the city first.`);
+    }
+    await tx.asset.update({ where: { id: asset.id }, data: { lat: pos?.lat ?? null, lng: pos?.lng ?? null } });
+    const shown = pos ? publicPosition(pos.lat, pos.lng) : null;
+    await tx.listing.updateMany({ where: { assetId: asset.id, companyId: ctx.companyId }, data: { lat: shown?.lat ?? null, lng: shown?.lng ?? null } });
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "asset", entityId: asset.id, action: pos ? "asset.position_set" : "asset.position_cleared", detail: {} });
   });
 }

@@ -2,6 +2,7 @@ import { referralEvent } from "./referrals";
 import { alertNewListing, alertWatchers, notifyEnquiry } from "./alerts";
 import { vacancyListingPublished } from "./vacancies";
 import { z } from "zod";
+import { publicPosition } from "../geo-rules";
 import { withTenant, withPublic, withPlatformAdmin } from "../db";
 import { logActivity } from "../audit";
 import { parseNairaToKobo } from "../money";
@@ -35,9 +36,11 @@ export async function saveListingDraft(ctx: Ctx, assetId: string, input: z.input
     const asset = await tx.asset.findFirst({ where: { id: assetId, companyId: ctx.companyId }, include: { listing: true } });
     if (!asset) throw new Error("Asset not found");
     if (asset.status === "DISPOSED" || asset.status === "ARCHIVED") throw new Error("Disposed or archived assets cannot be listed");
+    const shown = asset.lat !== null && asset.lng !== null ? publicPosition(asset.lat, asset.lng) : null;
     const fields = {
       title: data.title, purpose: data.purpose, priceKobo: data.price, bedrooms: data.bedrooms,
       bathrooms: data.bathrooms, description: data.description, city: data.city, state: data.state,
+      lat: shown?.lat ?? null, lng: shown?.lng ?? null,
     };
     if (asset.listing) {
       const wasPublished = asset.listing.status === "PUBLISHED";

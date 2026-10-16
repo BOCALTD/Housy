@@ -2,7 +2,7 @@
 
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import { addParty, createAsset, updateAssetStatus, uploadDocument } from "@/lib/services/assets";
+import { addParty, createAsset, setAssetPosition, updateAssetStatus, uploadDocument } from "@/lib/services/assets";
 import { createLease, recordPayment } from "@/lib/services/leases";
 import { createTask, updateTaskStatus } from "@/lib/services/tasks";
 import { saveListingDraft, setListingStatus } from "@/lib/services/listings";
@@ -129,5 +129,15 @@ export async function listingStatusAction(form: FormData) {
     await setListingStatus(member, id, to);
     const msg = to === "PENDING_REVIEW" ? "Listing submitted for platform review." : to === "UNAVAILABLE" ? "Listing marked unavailable." : "Listing returned to draft.";
     return withNotice(assetPath(id), msg);
+  });
+}
+
+export async function setPositionAction(form: FormData) {
+  const id = str(form, "assetId");
+  return act(assetPath(id), async () => {
+    const member = await requireMember("asset.update");
+    const clear = form.get("clear") === "1";
+    await setAssetPosition(member, id, clear ? null : { lat: str(form, "lat"), lng: str(form, "lng") });
+    return withNotice(assetPath(id), clear ? "Map position cleared." : "Map position saved.");
   });
 }

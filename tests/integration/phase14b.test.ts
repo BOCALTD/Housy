@@ -178,7 +178,6 @@ test("clicks are charged once per real visitor a day, never for bots or the adve
   const reasons = (await sys((tx) => tx.adClick.findMany({ where: { campaignId: c.id } }))).map((x) => x.reason);
   assert.ok(reasons.includes("REPEAT") && reasons.includes("BOT") && reasons.includes("OWN"), "every free click says why");
   // daily limit: 4,000 allows 26 clicks at 150; push past it by raising nothing but spend: set today's spend near the limit
-  const today = (await get(c.id)).days ?? null; void today;
   const day = await sys((tx) => tx.adDay.findFirstOrThrow({ where: { campaignId: c.id } }));
   await sys((tx) => tx.adDay.update({ where: { campaignId_day: { campaignId: c.id, day: day.day } }, data: { spentKobo: 400_000n - cpc + 1n } }));
   await click(c.ref, "visitor-late");

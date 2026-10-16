@@ -92,9 +92,9 @@ test("advertising is a plan feature with a limit, and a campaign is checked befo
   await submitCampaign(payerOf(co2), cs[0].id); await submitCampaign(payerOf(co2), cs[1].id);
   await assert.rejects(submitCampaign(payerOf(co2), cs[2].id), /allows 2 campaigns at a time/);
   // a plan that has run out can look but not add
-  await sys((tx) => tx.subscription.updateMany({ where: { ownerCompanyId: co2.companyId }, data: { periodEnd: new Date(Date.now() - 20 * 864e5) } }));
+  await sys((tx) => tx.subscription.updateMany({ where: { ownerCompanyId: co2.companyId }, data: { startedAt: new Date(Date.now() - 200 * 864e5), periodEnd: new Date(Date.now() - 20 * 864e5) } }));
   await assert.rejects(createCampaign(payerOf(co2), form(l2.publicRef)), /run out/);
-  await sys((tx) => tx.subscription.updateMany({ where: { ownerCompanyId: co2.companyId }, data: { periodEnd: new Date(Date.now() - 60 * 864e5) } }));
+  await sys((tx) => tx.subscription.updateMany({ where: { ownerCompanyId: co2.companyId }, data: { startedAt: new Date(Date.now() - 200 * 864e5), periodEnd: new Date(Date.now() - 60 * 864e5) } }));
   await assert.rejects(createCampaign(payerOf(co2), form(l2.publicRef)), /does not include advertising|run out/);
 });
 
@@ -120,7 +120,7 @@ test("a campaign needs review, is invoiced for its budget when approved, and run
   assert.equal(told, 1);
   assert.equal(await sys((tx) => tx.invoice.count({ where: { subjectId: c.id } })), 0, "nothing is billed for a campaign that was not approved");
   // change and send again
-  const changed = await updateCampaign(payerOf(co), c.id, form(listing.publicRef, { name: "Changed", budget: "6,000" }));
+  const changed = await updateCampaign(payerOf(co), c.id, form(listing.publicRef, { name: "Changed", budget: "6,000", headline: "Bright two-bedroom flat" }));
   assert.equal(changed.status, "DRAFT");
   await submitCampaign(payerOf(co), c.id);
   await reviewCampaign(admin.id, c.id, "approve", "Looks good");
@@ -270,7 +270,7 @@ test("adverts stop by themselves when the property is withdrawn, the plan runs o
 
   // 2. the plan runs out beyond its grace period
   const sub = await sys((tx) => tx.subscription.findFirstOrThrow({ where: { ownerCompanyId: co.companyId } }));
-  await sys((tx) => tx.subscription.update({ where: { id: sub.id }, data: { periodEnd: new Date(Date.now() - 12 * 864e5) } }));
+  await sys((tx) => tx.subscription.update({ where: { id: sub.id }, data: { startedAt: new Date(Date.now() - 200 * 864e5), periodEnd: new Date(Date.now() - 12 * 864e5) } }));
   assert.equal(await shown(), false, "read-only access does not allow adverts to run");
   await evaluateCampaigns();
   const s2 = await get(c.id);

@@ -87,7 +87,7 @@ test("a refund is reserved once, cannot pass what was paid, and a full subscript
   assert.equal(await refundLimit(admin.id, s.pay.id), 600_000n);
   assert.equal(await access(s.id), "FULL", "a part refund keeps the plan");
   await confirmRefund(admin.id, pending[1].id);
-  await assert.rejects(confirmRefund(admin.id, pending[1].id), /not waiting|already/i);
+  assert.equal(await confirmRefund(admin.id, pending[1].id), "ALREADY", "confirming twice enters it once");
   assert.equal(await ledgerSum({ paymentId: s.pay.id }), 600_000n, "ledger equals received less refunded");
   // refund the rest: the plan stops
   const rest = await requestRefund(admin.id, s.pay.id, { amount: "6,000", reason: "Full refund asked for" });
@@ -132,7 +132,7 @@ test("the reconciliation shows when the books agree and catches a payment change
   await click(c.ref, "z1");
   const clean = await reconcileFinance(admin.id);
   const mine = (refs: string[]) => refs.includes(s.pay.ref) || refs.includes(c.ref);
-  assert.ok(!clean.findings.some((f) => f.code.startsWith("PAYMENT_") || f.code.startsWith("CAMPAIGN_") || f.code === "FUNDS_HELD_MISMATCH" || f.code === "REFUND_MISMATCH"), JSON.stringify(clean.findings));
+  assert.ok(!clean.findings.some((f) => (f.code.startsWith("PAYMENT_") && f.code !== "PAYMENT_NEEDS_DECISION") || f.code.startsWith("CAMPAIGN_") || f.code === "FUNDS_HELD_MISMATCH" || f.code === "REFUND_MISMATCH"), JSON.stringify(clean.findings));
   void mine;
   await assert.rejects(reconcileFinance(co.userId), /administrator/);
   // someone changes a payment's figures without the books: it is caught

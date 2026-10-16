@@ -287,10 +287,6 @@ export async function sourceProblem(tx: Tx, r: Pick<RewardRow, "sourceType" | "s
       const s = await tx.subscription.findUnique({ where: { id: r.sourceId }, select: { status: true, cancelledAt: true } });
       return s && !s.cancelledAt && s.status !== "CANCELLED" ? null : "The subscription was cancelled.";
     }
-    case "vacancy_lead": {
-      const l = await tx.vacancyLead.findUnique({ where: { id: r.sourceId }, select: { status: true } });
-      return l && l.status !== "DECLINED" && l.status !== "WITHDRAWN" ? null : "The owner withdrew or declined.";
-    }
     default: return null;
   }
 }

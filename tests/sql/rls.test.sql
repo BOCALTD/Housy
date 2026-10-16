@@ -1142,5 +1142,55 @@ SELECT set_config('app.user_id', 'u3', true);
 SELECT pg_temp.expect((SELECT count(*) FROM platform_ratings) = 0, 'another person cannot read the rating');
 SELECT set_config('app.user_id', 'u1', true);
 
+-- 32. Phase 12a: reviews are public only while published; the reviewer reads their own; only the platform writes; invites open by their link alone.
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+INSERT INTO reviews (id, ref, company_id, agent_user_id, reviewer_id, reviewer_name, basis, basis_ref, overall, status, updated_at)
+  VALUES ('rv-1', 'REV-1', 'co-a', 'u1', 'u3', 'Three Person', 'TRANSACTION', 'd1', 5, 'PUBLISHED', now()),
+         ('rv-2', 'REV-2', 'co-a', 'u1', 'u3', 'Three Person', 'ENQUIRY', 'c1', 1, 'HELD', now());
+INSERT INTO review_events (id, review_id, reviewer_id, actor_name, kind, to_reviewer) VALUES ('re-1', 'rv-1', 'u3', 'Three', 'SUBMITTED', true), ('re-2', 'rv-1', 'u3', 'Platform', 'NOTE', false);
+INSERT INTO reputation_snapshots (id, subject_kind, subject_id, score, review_count, average, formula, inputs, components, badges, inputs_hash) VALUES ('rs-1', 'AGENT', 'u1', 70, 1, 5, 1, '{}', '{}', '[]', 'h');
+INSERT INTO review_invites (id, token_hash, company_id, basis, basis_ref, created_by_id, expires_at) VALUES ('ri-1', 'hash-one', 'co-a', 'TRANSACTION', 'dx', 'u1', now() + interval '1 day');
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', '', true);
+SELECT pg_temp.expect((SELECT count(*) FROM reviews) = 1, 'the public sees only the published review');
+SELECT pg_temp.expect((SELECT count(*) FROM reputation_snapshots) = 1, 'the public reads reputation');
+SELECT pg_temp.expect((SELECT count(*) FROM review_events) = 0, 'the public reads no review history');
+SELECT pg_temp.expect((SELECT count(*) FROM review_invites) = 0, 'the public sees no invites');
+SELECT set_config('app.user_id', 'u3', true);
+SELECT pg_temp.expect((SELECT count(*) FROM reviews) = 2, 'the reviewer reads their own, including a held one');
+SELECT pg_temp.expect((SELECT count(*) FROM review_events) = 1, 'the reviewer reads only the history meant for them');
+SELECT set_config('app.user_id', 'u1', true);
+SELECT pg_temp.expect((SELECT count(*) FROM reviews) = 1, 'the reviewed agent sees only the published review');
+DO $$ BEGIN
+  INSERT INTO reviews (id, ref, company_id, agent_user_id, reviewer_id, reviewer_name, basis, basis_ref, overall, updated_at) VALUES ('rv-x', 'REV-X', 'co-a', 'u1', 'u1', 'One', 'ENQUIRY', 'cx', 5, now());
+  RAISE EXCEPTION 'FAIL: a review was written outside the platform''s own code';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: nobody writes a review directly'; END $$;
+DO $$ DECLARE n int; BEGIN
+  UPDATE reviews SET status = 'REMOVED' WHERE id = 'rv-1';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL: a review was taken down by a non-administrator'; END IF;
+  RAISE NOTICE 'ok: only the platform changes a review';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the platform changes a review'; END $$;
+SELECT set_config('app.user_id', 'u3', true);
+DO $$ BEGIN
+  INSERT INTO reviews (id, ref, company_id, agent_user_id, reviewer_id, reviewer_name, basis, basis_ref, overall, updated_at) VALUES ('rv-y', 'REV-Y', 'co-a', 'u1', 'u3', 'Three', 'ENQUIRY', 'cy', 6, now());
+  RAISE EXCEPTION 'FAIL: a rating of 6 was accepted';
+EXCEPTION WHEN insufficient_privilege OR check_violation THEN RAISE NOTICE 'ok: ratings run from 1 to 5'; END $$;
+-- Invites open to whoever holds the link, and to their company.
+SELECT set_config('app.invite_token_hash', 'hash-one', true);
+SELECT pg_temp.expect((SELECT count(*) FROM review_invites) = 1, 'the holder of a link can read its invite');
+SELECT set_config('app.invite_token_hash', '', true);
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM review_invites) = 0, 'another company cannot see the invite');
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT pg_temp.expect((SELECT count(*) FROM review_invites) = 1, 'the company sees its invite');
+SELECT set_config('app.company_id', '', true);
+DO $$ BEGIN
+  UPDATE review_events SET note = 'edited' WHERE id = 're-1';
+  RAISE EXCEPTION 'FAIL: history was edited';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: review history is append-only'; END $$;
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

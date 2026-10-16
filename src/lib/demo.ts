@@ -50,6 +50,7 @@ import { savePolicy, setBudget } from "./services/rewards";
 import { submitVacancy } from "./services/vacancies";
 import { requestPromo, reviewPromo, saveCampaign } from "./services/promotions";
 import { submitRating } from "./services/feedback";
+import { issueInvite, moderateReview, submitReview } from "./services/reviews";
 import { monthKey } from "./reward-rules";
 import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./services/community";
 import { assignSubscription } from "./services/subscriptions";
@@ -492,6 +493,10 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     const asked = await requestPromo(alpha, sale.id, demoListing.id, String(Math.round(Number(demoListing.priceKobo) / 100 * 0.85)));
     await reviewPromo(adminId, asked.id, "approve", "[DEMO] Approved");
   }
+  // A verified review: the company gives the buyer a one-time link after the completed sale; a brand-new account is held, so a person releases it.
+  const link = await issueInvite(alpha, { basis: "TRANSACTION", basisRef: soldDeal.id });
+  const rev = await submitReview(seeker.userId, { token: link.token, overall: 5 as never, communication: 5 as never, accuracy: 4 as never, body: "[DEMO] Clear communication from start to finish and the paperwork was ready on time." });
+  if (rev.status === "HELD") await moderateReview(adminId, rev.id, "release", "[DEMO] Checked");
   await submitRating(seeker.userId, { overall: 4 as never, ease: 4 as never, trust: 5 as never, support: "" as never, suggestion: "[DEMO] Show more photos on each property.", anonymous: false });
 
   return true;

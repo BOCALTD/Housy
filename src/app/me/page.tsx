@@ -30,7 +30,7 @@ export default async function MePage({ searchParams }: { searchParams?: SP }) {
             <li key={n.id}><div>{n.link ? <Link href={n.link}><strong>{n.title}</strong></Link> : <strong>{n.title}</strong>}{n.readAt ? "" : " ●"}<div className="small muted">{n.body} {formatDateTime(n.createdAt)}</div></div></li>
           ))} />
         )}
-        <p className="small"><Link href="/me/notifications">All notifications</Link></p>
+        <p className="small"><Link href="/me/notifications">All notifications</Link> · <Link href="/me/reviews">My reviews</Link></p>
       </section>
     </div>
   );

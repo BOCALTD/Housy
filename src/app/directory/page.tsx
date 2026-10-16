@@ -4,6 +4,8 @@ import { can } from "@/lib/permissions";
 import { directory, type DirectoryKind } from "@/lib/services/community";
 import { tiersFor } from "@/lib/services/tiers";
 import { GoldBadge } from "@/components/Promo";
+import { reputationMany } from "@/lib/services/reviews";
+import { BadgeRow } from "@/components/Reputation";
 import { Flash, sp, type SP } from "@/components/ui";
 import { followAction, unfollowAction } from "../me/actions";
 
@@ -21,6 +23,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams?: S
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);
   const { rows, more } = await directory({ kind, q, page, viewerId: session?.user.id ?? null });
   const tiers = await tiersFor(rows.filter((r) => r.kind !== "AGENT").map((r) => r.targetId));
+  const reps = new Map([...(await reputationMany("AGENT", rows.filter((r) => r.kind === "AGENT").map((r) => r.targetId))), ...(await reputationMany("COMPANY", rows.filter((r) => r.kind !== "AGENT").map((r) => r.targetId)))]);
   const link = (over: Record<string, string | number>) => { const u = new URLSearchParams({ kind, ...(q ? { q } : {}), page: String(page), ...Object.fromEntries(Object.entries(over).map(([k, v]) => [k, String(v)])) }); return `/directory?${u}`; };
   const back = link({});
   return (
@@ -33,7 +36,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams?: S
         {rows.length === 0 ? <p className="muted">Nobody is listed here yet.</p> : (
           <ul className="timeline">{rows.map((r) => (
             <li key={`${r.kind}-${r.targetId}`}><div className="row between" style={{ width: "100%" }}>
-              <div><strong>{r.name}</strong> {r.kind !== "AGENT" ? <GoldBadge tier={tiers.get(r.targetId) ?? "BASIC"} /> : null} <span className="small muted">{r.sub}</span>{r.blurb ? <div className="small muted">{r.blurb}</div> : null}<div className="small muted">{r.followers} {r.followers === 1 ? "follower" : "followers"}</div></div>
+              <div><strong><Link href={r.kind === "AGENT" ? `/agents/${r.targetId}` : `/companies/${r.targetId}`}>{r.name}</Link></strong> {r.kind !== "AGENT" ? <GoldBadge tier={tiers.get(r.targetId) ?? "BASIC"} /> : null} <span className="small muted">{r.sub}</span>{r.blurb ? <div className="small muted">{r.blurb}</div> : null}<div className="small muted">{r.followers} {r.followers === 1 ? "follower" : "followers"}{reps.get(r.targetId)?.reviewCount ? ` · ${reps.get(r.targetId)!.average.toFixed(1)} out of 5 from ${reps.get(r.targetId)!.reviewCount} reviews` : ""}</div><BadgeRow badges={reps.get(r.targetId)?.badges ?? []} /></div>
               {session ? (
                 <div className="row">
                   {r.kind === "AGENT" && r.acceptsMessages && r.targetId !== session.user.id ? <Link className="btn" href={`/messages/new?to=${r.targetId}`}>Message</Link> : null}

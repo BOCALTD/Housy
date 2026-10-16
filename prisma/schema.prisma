@@ -4022,3 +4022,152 @@ model FeedbackState {
 
   @@map("feedback_state")
 }
+
+// ---------- Phase 12a: verified reviews and reputation ----------
+
+enum ReviewBasis {
+  ENQUIRY
+  INSPECTION
+  TRANSACTION
+}
+
+enum ReviewStatus {
+  PUBLISHED
+  HELD
+  HIDDEN
+  REMOVED
+}
+
+enum ReviewCaseKind {
+  DISPUTE
+  APPEAL
+}
+
+enum ReviewCaseStatus {
+  OPEN
+  UPHELD
+  REJECTED
+}
+
+/// A single-use link a company gives to a client after a completed viewing or deal, so that client can review them. The link, not the
+/// client's say-so, is what makes the review verified. One link per deal or viewing.
+model ReviewInvite {
+  id          String      @id @default(uuid())
+  tokenHash   String      @unique @map("token_hash")
+  companyId   String      @map("company_id")
+  agentUserId String?     @map("agent_user_id")
+  basis       ReviewBasis
+  basisRef    String      @map("basis_ref")
+  createdById String      @map("created_by_id")
+  expiresAt   DateTime    @map("expires_at")
+  usedAt      DateTime?   @map("used_at")
+  usedById    String?     @map("used_by_id")
+  revokedAt   DateTime?   @map("revoked_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  @@unique([basis, basisRef])
+  @@index([companyId, createdAt])
+  @@map("review_invites")
+}
+
+/// A review of an agent (agentUserId set) or of a company (agentUserId empty), tied to a real interaction.
+model Review {
+  id             String       @id @default(uuid())
+  ref            String       @unique
+  companyId      String       @map("company_id")
+  agentUserId    String?      @map("agent_user_id")
+  reviewerId     String       @map("reviewer_id")
+  reviewerName   String       @map("reviewer_name")
+  basis          ReviewBasis
+  basisRef       String       @map("basis_ref")
+  overall        Int
+  communication  Int?
+  professionalism Int?
+  accuracy       Int?
+  responsiveness Int?
+  serviceQuality Int?         @map("service_quality")
+  handling       Int?
+  body           String       @default("")
+  bodyHash       String       @default("") @map("body_hash")
+  status         ReviewStatus @default(PUBLISHED)
+  signals        String       @default("")
+  response       String       @default("")
+  respondedAt    DateTime?    @map("responded_at")
+  respondedById  String?      @map("responded_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@unique([reviewerId, basis, basisRef])
+  @@index([companyId, status, createdAt])
+  @@index([agentUserId, status, createdAt])
+  @@index([reviewerId])
+  @@map("reviews")
+}
+
+/// Everything that happened to a review. Never edited. toReviewer marks the lines the reviewer may read.
+model ReviewEvent {
+  id         String   @id @default(uuid())
+  reviewId   String   @map("review_id")
+  reviewerId String   @map("reviewer_id")
+  actorName  String   @map("actor_name")
+  kind       String
+  note       String   @default("")
+  toReviewer Boolean  @default(false) @map("to_reviewer")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([reviewId, createdAt])
+  @@map("review_events")
+}
+
+model ReviewReport {
+  id           String           @id @default(uuid())
+  reviewId     String           @map("review_id")
+  reporterId   String           @map("reporter_id")
+  reason       String
+  status       ModerationStatus @default(OPEN)
+  handledById  String?          @map("handled_by_id")
+  handledAt    DateTime?        @map("handled_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  @@unique([reviewId, reporterId])
+  @@index([status, createdAt])
+  @@map("review_reports")
+}
+
+/// The reviewed party's dispute of a published review, or the reviewer's appeal of a decision to hide theirs. Once each per review.
+model ReviewCase {
+  id          String           @id @default(uuid())
+  reviewId    String           @map("review_id")
+  companyId   String           @map("company_id")
+  kind        ReviewCaseKind
+  openedById  String           @map("opened_by_id")
+  reason      String
+  status      ReviewCaseStatus @default(OPEN)
+  decidedById String?          @map("decided_by_id")
+  decidedAt   DateTime?        @map("decided_at")
+  decision    String           @default("")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@unique([reviewId, kind])
+  @@index([status, createdAt])
+  @@map("review_cases")
+}
+
+/// A reputation figure and the exact facts it was worked out from, so anyone can recompute it. Newest row per subject is current.
+model ReputationSnapshot {
+  id          String   @id @default(uuid())
+  subjectKind String   @map("subject_kind")
+  subjectId   String   @map("subject_id")
+  score       Int
+  reviewCount Int      @map("review_count")
+  average     Float
+  formula     Int
+  inputs      Json
+  components  Json
+  badges      Json
+  inputsHash  String   @map("inputs_hash")
+  computedAt  DateTime @default(now()) @map("computed_at")
+
+  @@index([subjectKind, subjectId, computedAt])
+  @@map("reputation_snapshots")
+}

@@ -54,6 +54,7 @@ import { issueInvite, moderateReview, submitReview } from "./services/reviews";
 import { monthKey } from "./reward-rules";
 import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./services/community";
 import { assignSubscription } from "./services/subscriptions";
+import { displayQueue, requestDisplay, reviewDisplay } from "./services/completed";
 
 export const DEMO_PASSWORD = "demo-password-123";
 export const DEMO_USERS = [
@@ -497,6 +498,11 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   const link = await issueInvite(alpha, { basis: "TRANSACTION", basisRef: soldDeal.id });
   const rev = await submitReview(seeker.userId, { token: link.token, overall: 5 as never, communication: 5 as never, accuracy: 4 as never, body: "[DEMO] Clear communication from start to finish and the paperwork was ready on time." });
   if (rev.status === "HELD") await moderateReview(adminId, rev.id, "release", "[DEMO] Checked");
+  // The completed sale is put forward for the "Recently sold" section: the manager authorises it and the platform approves.
+  await withTenant(alpha.companyId, alpha.userId, (tx) => tx.asset.update({ where: { id: terrace.id }, data: { city: "Ikeja", state: "Lagos" } }));
+  await requestDisplay(manager, soldDeal.id, { statement: "[DEMO] Owner and buyer agreed by email.", confirmed: true });
+  const queued = (await displayQueue(adminId)).find((x) => x.dealId === soldDeal.id);
+  if (queued) await reviewDisplay(adminId, queued.id, "approve", "");
   await submitRating(seeker.userId, { overall: 4 as never, ease: 4 as never, trust: 5 as never, support: "" as never, suggestion: "[DEMO] Show more photos on each property.", anonymous: false });
 
   return true;

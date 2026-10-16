@@ -1,7 +1,7 @@
 // Pure rules for subscriptions and entitlements (master prompt Sections 27 and 41). No database access here.
 
 /** The features a plan can allow. The platform administrator decides which plan has which; a plan never grants access to anyone's data. */
-export const ENTITLEMENT_KEYS = ["COLLAB_SEEKER_AGENT", "COLLAB_COMPANY", "CONTACT_DETAILS", "BULK_MESSAGING"] as const;
+export const ENTITLEMENT_KEYS = ["COLLAB_SEEKER_AGENT", "COLLAB_COMPANY", "CONTACT_DETAILS", "BULK_MESSAGING", "ADVERTISING"] as const;
 export type EntitlementKey = (typeof ENTITLEMENT_KEYS)[number];
 
 export const ENTITLEMENT_LABELS: Record<EntitlementKey, string> = {
@@ -9,10 +9,11 @@ export const ENTITLEMENT_LABELS: Record<EntitlementKey, string> = {
   COLLAB_COMPANY: "Collaborate with another company",
   CONTACT_DETAILS: "Share phone numbers and email addresses in messages",
   BULK_MESSAGING: "Bulk messaging",
+  ADVERTISING: "Advertise properties (campaigns running at once)",
 };
 
 /** Whether a feature counts something (workspaces) or is simply on or off. */
-export const COUNTED_ENTITLEMENTS: readonly EntitlementKey[] = ["COLLAB_SEEKER_AGENT", "COLLAB_COMPANY"];
+export const COUNTED_ENTITLEMENTS: readonly EntitlementKey[] = ["COLLAB_SEEKER_AGENT", "COLLAB_COMPANY", "ADVERTISING"];
 
 export type SubscriptionState = "NONE" | "TRIAL" | "ACTIVE" | "GRACE" | "READ_ONLY" | "SUSPENDED";
 export type Access = "FULL" | "READ_ONLY" | "NONE";

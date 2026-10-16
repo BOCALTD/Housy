@@ -37,7 +37,7 @@ async function assertAdmin(id: string) {
   if (!u?.isPlatformAdmin) throw new Error("Only the platform administrator can do that");
 }
 
-async function ownerName(tx: Tx, o: Owner): Promise<string> {
+export async function ownerLabel(tx: Tx, o: Owner): Promise<string> {
   if (o.kind === "USER") { const u = await tx.user.findUnique({ where: { id: o.userId }, select: { name: true, email: true } }); return u ? `${u.name} (${u.email})` : "Unknown person"; }
   const c = await tx.company.findUnique({ where: { id: o.companyId }, select: { name: true } });
   return c?.name ?? "Unknown company";
@@ -96,7 +96,7 @@ export async function createSubscriptionInvoice(p: Payer, planId: string, deps?:
     const inv = await tx.invoice.create({
       data: {
         ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null,
-        ownerName: await ownerName(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}`, amountKobo: plan.priceKobo, periodMonths: months, dueOn: now, createdById: p.userId,
+        ownerName: await ownerLabel(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}`, amountKobo: plan.priceKobo, periodMonths: months, dueOn: now, createdById: p.userId,
       },
     });
     await logActivity(tx, { companyId: owner.kind === "COMPANY" ? owner.companyId : null, actorId: p.userId, entityType: "invoice", entityId: inv.id, action: "invoice.created", detail: { ref: inv.ref, plan: plan.code } });
@@ -386,7 +386,7 @@ export async function generateRenewalInvoices(deps?: Deps): Promise<{ invoices: 
       if (inv && (inv.subjectId !== sub.planId || inv.amountKobo !== sub.plan.priceKobo)) return null; // the person chose something else; leave it
       if (!inv) {
         const months = PERIOD_MONTHS[sub.plan.billingPeriod as Period];
-        inv = await tx.invoice.create({ data: { ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null, ownerName: await ownerName(tx, owner), subjectId: sub.planId, description: `${sub.plan.name} plan renewal for ${months} ${months === 1 ? "month" : "months"}`, amountKobo: sub.plan.priceKobo!, periodMonths: months, renewal: true, dueOn: sub.periodEnd, createdById: sub.createdById } });
+        inv = await tx.invoice.create({ data: { ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null, ownerName: await ownerLabel(tx, owner), subjectId: sub.planId, description: `${sub.plan.name} plan renewal for ${months} ${months === 1 ? "month" : "months"}`, amountKobo: sub.plan.priceKobo!, periodMonths: months, renewal: true, dueOn: sub.periodEnd, createdById: sub.createdById } });
         created = true;
       }
       // Each stage is told once, however often this job runs.

@@ -1,0 +1,19 @@
+import { NextResponse } from "next/server";
+import { getMember, getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
+import { campaignReport, reportCsv } from "@/lib/services/ads";
+
+export const dynamic = "force-dynamic";
+
+/** A campaign's results as a spreadsheet, for the person who runs it or the platform administrator. */
+export async function GET(_req: Request, { params }: { params: { ref: string } }) {
+  const s = await getSession();
+  if (!s) return new NextResponse("Sign in to download reports.", { status: 401 });
+  let r = s.user.isPlatformAdmin ? await campaignReport({ admin: s.user.id }, params.ref) : await campaignReport({ payer: { userId: s.user.id, companyId: null, role: null } }, params.ref);
+  if (!r && !s.user.isPlatformAdmin) {
+    const m = await getMember();
+    if (m && can(m.role, "billing.view")) r = await campaignReport({ payer: { userId: m.userId, companyId: m.companyId, role: m.role } }, params.ref);
+  }
+  if (!r) return new NextResponse("Campaign not found.", { status: 404 });
+  return new NextResponse(reportCsv(r), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${params.ref}-results.csv"`, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" } });
+}

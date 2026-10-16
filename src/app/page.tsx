@@ -8,6 +8,10 @@ import { humanize } from "@/lib/labels";
 import { HouseIcon, sp, type SP } from "@/components/ui";
 import { getSession } from "@/lib/auth";
 import { saveSearchAction } from "@/app/me/saved/actions";
+import { headers } from "next/headers";
+import { sponsoredFor } from "@/lib/services/ads";
+import { isBot } from "@/lib/ad-rules";
+import { SponsoredStrip } from "@/components/Sponsored";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +20,9 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
     q: sp(searchParams, "q"), purpose: sp(searchParams, "purpose"), city: sp(searchParams, "city"),
     maxPrice: sp(searchParams, "maxPrice"), minBeds: sp(searchParams, "minBeds"),
   };
-  const [listings, done] = await Promise.all([searchListingsRanked(filters), homeSections()]);
   const searching = Object.values(filters).some(Boolean);
+  const bot = isBot(headers().get("user-agent"));
+  const [listings, done, sponsored] = await Promise.all([searchListingsRanked(filters), homeSections(), sponsoredFor(searching ? "SEARCH_TOP" : "HOME_FEATURED", { filters, bot }).catch(() => [])]);
   const session = searching ? await getSession() : null;
 
   return (
@@ -37,6 +42,8 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
           <button className="btn primary" type="submit">Search</button>
         </form>
       </section>
+
+      <SponsoredStrip items={sponsored} where={searching ? "search" : "home"} />
 
       <section className="stack">
         <div className="row between">

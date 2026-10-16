@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getPublicListing } from "@/lib/services/listings";
 import { getFeaturedProvider, parsePrefs, shouldAutoShow } from "@/lib/services/verification";
@@ -8,6 +8,8 @@ import { formatDate } from "@/lib/dates";
 import { Field, Flash, HouseIcon, sp, type SP } from "@/components/ui";
 import { getSession } from "@/lib/auth";
 import { isWatching } from "@/lib/services/alerts";
+import { recordView, viewerKeyFor } from "@/lib/services/ads";
+import { isBot } from "@/lib/ad-rules";
 import { enquiryAction, watchAction } from "./actions";
 import { VerifyModal, type ProviderView } from "./VerifyModal";
 
@@ -22,6 +24,10 @@ export default async function PropertyPage({ params, searchParams }: { params: {
   const listing = await getPublicListing(params.ref);
   if (!listing) notFound();
   const extras = await listingExtras(listing);
+  const adRef = /^AD-[A-Z0-9]{8}$/.test(sp(searchParams, "ad") ?? "") ? (sp(searchParams, "ad") as string) : null;
+  const ua = headers().get("user-agent") ?? "";
+  // One visit per visitor per day, remembered as coming from an advert or not, so paid and organic attention can be told apart.
+  if (!isBot(ua)) await recordView(listing.id, viewerKeyFor(headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
   const session = await getSession();
   const watching = session ? await isWatching(session.user.id, listing.id) : false;
   const provider = await getFeaturedProvider();
@@ -68,6 +74,7 @@ export default async function PropertyPage({ params, searchParams }: { params: {
         <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
         <form action={enquiryAction} className="stack">
           <input type="hidden" name="ref" value={listing.publicRef} />
+          {adRef ? <input type="hidden" name="ad" value={adRef} /> : null}
           <Field label="Your name"><input name="name" id="enqName" required autoComplete="name" /></Field>
           <Field label="Phone or email"><input name="contact" id="enqContact" required /></Field>
           <Field label="Message"><textarea name="message" id="enqMessage" rows={4} required defaultValue={`I am interested in ${listing.publicRef}. Is it still available?`} /></Field>

@@ -161,15 +161,20 @@ const enquirySchema = z.object({
 });
 
 /** A public enquiry, recorded against the listing's company. */
-export async function createEnquiry(publicRef: string, input: z.input<typeof enquirySchema>, clientKey: string) {
+/** `attribution` says the visitor arrived through an advert; it counts only if that visitor really clicked it. */
+export async function createEnquiry(publicRef: string, input: z.input<typeof enquirySchema>, clientKey: string, attribution?: { adRef: string; viewerKey: string }) {
   if (!(await rateLimit(`enquiry:${clientKey}`, 10, 60 * 60 * 1000))) throw new Error("Too many enquiries. Try again later.");
   const data = enquirySchema.parse(input);
   const listing = await getPublicListing(publicRef);
   if (!listing) throw new Error("This property is no longer available");
+  let adCampaignId: string | null = null;
+  if (attribution) {
+    try { adCampaignId = await (await import("./ads")).attributeEnquiry(listing.id, attribution.adRef, attribution.viewerKey); } catch (e) { console.error("enquiry attribution failed", e); }
+  }
   // The company context comes from the published listing, never from the visitor.
   await withTenant(listing.companyId, "", async (tx) => {
     const enquiry = await tx.enquiry.create({
-      data: { companyId: listing.companyId, listingId: listing.id, name: data.name, contact: data.contact, message: data.message },
+      data: { companyId: listing.companyId, listingId: listing.id, name: data.name, contact: data.contact, message: data.message, adCampaignId },
     });
     await logActivity(tx, {
       companyId: listing.companyId, actorId: null, entityType: "listing", entityId: listing.id,

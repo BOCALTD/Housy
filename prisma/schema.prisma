@@ -577,6 +577,7 @@ model Listing {
   updatedAt   DateTime       @updatedAt @map("updated_at")
   asset       Asset          @relation(fields: [assetId], references: [id], onDelete: Restrict)
   enquiries   Enquiry[]
+  adCampaigns AdCampaign[]
 
   @@index([status, city])
   @@map("listings")
@@ -589,10 +590,12 @@ model Enquiry {
   name      String
   contact   String
   message   String
+  adCampaignId String? @map("ad_campaign_id")
   createdAt DateTime @default(now()) @map("created_at")
   listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
 
   @@index([companyId, createdAt])
+  @@index([adCampaignId])
   @@map("enquiries")
 }
 
@@ -4684,4 +4687,109 @@ model FinanceEntry {
   @@index([paymentId])
   @@index([campaignId])
   @@map("finance_entries")
+}
+
+// ---------- Phase 13: advertising ----------
+
+enum AdPlacement {
+  HOME_FEATURED
+  SEARCH_TOP
+}
+
+enum AdStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  PAUSED
+  SUSPENDED
+  ENDED
+}
+
+/// One paid promotion of one published property in one place on the site. The budget is paid in advance, a click costs a fixed amount set when the campaign is made, and spending can never pass what was paid.
+model AdCampaign {
+  id             String            @id @default(uuid())
+  ref            String            @unique
+  ownerKind      SubscriptionOwner @map("owner_kind")
+  ownerUserId    String?           @map("owner_user_id")
+  ownerCompanyId String?           @map("owner_company_id")
+  createdById    String            @map("created_by_id")
+  name           String
+  listingId      String            @map("listing_id")
+  placement      AdPlacement
+  headline       String            @default("")
+  startsOn       DateTime          @map("starts_on")
+  endsOn         DateTime          @map("ends_on")
+  budgetKobo     BigInt            @map("budget_kobo")
+  dailyCapKobo   BigInt?           @map("daily_cap_kobo")
+  cpcKobo        BigInt            @map("cpc_kobo")
+  status         AdStatus          @default(DRAFT)
+  reviewNote     String            @default("") @map("review_note")
+  reviewedById   String?           @map("reviewed_by_id")
+  reviewedAt     DateTime?         @map("reviewed_at")
+  submittedAt    DateTime?         @map("submitted_at")
+  suspendedBy    String            @default("") @map("suspended_by")
+  suspendReason  String            @default("") @map("suspend_reason")
+  suspendedAt    DateTime?         @map("suspended_at")
+  endedReason    String            @default("") @map("ended_reason")
+  invoiceId      String?           @unique @map("invoice_id")
+  fundedKobo     BigInt            @default(0) @map("funded_kobo")
+  spentKobo      BigInt            @default(0) @map("spent_kobo")
+  postedKobo     BigInt            @default(0) @map("posted_kobo")
+  impressions    Int               @default(0)
+  clicks         Int               @default(0)
+  billedClicks   Int               @default(0) @map("billed_clicks")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  listing        Listing           @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  days           AdDay[]
+  clickRows      AdClick[]
+
+  @@index([status, placement])
+  @@index([ownerCompanyId, createdAt])
+  @@index([ownerUserId, createdAt])
+  @@index([listingId])
+  @@map("ad_campaigns")
+}
+
+/// Shown, clicked and spent, by day (Lagos). Counters only; each billed click is kept in full in ad_clicks.
+model AdDay {
+  campaignId   String     @map("campaign_id")
+  day          String
+  impressions  Int        @default(0)
+  clicks       Int        @default(0)
+  billedClicks Int        @default(0) @map("billed_clicks")
+  spentKobo    BigInt     @default(0) @map("spent_kobo")
+  campaign     AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, day])
+  @@map("ad_days")
+}
+
+/// Every click on an advert, with whether it was paid for and if not why. The visitor is a daily-changing hash, never an address. Append-only.
+model AdClick {
+  id         String     @id @default(uuid())
+  campaignId String     @map("campaign_id")
+  viewerKey  String     @map("viewer_key")
+  userId     String?    @map("user_id")
+  billed     Boolean
+  reason     String     @default("")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, viewerKey, createdAt])
+  @@index([campaignId, createdAt])
+  @@map("ad_clicks")
+}
+
+/// One visit to a property page by one visitor on one day, and whether it came from an advert or not. This is what lets paid and organic attention be told apart.
+model ListingViewKey {
+  listingId String @map("listing_id")
+  day       String
+  viewerKey String @map("viewer_key")
+  via       String
+
+  @@id([listingId, day, viewerKey])
+  @@index([listingId, day])
+  @@map("listing_view_keys")
 }

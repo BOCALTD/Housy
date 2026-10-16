@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { act, str, withNotice, messageFor } from "@/lib/forms";
 import { createEnquiry } from "@/lib/services/listings";
+import { viewerKeyFor } from "@/lib/services/ads";
 import { unwatchListing, watchListing } from "@/lib/services/alerts";
 import { requireUser } from "@/lib/auth";
 import { parsePrefs, recordRecommendationEvent, submitLead } from "@/lib/services/verification";
@@ -30,7 +31,8 @@ export async function enquiryAction(form: FormData) {
   const ref = str(form, "ref");
   const back = `/properties/${encodeURIComponent(ref)}`;
   return act(back, async () => {
-    await createEnquiry(ref, { name: str(form, "name"), contact: str(form, "contact"), message: str(form, "message") }, clientKey());
+    const ad = str(form, "ad");
+    await createEnquiry(ref, { name: str(form, "name"), contact: str(form, "contact"), message: str(form, "message") }, clientKey(), ad ? { adRef: ad, viewerKey: viewerKeyFor(clientKey(), headers().get("user-agent") ?? "") } : undefined);
     return withNotice(back, "Your enquiry was sent to the listing company.");
   });
 }

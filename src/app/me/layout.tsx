@@ -18,6 +18,7 @@ export default async function MeLayout({ children }: { children: React.ReactNode
           <Link href="/me/notification-settings">Email settings</Link>
           <Link href="/me/plan">My plan</Link>
           <Link href="/me/billing">Billing</Link>
+          <Link href="/me/ads">Advertising</Link>
           <Link href="/directory">Find agents and companies</Link>
         </nav>
       </div>

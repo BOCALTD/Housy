@@ -8,6 +8,7 @@ import {
 } from "../award-rules";
 import { notify } from "./notifications";
 import { system } from "./rewards";
+import { MONTHLY_REEL_CAP } from "../social-rules";
 
 // Monthly Top Agent. A month is ranked from recorded facts only: verified completed sales, listings the platform approved, and published
 // verified reviews. The facts and settings are stored with each run, so a published ranking can be recomputed and checked. Paid
@@ -45,7 +46,7 @@ export async function saveAwardConfig(adminId: string, raw: z.input<typeof confi
 
 // ---------- Running a month ----------
 
-interface StoredFacts { since: string; sales: number; posts: number; ratings: number[]; dealIds: string[]; listingIds: string[]; reviewIds: string[] }
+interface StoredFacts { since: string; sales: number; posts: number; ratings: number[]; dealIds: string[]; listingIds: string[]; reviewIds: string[]; reelIds?: string[] }
 
 async function gather(month: string): Promise<{ facts: AgentMonthFacts[]; stored: Map<string, StoredFacts> }> {
   const { start, end } = monthRange(month);
@@ -57,7 +58,8 @@ async function gather(month: string): Promise<{ facts: AgentMonthFacts[]; stored
     const first = new Map<string, Date>();
     for (const a of approvals) if (!first.has(a.entityId) || a.createdAt < first.get(a.entityId)!) first.set(a.entityId, a.createdAt);
     const reviews = await tx.review.findMany({ where: { status: "PUBLISHED", agentUserId: { in: profiles.map((p) => p.userId) }, createdAt: { gte: start, lt: end } }, orderBy: { createdAt: "asc" }, select: { id: true, agentUserId: true, reviewerId: true, overall: true } });
-    return { profiles, listings, first, reviews };
+    const reels = await tx.reel.findMany({ where: { status: "PUBLISHED", authorId: { in: profiles.map((p) => p.userId) }, publishedAt: { gte: start, lt: end } }, orderBy: { publishedAt: "asc" }, select: { id: true, authorId: true } });
+    return { profiles, listings, first, reviews, reels };
   });
   // Deals belong to companies, so they are read inside each company's own scope. A deal's owner is the agent's membership.
   const dealsBy = new Map<string, string[]>();
@@ -73,8 +75,10 @@ async function gather(month: string): Promise<{ facts: AgentMonthFacts[]; stored
     const listingIds = base.listings.filter((l) => l.postedById === p.userId && base.first.get(l.id) && base.first.get(l.id)! >= start && base.first.get(l.id)! < end).map((l) => l.id);
     // One review per reviewer counts in a month, so a run of reviews from one person cannot swing the rating.
     const seen = new Set<string>(), rs = base.reviews.filter((r) => r.agentUserId === p.userId && !seen.has(r.reviewerId) && seen.add(r.reviewerId));
-    if (!dealIds.length && !listingIds.length && !rs.length) continue;
-    const s: StoredFacts = { since: p.createdAt.toISOString().slice(0, 10), sales: dealIds.length, posts: listingIds.length, ratings: rs.map((r) => r.overall), dealIds, listingIds, reviewIds: rs.map((r) => r.id) };
+    // Reels the platform has published count as posts too, up to a monthly cap.
+    const reelIds = base.reels.filter((r) => r.authorId === p.userId).slice(0, MONTHLY_REEL_CAP).map((r) => r.id);
+    if (!dealIds.length && !listingIds.length && !reelIds.length && !rs.length) continue;
+    const s: StoredFacts = { since: p.createdAt.toISOString().slice(0, 10), sales: dealIds.length, posts: listingIds.length + reelIds.length, ratings: rs.map((r) => r.overall), dealIds, listingIds, reelIds, reviewIds: rs.map((r) => r.id) };
     stored.set(p.userId, s);
     facts.push({ userId: p.userId, displayName: p.displayName, companyName: p.companyName, since: s.since, sales: s.sales, posts: s.posts, ratings: s.ratings });
   }

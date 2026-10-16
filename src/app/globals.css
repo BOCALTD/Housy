@@ -269,3 +269,7 @@ input[type="file"]::file-selector-button { min-height: 32px; margin-right: 10px;
 .plaque-SILVER { color: #222B38; background: linear-gradient(135deg, #F2F4F7, #B8C0CC); border-color: #6B7585; }
 .done-card { display: grid; gap: 4px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .done-status { justify-self: start; padding: 2px 10px; border-radius: 6px; font-weight: 700; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; color: var(--primary-ink); background: var(--primary); }
+
+/* Reels */
+.reel-video { width: 100%; max-height: 70vh; background: #000; border-radius: 10px; display: block; }
+.reel-card { max-width: 640px; }

@@ -30,7 +30,7 @@ async function main() {
   await prisma.session.create({ data: { userId: platform.id, companyId: null, tokenHash: hashToken(platformToken), expiresAt: new Date(Date.now() + 3600_000) } });
 
   const paths = new Set<string>([
-    "/me", "/me/following", "/me/notifications", "/me/plan", "/directory", "/directory?kind=companies", "/directory?kind=developers", "/app/profile", "/admin/plans", "/admin/collaborations", "/admin/moderation", "/admin/rewards", "/admin/rewards/payouts", "/admin/referrals", "/admin/vacancies", "/admin/promotions", "/admin/reviews", "/admin/awards", "/admin/completed", "/awards", "/completed", "/app/completed", "/app/reviews", "/me/reviews", "/reviews/write", "/admin/feedback", "/app/promotions", "/feedback", "/referrals", "/rewards", "/vacancies", "/vacancies/new", "/messages", `/messages/new?to=${user.id}`, "/me/collaborations", `/me/collaborations/new?agent=${user.id}`, "/app/collaborations", "/app/collaborations/new", "/app/collaborations/report",
+    "/me", "/me/following", "/me/notifications", "/me/plan", "/directory", "/directory?kind=companies", "/directory?kind=developers", "/app/profile", "/admin/plans", "/admin/collaborations", "/admin/moderation", "/admin/rewards", "/admin/rewards/payouts", "/admin/referrals", "/admin/vacancies", "/admin/promotions", "/admin/reviews", "/admin/reels", "/reels", "/reels/new", "/reels/mine", "/reels/saved", "/admin/awards", "/admin/completed", "/awards", "/completed", "/app/completed", "/app/reviews", "/me/reviews", "/reviews/write", "/admin/feedback", "/app/promotions", "/feedback", "/referrals", "/rewards", "/vacancies", "/vacancies/new", "/messages", `/messages/new?to=${user.id}`, "/me/collaborations", `/me/collaborations/new?agent=${user.id}`, "/app/collaborations", "/app/collaborations/new", "/app/collaborations/report",
     "/app", "/app/assets", "/app/assets/new", "/app/correspondence", "/app/correspondence/new",
     "/app/files", "/app/settings", "/app/team", "/app/service-charges", "/app/compliance", "/app/inspections", "/app/inspections/templates", "/app/maintenance", "/app/maintenance/contractors", "/app/maintenance/schedules", "/app/inventory", "/app/inventory/counts", "/app/valuations", "/app/projects", "/app/crm", "/app/crm/clients", "/app/crm/leads", "/app/crm/setup", "/app/deals", "/app/sales", "/app/sales/reports", "/app/commissions", "/app/reports", "/app/reports/rent.csv",
   ]);
@@ -66,6 +66,7 @@ async function main() {
   await withUser(seeker.id, async (tx) => {
     for (const a of await tx.agentProfile.findMany({ where: { listed: true }, select: { userId: true } })) paths.add(`/agents/${a.userId}`);
     for (const c of await tx.companyProfile.findMany({ where: { listed: true }, select: { companyId: true } })) paths.add(`/companies/${c.companyId}`);
+    for (const r of await tx.reel.findMany({ where: { status: "PUBLISHED" }, select: { id: true }, take: 3 })) paths.add(`/reels/${r.id}`);
   });
 
   console.log(token);

@@ -52,6 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <nav className="nav" aria-label="Main">
               <Link href="/">Find property</Link>
               <Link href="/directory">Agents and companies</Link>
+              <Link href="/reels">Reels</Link>
               {session ? (
                 <>
                   {session.companyId ? <Link href="/app">Workspace</Link> : null}

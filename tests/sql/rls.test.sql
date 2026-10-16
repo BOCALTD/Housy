@@ -1236,5 +1236,43 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FAIL: bad month';
 EXCEPTION WHEN insufficient_privilege OR check_violation THEN RAISE NOTICE 'ok: a month must be real'; END $$;
 
+-- 34. Phase 12c: only published reels are public; an author sees their own pending reel; saves and reports are private; hidden comments are not shown.
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+INSERT INTO reels (id, author_id, company_id, mime_type, size_bytes, status, published_at, reviewed_by_id) VALUES
+  ('rl-1', 'u1', 'co-a', 'video/mp4', 1000, 'PUBLISHED', now(), 'padmin'),
+  ('rl-2', 'u1', 'co-a', 'video/mp4', 1000, 'PENDING', NULL, NULL),
+  ('rl-3', 'u2', 'co-b', 'video/webm', 1000, 'HIDDEN', NULL, NULL);
+INSERT INTO reel_media (reel_id, bytes) VALUES ('rl-1', '\x00'), ('rl-2', '\x00');
+INSERT INTO reel_likes (id, reel_id, user_id) VALUES ('lk-1', 'rl-1', 'u3');
+INSERT INTO reel_saves (id, reel_id, user_id) VALUES ('sv-1', 'rl-1', 'u3');
+INSERT INTO reel_comments (id, reel_id, user_id, author_name, body, status) VALUES ('cm-1', 'rl-1', 'u3', 'Three', 'Lovely place', 'VISIBLE'), ('cm-2', 'rl-1', 'u3', 'Three', 'Rude words', 'HIDDEN');
+INSERT INTO social_reports (id, target_kind, target_id, reel_id, reporter_id, reason) VALUES ('sr-1', 'REEL', 'rl-1', 'rl-1', 'u3', 'Misleading video');
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', '', true);
+SELECT pg_temp.expect((SELECT count(*) FROM reels) = 1, 'the public sees only the published reel');
+SELECT pg_temp.expect((SELECT count(*) FROM reel_media) = 1, 'the public can only get the video of a published reel');
+SELECT pg_temp.expect((SELECT count(*) FROM reel_saves) = 0, 'saves are private');
+SELECT pg_temp.expect((SELECT count(*) FROM social_reports) = 0, 'reports are private');
+SELECT pg_temp.expect((SELECT count(*) FROM reel_comments) = 1, 'a hidden comment is not shown');
+SELECT set_config('app.user_id', 'u1', true);
+SELECT pg_temp.expect((SELECT count(*) FROM reels) = 2, 'the author also sees their own pending reel');
+SELECT set_config('app.user_id', 'u3', true);
+SELECT pg_temp.expect((SELECT count(*) FROM reel_saves) = 1, 'a person sees their own saves');
+SELECT pg_temp.expect((SELECT count(*) FROM social_reports) = 1, 'a reporter sees their own report');
+SELECT pg_temp.expect((SELECT count(*) FROM reel_comments) = 2, 'a commenter sees their own hidden comment');
+SELECT set_config('app.user_id', '', true);
+DO $$ BEGIN
+  INSERT INTO reels (id, author_id, company_id, mime_type, size_bytes, status, published_at, reviewed_by_id) VALUES ('rl-x', 'u3', 'co-a', 'video/mp4', 10, 'PUBLISHED', now(), 'u3');
+  RAISE EXCEPTION 'FAIL: a reel published itself';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the platform publishes a reel'; END $$;
+SELECT set_config('app.platform_admin', 'on', true);
+DO $$ BEGIN
+  INSERT INTO reels (id, author_id, company_id, mime_type, size_bytes) VALUES ('rl-big', 'u1', 'co-a', 'video/mp4', 99999999);
+  RAISE EXCEPTION 'FAIL: oversize reel';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: reels are limited to 4 MB'; END $$;
+SELECT set_config('app.platform_admin', '', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

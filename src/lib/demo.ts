@@ -54,6 +54,7 @@ import { issueInvite, moderateReview, submitReview } from "./services/reviews";
 import { monthKey } from "./reward-rules";
 import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./services/community";
 import { assignSubscription } from "./services/subscriptions";
+import { addComment, moderateReel, toggleLike, uploadReel } from "./services/reels";
 import { displayQueue, requestDisplay, reviewDisplay } from "./services/completed";
 
 export const DEMO_PASSWORD = "demo-password-123";
@@ -503,6 +504,13 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await requestDisplay(manager, soldDeal.id, { statement: "[DEMO] Owner and buyer agreed by email.", confirmed: true });
   const queued = (await displayQueue(adminId)).find((x) => x.dealId === soldDeal.id);
   if (queued) await reviewDisplay(adminId, queued.id, "approve", "");
+  // A reel from the agent, checked and published by the platform, with a like and a comment from the seeker. The clip is only a
+  // placeholder header, so the page and the moderation flow can be seen; real clips come from agents.
+  const clip = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 2, 0, 0x69, 0x73, 0x6f, 0x6d]);
+  const demoReel = await uploadReel(alpha.userId, { caption: "[DEMO] A quick walk through the Ikeja terrace house.", city: "Ikeja" }, { type: "video/mp4", bytes: clip });
+  await moderateReel(adminId, demoReel.id, "publish", "");
+  await toggleLike(seeker.userId, demoReel.id);
+  await addComment(seeker.userId, demoReel.id, "[DEMO] Lovely layout. Is the garden shared?");
   await submitRating(seeker.userId, { overall: 4 as never, ease: 4 as never, trust: 5 as never, support: "" as never, suggestion: "[DEMO] Show more photos on each property.", anonymous: false });
 
   return true;

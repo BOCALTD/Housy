@@ -166,7 +166,7 @@ async function main() {
       try {
         const res = await page.goto(`${BASE}${p}`, { waitUntil: "networkidle", timeout: 30000 });
         if (!res || res.status() >= 400) add("http", `status ${res?.status()}`);
-        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") || p.startsWith("/admin")) {
+        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") || p.startsWith("/reels") || p.startsWith("/awards") || p.startsWith("/completed") || p.startsWith("/admin")) {
           const r = await inspect(page, touch);
           if (!/width=device-width/.test(r.viewport)) add("viewport", `viewport meta is "${r.viewport}"`);
           if (r.overflow > 1) add("sideways-scroll", `page is ${r.overflow}px wider than the screen`, r.wide);

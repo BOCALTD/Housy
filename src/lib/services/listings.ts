@@ -50,7 +50,7 @@ export async function saveListingDraft(ctx: Ctx, assetId: string, input: z.input
       });
     } else {
       const listing = await tx.listing.create({
-        data: { ...fields, companyId: ctx.companyId, assetId, publicRef: randomRef("PROP") },
+        data: { ...fields, companyId: ctx.companyId, assetId, publicRef: randomRef("PROP"), postedById: ctx.userId },
       });
       await logActivity(tx, {
         companyId: ctx.companyId, actorId: ctx.userId, entityType: "listing", entityId: listing.id,

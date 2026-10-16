@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { prisma, withInviteToken, withPublic, withUser, type Tx } from "../db";
+import { prisma, withInviteToken, withPublic, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { hashToken, newToken, randomRef } from "../tokens";
 import {
@@ -19,6 +19,7 @@ export const REVIEW_PAGE = 6;
 export const INVITE_DAYS = 30;
 export const ENQUIRY_MIN_AGE_HOURS = 24;
 const DAY = 864e5;
+const SYSTEM_USER = "system";
 
 const score = (label: string, required: boolean) => z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)),
   required ? z.number({ required_error: `Give an overall rating`, invalid_type_error: `Give an overall rating` }).int().min(1, "Choose 1 to 5").max(5, "Choose 1 to 5")
@@ -50,7 +51,7 @@ export async function issueInvite(ctx: Ctx, o: { basis: "INSPECTION" | "TRANSACT
   const token = newToken();
   const hash = hashToken(token);
   const expiresAt = new Date(Date.now() + INVITE_DAYS * DAY);
-  await system(async (tx) => {
+  await withTenant(ctx.companyId, ctx.userId, async (tx) => {
     let ownerMembershipId: string, ref: string;
     if (o.basis === "TRANSACTION") {
       const d = await tx.deal.findFirst({ where: { id: o.basisRef, companyId: ctx.companyId } });
@@ -78,7 +79,7 @@ export async function issueInvite(ctx: Ctx, o: { basis: "INSPECTION" | "TRANSACT
 
 export async function revokeInvite(ctx: Ctx, basis: "INSPECTION" | "TRANSACTION", basisRef: string) {
   assertCan(ctx, "crm.manage");
-  await system(async (tx) => {
+  await withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const r = await tx.reviewInvite.updateMany({ where: { companyId: ctx.companyId, basis, basisRef, usedAt: null }, data: { revokedAt: new Date() } });
     if (r.count !== 1) throw new Error("No open link to cancel");
   });
@@ -164,9 +165,9 @@ export async function submitReview(reviewerId: string, o: { token?: string; conv
     basis = "ENQUIRY"; basisRef = o.conversationId; companyId = a.companyId; agentUserId = a.agentUserId;
   } else throw new Error("A review needs a conversation with the agent or a review link from the company");
 
+  const isMember = !!(await withUser(reviewerId, (tx) => tx.membership.findFirst({ where: { companyId, userId: reviewerId }, select: { id: true } })));
   const review = await system(async (tx) => {
-    const mem = await tx.membership.findFirst({ where: { companyId, userId: reviewerId } });
-    if (mem) throw new Error("You cannot review your own company");
+    if (isMember) throw new Error("You cannot review your own company");
     if (agentUserId === reviewerId) throw new Error("You cannot review yourself");
     const since48 = new Date(now.getTime() - 2 * DAY), since24 = new Date(now.getTime() - DAY);
     const hash = textHash(d.body);
@@ -202,8 +203,8 @@ async function afterReviewChange(r: { companyId: string; agentUserId: string | n
   await refreshReputation("COMPANY", r.companyId);
   if (r.agentUserId) await refreshReputation("AGENT", r.agentUserId);
   if (announce && r.status === "PUBLISHED") {
+    const targets = r.agentUserId ? [r.agentUserId] : (await withTenant(r.companyId, SYSTEM_USER, (c) => c.membership.findMany({ where: { companyId: r.companyId, status: "ACTIVE", role: { in: ["COMPANY_SUPER_ADMIN", "MANAGER"] } }, select: { userId: true } }))).map((m) => m.userId);
     await system(async (tx) => {
-      const targets = r.agentUserId ? [r.agentUserId] : (await tx.membership.findMany({ where: { companyId: r.companyId, status: "ACTIVE", role: { in: ["COMPANY_SUPER_ADMIN", "MANAGER"] } }, select: { userId: true } })).map((m) => m.userId);
       for (const u of targets) await notify(tx, u, { kind: "review", title: "You have a new review", body: "Open your reviews to read it and reply.", link: "/app/reviews" });
     });
   }
@@ -356,17 +357,20 @@ export async function publicReviews(kind: "AGENT" | "COMPANY", id: string, page 
 }
 export async function companyReviewDesk(ctx: Ctx) {
   assertCan(ctx, "crm.manage");
-  return system(async (tx) => {
-    const manager = ctx.role === "COMPANY_SUPER_ADMIN" || ctx.role === "MANAGER";
-    const rows = await tx.review.findMany({ where: { companyId: ctx.companyId, status: { in: ["PUBLISHED", "HIDDEN"] }, ...(manager ? {} : { agentUserId: ctx.userId }) }, orderBy: { createdAt: "desc" }, take: 100 });
-    const cases = await tx.reviewCase.findMany({ where: { reviewId: { in: rows.map((r) => r.id) }, kind: "DISPUTE" } });
+  const manager = ctx.role === "COMPANY_SUPER_ADMIN" || ctx.role === "MANAGER";
+  const mine = await withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const m = manager ? null : (await tx.membership.findFirst({ where: { companyId: ctx.companyId, userId: ctx.userId }, select: { id: true } }))?.id;
     const deals = await tx.deal.findMany({ where: { companyId: ctx.companyId, status: "COMPLETED" }, orderBy: { completedAt: "desc" }, take: 60, select: { id: true, ref: true, title: true, ownerId: true } });
     const viewings = await tx.viewing.findMany({ where: { companyId: ctx.companyId, status: "COMPLETED" }, orderBy: { startsAt: "desc" }, take: 60, select: { id: true, startsAt: true, agentId: true, dealId: true } });
     const invites = await tx.reviewInvite.findMany({ where: { companyId: ctx.companyId }, take: 300 });
-    const mine = manager ? null : (await tx.membership.findFirst({ where: { companyId: ctx.companyId, userId: ctx.userId }, select: { id: true } }))?.id;
-    const dealsOk = deals.filter((d) => manager || d.ownerId === mine);
-    const viewsOk = viewings.filter((v) => manager || v.agentId === mine);
-    const state = (basis: string, ref: string) => { const i = invites.find((x) => x.basis === basis && x.basisRef === ref); return i ? (i.usedAt ? "REVIEWED" : i.revokedAt ? "CANCELLED" : i.expiresAt < new Date() ? "EXPIRED" : "OPEN") : "NONE"; };
+    return { m, deals, viewings, invites };
+  });
+  return system(async (tx) => {
+    const rows = await tx.review.findMany({ where: { companyId: ctx.companyId, status: { in: ["PUBLISHED", "HIDDEN"] }, ...(manager ? {} : { agentUserId: ctx.userId }) }, orderBy: { createdAt: "desc" }, take: 100 });
+    const cases = await tx.reviewCase.findMany({ where: { reviewId: { in: rows.map((r) => r.id) }, kind: "DISPUTE" } });
+    const dealsOk = mine.deals.filter((d) => manager || d.ownerId === mine.m);
+    const viewsOk = mine.viewings.filter((v) => manager || v.agentId === mine.m);
+    const state = (basis: string, ref: string) => { const i = mine.invites.find((x) => x.basis === basis && x.basisRef === ref); return i ? (i.usedAt ? "REVIEWED" : i.revokedAt ? "CANCELLED" : i.expiresAt < new Date() ? "EXPIRED" : "OPEN") : "NONE"; };
     return {
       reviews: rows.map((r) => ({ ...toPublic(r), status: r.status, dispute: cases.find((c) => c.reviewId === r.id) ?? null })),
       deals: dealsOk.map((d) => ({ ...d, invite: state("TRANSACTION", d.id) })),
@@ -395,22 +399,34 @@ async function gatherInputs(tx: Tx, kind: "AGENT" | "COMPANY", id: string, asOf:
   const where = kind === "AGENT" ? { agentUserId: id, status: "PUBLISHED" as const } : { companyId: id, status: "PUBLISHED" as const };
   const rs = await tx.review.findMany({ where, orderBy: { createdAt: "asc" }, take: 2000 });
   const reviews: ReviewFact[] = rs.map((r) => ({ o: r.overall, b: r.basis as Basis, d: r.createdAt.toISOString().slice(0, 10), l: r.body.length, a: r.accuracy }));
-  const members = kind === "AGENT" ? await tx.membership.findMany({ where: { userId: id }, select: { id: true, userId: true } }) : await tx.membership.findMany({ where: { companyId: id }, select: { id: true, userId: true } });
-  const deals = await tx.deal.count({ where: { status: "COMPLETED", ...(kind === "AGENT" ? { ownerId: { in: members.map((m) => m.id) } } : { companyId: id }) } });
-  const userIds = members.map((m) => m.userId);
+  // Deals and memberships belong to companies, so they are read inside the company's own scope.
+  let deals = 0, userIds: string[] = [];
+  if (kind === "AGENT") {
+    const mine = await withUser(id, (u) => u.membership.findMany({ where: { userId: id }, select: { id: true, companyId: true } }));
+    userIds = [id];
+    for (const m of mine) deals += await withTenant(m.companyId, SYSTEM_USER, (c) => c.deal.count({ where: { status: "COMPLETED", ownerId: m.id } }));
+  } else {
+    const r = await withTenant(id, SYSTEM_USER, async (c) => ({ deals: await c.deal.count({ where: { status: "COMPLETED", companyId: id } }), users: await c.membership.findMany({ where: { companyId: id }, select: { userId: true } }) }));
+    deals = r.deals; userIds = r.users.map((u) => u.userId);
+  }
   const upheld = await tx.messageReport.count({ where: { senderId: { in: userIds }, status: "ACTIONED" } });
   let conversations = 0, replied = 0;
   if (kind === "AGENT") {
     const since = new Date(asOf.getTime() - 180 * DAY);
-    const mine = await tx.conversationMember.findMany({ where: { userId: id, conversation: { createdAt: { gte: since }, createdById: { not: id } } }, select: { conversationId: true }, take: 400 });
-    for (const m of mine) {
-      const msgs = await tx.message.findMany({ where: { conversationId: m.conversationId }, select: { senderId: true, createdAt: true }, orderBy: { createdAt: "asc" } });
-      const first = msgs.find((x) => x.senderId !== id);
-      if (!first) continue;
-      conversations++;
-      const reply = msgs.find((x) => x.senderId === id && x.createdAt >= first.createdAt);
-      if (reply && reply.createdAt.getTime() - first.createdAt.getTime() <= DAY) replied++;
-    }
+    const stats = await withUser(id, async (u) => {
+      const mine = await u.conversationMember.findMany({ where: { userId: id, conversation: { createdAt: { gte: since }, createdById: { not: id } } }, select: { conversationId: true }, take: 400 });
+      let n = 0, ok = 0;
+      for (const m of mine) {
+        const msgs = await u.message.findMany({ where: { conversationId: m.conversationId }, select: { senderId: true, createdAt: true }, orderBy: { createdAt: "asc" } });
+        const first = msgs.find((x) => x.senderId !== id);
+        if (!first) continue;
+        n++;
+        const reply = msgs.find((x) => x.senderId === id && x.createdAt >= first.createdAt);
+        if (reply && reply.createdAt.getTime() - first.createdAt.getTime() <= DAY) ok++;
+      }
+      return { n, ok };
+    });
+    conversations = stats.n; replied = stats.ok;
   }
   return { asOf: asOf.toISOString().slice(0, 10), reviews, conversations, repliedWithin24h: replied, completedDeals: deals, upheldComplaints: upheld };
 }

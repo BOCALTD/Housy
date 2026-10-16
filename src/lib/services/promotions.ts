@@ -169,6 +169,7 @@ export async function markPaymentReceived(adminId: string, entryId: string, refe
 export async function reviewPromo(adminId: string, entryId: string, decision: "approve" | "reject", note: string) {
   await assertAdmin(adminId);
   const reason = note.trim();
+  let notice = null as { companyId: string; title: string; body: string } | null;
   if (decision === "reject" && reason.length < 3) throw new Error("Say why you are turning this down");
   await withPlatformAdmin(adminId, async (tx) => {
     const e = await tx.promoEntry.findUnique({ where: { id: entryId }, include: { campaign: true, payment: true } });
@@ -187,13 +188,14 @@ export async function reviewPromo(adminId: string, entryId: string, decision: "a
       }
     }
     await tx.promoEntry.update({ where: { id: e.id }, data: { status: decision === "approve" ? "APPROVED" : "REJECTED", reviewNote: reason, reviewedById: adminId, reviewedAt: new Date() } });
-    const members = await tx.membership.findMany({ where: { companyId: e.companyId, status: "ACTIVE", role: { in: ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"] } }, select: { userId: true } });
-    for (const m of members) await notify(tx, m.userId, {
-      kind: "promo", title: decision === "approve" ? "Your promotion was approved" : "Your promotion was not approved",
-      body: `${e.campaign.name}${reason ? `: ${reason}` : ""}`, link: "/app/promotions",
-    });
+    notice = { companyId: e.companyId, title: decision === "approve" ? "Your promotion was approved" : "Your promotion was not approved", body: `${e.campaign.name}${reason ? `: ${reason}` : ""}` };
     await logActivity(tx, { companyId: e.companyId, actorId: adminId, entityType: "promo_entry", entityId: e.id, action: decision === "approve" ? "promo.approved" : "promo.rejected", detail: { reason } });
   });
+  if (notice) {
+    const n = notice;
+    const members = await withTenant(n.companyId, "system", (tx) => tx.membership.findMany({ where: { companyId: n.companyId, status: "ACTIVE", role: { in: ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"] } }, select: { userId: true } }));
+    await withPlatformAdmin(adminId, async (tx) => { for (const m of members) await notify(tx, m.userId, { kind: "promo", title: n.title, body: n.body, link: "/app/promotions" }); });
+  }
 }
 
 // ---------- Public ----------

@@ -150,9 +150,10 @@ test("reviews that look manipulated are held, do not count, and a person decides
   // Several reviews landing on one person within two days.
   const burst = await listedAgent("burst");
   const statuses: string[] = [];
+  const when = later();
   for (let i = 0; i < 5; i++) {
     const p = await seeker(`bst${i}`);
-    statuses.push((await submitReview(p, { conversationId: await talk(burst, p), overall: 5 as never, body: `Review number ${i} with its own words ${uid()} about the visit.`, now: later() })).status);
+    statuses.push((await submitReview(p, { conversationId: await talk(burst, p), overall: 5 as never, body: `Review number ${i} with its own words ${uid()} about the visit.`, now: when })).status);
   }
   assert.deepEqual(statuses, ["PUBLISHED", "PUBLISHED", "PUBLISHED", "HELD", "HELD"]);
 });

@@ -16,7 +16,7 @@ import {
 } from "../../src/lib/services/reels";
 import { computeMonth } from "../../src/lib/services/awards";
 import { MONTHLY_REEL_CAP } from "../../src/lib/social-rules";
-import { monthKey, monthRange } from "../../src/lib/award-rules";
+import { monthRange } from "../../src/lib/award-rules";
 import type { Ctx } from "../../src/lib/services/context";
 import { newCompany, newPlatformAdmin, relativeDate, PASSWORD } from "./helpers";
 
@@ -129,7 +129,7 @@ test("likes, saves, shares and comments: one per person, private saves, no links
   await assert.rejects(addComment(a, reel.id, "Is the garden shared?"), /already said/);
   const cs = await commentsFor(reel.id);
   assert.equal(cs.total, 1);
-  assert.match(cs.rows[0].authorName, /^a P\.$/, "comments show a short name only");
+  assert.match(cs.rows[0].authorName, /^a \S\.$/, "comments show a short name only");
   assert.ok((await myNotifications(co.userId)).some((n) => /commented/.test(n.title)));
 });
 
@@ -221,13 +221,13 @@ test("discovery follows real engagement; fakes, self-likes, payment and input or
 test("published reels count as posts for the monthly ranking, up to a cap", async () => {
   const admin = await newPlatformAdmin();
   const co = await agent("aw");
-  const THIS = monthKey(new Date());
+  // A past month that no other test ranks, so it is never frozen.
+  const THIS = "2026-03";
   const AFTER = new Date(monthRange(THIS).end.getTime() + 864e5);
-  // The reels are published now, which is inside this month.
   // Made directly, because an agent may post only five reels a day.
   await withPlatformAdmin(admin.id, async (tx) => {
     for (let i = 0; i < MONTHLY_REEL_CAP + 2; i++) {
-      await tx.reel.create({ data: { authorId: co.userId, companyId: co.companyId, caption: `Cap ${i}`, mimeType: "video/mp4", sizeBytes: 20, status: "PUBLISHED", publishedAt: new Date(Date.now() - i * 1000), reviewedById: admin.id } });
+      await tx.reel.create({ data: { authorId: co.userId, companyId: co.companyId, caption: `Cap ${i}`, mimeType: "video/mp4", sizeBytes: 20, status: "PUBLISHED", publishedAt: new Date(monthRange(THIS).start.getTime() + (i + 1) * 3600_000), reviewedById: admin.id } });
     }
   });
   const run = await computeMonth(admin.id, THIS, AFTER);

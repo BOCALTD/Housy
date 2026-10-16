@@ -66,16 +66,16 @@ export default function GeoMap({ points, caption, unit = "properties" }: { point
           <polygon points={outline} fill="var(--surface, #fff)" stroke="var(--line, #9ca3af)" strokeWidth={1.5} />
           {near ? <circle cx={px(near.lng)} cy={py(near.lat)} r={radius ? Math.max(5, (radius / 111 / spanLat) * H) : 5} fill="rgba(29,78,216,.08)" stroke="#1d4ed8" strokeDasharray="4 3" /> : null}
           {clusters.map((c, i) => {
-            const r = 9 + 12 * Math.sqrt(c.count / maxCount);
+            const r = 11 + 12 * Math.sqrt(c.count / maxCount);
             const colour = COLOURS[c.points[0].group ?? ""] ?? "#1f6f50";
             const label = c.count === 1 ? c.points[0].label : `${c.count} ${unit} in this area`;
             return (
               <g key={i} role="button" tabIndex={0} aria-label={label} style={{ cursor: "pointer" }}
                 onClick={() => { if (c.count > 1 && zoom < 6) go(zoom + 2, { lat: c.lat, lng: c.lng }); setPicked(c.points); }}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (c.count > 1 && zoom < 6) go(zoom + 2, { lat: c.lat, lng: c.lng }); setPicked(c.points); } }}>
-                <circle cx={px(c.lng)} cy={py(c.lat)} r={28} fill="transparent" />
+                <circle cx={px(c.lng)} cy={py(c.lat)} r={34} fill="transparent" />
                 <circle cx={px(c.lng)} cy={py(c.lat)} r={r} fill={colour} fillOpacity={c.approximate ? 0.55 : 0.85} stroke="#fff" strokeWidth={1.5} />
-                <text x={px(c.lng)} y={py(c.lat) + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff" style={{ pointerEvents: "none" }}>{c.count > 1 ? c.count : ""}</text>
+                <text x={px(c.lng)} y={py(c.lat) + 4.5} textAnchor="middle" fontSize={13} fontWeight={700} fill="#fff" style={{ pointerEvents: "none" }}>{c.count > 1 ? c.count : ""}</text>
               </g>
             );
           })}

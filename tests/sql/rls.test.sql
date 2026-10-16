@@ -1394,5 +1394,47 @@ SELECT pg_temp.expect((SELECT count(*) FROM ad_campaigns) = 0, 'another company 
 SELECT set_config('app.company_id', '', true);
 SELECT set_config('app.user_id', '', true);
 
+-- 38. Phase 15: the assistant's audit trail is the platform's and cannot be changed; suggestions are a company's own; positions must be inside Nigeria.
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+INSERT INTO ai_runs (id, company_id, user_id, feature, provider, status) VALUES ('air-1', 'co-a', 'u1', 'SEARCH', 'rules', 'FALLBACK');
+INSERT INTO ai_runs (id, company_id, user_id, feature, provider, status) VALUES ('air-2', 'co-b', 'u2', 'SEARCH', 'rules', 'FALLBACK');
+SELECT set_config('app.company_id', 'co-a', true);
+INSERT INTO ai_suggestions (id, company_id, kind, subject_type, subject_id, payload, source, created_by_id) VALUES ('sg-a', 'co-a', 'DOCUMENT_CATEGORY', 'document', 'd1', '{}', 'RULES', 'u1');
+SELECT set_config('app.company_id', 'co-b', true);
+INSERT INTO ai_suggestions (id, company_id, kind, subject_type, subject_id, payload, source, created_by_id) VALUES ('sg-b', 'co-b', 'DOCUMENT_CATEGORY', 'document', 'd2', '{}', 'RULES', 'u2');
+SELECT set_config('app.company_id', 'co-a', true);
+DO $$ BEGIN
+  UPDATE assets SET lat = 51.5, lng = -0.1 WHERE id = 'as-a';
+  RAISE EXCEPTION 'FAIL: a position outside Nigeria was stored';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a position must be inside Nigeria'; END $$;
+DO $$ BEGIN
+  UPDATE assets SET lat = 6.4 WHERE id = 'as-a';
+  RAISE EXCEPTION 'FAIL: half a position was stored';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: latitude and longitude come together'; END $$;
+DO $$ BEGIN
+  UPDATE ai_suggestions SET status = 'ACCEPTED' WHERE id = 'sg-a';
+  RAISE EXCEPTION 'FAIL: a suggestion was accepted by nobody';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: an accepted suggestion names its reviewer'; END $$;
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT pg_temp.expect((SELECT count(*) FROM ai_runs) = 1, 'a company reads only its own assistant record');
+SELECT pg_temp.expect((SELECT count(*) FROM ai_suggestions) = 1, 'a company sees only its own suggestions');
+DO $$ BEGIN
+  INSERT INTO ai_runs (id, company_id, user_id, feature, provider, status) VALUES ('air-self', 'co-a', 'u1', 'SEARCH', 'rules', 'OK');
+  RAISE EXCEPTION 'FAIL: a company wrote its own audit record';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a company cannot write the audit record'; END $$;
+DO $$ BEGIN
+  UPDATE ai_runs SET status = 'OK' WHERE id = 'air-1';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: a company changed the audit record'; END IF;
+  RAISE NOTICE 'ok: a company cannot change the audit record';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a company cannot change the audit record'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM ai_suggestions WHERE id = 'sg-a') = 0, 'another company cannot see the suggestion');
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', '', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

@@ -17,6 +17,7 @@ export default async function MePage({ searchParams }: { searchParams?: SP }) {
   return (
     <div className="stack-lg">
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+      <h1>My account</h1>
       <section className="stats" aria-label="Summary">
         <div className="stat"><b>{follows.length}</b><span>Following</span></div>
         <div className="stat"><b>{unread.length}</b><span>Unread notices</span></div>

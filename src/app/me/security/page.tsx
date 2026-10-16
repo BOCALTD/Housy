@@ -17,6 +17,7 @@ export default async function SecurityPage({ searchParams }: { searchParams?: SP
   return (
     <div className="stack-lg">
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+      <h1>Sign-in security</h1>
       <section className="card stack">
         <h2>Two-step sign-in</h2>
         {st.enabled ? (

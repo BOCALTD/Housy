@@ -45,7 +45,7 @@ export async function AdsPanel({ payer, from }: { payer: Payer; from: "me" | "ap
   return (
     <div className="stack-lg">
       <section className="card stack">
-        <h2>Advertising</h2>
+        <h1>Advertising</h1>
         <p>Promote a published property above the ordinary results. Every advert is marked <strong>Sponsored</strong>, is reviewed first, and you pay only for real clicks from new visitors, never for your own people or for robots. Spending can never pass your budget.</p>
         {ent.access !== "FULL" ? <p className="small">{ent.explanation} {ent.access === "NONE" ? "Advertising is part of some plans." : ""} <Link href={from === "app" ? "/app/billing" : "/me/billing"}>See plans</Link></p> : <p className="small muted">{ent.limit !== null ? `Your plan allows ${ent.limit} ${ent.limit === 1 ? "campaign" : "campaigns"} at a time.` : "Your plan has no limit on campaigns."}</p>}
       </section>
@@ -114,7 +114,7 @@ export async function AdDetail({ payer, from, r }: { payer: Payer; from: "me" | 
   return (
     <div className="stack-lg">
       <section className="card stack">
-        <div className="row between"><h2>{c.name}</h2><Pill status={phaseTone(r.phase)} label={PHASE_TEXT[r.phase]} /></div>
+        <div className="row between"><h1>{c.name}</h1><Pill status={phaseTone(r.phase)} label={PHASE_TEXT[r.phase]} /></div>
         <p className="small muted">{c.ref} · <Link href={`/properties/${c.listing.publicRef}`}>{c.listing.title}</Link> · {PLACEMENTS[c.placement as Placement].label} · {formatDate(c.startsOn)} to {formatDate(c.endsOn)}</p>
         <p>Budget {formatKobo(c.budgetKobo)} · paid in {formatKobo(c.fundedKobo)} · spent {formatKobo(c.spentKobo)} · left {formatKobo(r.remainingKobo > 0n ? r.remainingKobo : 0n)} · {formatKobo(c.cpcKobo)} a click{c.dailyCapKobo ? ` · up to ${formatKobo(c.dailyCapKobo)} a day` : ""}</p>
         {c.status === "REJECTED" ? <p className="flash error">Not approved: {c.reviewNote}</p> : null}

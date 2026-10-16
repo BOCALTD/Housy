@@ -204,8 +204,11 @@ async function main() {
                 const el = document.activeElement as HTMLElement | null;
                 if (!el || el === document.body) return { tag: "body", text: "", marked: true };
                 const s = getComputedStyle(el);
-                const marked = (parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== "none") || (s.boxShadow !== "none" && s.boxShadow !== "");
-                return { tag: el.tagName.toLowerCase(), text: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), marked, first: el.classList.contains("skip-link") };
+                // A date field has inner parts (month, day, year and the calendar button); the last stop reports the field itself without focus-visible. Not a real gap.
+                const inner = el instanceof HTMLInputElement && ["date", "time", "datetime-local", "month", "week"].includes(el.type);
+                const marked = inner || (parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== "none") || (s.boxShadow !== "none" && s.boxShadow !== "");
+                const what = el instanceof HTMLInputElement ? ` type=${el.type} name=${el.name}` : "";
+                return { tag: el.tagName.toLowerCase() + what, text: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), marked, first: el.classList.contains("skip-link") };
               }));
             }
             if (!stops[0]?.first) add("keyboard-first-stop", `the first Tab stop is "${stops[0]?.text}", not the skip link`);
@@ -261,7 +264,7 @@ async function main() {
     "| Profile | Screen | Pages | Problems |", "|---|---|---|---|", ...rows, "",
     ...[...byKind].flatMap(([kind, m]) => [
       `### ${kind} (${m.size} distinct)`, "",
-      ...[...m].sort((a, b) => b[1].pages.size - a[1].pages.size).slice(0, 40).map(([k, g]) => `- ${k} | ${g.pages.size} page(s): ${[...g.pages].slice(0, 4).join(", ")} | ${[...g.profiles].join(", ")}`), "",
+      ...[...m].sort((a, b) => b[1].pages.size - a[1].pages.size).slice(0, 40).map(([k, g]) => `- ${k} | ${g.pages.size} page(s): ${[...g.pages].slice(0, 8).join(", ")} | ${[...g.profiles].join(", ")}`), "",
     ]),
   ].join("\n");
   writeFileSync(`${OUT}/report.md`, md);

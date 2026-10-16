@@ -41,7 +41,7 @@ ROWS=$(grep '^rows ' "$DIR/src.txt" | awk '{s+=$3} END {print s+0}')
 BACKUP_S=$(echo "$t1 - $t0" | bc -l | xargs printf '%.1f')
 RESTORE_S=$(echo "$t2 - $t1" | bc -l | xargs printf '%.1f')
 LINE="Backup: $SIZE bytes, $TABLES tables, $ROWS rows. Dump took ${BACKUP_S}s, restore took ${RESTORE_S}s."
-echo "$LINE"
+echo "$LINE"; echo "::notice title=Backup and restore::$LINE"
 [ -n "${GITHUB_STEP_SUMMARY:-}" ] && printf '## Backup and restore\n\n%s\n' "$LINE" >> "$GITHUB_STEP_SUMMARY"
 
 if ! diff "$DIR/src.txt" "$DIR/dst.txt"; then

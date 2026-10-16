@@ -21,4 +21,7 @@ if grep -q "PERF name=" ci-output.log; then
   perf=$(grep -h "PERF name=" ci-output.log | sed 's/^[# ]*//' | head -60 | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
   echo "::notice title=Performance results::${perf}"
 fi
+if grep -q "^# tests " ci-output.log; then
+  echo "::notice title=Test totals - $title::$(grep -E '^# (tests|pass|fail|skipped) ' ci-output.log | tr '\n' ' ')"
+fi
 exit $status

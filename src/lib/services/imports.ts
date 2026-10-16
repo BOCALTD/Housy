@@ -14,7 +14,7 @@ import { assertCan, type Ctx } from "./context";
 export const IMPORT_PAGE = 25;
 const flat = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-type RowPlan = { rowNo: number; status: "READY" | "DUPLICATE" | "ERROR"; message: string; payload: Record<string, unknown> };
+type RowPlan = { rowNo: number; status: "READY" | "DUPLICATE" | "ERROR"; message: string; payload: object };
 
 /**
  * Read a file and decide, line by line, what would happen: create it, skip it as a duplicate, or reject it with a reason.

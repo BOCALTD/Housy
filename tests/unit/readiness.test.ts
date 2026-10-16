@@ -20,10 +20,9 @@ test("an empty deployment is not ready, and says why", () => {
   assert.equal(readinessSummary(readinessChecks({})).ready, false);
 });
 
-test("example values and local databases are not accepted in production", () => {
+test("example values are not accepted in production", () => {
   assert.equal(by({ ...good, DATABASE_URL: "postgresql://estate_owner:CHANGE_ME@host/estate" }).database.level, "fail");
-  assert.equal(by({ ...good, DATABASE_URL: "postgresql://u:p@localhost:5432/estate" }).database.level, "fail");
-  assert.equal(by({ ...good, DATABASE_URL: "postgresql://u:p@localhost:5432/estate", NODE_ENV: "development" }).database.level, "warn");
+  assert.equal(by({ ...good, DATABASE_URL: "postgresql://u:p@localhost:5432/estate" }).database.level, "ok"); // the Ubuntu setup keeps PostgreSQL on the same machine
   assert.equal(by({ ...good, NEXT_PUBLIC_APP_URL: "http://housy.ng" }).database.level, "ok");
   assert.equal(by({ ...good, NEXT_PUBLIC_APP_URL: "http://housy.ng" })["app-url"].level, "fail");
   assert.equal(by({ ...good, NEXT_PUBLIC_PLATFORM_NAME: "[Platform Name]" }).brand.level, "warn");

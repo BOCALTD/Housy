@@ -18,8 +18,7 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
   const dbUrl = env.DATABASE_URL ?? "";
   if (!has(dbUrl)) add("database", "Database connection", "fail", "DATABASE_URL is not set.", "hosting");
   else if (PLACEHOLDER.test(dbUrl)) add("database", "Database connection", "fail", "DATABASE_URL still holds the example value.", "hosting");
-  else if (/@(localhost|127\.0\.0\.1)[:/]/.test(dbUrl)) add("database", "Database connection", prod ? "fail" : "warn", "The database is on this machine, not a hosted database.", "hosting");
-  else add("database", "Database connection", "ok", "A hosted database address is set.", "hosting");
+  else add("database", "Database connection", "ok", "A database address is set.", "hosting");
 
   add("app-password", "Restricted database password", long(env.APP_DB_PASSWORD, 24) && !PLACEHOLDER.test(env.APP_DB_PASSWORD!) ? "ok" : "fail",
     long(env.APP_DB_PASSWORD, 24) ? "Set (24 or more characters)." : "APP_DB_PASSWORD must be random and at least 24 characters, or row-level security cannot be set up.", "hosting");

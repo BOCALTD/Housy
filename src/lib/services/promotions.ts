@@ -107,11 +107,10 @@ export async function requestPromo(ctx: Ctx, campaignId: string, listingId: stri
     if (listing.status !== "PUBLISHED") throw new Error("Only published properties can join a promotion");
     const problem = promoPriceProblem(listing.priceKobo, promo, campaign.maxDiscountPct);
     if (problem) throw new Error(problem);
+    // Two staff members asking at the same moment for the same property must not both succeed.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`promo:${campaignId}:${listingId}`}))`;
     const dup = await tx.promoEntry.findFirst({ where: { campaignId, listingId, status: { in: ["REQUESTED", "APPROVED"] } } });
     if (dup) throw new Error("That property is already in this campaign");
-    // A withdrawn or rejected entry is replaced by a new request, so the unique pair is reused.
-    const old = await tx.promoEntry.findUnique({ where: { campaignId_listingId: { campaignId, listingId } } });
-    if (old) { await tx.promoPayment.deleteMany({ where: { entryId: old.id } }); await tx.promoEntry.delete({ where: { id: old.id } }); }
     const entry = await tx.promoEntry.create({
       data: { ref: randomRef("PRM", 7), campaignId, companyId: ctx.companyId, listingId, originalPriceKobo: listing.priceKobo, promoPriceKobo: promo, requestedById: ctx.userId },
     });

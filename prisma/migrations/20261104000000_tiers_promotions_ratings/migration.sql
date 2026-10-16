@@ -114,7 +114,7 @@ CREATE INDEX "promo_campaigns_active_starts_on_ends_on_idx" ON "promo_campaigns"
 CREATE UNIQUE INDEX "promo_entries_ref_key" ON "promo_entries"("ref");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "promo_entries_campaign_id_listing_id_key" ON "promo_entries"("campaign_id", "listing_id");
+CREATE INDEX "promo_entries_campaign_id_listing_id_idx" ON "promo_entries"("campaign_id", "listing_id");
 
 -- CreateIndex
 CREATE INDEX "promo_entries_company_id_status_idx" ON "promo_entries"("company_id", "status");

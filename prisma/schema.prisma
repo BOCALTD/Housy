@@ -3969,7 +3969,7 @@ model PromoEntry {
   campaign         PromoCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
   payment          PromoPayment?
 
-  @@unique([campaignId, listingId])
+  @@index([campaignId, listingId])
   @@index([companyId, status])
   @@index([listingId, status])
   @@map("promo_entries")

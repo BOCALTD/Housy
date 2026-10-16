@@ -34,7 +34,7 @@ export async function startMfaAction() {
 
 export type ConfirmState = { error?: string; codes?: string[] };
 /** Returns the recovery codes to the page instead of redirecting, so they are shown once and never stored in a URL or cookie. */
-export async function confirmMfaAction(_prev: ConfirmState, form: FormData): Promise<ConfirmState> {
+export async function confirmMfaAction(form: FormData): Promise<ConfirmState> {
   try {
     const u = await requireUser();
     if (!(await rateLimit(`mfa-setup:${u.id}`, 10, 15 * 60 * 1000))) throw new Error("Too many attempts. Wait 15 minutes.");

@@ -77,11 +77,11 @@ test("one-time codes follow RFC 6238 and work once", () => {
 });
 
 test("the stored secret is encrypted and tamper-evident", () => {
-  const s = newSecret(), env = { MFA_ENCRYPTION_KEY: "k1" } as NodeJS.ProcessEnv;
+  const s = newSecret(), env = { MFA_ENCRYPTION_KEY: "k1" };
   const sealed = sealSecret(s, env);
   assert.ok(!sealed.includes(s));
   assert.equal(openSecret(sealed, env), s);
-  assert.throws(() => openSecret(sealed, { MFA_ENCRYPTION_KEY: "other" } as NodeJS.ProcessEnv));
+  assert.throws(() => openSecret(sealed, { MFA_ENCRYPTION_KEY: "other" }));
   const parts = sealed.split("."); parts[3] = parts[3].slice(0, -2) + (parts[3].endsWith("AA") ? "BB" : "AA");
   assert.throws(() => openSecret(parts.join("."), env));
   assert.notEqual(sealSecret(s, env), sealed); // fresh nonce each time

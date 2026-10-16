@@ -56,15 +56,16 @@ export function otpauthUri(secret: string, email: string, issuer: string): strin
 }
 
 // ---- encryption of the stored secret (AES-256-GCM) ----
-const keyFrom = (env: NodeJS.ProcessEnv) => createHash("sha256").update(env.MFA_ENCRYPTION_KEY || env.APP_DB_PASSWORD || "development-only-secret").digest();
+type Env = Record<string, string | undefined>;
+const keyFrom = (env: Env) => createHash("sha256").update(env.MFA_ENCRYPTION_KEY || env.APP_DB_PASSWORD || "development-only-secret").digest();
 
-export function sealSecret(secret: string, env: NodeJS.ProcessEnv = process.env): string {
+export function sealSecret(secret: string, env: Env = process.env): string {
   const iv = randomBytes(12), c = createCipheriv("aes-256-gcm", keyFrom(env), iv);
   const enc = Buffer.concat([c.update(secret, "utf8"), c.final()]);
   return `v1.${iv.toString("base64url")}.${c.getAuthTag().toString("base64url")}.${enc.toString("base64url")}`;
 }
 
-export function openSecret(sealed: string, env: NodeJS.ProcessEnv = process.env): string {
+export function openSecret(sealed: string, env: Env = process.env): string {
   const [v, iv, tag, data] = sealed.split(".");
   if (v !== "v1" || !iv || !tag || !data) throw new Error("The stored secret is unreadable");
   const d = createDecipheriv("aes-256-gcm", keyFrom(env), Buffer.from(iv, "base64url"));

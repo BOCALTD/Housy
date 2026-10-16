@@ -33,8 +33,10 @@ export async function saveAiConfig(adminId: string, raw: { enabled: boolean; per
   const c: AiConfig = { enabled: raw.enabled, perUserPerDay: Number(raw.perUserPerDay), perCompanyPerMonth: Number(raw.perCompanyPerMonth), publicPerDay: Number(raw.publicPerDay) };
   const problem = aiConfigProblem(c);
   if (problem) throw new Error(problem);
-  await prisma.platformSetting.upsert({ where: { key: CONFIG_KEY }, create: { key: CONFIG_KEY, value: JSON.stringify(c), updatedById: adminId }, update: { value: JSON.stringify(c), updatedById: adminId } });
-  await system((tx) => logActivity(tx, { companyId: null, actorId: adminId, entityType: "ai_config", entityId: CONFIG_KEY, action: "ai.config_saved", detail: { ...c } }));
+  await system(async (tx) => {
+    await tx.platformSetting.upsert({ where: { key: CONFIG_KEY }, create: { key: CONFIG_KEY, value: JSON.stringify(c), updatedById: adminId }, update: { value: JSON.stringify(c), updatedById: adminId } });
+    await logActivity(tx, { companyId: null, actorId: adminId, entityType: "ai_config", entityId: CONFIG_KEY, action: "ai.config_saved", detail: { ...c } });
+  });
   return c;
 }
 

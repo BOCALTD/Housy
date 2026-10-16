@@ -157,6 +157,7 @@ export async function listCorrespondence(ctx: Ctx, f: ListFilter = {}) {
 }
 
 export async function correspondenceSummary(ctx: Ctx) {
+  assertCan(ctx, "correspondence.view");
   const today = todayInLagos();
   const in7 = new Date(today.getTime() + 7 * 864e5);
   const base = visibleWhere(ctx);

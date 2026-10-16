@@ -5,6 +5,7 @@ import { cleanCode } from "../correspondence-rules";
 import { assertCan, type Ctx } from "./context";
 
 export async function getSettings(ctx: Ctx) {
+  assertCan(ctx, "settings.manage");
   return withTenant(ctx.companyId, ctx.userId, async (tx) => ({
     company: await tx.company.findUniqueOrThrow({ where: { id: ctx.companyId }, select: { name: true, refPrefix: true, reminderLeadDays: true, escalationDays: true } }),
     departments: await tx.department.findMany({

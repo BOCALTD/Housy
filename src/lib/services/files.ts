@@ -86,6 +86,7 @@ export async function returnPhysicalFile(ctx: Ctx, fileId: string) {
 }
 
 export async function listPhysicalFiles(ctx: Ctx, f: { q?: string; view?: string } = {}) {
+  assertCan(ctx, "asset.view");
   const today = todayInLagos();
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const files = await tx.physicalFile.findMany({
@@ -109,6 +110,7 @@ export async function listPhysicalFiles(ctx: Ctx, f: { q?: string; view?: string
 }
 
 export async function fileMovements(ctx: Ctx, fileId: string) {
+  assertCan(ctx, "asset.view");
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const moves = await tx.fileMovement.findMany({ where: { fileId, companyId: ctx.companyId }, orderBy: { createdAt: "desc" }, take: 50 });
     const holders = await tx.membership.findMany({
@@ -121,6 +123,7 @@ export async function fileMovements(ctx: Ctx, fileId: string) {
 
 /** Asset documents that expire within `days`, including those already expired. */
 export async function expiringDocuments(ctx: Ctx, days = 60) {
+  assertCan(ctx, "asset.view");
   const limit = new Date(todayInLagos().getTime() + days * 864e5);
   return withTenant(ctx.companyId, ctx.userId, (tx) =>
     tx.assetDocument.findMany({
@@ -132,6 +135,7 @@ export async function expiringDocuments(ctx: Ctx, days = 60) {
 }
 
 export async function overdueFileCount(ctx: Ctx) {
+  assertCan(ctx, "asset.view");
   const today = todayInLagos();
   return withTenant(ctx.companyId, ctx.userId, (tx) =>
     tx.fileMovement.count({ where: { companyId: ctx.companyId, returnedOn: null, expectedReturnOn: { lt: today } } }));

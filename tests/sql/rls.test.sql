@@ -1365,5 +1365,34 @@ SELECT pg_temp.expect((SELECT count(*) FROM invoices) = 0, 'another company sees
 SELECT set_config('app.company_id', '', true);
 SELECT set_config('app.user_id', '', true);
 
+-- 37. Phase 14b: a campaign is visible to its owner only; the owner cannot change it; spending can never pass the funds; clicks and visitor keys are the platform's alone.
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+INSERT INTO ad_campaigns (id, ref, owner_kind, owner_company_id, created_by_id, name, listing_id, placement, starts_on, ends_on, budget_kobo, cpc_kobo, funded_kobo, updated_at) VALUES ('ad-1', 'AD-T0000001', 'COMPANY', 'co-a', 'u1', 'Alpha push', 'li-a', 'HOME_FEATURED', now(), now() + interval '5 days', 500000, 15000, 500000, now());
+INSERT INTO ad_clicks (id, campaign_id, viewer_key, billed) VALUES ('ck-1', 'ad-1', 'viewer-1', true);
+DO $$ BEGIN
+  UPDATE ad_campaigns SET spent_kobo = 500001 WHERE id = 'ad-1';
+  RAISE EXCEPTION 'FAIL: spending passed the funds';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: spending can never pass the funds'; END $$;
+DO $$ BEGIN
+  INSERT INTO ad_campaigns (id, ref, owner_kind, created_by_id, name, listing_id, placement, starts_on, ends_on, budget_kobo, cpc_kobo, updated_at) VALUES ('ad-bad', 'AD-T0000009', 'COMPANY', 'u1', 'No owner', 'li-a', 'HOME_FEATURED', now(), now(), 500000, 15000, now());
+  RAISE EXCEPTION 'FAIL: a campaign with no owner';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a campaign has exactly one owner'; END $$;
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT pg_temp.expect((SELECT count(*) FROM ad_campaigns) = 1, 'a company sees its own campaign');
+SELECT pg_temp.expect((SELECT count(*) FROM ad_clicks) = 0, 'a company cannot read the click records');
+DO $$ BEGIN
+  UPDATE ad_campaigns SET status = 'APPROVED', funded_kobo = 99999999 WHERE id = 'ad-1';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: a company changed its own campaign'; END IF;
+  RAISE NOTICE 'ok: a company cannot change its campaign directly';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a company cannot change its campaign directly'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM ad_campaigns) = 0, 'another company sees no campaigns');
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', '', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

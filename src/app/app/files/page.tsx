@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { expiringDocuments, fileMovements, listPhysicalFiles } from "@/lib/services/files";
 import { listDepartments } from "@/lib/services/settings";
-import { listAssets } from "@/lib/services/assets";
+import { assetOptions } from "@/lib/services/assets";
 import { listTeam } from "@/lib/services/companies";
 import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -22,7 +22,7 @@ export default async function FilesPage({ searchParams }: { searchParams?: SP })
     listPhysicalFiles(member, { q, view }),
     expiringDocuments(member, 60),
     manage ? listDepartments(member) : Promise.resolve([]),
-    manage ? listAssets(member) : Promise.resolve([]),
+    manage ? assetOptions(member) : Promise.resolve([]),
     manage ? listTeam(member) : Promise.resolve(null),
   ]);
   const history = show ? await fileMovements(member, show) : null;

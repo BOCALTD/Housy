@@ -79,6 +79,38 @@ export async function listAssets(ctx: Ctx, filter: { q?: string; status?: string
   );
 }
 
+export const ASSET_PAGE = 25;
+
+/** One page of the asset register, newest first, with the total so the screen can offer Previous and Next. */
+export async function assetPage(ctx: Ctx, filter: { q?: string; status?: string; page?: number } = {}) {
+  assertCan(ctx, "asset.view");
+  const status = (ASSET_STATUSES as readonly string[]).includes(filter.status ?? "") ? filter.status : undefined;
+  const page = Number.isInteger(filter.page) && (filter.page ?? 0) > 0 ? Math.min(filter.page!, 100_000) : 0;
+  const where = {
+    companyId: ctx.companyId,
+    ...(status ? { status: status as (typeof ASSET_STATUSES)[number] } : {}),
+    ...(filter.q ? { OR: [
+      { name: { contains: filter.q, mode: "insensitive" as const } },
+      { ref: { contains: filter.q, mode: "insensitive" as const } },
+      { city: { contains: filter.q, mode: "insensitive" as const } },
+    ] } : {}),
+  };
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const [rows, total] = await Promise.all([
+      tx.asset.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "asc" }], skip: page * ASSET_PAGE, take: ASSET_PAGE, include: { listing: { select: { status: true, publicRef: true } } } }),
+      tx.asset.count({ where }),
+    ]);
+    return { rows, total, page, pageSize: ASSET_PAGE };
+  });
+}
+
+/** Every asset's reference and name for a drop-down, in reference order (up to 1,000). Use assetPage for the register itself. */
+export async function assetOptions(ctx: Ctx) {
+  assertCan(ctx, "asset.view");
+  return withTenant(ctx.companyId, ctx.userId, (tx) =>
+    tx.asset.findMany({ where: { companyId: ctx.companyId }, select: { id: true, ref: true, name: true }, orderBy: [{ ref: "asc" }, { id: "asc" }], take: 1000 }));
+}
+
 /** Full asset record with its related records and history. Returns null if not in this company. */
 export async function getAsset(ctx: Ctx, assetId: string) {
   assertCan(ctx, "asset.view");

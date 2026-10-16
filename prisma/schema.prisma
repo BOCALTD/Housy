@@ -591,6 +591,7 @@ model Listing {
   adCampaigns AdCampaign[]
 
   @@index([status, city])
+  @@index([publishedAt(sort: Desc)])
   @@map("listings")
 }
 

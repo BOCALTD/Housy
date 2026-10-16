@@ -1,5 +1,5 @@
 import { requireMember } from "@/lib/auth";
-import { listAssets } from "@/lib/services/assets";
+import { assetOptions } from "@/lib/services/assets";
 import { listTeam } from "@/lib/services/companies";
 import { listDepartments } from "@/lib/services/settings";
 import { CATEGORIES, PRIORITIES } from "@/lib/services/correspondence";
@@ -13,7 +13,7 @@ export const metadata = { title: "Register correspondence" };
 export default async function NewCorrespondencePage({ searchParams }: { searchParams?: SP }) {
   const member = await requireMember("correspondence.register");
   const [assets, departments, team] = await Promise.all([
-    listAssets(member), listDepartments(member), listTeam(member),
+    assetOptions(member), listDepartments(member), listTeam(member),
   ]);
   const canAssign = can(member.role, "correspondence.assign");
   const today = toDateOnlyString(todayInLagos());

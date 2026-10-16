@@ -4,7 +4,7 @@ import { requireMember } from "@/lib/auth";
 import { rentReport } from "@/lib/services/reports";
 import { formatKobo } from "@/lib/money";
 import { formatDate, parseDateOnly, todayInLagos, toDateOnlyString } from "@/lib/dates";
-import { Field, Flash, ShowMore, TableMore, sp, type SP } from "@/components/ui";
+import { Field, Flash, Pager, ShowMore, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Rent reports" };
 
@@ -28,6 +28,9 @@ export default async function ReportsPage({ searchParams }: { searchParams?: SP 
   }
   const fromText = toDateOnlyString(from);
   const toText = toDateOnlyString(to);
+  const PAGE = 25;
+  const page = Math.max(0, Number.parseInt(sp(searchParams, "page") ?? "0", 10) || 0);
+  const pageHref = (p: number) => `/app/reports?from=${fromText}&to=${toText}&page=${p}`;
 
   return (
     <div className="stack-lg">
@@ -55,12 +58,12 @@ export default async function ReportsPage({ searchParams }: { searchParams?: SP 
           <section className="card table-wrap" aria-labelledby="prop-h">
             <h2 id="prop-h">By property</h2>
             {report.rows.length === 0 ? <p className="muted">No properties have leases yet.</p> : (
-              <TableMore limit={12} noun="more rows" head={<tr><th>Property</th><th>Active leases</th><th>Billed</th><th>Collected</th><th>Arrears today</th></tr>} rows={report.rows.map((r) => (
+              <><div className="table-wrap"><table><thead><tr><th>Property</th><th>Active leases</th><th>Billed</th><th>Collected</th><th>Arrears today</th></tr></thead><tbody>{report.rows.slice(page * PAGE, (page + 1) * PAGE).map((r) => (
                     <tr key={r.assetId}>
                       <td><Link href={`/app/assets/${r.assetId}`}>{r.assetRef} · {r.assetName}</Link></td>
                       <td>{r.activeLeases}</td><td>{formatKobo(r.billedKobo)}</td><td>{formatKobo(r.collectedKobo)}</td><td>{formatKobo(r.arrearsKobo)}</td>
                     </tr>
-                  ))} />
+                  ))}</tbody></table></div><Pager page={page} total={report.rows.length} pageSize={PAGE} href={pageHref} noun="properties" /></>
             )}
           </section>
 

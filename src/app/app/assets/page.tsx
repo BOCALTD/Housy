@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { listAssets, ASSET_STATUSES } from "@/lib/services/assets";
+import { assetPage, ASSET_STATUSES } from "@/lib/services/assets";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
-import { EnumOptions, Flash, Pill, TableMore, sp, type SP } from "@/components/ui";
+import { EnumOptions, Flash, Pager, Pill, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Assets" };
 
@@ -11,7 +11,9 @@ export default async function AssetsPage({ searchParams }: { searchParams?: SP }
   const member = await requireMember("asset.view");
   const q = sp(searchParams, "q") ?? "";
   const status = sp(searchParams, "status") ?? "";
-  const assets = await listAssets(member, { q, status });
+  const page = Math.max(0, Number.parseInt(sp(searchParams, "page") ?? "0", 10) || 0);
+  const { rows: assets, total, pageSize, page: at } = await assetPage(member, { q, status, page });
+  const href = (p: number) => `/app/assets?${new URLSearchParams({ ...(q ? { q } : {}), ...(status ? { status } : {}), page: String(p) })}`;
 
   return (
     <div className="stack">
@@ -36,7 +38,7 @@ export default async function AssetsPage({ searchParams }: { searchParams?: SP }
             {q || status ? "No assets match those filters." : "No assets yet. Register your first property, land parcel or equipment."}
           </p>
         ) : (
-          <TableMore limit={12} noun="more rows" head={<tr><th>Ref</th><th>Asset</th><th>Class</th><th>Location</th><th>Held as</th><th>Status</th><th>Listing</th></tr>} rows={assets.map((a) => (
+          <><div className="table-wrap"><table><thead><tr><th>Ref</th><th>Asset</th><th>Class</th><th>Location</th><th>Held as</th><th>Status</th><th>Listing</th></tr></thead><tbody>{assets.map((a) => (
                 <tr key={a.id}>
                   <td className="mono">{a.ref}</td>
                   <td><Link href={`/app/assets/${a.id}`}>{a.name}</Link><div className="small muted">{a.category}</div></td>
@@ -46,7 +48,7 @@ export default async function AssetsPage({ searchParams }: { searchParams?: SP }
                   <td><Pill status={a.status} /></td>
                   <td>{a.listing ? <Pill status={a.listing.status} /> : <span className="muted small">Internal only</span>}</td>
                 </tr>
-              ))} />
+              ))}</tbody></table></div><Pager page={at} total={total} pageSize={pageSize} href={href} noun="assets" /></>
         )}
       </div>
     </div>

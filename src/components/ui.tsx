@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { humanize, tone } from "@/lib/labels";
 
 export function Pill({ status, label }: { status: string; label?: string }) {
@@ -71,5 +72,19 @@ export function TableMore({ head, rows, limit = 10, noun = "more rows" }: { head
         </details>
       ) : null}
     </>
+  );
+}
+
+/** Previous and Next for a long list, with where you are. `href` builds the link for a page number (0 is the first). */
+export function Pager({ page, total, pageSize, href, noun = "items" }: { page: number; total: number; pageSize: number; href: (page: number) => string; noun?: string }) {
+  const last = Math.max(0, Math.ceil(total / pageSize) - 1);
+  if (total <= pageSize) return null;
+  const from = page * pageSize + 1, to = Math.min(total, (page + 1) * pageSize);
+  return (
+    <nav className="row between" aria-label="Pages" style={{ padding: "8px 4px" }}>
+      {page > 0 ? <Link className="btn" href={href(page - 1)} rel="prev">Previous</Link> : <span />}
+      <span className="small muted">{from}–{to} of {total} {noun}</span>
+      {page < last ? <Link className="btn" href={href(page + 1)} rel="next">Next</Link> : <span />}
+    </nav>
   );
 }

@@ -1,5 +1,8 @@
 import { randomInt } from "node:crypto";
 import { z } from "zod";
+
+/** A whole number that may arrive as text from a form. */
+const int = (min: number, max: number, minMessage?: string) => z.preprocess((v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v), z.number({ invalid_type_error: "Enter a whole number" }).int("Enter a whole number").min(min, minMessage).max(max));
 import { prisma, withPlatformAdmin, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { randomRef } from "../tokens";
@@ -29,8 +32,8 @@ const campaignSchema = z.object({
   description: z.string().trim().max(1000).default(""),
   startsOn: z.string().min(1, "Choose a start date"),
   endsOn: z.string().optional().transform((v) => v || null),
-  attributionDays: z.coerce.number().int().min(1).max(365),
-  qualifyWithinDays: z.coerce.number().int().min(1).max(730),
+  attributionDays: int(1, 365),
+  qualifyWithinDays: int(1, 730),
   maxRewardsPerReferrer: z.string().optional().transform((v) => (v ? Number.parseInt(v, 10) : null)),
 });
 export async function createCampaign(adminId: string, raw: z.input<typeof campaignSchema>) {

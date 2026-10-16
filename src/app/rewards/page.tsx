@@ -6,7 +6,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
-import { SaveDocument } from "@/components/SaveDocument";
+import SaveDocument from "@/components/SaveDocument";
 import { disputeRewardAction } from "./actions";
 
 export const metadata = { title: "My rewards" };

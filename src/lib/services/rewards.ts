@@ -1,4 +1,7 @@
 import { z } from "zod";
+
+/** A whole number that may arrive as text from a form. */
+const int = (min: number, max: number, minMessage?: string) => z.preprocess((v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v), z.number({ invalid_type_error: "Enter a whole number" }).int("Enter a whole number").min(min, minMessage).max(max));
 import { Prisma } from "@prisma/client";
 import { prisma, withPlatformAdmin, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
@@ -54,11 +57,11 @@ export async function readRewardSettings(): Promise<RewardSettings> {
 }
 const settingsSchema = z.object({
   payoutThreshold: z.string().trim().min(1, "Enter the smallest payout, in naira. Use 0 for none."),
-  referralBurstPerDay: z.coerce.number().int().min(1).max(1000),
-  vacancyReportsPerDay: z.coerce.number().int().min(1).max(200),
-  vacancyRejectFlag: z.coerce.number().int().min(1).max(50),
-  duplicateRadiusM: z.coerce.number().int().min(5).max(2000),
-  duplicateWindowDays: z.coerce.number().int().min(1).max(3650),
+  referralBurstPerDay: int(1, 1000),
+  vacancyReportsPerDay: int(1, 200),
+  vacancyRejectFlag: int(1, 50),
+  duplicateRadiusM: int(5, 2000),
+  duplicateWindowDays: int(1, 3650),
 });
 export async function saveRewardSettings(adminId: string, raw: z.input<typeof settingsSchema>) {
   await adminOnly(adminId);
@@ -82,7 +85,7 @@ const policySchema = z.object({
   campaignId: z.string().trim().optional().transform((v) => v || null),
   name: z.string().trim().min(3, "Name the reward").max(120),
   amount: z.string().trim().min(1, "Enter the reward amount in naira"),
-  holdDays: z.coerce.number().int().min(0, "Use 0 or more days").max(365),
+  holdDays: int(0, 365, "Use 0 or more days"),
   perPersonLimit: z.string().trim().optional().transform((v) => (v ? Number.parseInt(v, 10) : null)),
   terms: z.string().trim().max(2000).default(""),
 });

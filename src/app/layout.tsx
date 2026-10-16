@@ -89,6 +89,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <main id="main" tabIndex={-1}>
           <div className="wrap">{children}</div>
         </main>
+        <footer className="wrap" style={{ padding: "16px 0 32px" }}>
+          <Link href="/support" className="btn ghost small">Help and support</Link>
+        </footer>
       </body>
     </html>
   );

@@ -289,3 +289,13 @@ Reports are in `docs/`: [TEST-REPORT](docs/TEST-REPORT.md), [SECURITY-FINDINGS](
 - **Recovery.** `scripts/backup-restore-check.sh` dumps and restores a database and compares every table, the security settings and the money totals; CI runs it on every push. `/api/health` serves uptime monitors.
 - **Bringing in existing records** (`/app/import`, company administrator only): CSV templates for assets and leases, a preview that marks duplicates and mistakes, creation only on confirmation, opening balances for rent already paid, and a reconciliation of totals.
 - **Limits worth knowing.** No outside penetration test, no load test with many simultaneous visitors, no scripted browser journeys through whole workflows, no real phones (emulated browsers only), no tax calculations exist to validate, and the import has never been run on a real company's data.
+
+## Built in Phase 17 (master prompt Phase 16): production launch and operational readiness
+
+What code and documents can do is done; the launch itself needs your accounts and people. Nothing has been deployed, no real email or payment has been sent, and no pilot has been run.
+
+- **Launch readiness** (`/admin/launch`, platform administrators): lists which production settings exist and look sane (database, secrets, two-step key, HTTPS address, email, payments live or test, cron secret, demo data off, support contact), never their values, plus live email and payment backlogs and links to the books check. "Ready" means configured, not proven.
+- **Two-step sign-in for platform administrators can now be required**: set `REQUIRE_ADMIN_MFA=true` and an administrator without it can reach only the page that turns it on (admin pages and admin downloads).
+- **Help and support** (`/support`, linked from every page): contact details from `SUPPORT_EMAIL`, `SUPPORT_PHONE`, `SUPPORT_HOURS`, and steps for lost passwords, lost authenticators, suspected takeover, dead invitations and wrong-looking money.
+- **Documents** in `docs/`: [LAUNCH-CHECKLIST](docs/LAUNCH-CHECKLIST.md) (all twelve launch items with owner and proof), [ONBOARDING](docs/ONBOARDING.md) with a 60-minute training agenda, [USER-GUIDE](docs/USER-GUIDE.md), [SUPPORT](docs/SUPPORT.md) (roles, levels, escalation, identity-before-access recovery), [ROLLBACK](docs/ROLLBACK.md), [PILOT](docs/PILOT.md) (who, rules, measures, feedback record). `vercel.cron.example.json` holds the job schedules.
+- **Limits worth knowing.** Slow-query and server-error monitoring live in the hosting dashboards, not in the product. Removing a lost two-step secret is a manual database step (documented). Names and phone numbers in the support document are blank for you to fill.

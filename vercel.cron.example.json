@@ -1,0 +1,7 @@
+{
+  "_note": "Copy the crons block into vercel.json. Vercel sends 'Authorization: Bearer $CRON_SECRET' by itself when CRON_SECRET is set. Every-10-minutes needs a paid Vercel plan; on the free plan a deploy with this schedule is refused, so use once a day instead ('0 6 * * *') and accept slower email.",
+  "crons": [
+    { "path": "/api/cron/notifications", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/billing", "schedule": "0 5 * * *" }
+  ]
+}

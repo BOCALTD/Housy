@@ -148,7 +148,7 @@ async function main() {
   }
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
-  const publicPages = ["/", "/login", "/forgot", "/signup", "/join", ...(prop ? [`/${prop}`] : [])];
+  const publicPages = ["/", "/login", "/forgot", "/support", "/signup", "/join", ...(prop ? [`/${prop}`] : [])];
   const pages = [...publicPages.map((p) => ({ p, auth: false })), ...signedIn.map((p) => ({ p, auth: true }))];
   mkdirSync(`${OUT}/screens`, { recursive: true });
 

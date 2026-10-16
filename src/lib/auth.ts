@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { adminMfaMissing } from "./readiness";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma, withTenant } from "./db";
@@ -40,7 +41,7 @@ export const getSession = cache(async () => {
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { user: { select: { id: true, email: true, name: true, isPlatformAdmin: true } } },
+    include: { user: { select: { id: true, email: true, name: true, isPlatformAdmin: true, mfaEnabledAt: true } } },
   });
   if (!session || session.expiresAt < new Date()) return null;
   return session;
@@ -103,8 +104,15 @@ export async function requireMember(action?: Action): Promise<Member> {
   return member;
 }
 
+/** True when this deployment requires two-step sign-in for platform administrators and this one has not turned it on. */
+export function adminNeedsMfa(user: { mfaEnabledAt?: Date | null }) {
+  return adminMfaMissing(process.env, user);
+}
+
 export async function requirePlatformAdmin() {
   const user = await requireUser();
   if (!user.isPlatformAdmin) redirect("/");
+  // When REQUIRE_ADMIN_MFA=true, an administrator without two-step sign-in can reach only the page that turns it on.
+  if (adminNeedsMfa(user)) redirect("/me/security?error=" + encodeURIComponent("Platform administrators must turn on two-step sign-in before using the admin pages."));
   return user;
 }

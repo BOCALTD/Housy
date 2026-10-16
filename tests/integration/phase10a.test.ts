@@ -4,7 +4,7 @@
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { prisma, withPlatformAdmin, withUser } from "../../src/lib/db";
+import { prisma, withPlatformAdmin, withTenant, withUser, type Tx } from "../../src/lib/db";
 import { registerSeeker } from "../../src/lib/services/community";
 import { createAsset } from "../../src/lib/services/assets";
 import { reviewListing, saveListingDraft, setListingStatus } from "../../src/lib/services/listings";
@@ -22,6 +22,12 @@ import { newCompany, newPlatformAdmin, relativeDate, PASSWORD } from "./helpers"
 
 after(() => prisma.$disconnect());
 
+/** Reads of tables only an administrator may see, as the platform administrator. */
+type Delegates = "referralAttribution" | "rewardLedgerEntry" | "rewardPolicy";
+function asAdmin<K extends Delegates>(k: K): Tx[K] {
+  return new Proxy({}, { get: (_t, method: string) => (args: unknown) => withPlatformAdmin("test-reader", (tx) => (tx[k] as unknown as Record<string, (a: unknown) => Promise<unknown>>)[method](args)) }) as Tx[K];
+}
+const adm = { referralAttribution: asAdmin("referralAttribution"), rewardLedgerEntry: asAdmin("rewardLedgerEntry"), rewardPolicy: asAdmin("rewardPolicy") };
 const uid = () => Math.random().toString(36).slice(2, 8);
 const naira = (n: number) => String(n);
 
@@ -86,7 +92,7 @@ test("the same person cannot be attributed twice, and a source earns each event 
   const code2 = (await getOrCreateCode(r2)).code;
   const again = await captureReferral({ id: f.userId, name: "Whoever Else", email: "x@example.test" }, "SEEKER", { code: code2, at: Date.now() });
   assert.equal(again, null, "a second attribution is refused");
-  await referralEvent("REFERRAL_REGISTERED", { userId: f.userId }, { type: "attribution", id: (await prisma.referralAttribution.findFirstOrThrow({ where: { referredUserId: f.userId } })).id, label: "again" });
+  await referralEvent("REFERRAL_REGISTERED", { userId: f.userId }, { type: "attribution", id: (await adm.referralAttribution.findFirstOrThrow({ where: { referredUserId: f.userId } })).id, label: "again" });
   assert.equal((await rewardsOf(r1)).length, 1, "a repeated event does not pay twice");
   assert.equal((await rewardsOf(r2)).length, 0);
 });
@@ -114,7 +120,7 @@ test("the same mailbox, the same name, a burst and a brand-new referrer are held
   const me = await prisma.user.findUniqueOrThrow({ where: { id: rid } });
   const [local, domain] = me.email.split("@");
   const sneaky = await referSeeker(rid, Date.now(), "Totally Different", `${local}+two@${domain}`);
-  const att = await prisma.referralAttribution.findFirstOrThrow({ where: { referredUserId: sneaky.userId } });
+  const att = await adm.referralAttribution.findFirstOrThrow({ where: { referredUserId: sneaky.userId } });
   assert.match(att.signals, /SAME_EMAIL_ROOT/);
   assert.equal(att.reviewState, "FLAGGED");
   let rs = await rewardsOf(rid);
@@ -128,7 +134,7 @@ test("the same mailbox, the same name, a burst and a brand-new referrer are held
   // The same name: flagged, and a person confirms abuse.
   const rid2 = await referrer("name");
   const second = await referSeeker(rid2, Date.now(), "name Referrer", `other-${uid()}@example.test`);
-  const att2 = await prisma.referralAttribution.findFirstOrThrow({ where: { referredUserId: second.userId } });
+  const att2 = await adm.referralAttribution.findFirstOrThrow({ where: { referredUserId: second.userId } });
   assert.match(att2.signals, /SAME_NAME/);
   await reviewAttribution(b.id, att2.id, "reject", "The same person made both accounts");
   const r2 = (await rewardsOf(rid2))[0];
@@ -141,14 +147,14 @@ test("the same mailbox, the same name, a burst and a brand-new referrer are held
   const rid3 = await referrer("burst");
   await referSeeker(rid3); await referSeeker(rid3);
   const third = await referSeeker(rid3);
-  assert.match((await prisma.referralAttribution.findFirstOrThrow({ where: { referredUserId: third.userId } })).signals, /BURST/);
+  assert.match((await adm.referralAttribution.findFirstOrThrow({ where: { referredUserId: third.userId } })).signals, /BURST/);
   await saveRewardSettings(a.id, { payoutThreshold: "5000", referralBurstPerDay: "10", vacancyReportsPerDay: "5", vacancyRejectFlag: "3", duplicateRadiusM: "50", duplicateWindowDays: "365" });
   assert.equal((await readRewardSettings()).referralBurstPerDay, 10);
 
   // A referrer whose account is minutes old.
   const fresh = await registerSeeker({ name: "Brand New", email: `bn-${uid()}@example.test`, password: PASSWORD });
   const fr = await referSeeker(fresh.userId);
-  assert.match((await prisma.referralAttribution.findFirstOrThrow({ where: { referredUserId: fr.userId } })).signals, /NEW_REFERRER/);
+  assert.match((await adm.referralAttribution.findFirstOrThrow({ where: { referredUserId: fr.userId } })).signals, /NEW_REFERRER/);
 });
 
 test("approval needs a budget, stays inside it, and cannot be done by the person who earned the reward", async () => {
@@ -169,7 +175,7 @@ test("approval needs a budget, stays inside it, and cannot be done by the person
   await budget(a.id, (await spent()) + 20000);
   await approveReward(b.id, r2.id);
   await assert.rejects(approveReward(rid, r2.id), /Only the platform administrator/);
-  const ledger = await prisma.rewardLedgerEntry.findMany({ where: { rewardId: r1.id }, orderBy: { createdAt: "asc" } });
+  const ledger = await adm.rewardLedgerEntry.findMany({ where: { rewardId: r1.id }, orderBy: { createdAt: "asc" } });
   assert.deepEqual(ledger.map((l) => l.toStatus), ["ELIGIBLE", "APPROVED"]);
 });
 
@@ -206,7 +212,7 @@ test("a reward becomes payable after its safety period, is paid only after a sec
   const mine = await myRewards(rid);
   assert.equal(mine.by.PAID.kobo, 600000n);
   assert.equal(mine.payouts.length, 2);
-  const ledger = (await prisma.rewardLedgerEntry.findMany({ where: { rewardId: r.id }, orderBy: { createdAt: "asc" } })).map((l) => l.toStatus);
+  const ledger = (await adm.rewardLedgerEntry.findMany({ where: { rewardId: r.id }, orderBy: { createdAt: "asc" } })).map((l) => l.toStatus);
   assert.deepEqual(ledger, ["ELIGIBLE", "APPROVED", "PAYABLE", "PAYABLE", "PAID"]);
   const rec = await reconcile(a.id);
   assert.equal(rec.findings.filter((f) => f.refs.includes(r.ref)).length, 0, "this reward reconciles");
@@ -242,7 +248,7 @@ test("a listing that earns a reward only counts if it is still published when th
   const reg = await registerCompany({ companyName: `Refd ${uid()}`, name: "Company Owner", email, password: PASSWORD });
   assert.ok(await captureReferral({ id: reg.userId, name: "Company Owner", email, companyId: reg.companyId }, "COMPANY", { code, at: Date.now() }));
   assert.equal((await rewardsOf(rid)).length, 0, "signing up is not the condition for this campaign");
-  const ctx = { userId: reg.userId, companyId: reg.companyId, membershipId: (await prisma.membership.findFirstOrThrow({ where: { userId: reg.userId } })).id, role: "COMPANY_SUPER_ADMIN" as const };
+  const ctx = { userId: reg.userId, companyId: reg.companyId, membershipId: (await withTenant(reg.companyId, reg.userId, (tx) => tx.membership.findFirstOrThrow({ where: { userId: reg.userId } }))).id, role: "COMPANY_SUPER_ADMIN" as const };
   const publish = async (name: string) => {
     const asset = await createAsset(ctx, { name, assetClass: "RESIDENTIAL", category: "House", companyRelationship: "OWNER" });
     await saveListingDraft(ctx, asset.id, { title: `${name} in Ikeja`, purpose: "SALE", price: "50,000,000", bedrooms: "3", city: "Ikeja", state: "Lagos" } as never);
@@ -320,7 +326,7 @@ test("the qualifying time limit, the per-referrer cap and a custom event are enf
   await budget(a.id);
   const rid = await referrer();
   const f1 = await referSeeker(rid), f2 = await referSeeker(rid), f3 = await referSeeker(rid);
-  const att = async (u: string) => (await prisma.referralAttribution.findFirstOrThrow({ where: { referredUserId: u } })).id;
+  const att = async (u: string) => (await adm.referralAttribution.findFirstOrThrow({ where: { referredUserId: u } })).id;
   await recordCustomEvent(a.id, await att(f1.userId), "Completed the onboarding call");
   await recordCustomEvent(a.id, await att(f2.userId), "Completed the onboarding call");
   const rs = await rewardsOf(rid);
@@ -329,9 +335,9 @@ test("the qualifying time limit, the per-referrer cap and a custom event are enf
   assert.equal(rs[1].status, "NOT_ELIGIBLE");
   assert.match(rs[1].reason, /at most 1/);
   // The third came too late.
-  await prisma.referralAttribution.update({ where: { id: await att(f3.userId) }, data: { registeredAt: new Date(Date.now() - 6 * 864e5) } });
+  await adm.referralAttribution.update({ where: { id: await att(f3.userId) }, data: { registeredAt: new Date(Date.now() - 6 * 864e5) } });
   await assert.rejects(recordCustomEvent(a.id, await att(f3.userId), "Completed the onboarding call"), /expired/);
-  assert.equal((await prisma.referralAttribution.findFirstOrThrow({ where: { referredUserId: f3.userId } })).status, "EXPIRED");
+  assert.equal((await adm.referralAttribution.findFirstOrThrow({ where: { referredUserId: f3.userId } })).status, "EXPIRED");
   void c; void b;
 });
 
@@ -344,7 +350,7 @@ test("a change to a reward never rewrites one already earned, and a reward with 
   await referSeeker(rid);
   const rs = await rewardsOf(rid);
   assert.deepEqual(rs.map((r) => [r.policyVersion, r.amountKobo]), [[1, 300000n], [2, 900000n]]);
-  const versions = await prisma.rewardPolicy.findMany({ where: { campaignId: c.id }, orderBy: { version: "asc" } });
+  const versions = await adm.rewardPolicy.findMany({ where: { campaignId: c.id }, orderBy: { version: "asc" } });
   assert.deepEqual(versions.map((v) => v.active), [false, true]);
   // No reward set up for a new campaign.
   await withPlatformAdmin(a.id, (tx) => tx.referralCampaign.updateMany({ data: { active: false } }));

@@ -47,13 +47,13 @@ open_page() {
 }
 for p in $PAGES; do
   case "$p" in
-    /me*|/directory*|/messages*|/referrals*|/rewards*|/vacancies*) open_page "seeker" "$SEEKER_TOKEN" "$p"; continue ;;
+    /me*|/directory*|/messages*|/referrals*|/rewards*|/vacancies*|/feedback*) open_page "seeker" "$SEEKER_TOKEN" "$p"; continue ;;
     /admin*) open_page "platform administrator" "$PLATFORM_TOKEN" "$p"; continue ;;
   esac
   open_page "administrator" "$TOKEN" "$p"
   # The officer cannot open settings, team or new-asset pages, which are limited to managers, or the sales pages, which are for agents and managers.
   case "$p" in
-    /app/settings|/app/team|/app/assets/new|/app/crm|/app/crm/*|/app/deals|/app/deals/*|/app/sales|/app/sales/*|/app/commissions|/app/profile|/app/collaborations|/app/collaborations/*) ;;
+    /app/settings|/app/team|/app/assets/new|/app/crm|/app/crm/*|/app/deals|/app/deals/*|/app/sales|/app/sales/*|/app/commissions|/app/profile|/app/promotions|/app/collaborations|/app/collaborations/*) ;;
     *) open_page "officer" "$OFFICER_TOKEN" "$p" ;;
   esac
 done

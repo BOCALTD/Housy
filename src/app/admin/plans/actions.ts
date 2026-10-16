@@ -15,7 +15,7 @@ export async function savePlanAction(form: FormData) {
     const plan = await savePlan(admin.id, id, {
       code: str(form, "code"), name: str(form, "name"), audience: str(form, "audience") as never, price: str(form, "price"),
       billingPeriod: str(form, "billingPeriod") as never, trialDays: str(form, "trialDays") as never, graceDays: str(form, "graceDays") as never, readOnlyDays: str(form, "readOnlyDays") as never,
-      active: str(form, "active") === "on", sortOrder: (str(form, "sortOrder") || "100") as never,
+      active: str(form, "active") === "on", sortOrder: (str(form, "sortOrder") || "100") as never, tier: (str(form, "tier") || "BASIC") as never,
     });
     await setPlanEntitlements(admin.id, plan.id, ENTITLEMENT_KEYS.map((key) => ({ key, enabled: str(form, `on_${key}`) === "on", limit: str(form, `limit_${key}`) })));
     return withNotice(BACK, "Plan saved.");

@@ -3048,6 +3048,7 @@ model SubscriptionPlan {
   readOnlyDays  Int                @default(30) @map("read_only_days")
   active        Boolean            @default(true)
   sortOrder     Int                @default(0) @map("sort_order")
+  tier          PlanTier           @default(BASIC)
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
   entitlements  PlanEntitlement[]
@@ -3882,4 +3883,142 @@ model VacancyLead {
   report            VacancyReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@map("vacancy_leads")
+}
+
+
+// ---------- Phase 11: tiers, promotions and platform ratings ----------
+
+enum PlanTier {
+  BASIC
+  SILVER
+  GOLD
+}
+
+enum PromoStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum PromoPaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  VERIFIED
+}
+
+enum PromoTheme {
+  RED
+  GOLD
+  GREEN
+  PURPLE
+  BLUE
+}
+
+enum RatingStatus {
+  NEW
+  REVIEWED
+  ACTIONED
+}
+
+/// A company's perks level right now, readable by everyone because the badge it earns is public. Kept in step with its subscription.
+model CompanyTier {
+  companyId  String   @id @map("company_id")
+  tier       PlanTier
+  validUntil DateTime @map("valid_until")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("company_tiers")
+}
+
+/// A sale the platform runs (Black Friday and the like). Companies choose which of their properties join.
+model PromoCampaign {
+  id             String     @id @default(uuid())
+  name           String
+  tagline        String     @default("")
+  theme          PromoTheme @default(RED)
+  startsOn       DateTime   @map("starts_on")
+  endsOn         DateTime   @map("ends_on")
+  feeKobo        BigInt     @default(0) @map("fee_kobo")
+  maxDiscountPct Int        @default(60) @map("max_discount_pct")
+  active         Boolean    @default(true)
+  createdById    String     @map("created_by_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  entries        PromoEntry[]
+
+  @@index([active, startsOn, endsOn])
+  @@map("promo_campaigns")
+}
+
+/// One property in one campaign: the real price it was listed at, and the reviewed price it is offered at for the promotion.
+model PromoEntry {
+  id               String        @id @default(uuid())
+  ref              String        @unique
+  campaignId       String        @map("campaign_id")
+  companyId        String        @map("company_id")
+  listingId        String        @map("listing_id")
+  originalPriceKobo BigInt       @map("original_price_kobo")
+  promoPriceKobo   BigInt        @map("promo_price_kobo")
+  status           PromoStatus   @default(REQUESTED)
+  reviewNote       String        @default("") @map("review_note")
+  requestedById    String        @map("requested_by_id")
+  reviewedById     String?       @map("reviewed_by_id")
+  reviewedAt       DateTime?     @map("reviewed_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  campaign         PromoCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  payment          PromoPayment?
+
+  @@unique([campaignId, listingId])
+  @@index([companyId, status])
+  @@index([listingId, status])
+  @@map("promo_entries")
+}
+
+/// What a promotion costs. Silver and Gold companies pay nothing. Payment is made outside the platform and confirmed here by a person.
+model PromoPayment {
+  id           String             @id @default(uuid())
+  entryId      String             @unique @map("entry_id")
+  companyId    String             @map("company_id")
+  tierAtRequest PlanTier          @map("tier_at_request")
+  feeKobo      BigInt             @map("fee_kobo")
+  status       PromoPaymentStatus
+  reference    String             @default("")
+  note         String             @default("")
+  verifiedById String?            @map("verified_by_id")
+  verifiedAt   DateTime?          @map("verified_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  entry        PromoEntry         @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, status])
+  @@map("promo_payments")
+}
+
+/// What a person thinks of the platform, and what would make it serve them better.
+model PlatformRating {
+  id           String       @id @default(uuid())
+  userId       String       @map("user_id")
+  overall      Int
+  easeScore    Int?         @map("ease_score")
+  trustScore   Int?         @map("trust_score")
+  supportScore Int?         @map("support_score")
+  suggestion   String       @default("")
+  anonymous    Boolean      @default(false)
+  userKind     String       @map("user_kind")
+  status       RatingStatus @default(NEW)
+  adminNote    String       @default("") @map("admin_note")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("platform_ratings")
+}
+
+model FeedbackState {
+  userId       String    @id @map("user_id")
+  lastRatedAt  DateTime? @map("last_rated_at")
+  snoozedUntil DateTime? @map("snoozed_until")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("feedback_state")
 }

@@ -48,6 +48,8 @@ import { addClientActivity, addRequirement, createClient, createLead, setLeadSta
 import { createCampaign, getOrCreateCode } from "./services/referrals";
 import { savePolicy, setBudget } from "./services/rewards";
 import { submitVacancy } from "./services/vacancies";
+import { requestPromo, reviewPromo, saveCampaign } from "./services/promotions";
+import { submitRating } from "./services/feedback";
 import { monthKey } from "./reward-rules";
 import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./services/community";
 import { assignSubscription } from "./services/subscriptions";
@@ -459,9 +461,10 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   const premium = await withUser("demo-seed", (tx) => tx.subscriptionPlan.findUniqueOrThrow({ where: { code: "premium-seeker" } }));
   const inAYear = toDateOnlyString(new Date(Date.now() + 365 * 864e5));
   await assignSubscription(adminId, { planId: premium.id, periodEnd: inAYear, email: "demo.seeker@example.test", note: "[DEMO] Demonstration subscription" });
-  const proCompany = await withUser("demo-seed", (tx) => tx.subscriptionPlan.findUniqueOrThrow({ where: { code: "company-professional" } }));
-  await assignSubscription(adminId, { planId: proCompany.id, periodEnd: inAYear, companyId: alpha.companyId, note: "[DEMO] Demonstration subscription" });
-  await assignSubscription(adminId, { planId: proCompany.id, periodEnd: inAYear, companyId: beta.companyId, note: "[DEMO] Demonstration subscription" });
+  const goldPlan = await withUser("demo-seed", (tx) => tx.subscriptionPlan.findUniqueOrThrow({ where: { code: "company-gold" } }));
+  const silverPlan = await withUser("demo-seed", (tx) => tx.subscriptionPlan.findUniqueOrThrow({ where: { code: "company-silver" } }));
+  await assignSubscription(adminId, { planId: goldPlan.id, periodEnd: inAYear, companyId: alpha.companyId, note: "[DEMO] Demonstration subscription" });
+  await assignSubscription(adminId, { planId: silverPlan.id, periodEnd: inAYear, companyId: beta.companyId, note: "[DEMO] Demonstration subscription" });
   await follow(seeker.userId, "AGENT", alpha.userId);
   await follow(seeker.userId, "DEVELOPER", beta.companyId);
 
@@ -481,6 +484,15 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await setBudget(adminId, "VACANCY", monthKey(new Date()), "100000");
   await getOrCreateCode(seeker.userId);
   await submitVacancy(seeker.userId, { propertyType: "FLAT", purpose: "RENT", bedrooms: "2", address: "[DEMO] 14 Admiralty Way", area: "Lekki Phase 1", city: "Lagos", state: "Lagos", description: "[DEMO] A two-bedroom flat with a to-let board on the gate and no sign of anyone living there.", observedOn: toDateOnlyString(new Date()), allowContact: false, showNameToOwner: false, understood: true }, []);
+
+  // Promotions and a rating: one running sale with an approved property, so the tags and the struck-through price can be seen.
+  const sale = await saveCampaign(adminId, null, { name: "[DEMO] Black Friday", tagline: "[DEMO] Demonstration sale", theme: "RED", startsOn: toDateOnlyString(new Date(Date.now() - 864e5)), endsOn: toDateOnlyString(new Date(Date.now() + 30 * 864e5)), fee: "50000", maxDiscountPct: 40 as never });
+  const demoListing = await withUser("demo-seed", (tx) => tx.listing.findFirst({ where: { companyId: alpha.companyId, status: "PUBLISHED" } }));
+  if (demoListing) {
+    const asked = await requestPromo(alpha, sale.id, demoListing.id, String(Math.round(Number(demoListing.priceKobo) / 100 * 0.85)));
+    await reviewPromo(adminId, asked.id, "approve", "[DEMO] Approved");
+  }
+  await submitRating(seeker.userId, { overall: 4 as never, ease: 4 as never, trust: 5 as never, support: "" as never, suggestion: "[DEMO] Show more photos on each property.", anonymous: false });
 
   return true;
 }

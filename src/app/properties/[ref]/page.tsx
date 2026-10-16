@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { getPublicListing } from "@/lib/services/listings";
 import { getFeaturedProvider, parsePrefs, shouldAutoShow } from "@/lib/services/verification";
-import { formatKobo } from "@/lib/money";
+import { listingExtras } from "@/lib/services/promotions";
+import { GoldBadge, PremiumTag, PriceBlock, PromoEnds, PromoRibbon } from "@/components/Promo";
 import { formatDate } from "@/lib/dates";
 import { Field, Flash, HouseIcon, sp, type SP } from "@/components/ui";
 import { enquiryAction } from "./actions";
@@ -18,6 +19,7 @@ export async function generateMetadata({ params }: { params: { ref: string } }) 
 export default async function PropertyPage({ params, searchParams }: { params: { ref: string }; searchParams?: SP }) {
   const listing = await getPublicListing(params.ref);
   if (!listing) notFound();
+  const extras = await listingExtras(listing);
   const provider = await getFeaturedProvider();
   const prefs = parsePrefs(cookies().get("pv_pref")?.value);
   const autoOpen = !!provider && shouldAutoShow(prefs, listing.purpose) && !sp(searchParams, "notice");
@@ -31,13 +33,15 @@ export default async function PropertyPage({ params, searchParams }: { params: {
     <div className="two">
       <article className="card stack">
         <div className="prop-img" style={{ borderRadius: 10 }}><HouseIcon /></div>
+        {extras.promo ? <div className="promo-tags"><PromoRibbon name={extras.promo.campaignName} pct={extras.promo.pct} theme={extras.promo.theme} /><PromoEnds endsOn={extras.promo.endsOn} /></div> : null}
         <div className="row">
+          <PremiumTag tier={extras.tier} /><GoldBadge tier={extras.tier} />
           <span className="pill brand">{listing.purpose === "SALE" ? "For sale" : `For ${listing.purpose.toLowerCase()}`}</span>
           <span className="pill disc mono">{listing.publicRef}</span>
         </div>
         <h1>{listing.title}</h1>
         <p className="price" style={{ fontSize: 26 }}>
-          {formatKobo(listing.priceKobo)}{listing.purpose !== "SALE" ? <span className="small muted"> / year</span> : null}
+          <PriceBlock priceKobo={listing.priceKobo} promo={extras.promo} suffix={listing.purpose !== "SALE" ? " / year" : ""} />
         </p>
         <p className="muted">
           {[listing.bedrooms != null ? `${listing.bedrooms} bedrooms` : null, listing.bathrooms != null ? `${listing.bathrooms} bathrooms` : null,

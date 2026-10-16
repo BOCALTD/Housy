@@ -5,7 +5,9 @@ import { getSession } from "@/lib/auth";
 import { unreadCount } from "@/lib/services/notifications";
 import { unreadConversationCount } from "@/lib/services/messaging";
 import { asPerson } from "@/lib/services/collab";
+import { feedbackDue } from "@/lib/services/feedback";
 import { PLATFORM_NAME } from "@/lib/labels";
+import { snoozeAction } from "./feedback/actions";
 import { logoutAction } from "./auth-actions";
 
 export const metadata: Metadata = {
@@ -27,6 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const session = await getSession();
   const unread = session ? await unreadCount(session.user.id).catch(() => 0) : 0;
   const unreadMsgs = session ? await unreadConversationCount(asPerson(session.user.id)).catch(() => 0) : 0;
+  const rate = session ? await feedbackDue(session.user.id).catch(() => false) : false;
   return (
     <html lang="en-NG">
       <head>
@@ -70,6 +73,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </nav>
           </div>
         </header>
+        {rate ? (
+          <aside className="rate-banner" aria-label="Rate the platform">
+            <div className="wrap">
+              <span>How is {PLATFORM_NAME} serving you? Tell us what to improve.</span>
+              <span className="row">
+                <Link className="btn primary" href="/feedback">Rate now</Link>
+                <form action={snoozeAction}><button className="btn" type="submit">Remind me later</button></form>
+              </span>
+            </div>
+          </aside>
+        ) : null}
         <main>
           <div className="wrap">{children}</div>
         </main>

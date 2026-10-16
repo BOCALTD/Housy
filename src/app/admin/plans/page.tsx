@@ -29,6 +29,7 @@ export default async function PlansPage({ searchParams }: { searchParams?: SP })
         <Field label="Trial days"><input name="trialDays" inputMode="numeric" defaultValue={p?.trialDays ?? 0} /></Field>
         <Field label="Grace days" hint="Everything still works after expiry."><input name="graceDays" inputMode="numeric" defaultValue={p?.graceDays ?? 7} /></Field>
         <Field label="Read-only days" hint="After grace: look but not add."><input name="readOnlyDays" inputMode="numeric" defaultValue={p?.readOnlyDays ?? 30} /></Field>
+        <Field label="Perks level" hint="Silver: free promotions. Gold: Golden badge, Premium tag, automatic boost, free promotions. Applies to company plans."><select name="tier" defaultValue={p?.tier ?? "BASIC"}>{["BASIC", "SILVER", "GOLD"].map((b) => <option key={b} value={b}>{humanize(b)}</option>)}</select></Field>
         <Field label="Order"><input name="sortOrder" inputMode="numeric" defaultValue={p?.sortOrder ?? 100} /></Field>
       </div>
       <label className="row"><input type="checkbox" name="active" defaultChecked={p?.active ?? true} /> Available to assign</label>

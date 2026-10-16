@@ -1083,5 +1083,64 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FAIL: history was edited';
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: history is append-only'; END $$;
 
+-- 31. Phase 11: promotions are public only once approved; payments and ratings are private; a company cannot approve its own promotion.
+SELECT set_config('app.platform_admin', 'on', true);
+SELECT set_config('app.user_id', 'padmin', true);
+INSERT INTO promo_campaigns (id, name, starts_on, ends_on, created_by_id) VALUES ('pc-1', 'Black Friday', current_date - 1, current_date + 10, 'padmin');
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT set_config('app.user_id', 'u1', true);
+INSERT INTO promo_entries (id, ref, campaign_id, company_id, listing_id, original_price_kobo, promo_price_kobo, status, requested_by_id, updated_at)
+  VALUES ('pe-a', 'PRM-A', 'pc-1', 'co-a', 'li-a', 100, 80, 'REQUESTED', 'u1', now());
+INSERT INTO promo_payments (id, entry_id, company_id, tier_at_request, fee_kobo, status) VALUES ('pp-a', 'pe-a', 'co-a', 'BASIC', 5000, 'PENDING');
+DO $$ DECLARE n int; BEGIN
+  UPDATE promo_entries SET status = 'APPROVED', reviewed_by_id = 'u1', reviewed_at = now() WHERE id = 'pe-a';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL: a company approved its own promotion'; END IF;
+  RAISE NOTICE 'ok: a company cannot approve its own promotion';
+EXCEPTION WHEN insufficient_privilege OR check_violation THEN RAISE NOTICE 'ok: a company cannot approve its own promotion'; END $$;
+DO $$ DECLARE n int; BEGIN
+  UPDATE promo_payments SET status = 'VERIFIED', reference = 'SELF-PAID', verified_by_id = 'u1', verified_at = now() WHERE id = 'pp-a';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL: a company confirmed its own payment'; END IF;
+  RAISE NOTICE 'ok: a company cannot confirm its own payment';
+EXCEPTION WHEN insufficient_privilege OR check_violation THEN RAISE NOTICE 'ok: a company cannot confirm its own payment'; END $$;
+-- The public (and another company) sees nothing of a request that is not approved, and never a payment.
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT set_config('app.user_id', 'u2', true);
+SELECT pg_temp.expect((SELECT count(*) FROM promo_entries) = 0, 'another company cannot see a pending promotion');
+SELECT pg_temp.expect((SELECT count(*) FROM promo_payments) = 0, 'another company cannot see a promotion payment');
+SELECT set_config('app.platform_admin', 'on', true);
+UPDATE promo_entries SET status = 'APPROVED', reviewed_by_id = 'padmin', reviewed_at = now() WHERE id = 'pe-a';
+SELECT set_config('app.platform_admin', '', true);
+SELECT pg_temp.expect((SELECT count(*) FROM promo_entries) = 1, 'anyone can see an approved promotion');
+SELECT pg_temp.expect((SELECT count(*) FROM promo_payments) = 0, 'an approved promotion still hides its payment');
+SELECT set_config('app.company_id', '', true);
+SELECT pg_temp.expect((SELECT count(*) FROM promo_campaigns) = 1, 'the public reads campaigns');
+DO $$ BEGIN
+  INSERT INTO promo_campaigns (id, name, starts_on, ends_on, created_by_id) VALUES ('pc-x', 'Fake sale', current_date, current_date + 1, 'u2');
+  RAISE EXCEPTION 'FAIL: a campaign was created by a non-administrator';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the administrator creates campaigns'; END $$;
+-- Tiers are public to read, written only by the administrator.
+DO $$ BEGIN
+  INSERT INTO company_tiers (company_id, tier, valid_until, updated_at) VALUES ('co-b', 'GOLD', now() + interval '1 day', now());
+  RAISE EXCEPTION 'FAIL: a company gave itself Gold';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a company cannot give itself a tier'; END $$;
+-- Ratings: private to the person who gave them and the administrator.
+SELECT set_config('app.user_id', 'u1', true);
+INSERT INTO platform_ratings (id, user_id, overall, user_kind) VALUES ('pr-1', 'u1', 4, 'MEMBER');
+DO $$ BEGIN
+  INSERT INTO platform_ratings (id, user_id, overall, user_kind) VALUES ('pr-x', 'u3', 5, 'MEMBER');
+  RAISE EXCEPTION 'FAIL: rated in another name';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: nobody rates in another name'; END $$;
+DO $$ BEGIN
+  INSERT INTO platform_ratings (id, user_id, overall, user_kind) VALUES ('pr-y', 'u1', 6, 'MEMBER');
+  RAISE EXCEPTION 'FAIL: a rating of 6 was accepted';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: ratings run from 1 to 5'; END $$;
+SELECT pg_temp.expect((SELECT count(*) FROM platform_ratings) = 1, 'a person reads their own rating');
+SELECT set_config('app.user_id', 'u3', true);
+SELECT pg_temp.expect((SELECT count(*) FROM platform_ratings) = 0, 'another person cannot read the rating');
+SELECT set_config('app.user_id', 'u1', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

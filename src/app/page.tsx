@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { searchListings, PURPOSES } from "@/lib/services/listings";
-import { formatKobo } from "@/lib/money";
+import { PURPOSES } from "@/lib/services/listings";
+import { searchListingsRanked } from "@/lib/services/promotions";
+import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "@/components/Promo";
 import { humanize } from "@/lib/labels";
 import { HouseIcon, sp, type SP } from "@/components/ui";
 
@@ -11,7 +12,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
     q: sp(searchParams, "q"), purpose: sp(searchParams, "purpose"), city: sp(searchParams, "city"),
     maxPrice: sp(searchParams, "maxPrice"), minBeds: sp(searchParams, "minBeds"),
   };
-  const listings = await searchListings(filters);
+  const listings = await searchListingsRanked(filters);
   const searching = Object.values(filters).some(Boolean);
 
   return (
@@ -45,9 +46,13 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
               <Link key={l.id} href={`/properties/${l.publicRef}`} className="prop">
                 <div className="prop-img"><HouseIcon /></div>
                 <div className="prop-body">
-                  <span className="pill brand" style={{ justifySelf: "start" }}>{l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`}</span>
+                  {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}
+                  <span className="promo-tags">
+                    <span className="pill brand">{l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`}</span>
+                    <PremiumTag tier={l.tier} /><GoldBadge tier={l.tier} />
+                  </span>
                   <strong>{l.title}</strong>
-                  <span className="price">{formatKobo(l.priceKobo)}{l.purpose !== "SALE" ? <span className="small muted"> / year</span> : null}</span>
+                  <PriceBlock priceKobo={l.priceKobo} promo={l.promo} suffix={l.purpose !== "SALE" ? " / year" : ""} />
                   <span className="small muted">
                     {[l.bedrooms != null ? `${l.bedrooms} bed` : null, l.bathrooms != null ? `${l.bathrooms} bath` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ")}
                   </span>

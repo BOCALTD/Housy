@@ -1,4 +1,5 @@
 import { referralEvent } from "./referrals";
+import { syncCompanyTier, syncTiersForPlan } from "./tiers";
 import { reverseSource } from "./rewards";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -80,6 +81,7 @@ const planSchema = z.object({
   readOnlyDays: z.coerce.number().int().min(0).max(730).default(30),
   active: z.union([z.boolean(), z.string()]).optional().transform((v) => v === true || v === "on" || v === "true"),
   sortOrder: z.coerce.number().int().min(0).max(10000).default(100),
+  tier: z.enum(["BASIC", "SILVER", "GOLD"]).default("BASIC"),
 });
 
 export async function listPlans(adminId: string) {
@@ -94,12 +96,13 @@ export async function savePlan(adminId: string, id: string | null, raw: z.input<
   await assertPlatformAdmin(adminId);
   const d = planSchema.parse(raw);
   return withPlatformAdmin(adminId, async (tx) => {
-    const data = { name: d.name, audience: d.audience, priceKobo: d.price, billingPeriod: d.billingPeriod, trialDays: d.trialDays, graceDays: d.graceDays, readOnlyDays: d.readOnlyDays, active: d.active, sortOrder: d.sortOrder };
+    const data = { name: d.name, audience: d.audience, priceKobo: d.price, billingPeriod: d.billingPeriod, trialDays: d.trialDays, graceDays: d.graceDays, readOnlyDays: d.readOnlyDays, active: d.active, sortOrder: d.sortOrder, tier: d.tier };
     if (id) {
       const existing = await tx.subscriptionPlan.findUnique({ where: { id }, include: { _count: { select: { subscriptions: true } } } });
       if (!existing) throw new Error("Plan not found");
       if (existing.audience !== d.audience && existing._count.subscriptions > 0) throw new Error("This plan has subscribers, so who it is for cannot change");
       const plan = await tx.subscriptionPlan.update({ where: { id }, data });
+      if (existing.tier !== d.tier) await syncTiersForPlan(tx, id);
       await logActivity(tx, { companyId: null, actorId: adminId, entityType: "plan", entityId: id, action: "plan.updated", detail: { name: d.name } });
       return plan;
     }
@@ -176,6 +179,7 @@ async function assignSubscriptionInner(adminId: string, input: AssignInput) {
       sub = await tx.subscription.create({ data: { ...ownerData, planId: plan.id, status, periodEnd, createdById: adminId } });
       await tx.subscriptionEvent.create({ data: { subscriptionId: sub.id, kind: "ASSIGNED", toPlanId: plan.id, periodEnd, note, actorId: adminId } });
     }
+    if (owner.kind === "COMPANY") await syncCompanyTier(tx, owner.companyId);
     await logActivity(tx, { companyId: owner.kind === "COMPANY" ? owner.companyId : null, actorId: adminId, entityType: "subscription", entityId: sub.id, action: existing ? "subscription.plan_changed" : "subscription.assigned", detail: { plan: plan.code, periodEnd: periodEnd.toISOString() } });
     return Object.assign(sub, { plan });
   });
@@ -191,6 +195,7 @@ export async function renewSubscription(adminId: string, subscriptionId: string,
     if (periodEnd.getTime() <= sub.periodEnd.getTime()) throw new Error("The new end date must be later than the current one");
     await tx.subscription.update({ where: { id: sub.id }, data: { periodEnd, status: "ACTIVE", cancelledAt: null } });
     await tx.subscriptionEvent.create({ data: { subscriptionId: sub.id, kind: "RENEWED", fromPlanId: sub.planId, toPlanId: sub.planId, periodEnd, note: noteInput.trim().slice(0, 300), actorId: adminId } });
+    if (sub.ownerCompanyId) await syncCompanyTier(tx, sub.ownerCompanyId);
     await logActivity(tx, { companyId: sub.ownerCompanyId, actorId: adminId, entityType: "subscription", entityId: sub.id, action: "subscription.renewed", detail: { periodEnd: periodEnd.toISOString() } });
   });
 }
@@ -204,6 +209,7 @@ export async function cancelSubscription(adminId: string, subscriptionId: string
     if (sub.status === "CANCELLED") throw new Error("This subscription is already cancelled");
     await tx.subscription.update({ where: { id: sub.id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
     await tx.subscriptionEvent.create({ data: { subscriptionId: sub.id, kind: "CANCELLED", fromPlanId: sub.planId, toPlanId: sub.planId, periodEnd: sub.periodEnd, note: noteInput.trim().slice(0, 300), actorId: adminId } });
+    if (sub.ownerCompanyId) await syncCompanyTier(tx, sub.ownerCompanyId);
     await logActivity(tx, { companyId: sub.ownerCompanyId, actorId: adminId, entityType: "subscription", entityId: sub.id, action: "subscription.cancelled", detail: {} });
   });
   await reverseSource("subscription", subscriptionId, "The subscription was cancelled.");

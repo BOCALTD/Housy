@@ -183,7 +183,7 @@ export async function reviewPromo(adminId: string, entryId: string, decision: "a
         // A company that upgraded after asking no longer owes the fee.
         const tier = (await tx.companyTier.findUnique({ where: { companyId: e.companyId } }));
         const now = tier && tier.validUntil.getTime() > Date.now() ? tier.tier : "BASIC";
-        if (tierPerks(now as TierName).freePromos) await tx.promoPayment.update({ where: { id: e.payment.id }, data: { status: "NOT_REQUIRED", note: "Waived: the company is now on a plan with free promotions" } });
+        if (tierPerks(now as TierName).freePromos) await tx.promoPayment.update({ where: { id: e.payment.id }, data: { status: "NOT_REQUIRED", feeKobo: 0n, note: `Waived: the company is now on a plan with free promotions (fee was ${e.payment.feeKobo} kobo)` } });
         else throw new Error("Payment has not been confirmed yet");
       }
     }

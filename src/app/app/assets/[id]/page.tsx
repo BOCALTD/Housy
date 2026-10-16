@@ -9,6 +9,7 @@ import { listTeam } from "@/lib/services/companies";
 import { conditionHistory } from "@/lib/services/inspections";
 import SaveDocument from "@/components/SaveDocument";
 import { assetMaintenance } from "@/lib/services/maintenance";
+import { assetCompleteness } from "@/lib/services/completeness";
 import { assetProjectHistory } from "@/lib/services/project-handover";
 import { formatKobo } from "@/lib/money";
 import { chargeState, outstandingOf } from "@/lib/rent";
@@ -39,6 +40,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
   const condition = await conditionHistory(member, asset.id);
   const upkeep = await assetMaintenance(member, asset.id);
   const works = can(member.role, "project.view") ? await assetProjectHistory(member, asset.id) : null;
+  const gaps = await assetCompleteness(member, asset.id);
   const listing = asset.listing;
   const hidden = <input type="hidden" name="assetId" value={asset.id} />;
 
@@ -358,6 +360,16 @@ export default async function AssetPage({ params, searchParams }: { params: { id
               </form>
             </section>
           ) : null}
+
+          <section className="card stack">
+            <h2>Missing information</h2>
+            {gaps.length === 0 ? <p className="small muted">Nothing is missing against the platform&apos;s rules.</p> : (
+              <>
+                <p className="small muted">{gaps.filter((g) => g.severity === "REQUIRED").length} required, {gaps.filter((g) => g.severity === "RECOMMENDED").length} recommended.</p>
+                <details className="inline"><summary>See what is missing</summary><ul>{gaps.map((g) => <li key={g.code}>{g.message} <span className="small muted">({g.severity === "REQUIRED" ? "required" : "recommended"})</span></li>)}</ul></details>
+              </>
+            )}
+          </section>
 
           {can(member.role, "asset.update") ? (
             <section className="card">

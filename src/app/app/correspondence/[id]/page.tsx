@@ -8,6 +8,7 @@ import { allowedActions, isOverdue, STATUS_LABELS, type CorrStatus } from "@/lib
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { can } from "@/lib/permissions";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { summariseAction } from "@/app/app/assistant/actions";
 import { attachAction, noteAction, submitDraftAction, workflowAction } from "../actions";
 
 export const metadata = { title: "Correspondence" };
@@ -66,6 +67,14 @@ export default async function CorrespondenceDetail({ params, searchParams }: { p
         </div>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+
+      {can(member.role, "ai.use") ? (
+        <form action={summariseAction} className="row" style={{ alignItems: "center" }}>
+          <input type="hidden" name="correspondenceId" value={rec.id} />
+          <button className="btn" type="submit">Summarise this letter</button>
+          <span className="small muted">{rec.confidential ? "Confidential letters are summarised by the built-in rules only; nothing is sent to an outside service." : "A draft summary goes to the assistant page for review."}</span>
+        </form>
+      ) : null}
 
       <div className="two">
         <div className="stack-lg">

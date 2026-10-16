@@ -2,6 +2,7 @@ import SaveDocument from "@/components/SaveDocument";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { valuationCompleteness } from "@/lib/services/completeness";
 import { BASES, ENTRY_KINDS, EVIDENCE_KINDS, getValuation, PREMISES } from "@/lib/services/valuation";
 import { adjustedPerSqm, formatArea, formatPercent, METHOD_LABEL, METHODS, type Method } from "@/lib/valuation-rules";
 import { formatKobo } from "@/lib/money";
@@ -27,6 +28,7 @@ const areaInput = (a: string | undefined) => (a === undefined ? "" : String(Numb
 export default async function ValuationPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
   const member = await requireMember("valuation.view");
   const data = await getValuation(member, params.id);
+  const gaps = data ? await valuationCompleteness(member, params.id) : [];
   if (!data) notFound();
   const { inst, worksheets, comparables, entries, documents, reports, openReport, readiness, names, editable, members } = data;
   const back = `/app/valuations/${inst.id}`;
@@ -57,6 +59,12 @@ export default async function ValuationPage({ params, searchParams }: { params: 
         </div>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+      {gaps.length ? (
+        <details className="inline"><summary>Missing information ({gaps.filter((g) => g.severity === "REQUIRED").length} required, {gaps.filter((g) => g.severity === "RECOMMENDED").length} recommended)</summary>
+          <ul>{gaps.map((g) => <li key={g.code}>{g.message} <span className="small muted">({g.severity === "REQUIRED" ? "required" : "recommended"})</span></li>)}</ul>
+          <p className="small muted">Checked by the platform&apos;s rules. Completing these does not make a valuation correct: the valuer remains responsible for the figures.</p>
+        </details>
+      ) : null}
 
       {approved && approved.concludedValueKobo ? (
         <section className="card" aria-labelledby="val-h">

@@ -37,6 +37,9 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
             {can(member.role, "crm.manage") ? <Link href="/app/completed">Completed deals</Link> : null}
             {can(member.role, "listing.manage") ? <Link href="/app/promotions">Promotions</Link> : null}
             {can(member.role, "crm.view") ? <Link href="/app/profile">Public profile</Link> : null}
+            <Link href="/app/analytics">Analytics</Link>
+            <Link href="/app/map">Map</Link>
+            {can(member.role, "ai.use") ? <Link href="/app/assistant">Assistant</Link> : null}
             {can(member.role, "billing.view") ? <Link href="/app/billing">Billing</Link> : null}
             {can(member.role, "billing.view") ? <Link href="/app/ads">Advertising</Link> : null}
             {can(member.role, "team.manage") ? <Link href="/app/team">Team</Link> : null}

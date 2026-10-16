@@ -107,14 +107,19 @@ export async function runAi<T>(s: RunSpec<T>): Promise<AiOutcome<T>> {
   }
 }
 
-/** Run a feature on behalf of a company member. Permission is checked first and a refusal is itself recorded. */
-export async function runAiFor<T>(ctx: Ctx, s: Omit<RunSpec<T>, "actor">) {
+/** Check that this person may use the assistant. A refusal is itself recorded. */
+export async function requireAi(ctx: Ctx, feature: AiFeature, subject?: { type: string; id: string }) {
   try {
     assertCan(ctx, "ai.use");
   } catch (e) {
-    await audit({ actor: { userId: ctx.userId, companyId: ctx.companyId }, feature: s.feature, provider: "none", status: "DENIED", inputChars: 0, outputChars: 0, ms: 0, subject: s.subject, note: `Role ${ctx.role} may not use the assistant` });
+    await audit({ actor: { userId: ctx.userId, companyId: ctx.companyId }, feature, provider: "none", status: "DENIED", inputChars: 0, outputChars: 0, ms: 0, subject, note: `Role ${ctx.role} may not use the assistant` });
     throw e;
   }
+}
+
+/** Run a feature on behalf of a company member. Permission is checked first. */
+export async function runAiFor<T>(ctx: Ctx, s: Omit<RunSpec<T>, "actor">) {
+  await requireAi(ctx, s.feature, s.subject);
   return runAi<T>({ ...s, actor: { userId: ctx.userId, companyId: ctx.companyId } });
 }
 

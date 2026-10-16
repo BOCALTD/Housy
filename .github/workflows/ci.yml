@@ -77,6 +77,9 @@ jobs:
           npm run db:setup
           scripts/ci-run.sh "Integration tests" npm run test:integration
 
+      - name: Backup and restore (dump the integration database, restore it elsewhere, compare)
+        run: scripts/ci-run.sh "Backup and restore" scripts/backup-restore-check.sh estate_it estate_it_restored
+
       - name: Production build
         run: scripts/ci-run.sh "Production build" npm run build
 

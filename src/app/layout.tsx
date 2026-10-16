@@ -41,6 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body>
+        <a className="skip-link" href="#main">Skip to main content</a>
         <header className="top">
           <div className="wrap">
             <Link href="/" className="brand">
@@ -85,7 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </aside>
         ) : null}
-        <main>
+        <main id="main" tabIndex={-1}>
           <div className="wrap">{children}</div>
         </main>
       </body>

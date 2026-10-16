@@ -29,7 +29,7 @@ function optionalWhole(label: string, min: number, max: number) {
   });
 }
 
-const leaseSchema = z.object({
+export const leaseSchema = z.object({
   occupantName: z.string().trim().min(2, "Enter the tenant or occupying organization").max(200),
   occupantContact: z.string().trim().max(200).default(""),
   unit: z.string().trim().max(60).default(""),
@@ -176,6 +176,15 @@ async function postReceipt(tx: Tx, ctx: Ctx, leaseId: string, data: PaymentData,
     });
   }
   return receipt;
+}
+
+/**
+ * Opening balance for a lease brought in from old records: the total already paid, cleared against the oldest rent first,
+ * on one receipt whose evidence names the import. The caller has checked permission and holds the transaction.
+ */
+export async function postOpeningReceipt(tx: Tx, ctx: Ctx, leaseId: string, amountKobo: bigint, evidence: string) {
+  const data = paymentSchema.parse({ amount: (amountKobo / 100n).toString() + "." + String(amountKobo % 100n).padStart(2, "0"), paidOn: todayInLagos().toISOString().slice(0, 10), evidence, method: "Opening balance", payerName: "" });
+  return postReceipt(tx, ctx, leaseId, data, null);
 }
 
 /** Record a payment against one specific charge. */

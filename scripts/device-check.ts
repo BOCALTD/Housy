@@ -114,7 +114,19 @@ async function inspect(page: Page, touch: boolean) {
     out.smallItems = smallItems;
     out.lowest = lowest;
     out.noAlt = Array.from(document.querySelectorAll("img:not([alt])")).filter(visible).length;
-    return out as { overflow: number; wide: string[]; viewport: string; smallFields: string[]; unlabelled: string[]; tiny: string[]; smallText: number; smallItems: string[]; lowest: number; noAlt: number };
+    // Accessibility: language, one main heading, a main landmark, names for every control, no repeated ids, and a way past the menu.
+    out.lang = document.documentElement.getAttribute("lang") ?? "";
+    out.h1 = Array.from(document.querySelectorAll("h1")).filter(visible).length;
+    out.hasMain = !!document.querySelector("main");
+    const name = (el: Element) => (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") || el.getAttribute("title") || (el.textContent ?? "").trim() || (el.querySelector("img[alt]:not([alt=''])") ? "x" : ""));
+    out.unnamed = Array.from(document.querySelectorAll("a[href], button, [role=button]")).filter(visible).filter((el) => !name(el)).slice(0, 8).map(label);
+    const ids = new Map<string, number>();
+    for (const el of Array.from(document.querySelectorAll("[id]"))) ids.set(el.id, (ids.get(el.id) ?? 0) + 1);
+    out.dupIds = Array.from(ids).filter(([, n]) => n > 1).map(([id]) => id).slice(0, 8);
+    out.positiveTabindex = Array.from(document.querySelectorAll("[tabindex]")).filter((el) => Number(el.getAttribute("tabindex")) > 0).length;
+    const skip = document.querySelector("a.skip-link");
+    out.skipLink = !!skip && skip.getAttribute("href") === "#main" && !!document.getElementById("main");
+    return out as { lang: string; h1: number; hasMain: boolean; unnamed: string[]; dupIds: string[]; positiveTabindex: number; skipLink: boolean; overflow: number; wide: string[]; viewport: string; smallFields: string[]; unlabelled: string[]; tiny: string[]; smallText: number; smallItems: string[]; lowest: number; noAlt: number };
   }, touch);
 }
 
@@ -136,7 +148,7 @@ async function main() {
   }
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
-  const publicPages = ["/", "/login", "/signup", "/join", ...(prop ? [`/${prop}`] : [])];
+  const publicPages = ["/", "/login", "/forgot", "/signup", "/join", ...(prop ? [`/${prop}`] : [])];
   const pages = [...publicPages.map((p) => ({ p, auth: false })), ...signedIn.map((p) => ({ p, auth: true }))];
   mkdirSync(`${OUT}/screens`, { recursive: true });
 
@@ -175,6 +187,40 @@ async function main() {
           if (r.smallText) add("small-text", `${r.smallText} text run(s) under 12px (smallest ${r.lowest}px)`, r.smallItems);
           if (r.unlabelled.length) add("unlabelled-field", `${r.unlabelled.length} field(s)`, r.unlabelled);
           if (r.noAlt) add("image-no-alt", `${r.noAlt} image(s) without alt text`);
+          if (!r.lang) add("no-language", "the page does not say what language it is in");
+          if (r.h1 !== 1) add("main-heading", `${r.h1} main headings (expected 1)`);
+          if (!r.hasMain) add("no-main-landmark", "no main region");
+          if (r.unnamed.length) add("unnamed-control", `${r.unnamed.length} link(s) or button(s) with no name`, r.unnamed);
+          if (r.dupIds.length) add("duplicate-id", `${r.dupIds.length} repeated id(s)`, r.dupIds);
+          if (r.positiveTabindex) add("tab-order-forced", `${r.positiveTabindex} control(s) force the tab order`);
+          if (!r.skipLink) add("no-skip-link", "no working skip-to-content link");
+          if (!touch && prof.engine === "chromium") {
+            // Keyboard: Tab through the page. The first stop is the skip link, every stop is visibly marked, and focus never gets stuck.
+            const stops: { tag: string; text: string; marked: boolean; first?: boolean }[] = [];
+            await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+            for (let k = 0; k < 30; k++) {
+              await page.keyboard.press("Tab");
+              stops.push(await page.evaluate(() => {
+                const el = document.activeElement as HTMLElement | null;
+                if (!el || el === document.body) return { tag: "body", text: "", marked: true };
+                const s = getComputedStyle(el);
+                const marked = (parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== "none") || (s.boxShadow !== "none" && s.boxShadow !== "");
+                return { tag: el.tagName.toLowerCase(), text: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), marked, first: el.classList.contains("skip-link") };
+              }));
+            }
+            if (!stops[0]?.first) add("keyboard-first-stop", `the first Tab stop is "${stops[0]?.text}", not the skip link`);
+            const unmarked = stops.filter((x) => !x.marked && x.tag !== "body");
+            if (unmarked.length) add("keyboard-focus-hidden", `${unmarked.length} Tab stop(s) show no focus mark`, unmarked.slice(0, 6).map((x) => `${x.tag} "${x.text}"`));
+            const distinct = new Set(stops.map((x) => `${x.tag}:${x.text}`)).size;
+            if (stops.length >= 10 && distinct < 4) add("keyboard-trap", `focus visited only ${distinct} different controls in ${stops.length} presses`);
+          }
+          if (!touch && prof.engine === "chromium") {
+            // Reduced motion: when the person asks for less movement, nothing may keep animating.
+            await page.emulateMedia({ reducedMotion: "reduce" });
+            const moving = await page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running" && ((a.effect?.getComputedTiming().iterations ?? 1) === Infinity || (a.effect?.getComputedTiming().duration as number) > 50)).length);
+            await page.emulateMedia({ reducedMotion: "no-preference" });
+            if (moving) add("ignores-reduced-motion", `${moving} animation(s) still run when the person asked for less motion`);
+          }
         }
         for (const e of errors.slice(0, 3)) add("script-error", e.slice(0, 200));
         const wantShot = prof.shots && (SHOT_PATTERNS.includes(pattern(p)) || issues.some((i) => i.page === p && i.profile === prof.name && i.kind === "sideways-scroll"));

@@ -59,7 +59,7 @@ test("another company, signed in as its own administrator, cannot read, change o
   await assert.rejects(reportWorkOrder(b, v.asset.id, { title: "Fake request" }), /not found/i);
   await assert.rejects(addCorrespondenceNote(b, v.open.id, "I was here"), /not found/i);
   // Pointing the intruder's own record at the victim's asset or department is refused too.
-  await assert.rejects(registerCorrespondence(b, { direction: "INCOMING", subject: "Linked to a stranger's asset", senderName: "X", recipientName: "Y", dateReceived: "2025-01-02", assetId: v.asset.id }), /asset was not found/);
+  await assert.rejects(registerCorrespondence(b, { direction: "INCOMING", subject: "Linked to a stranger's asset", senderName: "Xavier", recipientName: "Yemi", dateReceived: "2025-01-02", assetId: v.asset.id }), /asset was not found/);
 
   // The victim's records are unchanged.
   const still = await getAsset(v.a, v.asset.id);

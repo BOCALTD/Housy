@@ -4899,3 +4899,58 @@ model MfaRecovery {
   @@unique([userId, codeHash])
   @@map("mfa_recoveries")
 }
+
+enum ImportKind {
+  ASSETS
+  LEASES
+}
+
+enum ImportBatchStatus {
+  PREVIEWED
+  COMMITTED
+  DISCARDED
+}
+
+enum ImportRowStatus {
+  READY
+  DUPLICATE
+  ERROR
+  IMPORTED
+  FAILED
+}
+
+/// One file of existing records being brought in. Shown as a preview first; nothing is created until a person confirms.
+model ImportBatch {
+  id          String            @id @default(uuid())
+  companyId   String            @map("company_id")
+  ref         String
+  kind        ImportKind
+  fileName    String            @map("file_name")
+  status      ImportBatchStatus @default(PREVIEWED)
+  note        String            @default("")
+  createdById String            @map("created_by_id")
+  committedById String?         @map("committed_by_id")
+  committedAt DateTime?         @map("committed_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  @@unique([companyId, ref])
+  @@index([companyId, createdAt])
+  @@map("import_batches")
+}
+
+/// One line of the file, with what was decided about it and, once imported, the record it became.
+model ImportRow {
+  id        String          @id @default(uuid())
+  companyId String          @map("company_id")
+  batchId   String          @map("batch_id")
+  rowNo     Int             @map("row_no")
+  status    ImportRowStatus
+  message   String          @default("")
+  payload   Json
+  entityId  String?         @map("entity_id")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  @@unique([batchId, rowNo])
+  @@index([companyId, batchId, status])
+  @@map("import_rows")
+}

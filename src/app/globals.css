@@ -173,6 +173,9 @@ td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
   .dialog { animation: rise .2s ease-out; }
   @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 }
+.skip-link { position: absolute; left: 8px; top: 8px; z-index: 100; min-height: 44px; display: inline-flex; align-items: center; padding: 0 16px; background: var(--primary); color: #fff; border-radius: 9px; font-weight: 600; transform: translateY(-200%); }
+.skip-link:focus { transform: none; }
+main:focus { outline: none; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 /* ---- Phones, tablets and touch screens ---- */

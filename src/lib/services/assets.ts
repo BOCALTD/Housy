@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { distanceKm, locate, publicPosition, validPosition } from "../geo-rules";
-import { withTenant } from "../db";
+import { withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { parseNairaToKobo } from "../money";
 import { parseDateOnly } from "../dates";
 import { saveFile, validateUpload, readStoredFile } from "../storage";
+import { lockKey } from "../locks";
 import { assertCan, type Ctx } from "./context";
 
 export const ASSET_CLASSES = ["RESIDENTIAL", "COMMERCIAL", "LAND", "INDUSTRIAL", "PLANT_MACHINERY", "OTHER"] as const;
@@ -22,7 +23,7 @@ export const DOCUMENT_CATEGORIES = [
 const optionalDate = z.string().trim().optional().transform((v) => (v ? parseDateOnly(v) : null));
 const optionalKobo = z.string().trim().optional().transform((v) => (v ? parseNairaToKobo(v) : null));
 
-const createSchema = z.object({
+export const createSchema = z.object({
   name: z.string().trim().min(2, "Enter the asset name").max(200),
   assetClass: z.enum(ASSET_CLASSES),
   category: z.string().trim().min(2, "Enter a category, for example Duplex or Generator").max(80),
@@ -39,7 +40,13 @@ const createSchema = z.object({
 export async function createAsset(ctx: Ctx, input: z.input<typeof createSchema>) {
   assertCan(ctx, "asset.create");
   const data = createSchema.parse(input);
-  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+  return withTenant(ctx.companyId, ctx.userId, (tx) => insertAsset(tx, ctx, data));
+}
+
+/** Shared by registration and by the import of existing records. The caller has checked permission. */
+export async function insertAsset(tx: Tx, ctx: Ctx, data: z.output<typeof createSchema>) {
+  {
+    await lockKey(tx, `asset-ref:${ctx.companyId}`);
     const count = await tx.asset.count({ where: { companyId: ctx.companyId } });
     const ref = `AST-${String(count + 1).padStart(5, "0")}`;
     const asset = await tx.asset.create({
@@ -55,7 +62,7 @@ export async function createAsset(ctx: Ctx, input: z.input<typeof createSchema>)
       action: "asset.registered", detail: { ref, name: data.name, companyRelationship: data.companyRelationship },
     });
     return asset;
-  });
+  }
 }
 
 export async function listAssets(ctx: Ctx, filter: { q?: string; status?: string } = {}) {

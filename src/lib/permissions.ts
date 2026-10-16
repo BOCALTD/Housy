@@ -75,12 +75,15 @@ export type Action =
   | "collab.view"
   | "collab.company"
   | "billing.view"
-  | "billing.manage";
+  | "billing.manage"
+  | "import.manage";
 
 const MATRIX: Record<Action, Role[]> = {
   // Plans, invoices and advertising budgets: only the company administrator commits the company to spending money.
   "billing.view": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "billing.manage": ["COMPANY_SUPER_ADMIN"],
+  // Bringing in existing records creates many assets, leases and opening balances at once, so only the company administrator does it.
+  "import.manage": ["COMPANY_SUPER_ADMIN"],
   "asset.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER", "VIEWER"],
   "asset.create": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "asset.update": ["COMPANY_SUPER_ADMIN", "MANAGER"],

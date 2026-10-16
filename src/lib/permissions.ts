@@ -33,6 +33,7 @@ export type Action =
   | "ai.use"
   | "ai.review"
   | "ai.audit"
+  | "map.vacancies"
   | "valuation.view"
   | "valuation.manage"
   | "valuation.prepare"
@@ -112,6 +113,7 @@ const MATRIX: Record<Action, Role[]> = {
   "ai.use": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER"],
   "ai.review": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "ai.audit": ["COMPANY_SUPER_ADMIN"],
+  "map.vacancies": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "valuation.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER", "VIEWER"],
   "valuation.manage": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "valuation.prepare": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],

@@ -67,10 +67,9 @@ export async function watchListing(userId: string, publicRef: string) {
   });
 }
 export async function unwatchListing(userId: string, publicRef: string) {
-  await withUser(userId, async (tx) => {
-    const l = await tx.listing.findFirst({ where: { publicRef }, select: { id: true } });
-    if (l) await tx.watchedListing.deleteMany({ where: { userId, listingId: l.id } });
-  });
+  // The property may have stopped being public, so it is found with the platform's view rather than the person's.
+  const l = await system((tx) => tx.listing.findFirst({ where: { publicRef }, select: { id: true } }));
+  if (l) await withUser(userId, (tx) => tx.watchedListing.deleteMany({ where: { userId, listingId: l.id } }));
 }
 export const isWatching = (userId: string, listingId: string) => withUser(userId, async (tx) => !!(await tx.watchedListing.findUnique({ where: { userId_listingId: { userId, listingId } } })));
 export async function myWatched(userId: string) {
@@ -92,10 +91,11 @@ export async function alertNewListing(listingId: string, o: { now?: Date } = {})
   const base = await system(async (tx) => ({
     listing: await tx.listing.findUnique({ where: { id: listingId } }),
     approvals: await tx.activityLog.count({ where: { entityType: "listing", entityId: listingId, action: "listing.approved" } }),
+    alerted: await tx.activityLog.count({ where: { entityType: "listing", entityId: listingId, action: "listing.alerted" } }),
   }));
   const l = base.listing;
   if (!l || l.status !== "PUBLISHED") return { ...none, skipped: "not published" };
-  if (base.approvals > 1) return { ...none, skipped: "already announced" };
+  if (base.approvals > 1 || base.alerted > 0) return { ...none, skipped: "already announced" };
   const members = await withTenant(l.companyId, "system", (tx) => tx.membership.findMany({ where: { companyId: l.companyId }, select: { userId: true } }));
   const facts = { purpose: l.purpose, city: l.city, state: l.state, title: l.title, priceKobo: l.priceKobo, bedrooms: l.bedrooms };
 

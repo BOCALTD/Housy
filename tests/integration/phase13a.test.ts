@@ -19,7 +19,7 @@ let adminOnce: ReturnType<typeof newPlatformAdmin> | null = null;
 const ADMIN = () => (adminOnce ??= newPlatformAdmin());
 
 async function person(label = "mail") {
-  const email = `${label}-${uid()}@example.test`;
+  const email = `${label}-${uid()}@example.test`.toLowerCase();
   const id = (await registerSeeker({ name: `${label} Person ${uid()}`, email, password: PASSWORD })).userId;
   // The welcome email is not what these tests are about.
   const admin = await ADMIN();

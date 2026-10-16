@@ -20,7 +20,7 @@ after(() => prisma.$disconnect());
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 const person = async (label = "u") => {
-  const email = `${label}-${uid()}@example.test`;
+  const email = `${label}-${uid()}@example.test`.toLowerCase();
   const id = (await registerSeeker({ name: `${label} Person ${uid()}`, email, password: PASSWORD })).userId;
   return { id, email };
 };

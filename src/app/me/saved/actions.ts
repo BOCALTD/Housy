@@ -1,12 +1,13 @@
 "use server";
 
 import { requireUser } from "@/lib/auth";
+import { safeLocalPath } from "@/lib/security";
 import { act, str, withNotice } from "@/lib/forms";
 import { deleteSearch, saveSearch, setSearchAlerts, unwatchListing } from "@/lib/services/alerts";
 
 const BACK = "/me/saved";
 export async function saveSearchAction(form: FormData) {
-  const back = str(form, "back").startsWith("/") ? str(form, "back") : BACK;
+  const back = safeLocalPath(str(form, "back"), BACK);
   return act(back, async () => {
     const u = await requireUser();
     await saveSearch(u.id, { name: str(form, "name"), purpose: str(form, "purpose") as never, city: str(form, "city"), q: str(form, "q"), maxPrice: str(form, "maxPrice"), minBeds: str(form, "minBeds") });

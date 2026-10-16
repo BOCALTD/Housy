@@ -1,14 +1,20 @@
 "use server";
 
 import { headers } from "next/headers";
+import { safeLocalPath } from "@/lib/security";
 import { prisma } from "@/lib/db";
-import { createSession, destroySession, getSession, setActiveCompany, verifyPassword } from "@/lib/auth";
+import { createSession, destroySession, getSession, setActiveCompany, verifyPassword, hashPassword } from "@/lib/auth";
 import { act, str } from "@/lib/forms";
 import { rateLimit } from "@/lib/ratelimit";
 import { acceptInvitation, myCompanies, registerCompany } from "@/lib/services/companies";
 import { registerSeeker } from "@/lib/services/community";
 import { captureReferral } from "@/lib/services/referrals";
 import { cookies } from "next/headers";
+import { checkSecondStep } from "@/lib/services/account";
+
+/** Compared against when the email is unknown, so an unknown email takes as long to answer as a wrong password. */
+let dummyHash: Promise<string> | null = null;
+const noAccountHash = () => (dummyHash ??= hashPassword("no-such-account-password"));
 
 /** The first-party cookie /r/CODE sets: "CODE.milliseconds". Read once at sign-up and then cleared. */
 async function takeReferral() {
@@ -53,14 +59,20 @@ export async function loginAction(form: FormData) {
       throw new Error("Too many sign-in attempts. Wait 15 minutes and try again.");
     }
     const user = await prisma.user.findUnique({ where: { email } });
-    // Same message whether the email or the password is wrong, so accounts cannot be enumerated.
-    if (!user || !(await verifyPassword(str(form, "password"), user.passwordHash))) {
+    // Same message and same work whether the email or the password is wrong, so accounts cannot be enumerated by message or by timing.
+    const passwordOk = await verifyPassword(str(form, "password"), user?.passwordHash ?? (await noAccountHash()));
+    if (!user || !passwordOk) {
       throw new Error("That email and password do not match an account.");
+    }
+    if (user.mfaEnabledAt) {
+      const code = str(form, "code");
+      if (!code) throw new Error("Enter the code from your authenticator app, or a recovery code.");
+      if (!(await rateLimit(`mfa:${user.id}`, 8, 15 * 60 * 1000)) || !(await checkSecondStep(user.id, code))) throw new Error("That code is not right or has already been used.");
     }
     const companies = await myCompanies(user.id);
     await createSession(user.id, companies[0]?.companyId ?? null);
-    const next = str(form, "next");
-    if (next.startsWith("/") && !next.startsWith("//")) return next;
+    const next = safeLocalPath(str(form, "next"), "");
+    if (next) return next;
     if (companies.length === 0) return user.isPlatformAdmin ? "/admin" : "/me";
     return "/app";
   });

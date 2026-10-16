@@ -1,3 +1,4 @@
+import { safeLocalPath } from "@/lib/security";
 import { getSession } from "@/lib/auth";
 import { recordClick, viewerKeyFor } from "@/lib/services/ads";
 
@@ -13,7 +14,7 @@ export async function GET(req: Request, { params }: { params: { ref: string } })
   const session = await getSession().catch(() => null);
   let to = "/";
   try { to = (await recordClick(params.ref, { viewerKey: viewerKeyFor(ip, ua), userId: session?.user.id ?? null, ua })).to; } catch (e) { console.error("ad click failed", e); }
-  return new Response(null, { status: 302, headers: { Location: to, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+  return new Response(null, { status: 302, headers: { Location: safeLocalPath(to, "/"), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
 }
 
 /** Link previews and crawlers ask with HEAD. They are not clicks. */

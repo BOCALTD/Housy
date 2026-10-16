@@ -7,6 +7,7 @@ import { formatKobo } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { mfaStatus } from "@/lib/services/account";
 import { approveListingAction, leadStatusAction, rejectListingAction, saveProviderAction } from "./actions";
 
 export const metadata = { title: "Platform admin" };
@@ -18,7 +19,8 @@ function pct(a: number, b: number) {
 
 export default async function AdminPage({ searchParams }: { searchParams?: SP }) {
   const admin = await requirePlatformAdmin();
-  const [queue, metrics, providers, leads] = await Promise.all([
+  const [mfa, queue, metrics, providers, leads] = await Promise.all([
+    mfaStatus(admin.id),
     reviewQueue(admin.id),
     verificationMetrics(),
     prisma.serviceProvider.findMany({ orderBy: { createdAt: "asc" } }),
@@ -33,6 +35,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: SP })
         <p className="small"><Link href="/admin/plans">Plans, subscriptions and messaging limits</Link> · <Link href="/admin/collaborations">Collaborations</Link> · <Link href="/admin/moderation">Message reports</Link> · <Link href="/admin/rewards">Rewards</Link> · <Link href="/admin/referrals">Referrals</Link> · <Link href="/admin/vacancies">Vacancy reports</Link> (<Link href="/admin/vacancies/map">map</Link>) · <Link href="/admin/promotions">Promotions</Link> · <Link href="/admin/feedback">Ratings</Link> · <Link href="/admin/reviews">Review moderation</Link> · <Link href="/admin/awards">Top Agent awards</Link> · <Link href="/admin/completed">Completed deals</Link> · <Link href="/admin/reels">Reel moderation</Link> · <Link href="/admin/notifications">Notifications and email</Link> · <Link href="/admin/payments">Payments</Link> · <Link href="/admin/finance">Finance</Link> · <Link href="/admin/ai">Assistant</Link> · <Link href="/admin/ads">Advertising</Link></p>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+      {mfa.enabled ? null : <div className="flash error" role="alert">Your administrator account has no second step at sign-in. <Link href="/me/security">Turn on two-step sign-in</Link> before real companies are onboarded.</div>}
 
       <section className="card">
         <h2>Listings awaiting review ({queue.length})</h2>

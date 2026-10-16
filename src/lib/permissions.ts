@@ -162,7 +162,8 @@ const MATRIX: Record<Action, Role[]> = {
 };
 
 export function can(role: Role, action: Action): boolean {
-  return MATRIX[action].includes(role);
+  // Fails closed: an unknown action or role is never allowed.
+  return Object.prototype.hasOwnProperty.call(MATRIX, action) && MATRIX[action].includes(role);
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

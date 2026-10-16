@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMember, getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { headerSafeFilename } from "@/lib/security";
 import { campaignReport, reportCsv } from "@/lib/services/ads";
 
 export const dynamic = "force-dynamic";
@@ -15,5 +16,5 @@ export async function GET(_req: Request, { params }: { params: { ref: string } }
     if (m && can(m.role, "billing.view")) r = await campaignReport({ payer: { userId: m.userId, companyId: m.companyId, role: m.role } }, params.ref);
   }
   if (!r) return new NextResponse("Campaign not found.", { status: 404 });
-  return new NextResponse(reportCsv(r), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${params.ref}-results.csv"`, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" } });
+  return new NextResponse(reportCsv(r), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${headerSafeFilename(params.ref, "campaign")}-results.csv"`, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" } });
 }

@@ -23,6 +23,11 @@ export async function createSession(userId: string, companyId: string | null) {
   });
 }
 
+/** The raw token of the current browser session, used to keep this device signed in when the others are signed out. */
+export function currentSessionToken(): string | null {
+  return cookies().get(SESSION_COOKIE)?.value ?? null;
+}
+
 export async function destroySession() {
   const token = cookies().get(SESSION_COOKIE)?.value;
   if (token) await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } });

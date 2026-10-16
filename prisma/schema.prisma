@@ -34,8 +34,14 @@ model User {
   passwordHash    String       @map("password_hash")
   isPlatformAdmin Boolean      @default(false) @map("is_platform_admin")
   createdAt       DateTime     @default(now()) @map("created_at")
+  /// Two-step sign-in: the secret is stored encrypted; it only counts once mfaEnabledAt is set. mfaLastStep stops a code being used twice.
+  mfaSecret       String?      @map("mfa_secret")
+  mfaEnabledAt    DateTime?    @map("mfa_enabled_at")
+  mfaLastStep     BigInt?      @map("mfa_last_step")
   sessions        Session[]
   memberships     Membership[]
+  passwordResets  PasswordReset[]
+  mfaRecoveries   MfaRecovery[]
 
   @@map("users")
 }
@@ -4864,4 +4870,31 @@ model AiSuggestion {
   @@index([companyId, status])
   @@index([subjectType, subjectId])
   @@map("ai_suggestions")
+}
+
+/// A one-time link to choose a new password. Only the hash of the token is stored.
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("password_resets")
+}
+
+/// One-time codes for when the authenticator is lost. Only hashes are stored.
+model MfaRecovery {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+  @@map("mfa_recoveries")
 }

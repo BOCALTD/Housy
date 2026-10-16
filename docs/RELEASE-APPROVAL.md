@@ -15,7 +15,7 @@
 1. **Make two-step sign-in mandatory for platform administrators**, and set `MFA_ENCRYPTION_KEY` to its own random value. Today both are optional.
 2. **Connect an email provider.** Password reset, invitations, rent reminders and every notice are queued but not delivered without one.
 3. **Connect Paystack** (keys, webhook address) and send a real small payment end to end. Everything about payments is tested with fakes.
-4. **Set up the database and hosting** (Vercel, Neon): a plan with point-in-time restore, the connection settings in the runbook, and run the restore check on a copy of production.
+4. **Set up the server** (Ubuntu, see `UBUNTU.md`): firewall, TLS, offsite backup copy, an uptime monitor, and run the restore check on a copy of production. Note that the scripts have not been run on a real server yet.
 5. **Set up an uptime monitor** on `/api/health` and decide who is called.
 6. **Run a real company's file through the import preview** and read every Error and Duplicate line before confirming anything. The import has only been run on generated files.
 7. **Test on real phones** on a Nigerian mobile network. Emulation does not show speed or touch quality.

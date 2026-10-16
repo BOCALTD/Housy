@@ -1,0 +1,28 @@
+[Unit]
+Description=Housy web application
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=housy
+Group=housy
+WorkingDirectory=/opt/housy/current
+EnvironmentFile=/etc/housy/housy.env
+# Listen on the loopback only: the reverse proxy is the one door in, and it sets the client address the rate limits rely on.
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+Restart=on-failure
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/housy/shared
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

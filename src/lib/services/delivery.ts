@@ -15,7 +15,7 @@ import { system } from "./rewards";
 // connected nothing is sent and nothing is marked as sent.
 
 const secret = () => process.env.UNSUBSCRIBE_SECRET || process.env.APP_DB_PASSWORD || "development-only-secret";
-export const baseUrl = () => (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")).replace(/\/+$/, "");
+export const baseUrl = () => (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
 export const unsubscribeUrl = (userId: string, scope: UnsubScope) => `${baseUrl()}/unsubscribe?t=${encodeURIComponent(signUnsub(secret(), userId, scope))}`;
 
 async function adminOnly(id: string) {

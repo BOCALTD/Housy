@@ -23,27 +23,11 @@ A user from one company cannot reach another company's records. This is enforced
 
 Money is stored as integer kobo. Dates are stored in UTC and shown in West Africa Time.
 
-## Deploy on Vercel
+## Deploy on an Ubuntu server
 
-You need a GitHub account with this repository and a Vercel account. Signing up to Vercel with GitHub is easiest.
+Housy runs on one Ubuntu 22.04/24.04 server: nginx (TLS) in front, the app on the loopback, PostgreSQL 16 on the same machine, systemd timers for the email queue, billing and nightly backups. The scripts and the step-by-step guide, including what you take on by self-hosting, are in [docs/UBUNTU.md](docs/UBUNTU.md) and `deploy/ubuntu/`. They have not yet been run on a real server.
 
-1. **Import the project.** On vercel.com choose **Add New → Project**, pick **BOCALTD/Housy** and click **Import**. Do not deploy yet if Vercel offers to. If it deploys anyway, the first build fails until steps 2 and 3 are done. That is expected.
-2. **Add a database.** In the project, open **Storage → Create Database → Neon (Postgres)**, choose a region close to Nigeria (for example Frankfurt, `eu-central-1`) and connect it to the project for all environments. This adds `DATABASE_URL` and `DATABASE_URL_UNPOOLED` automatically.
-3. **Add three environment variables** under **Settings → Environment Variables**:
-
-   | Name | Value |
-   |---|---|
-   | `APP_DB_PASSWORD` | A random string of 32+ letters and numbers. |
-   | `SETUP_TOKEN` | Another random string of 32+ letters and numbers. Keep it private. |
-   | `NEXT_PUBLIC_PLATFORM_NAME` | `Housy` |
-
-   To make a random value, you can use a password manager's generator. Avoid quotes and backslashes.
-4. **Deploy.** Open **Deployments**, then on the latest deployment choose **Redeploy**. Each build creates the restricted database role, applies migrations and grants access before building the app.
-5. **Create your administrator.** Open `https://<your-project>.vercel.app/setup`, enter the `SETUP_TOKEN`, your name, email and a password. Tick the demo box if you want labelled sample companies and listings to look around. The page locks itself once the administrator exists.
-
-After that, every push to `main` deploys automatically.
-
-Uploads are capped at 4 MB per file, which is Vercel's request size limit.
+Uploads are capped at 4 MB per file.
 
 ## Set up locally
 

@@ -1,6 +1,6 @@
 # Test report, Phase 16
 
-Everything runs on every push in GitHub Actions (`.github/workflows/ci.yml`): migrations are applied as on Vercel, then type check, unit tests, integration tests against a real PostgreSQL 16 using the restricted app role with row-level security, a backup-and-restore check, a production build, a smoke test of the running app, and a device check in desktop Chrome and emulated iPhone, Android and tablet browsers.
+Everything runs on every push in GitHub Actions (`.github/workflows/ci.yml`): migrations are applied as `deploy.sh` does on the server, then type check, unit tests, integration tests against a real PostgreSQL 16 using the restricted app role with row-level security, a backup-and-restore check, a production build, a smoke test of the running app, and a device check in desktop Chrome and emulated iPhone, Android and tablet browsers.
 
 **Totals:** see the CI summary of the release commit ("Test totals" notices). At the time of writing: 194 unit tests and 305 integration tests, all passing; the device check opened 133 distinct pages on 7 browser profiles (desktop Chrome, desktop Safari, two iPhones, two Androids, an iPad) and, after the fixes listed under SECURITY-FINDINGS and below, found nothing. The backup check dumped a 3.6 MB database (183 tables, 92,476 rows) in 1.0 s and restored it in 2.6 s with every table, security setting and money total identical.
 

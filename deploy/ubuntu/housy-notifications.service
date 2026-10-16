@@ -1,0 +1,7 @@
+[Unit]
+Description=Housy notifications job (send queued email and retry failures)
+
+[Service]
+Type=oneshot
+User=housy
+ExecStart=/usr/local/bin/housy-job notifications

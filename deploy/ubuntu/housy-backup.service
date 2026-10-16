@@ -1,0 +1,6 @@
+[Unit]
+Description=Housy nightly database backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/housy-backup

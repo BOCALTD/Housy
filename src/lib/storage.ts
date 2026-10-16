@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { Tx } from "./db";
 
 // Documents are stored in PostgreSQL (table stored_files), inside the same transaction and
-// row-level security context as the document record. This works on serverless hosts such as
-// Vercel, which have no permanent disk. Files are only served through an authorized route.
+// row-level security context as the document record. Files live in the database, so a database backup
+// includes them and the app server holds no state. Files are only served through an authorized route.
 // Swap this module for an object store (S3-compatible) when volumes grow.
 
-// Vercel limits a request body to 4.5 MB, so uploads are capped at 4 MB.
+// Uploads are capped at 4 MB (the form limit in next.config.mjs and nginx's client_max_body_size match).
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 const ALLOWED: Record<string, { ext: string; magic?: number[] }> = {

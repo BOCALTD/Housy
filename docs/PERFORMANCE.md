@@ -34,6 +34,6 @@ The limits are deliberately loose so a slow shared machine does not raise false 
 
 ## What is not measured
 - **Browser time.** No test measured how long a page takes to draw on a phone over a slow connection. Pages are server-rendered with little script, and the device check confirms they fit and are usable at phone sizes, but nobody has timed them on a real phone on a Nigerian mobile network.
-- **Many people at once.** The tests run one request at a time, apart from ten parallel photo reads and the concurrent-payment tests. There was **no load test** with hundreds of simultaneous visitors. Neon's connection limits and Vercel's concurrency are the likely first limits; test them before a launch.
+- **Many people at once.** The tests run one request at a time, apart from ten parallel photo reads and the concurrent-payment tests. There was **no load test** with hundreds of simultaneous visitors. The single server's CPU and PostgreSQL's connection limit are the likely first limits; test them before a launch.
 - **Substring search.** Searching asset names and listing text uses `ILIKE '%…%'`, which cannot use an ordinary index. It is fast at 12,000 rows (21 ms) because it reads one company's rows only. At several hundred thousand rows per company it would need a `pg_trgm` index. Not added yet.
 - **Photographs in the database.** Fine at this size. Storing media in the database makes backups and the database larger; moving to an object store is the next step if photographs grow into the tens of gigabytes.

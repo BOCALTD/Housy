@@ -1,0 +1,7 @@
+[Unit]
+Description=Housy billing job (raise renewal invoices and expire plans)
+
+[Service]
+Type=oneshot
+User=housy
+ExecStart=/usr/local/bin/housy-job billing

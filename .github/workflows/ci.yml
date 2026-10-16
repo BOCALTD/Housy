@@ -51,7 +51,7 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Database setup as on Vercel (runtime role, migrations, privileges)
+      - name: Database setup as on the server (runtime role, migrations, privileges)
         run: npm run db:setup
 
       - name: Database setup is repeatable (runs on every deploy)

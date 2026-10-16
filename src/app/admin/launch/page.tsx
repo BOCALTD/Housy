@@ -46,7 +46,7 @@ export default async function LaunchPage() {
         </div>
         {detail.warnings.length === 0 ? <p className="muted">Nothing needs attention.</p> : <ul>{detail.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
         <p className="small">Go to: <Link href="/admin/notifications">Notifications and email</Link> · <Link href="/admin/payments">Payments</Link> · <Link href="/admin/finance?check=1">Run the books check</Link> · <Link href="/admin/ai">Assistant</Link></p>
-        <p className="small muted">Not shown here: slow database queries and server errors. Read them in the hosting dashboard (Vercel logs, Neon query statistics); see the runbook.</p>
+        <p className="small muted">Not shown here: slow database queries and server errors. Read them on the server (journalctl -u housy, the PostgreSQL log); see the runbook.</p>
       </section>
     </div>
   );

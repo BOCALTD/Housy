@@ -5,13 +5,17 @@
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { prisma, withTenant } from "../../src/lib/db";
+import { prisma, withTenant, type Tx } from "../../src/lib/db";
+import type { Ctx } from "../../src/lib/services/context";
 import { getLease } from "../../src/lib/services/leases";
 import { verifyLedger } from "../../src/lib/services/ledger";
 import { commitImport, discardImport, importReportCsv, importRowsPage, previewImport, reconcileImport } from "../../src/lib/services/imports";
 import { addMember, newCompany } from "./helpers";
 
 after(() => prisma.$disconnect());
+
+// The app role sees nothing without a company context, so every direct read goes through the company.
+const inCo = <T>(c: Ctx, fn: (tx: Tx) => Promise<T>) => withTenant(c.companyId, c.userId, fn);
 
 const ASSET_FILE = [
   "Name,Class,Category,Held as,Address,City,Acquisition cost",
@@ -32,11 +36,11 @@ test("assets: preview marks duplicates and mistakes, confirming creates only the
   assert.deepEqual(view.rows.map((r) => [r.rowNo, r.status]), [[2, "READY"], [3, "DUPLICATE"], [4, "ERROR"], [5, "READY"]]);
   assert.match(view.rows[1].message, /row 2/);
   assert.match(view.rows[2].message, /Class "Castle"/);
-  assert.equal(await prisma.asset.count({ where: { companyId: admin.companyId } }), 0, "nothing is created by a preview");
+  assert.equal(await inCo(admin, (tx) => tx.asset.count()), 0, "nothing is created by a preview");
 
   const done = await commitImport(admin, id);
   assert.deepEqual(done, { imported: 2, failed: 0 });
-  const assets = await prisma.asset.findMany({ where: { companyId: admin.companyId }, orderBy: { ref: "asc" } });
+  const assets = await inCo(admin, (tx) => tx.asset.findMany({ orderBy: { ref: "asc" } }));
   assert.deepEqual(assets.map((a) => [a.ref, a.name, a.assetClass, a.companyRelationship]), [["AST-00001", "Adeola Court", "RESIDENTIAL", "OWNER"], ["AST-00002", "Ikoyi Shops", "COMMERCIAL", "MANAGER"]]);
   assert.equal(assets[0].acquisitionCostKobo, 4_500_000_000n);
   assert.equal(assets[1].acquisitionCostKobo, 100_050n);
@@ -91,7 +95,7 @@ test("leases: asset lookup, opening balances, duplicates, clashes and reconcilia
   assert.equal(byLabel["Total already paid, on opening receipts, naira"].actual, "2400000.00");
   assert.equal(byLabel["Total still owed, naira"].actual, "8400000.00");
 
-  const leases = await prisma.lease.findMany({ where: { companyId: admin.companyId }, orderBy: { ref: "asc" } });
+  const leases = await inCo(admin, (tx) => tx.lease.findMany({ orderBy: { ref: "asc" } }));
   assert.equal(leases.length, 2);
   const ngozi = (await getLease(admin, leases[0].id))!.lease;
   assert.deepEqual(ngozi.charges.map((c) => c.paidKobo), [120_000_000n, 120_000_000n, 0n, 0n], "the oldest rent is cleared first");

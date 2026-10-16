@@ -87,7 +87,8 @@ test("the browse query reads an index rather than sorting every published listin
   const plan = await withPublic((tx) => tx.$queryRawUnsafe<{ "QUERY PLAN": string }[]>(`EXPLAIN SELECT * FROM listings WHERE status = 'PUBLISHED' ORDER BY published_at DESC LIMIT 60`));
   const text = plan.map((p) => p["QUERY PLAN"]).join("\n");
   console.log(`PERF name=browse-plan ${text.split("\n")[0].trim()}`);
-  assert.match(text, /Index Scan.*listings_status_published_at_idx|Index Scan Backward.*listings_status_published_at_idx|listings_status_published_at_idx/, text);
+  assert.match(text, /listings_published_at_idx/, text);
+  assert.doesNotMatch(text, /Sort/, "no sort over every published listing");
 });
 
 test("a company's pages stay quick with thousands of assets and tens of thousands of charges", async () => {

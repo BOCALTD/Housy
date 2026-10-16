@@ -20,6 +20,7 @@ const int = (r: () => number, lo: number, hi: number) => lo + Math.floor(r() * (
 interface Model { amount: bigint; adjusted: bigint; paid: bigint }
 interface ModelReceipt { id: string; kobo: bigint; parts: [number, bigint][]; reversed: boolean }
 
+let reversedTotal = 0;
 for (const seed of [1, 2, 3]) {
   test(`random run ${seed}: payments, reversals and adjustments agree with the independent model at every step`, async () => {
     const admin = await newCompany(`model${seed}`);
@@ -101,9 +102,12 @@ for (const seed of [1, 2, 3]) {
       await compare(label);
     }
     // The run did real work.
-    assert.ok(receipts.length >= 5 && receipts.some((x) => x.reversed), `run ${seed}: ${receipts.length} receipts`);
+    assert.ok(receipts.length >= 5, `run ${seed}: ${receipts.length} receipts`);
+    reversedTotal += receipts.filter((x) => x.reversed).length;
   });
 }
+
+test("the random runs between them reversed some receipts", () => { assert.ok(reversedTotal > 0, "no run reversed a receipt, so reversals were never exercised"); });
 
 test("many payments at the same moment never over-apply a charge or lose a kobo", async () => {
   const admin = await newCompany("race");

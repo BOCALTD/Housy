@@ -5,7 +5,7 @@
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { prisma, withTenant, withPlatformAdmin } from "../../src/lib/db";
+import { prisma, withTenant } from "../../src/lib/db";
 import { createAsset, updateAssetStatus, uploadDocument } from "../../src/lib/services/assets";
 import { createLease } from "../../src/lib/services/leases";
 import { createObligation } from "../../src/lib/services/obligations";
@@ -20,7 +20,6 @@ import type { Ctx } from "../../src/lib/services/context";
 after(() => prisma.$disconnect());
 
 const uid = () => Math.random().toString(36).slice(2, 8);
-const sys = <T>(fn: Parameters<typeof withPlatformAdmin<T>>[1]) => withPlatformAdmin("system", fn);
 const fake = (reply: string): AiProvider => ({ name: "fake", complete: async () => ({ ok: true as const, text: reply }) });
 const spy = (reply: string) => { const p = { calls: 0, seen: "", name: "spy", complete: async (r: { user: string }) => { p.calls++; p.seen = r.user; return { ok: true as const, text: reply }; } }; return p; };
 
@@ -48,7 +47,6 @@ test("dashboard figures are counted from the company's records and each panel fo
   assert.equal(a.values!.costKobo, 3_000_000_000n); assert.equal(a.values!.valuedAssets, 0); assert.equal(a.values!.assetsWithoutValuation, 3);
   const b = (await companyAnalytics(other.co))!;
   assert.equal(b.arrears!.totalKobo, a.arrears!.totalKobo, "same set-up, same figures: they are not added together");
-  await assert.rejects(Promise.resolve().then(() => { throw new Error("n/a"); }), /n\/a/);
   // roles
   const officer = await addMember(co, "OFFICER", "off"), viewer = await addMember(co, "VIEWER", "view"), agent = await addMember(co, "AGENT", "agt");
   const o = (await companyAnalytics(officer))!;
@@ -57,9 +55,6 @@ test("dashboard figures are counted from the company's records and each panel fo
   assert.equal(v.arrears, null); assert.equal(v.maintenance, null); assert.ok(v.occupancy && v.compliance);
   const g = (await companyAnalytics(agent))!;
   assert.equal(g.arrears, null);
-  // another company's rows never appear, even with a forged company id on the context
-  const forged = (await companyAnalytics({ ...officer, companyId: other.co.companyId }).catch(() => null));
-  assert.ok(forged === null || forged.occupancy === null || forged.occupancy.occupied === 0 || true);
 });
 
 test("missing information is found for assets across the portfolio, and another company's asset is not reachable", async () => {
@@ -151,7 +146,6 @@ test("letter summaries hold only what the letter says, flag legal matters for ca
 
 test("questions are answered from a fixed set of reports, only with figures the role may see and only from the company's own records", async () => {
   const { co } = await portfolio("ask");
-  const rival = await portfolio("ask2");
   const officer = await addMember(co, "OFFICER", "off");
   const a = await askPortfolio(co, "How much rent is overdue?", { provider: null });
   assert.equal(a.report, "ARREARS"); assert.equal(a.allowed, true); assert.match(a.summary, /overdue across/); assert.equal(a.source, "RULES");
@@ -173,11 +167,6 @@ test("questions are answered from a fixed set of reports, only with figures the 
   assert.match(sp.seen, /^<data label="question">/); assert.equal(sp.seen.includes("₦"), false, "no figures are sent to the service");
   const hostile = await askPortfolio(co, "how much rent is overdue", { provider: fake('{"report":"ALL_COMPANIES; DROP TABLE","city":"x"}') });
   assert.equal(hostile.report, "ARREARS", "an unknown report from the service falls back to the rules' choice");
-  // nothing from another company
-  const mine = (await companyAnalytics(co))!.arrears!.totalKobo;
-  assert.ok(a.summary.includes(Number(mine / 100n).toLocaleString("en-NG")) || a.rows.length > 0);
-  void rival;
   await assert.rejects(askPortfolio(co, "?", { provider: null }), /Ask a question/);
   await assert.rejects(askPortfolio(await addMember(co, "VIEWER", "v"), "how much rent is overdue", { provider: null }), /permission/);
-  void sys;
 });

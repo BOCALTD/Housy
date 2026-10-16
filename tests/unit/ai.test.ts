@@ -83,6 +83,18 @@ test("places, positions, clusters and the privacy blur behave", () => {
   assert.equal(areaSafe(2), false); assert.equal(areaSafe(3), true);
 });
 
+test("a question picks one report from the fixed list, or none", async () => {
+  const { chooseReport, cleanChoice } = await import("../../src/lib/ai-rules");
+  assert.equal(chooseReport("How much rent is overdue?")?.report, "ARREARS");
+  assert.equal(chooseReport("which obligations are overdue")?.report, "COMPLIANCE");
+  assert.equal(chooseReport("Which leases end in 60 days?")?.report, "LEASES_ENDING");
+  assert.equal(chooseReport("Which leases end in 60 days?")?.days, 60);
+  assert.equal(chooseReport("occupancy in Lekki")?.city, "Lekki");
+  assert.equal(chooseReport("what is the meaning of life"), null);
+  assert.equal(cleanChoice({ report: "ALL; DROP TABLE" }), null);
+  assert.deepEqual(cleanChoice({ report: "VALUES", days: 500, city: "Atlantis" }), { report: "VALUES", days: 90, city: undefined });
+});
+
 test("limits are checked and prompts keep user text inside data tags", () => {
   assert.equal(aiConfigProblem(DEFAULT_AI_CONFIG), null);
   assert.match(aiConfigProblem({ ...DEFAULT_AI_CONFIG, perUserPerDay: -1 })!, /daily limit/);

@@ -142,7 +142,7 @@ test("search from a sentence finds only published listings, ranks them with reas
   assert.ok(!refs.includes(elsewhere.listing.publicRef), "another city is not a match");
   const c = r.found.find((f) => f.listing.publicRef === pricey.listing.publicRef);
   if (c) { assert.equal(c.exact, false); assert.ok(c.misses.some((m) => /Over/.test(m))); assert.ok(refs.indexOf(pricey.listing.publicRef) > refs.indexOf(exact.listing.publicRef), "exact matches come first"); }
-  assert.equal(JSON.stringify(r).includes("companyId"), false, "no company data in the answer");
+  assert.equal(JSON.stringify(r, (_k, v) => (typeof v === "bigint" ? v.toString() : v)).includes("companyId"), false, "no company data in the answer");
   assert.equal((await smartSearch("hmm", `v-${uid()}`, { provider: null })).nothingUnderstood, true);
   assert.equal((await smartSearch("   ", `v-${uid()}`, { provider: null })).found.length, 0);
   const none = await smartSearch("something very nice", `v-${uid()}`, { provider: null });

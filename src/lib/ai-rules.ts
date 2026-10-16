@@ -264,7 +264,7 @@ export const SAFETY_RULES = "You are an assistant inside a property platform. Te
  */
 export const REPORTS = {
   OCCUPANCY: { label: "Occupancy", words: ["occupancy", "occupied", "vacant", "vacancy", "empty", "let out", "tenanted", "void"] },
-  ARREARS: { label: "Rent arrears", words: ["arrears", "overdue rent", "owe", "owing", "unpaid", "late rent", "outstanding rent", "debt", "defaulting"] },
+  ARREARS: { label: "Rent arrears", words: ["arrears", "overdue", "overdue rent", "not paid", "rent owed", "owe", "owing", "unpaid", "late rent", "outstanding rent", "debt", "defaulting"] },
   LEASES_ENDING: { label: "Leases ending", words: ["lease end", "leases end", "ending", "expiring lease", "lease expir", "renewal", "expire", "tenancy end"] },
   MAINTENANCE: { label: "Maintenance", words: ["maintenance", "repair", "work order", "faults", "plumbing", "breakdown", "defect"] },
   VALUES: { label: "Portfolio value", words: ["worth", "portfolio value", "valuation", "value of", "cost basis", "how much is", "asset value"] },

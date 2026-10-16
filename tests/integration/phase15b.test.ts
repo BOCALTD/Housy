@@ -50,11 +50,11 @@ test("dashboard figures are counted from the company's records and each panel fo
   // roles
   const officer = await addMember(co, "OFFICER", "off"), viewer = await addMember(co, "VIEWER", "view"), agent = await addMember(co, "AGENT", "agt");
   const o = (await companyAnalytics(officer))!;
-  assert.equal(o.arrears, null, "an officer does not see arrears"); assert.ok(o.maintenance, "an officer sees maintenance"); assert.equal(o.values, null);
+  assert.equal(o.arrears, null, "an officer does not see arrears"); assert.ok(o.maintenance, "an officer sees maintenance"); assert.ok(o.values, "and valuations");
   const v = (await companyAnalytics(viewer))!;
   assert.equal(v.arrears, null); assert.equal(v.maintenance, null); assert.ok(v.occupancy && v.compliance);
   const g = (await companyAnalytics(agent))!;
-  assert.equal(g.arrears, null);
+  assert.equal(g.arrears, null); assert.equal(g.values, null, "an agent does not see valuations"); assert.equal(g.maintenance, null);
 });
 
 test("missing information is found for assets across the portfolio, and another company's asset is not reachable", async () => {

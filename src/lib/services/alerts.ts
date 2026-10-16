@@ -152,7 +152,7 @@ export async function alertWatchers(listingId: string, change: string): Promise<
 
 /** Tell the platform team that a new agent or company has put a profile in the directory. */
 export async function announceNewProfile(kind: "agent" | "company", name: string, link: string) {
-  const admins = await prisma.user.findMany({ where: { isPlatformAdmin: true }, select: { id: true }, take: 20 });
+  const admins = await prisma.user.findMany({ where: { isPlatformAdmin: true }, select: { id: true }, take: 200 });
   if (!admins.length) return 0;
   await system(async (tx) => { for (const a of admins) await notify(tx, a.id, { kind: "onboarding.admin", title: `New ${kind} in the directory: ${name}`.slice(0, 160), body: "Take a look that the profile is genuine.", link, dedupeKey: `newprofile:${kind}:${name}` }); });
   return admins.length;

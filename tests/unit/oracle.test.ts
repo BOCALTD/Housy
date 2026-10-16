@@ -11,6 +11,7 @@ import { salesComparison, incomeCapitalisation, costApproach, adjustedPerSqm, di
 import { REWARD_TRANSITIONS, REWARD_STATUSES, rewardMoveProblem } from "../../src/lib/reward-rules";
 import { parseNairaToKobo, formatKobo } from "../../src/lib/money";
 import { koboToPlain } from "../../src/lib/csv";
+type RK = keyof typeof REWARD_TRANSITIONS;
 
 const J = (o: unknown) => JSON.stringify(o, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
 /** A small seeded generator so a failure can be reproduced. */
@@ -171,7 +172,7 @@ test("commission is the exact percentage rounded half-up, and a split loses and 
   assert.equal(commissionAmount({ method: "PERCENT", rateBps: 5000, fixedKobo: null }, 1n), 1n, "a half rounds up");
   assert.equal(commissionAmount({ method: "FIXED", rateBps: null, fixedKobo: 777n }, 1n), 777n);
   assert.equal(parsePercentToBps("2.5%"), 250); assert.equal(parsePercentToBps("100"), 10_000);
-  for (const bad of ["0", "100.01", "-1", "2.555", "abc", ""]) assert.throws(() => parsePercentToBps(bad), undefined, bad);
+  for (const bad of ["0", "100.01", "-1", "2.555", "abc", ""]) assert.throws(() => parsePercentToBps(bad), () => true, bad);
 
   for (let i = 0; i < 4000; i++) {
     const n = int(r, 1, 7); let left = 10_000; const bpsList: number[] = [];
@@ -264,19 +265,19 @@ test("a reward can only move along the allowed paths, money is never un-paid, an
   assert.deepEqual(REWARD_TRANSITIONS.PAID, [], "a paid reward cannot change");
   assert.deepEqual(REWARD_TRANSITIONS.CANCELLED, []);
   // Nothing can reach PAID without passing through PAYABLE (which comes only after APPROVED).
-  const into = (s: string) => states.filter((f) => REWARD_TRANSITIONS[f].includes(s as never));
+  const into = (s: string) => states.filter((f) => (REWARD_TRANSITIONS[f] as readonly string[]).includes(s));
   assert.deepEqual(into("PAID"), ["PAYABLE"]);
   assert.deepEqual(into("PAYABLE"), ["APPROVED"]);
   assert.ok(!into("APPROVED").includes("REJECTED") && !into("APPROVED").includes("PAID"));
   // From every state, some path leads to a state with no way out (nothing is stuck in a loop with no exit).
   for (const s of states) {
-    const seen = new Set<string>([s]); const q = [s]; let end = REWARD_TRANSITIONS[s as never].length === 0;
-    while (q.length) { const x = q.shift()!; for (const y of REWARD_TRANSITIONS[x as never]) { if (!seen.has(y)) { seen.add(y); q.push(y); } if (REWARD_TRANSITIONS[y as never].length === 0) end = true; } }
+    const seen = new Set<string>([s]); const q = [s]; let end = REWARD_TRANSITIONS[s as RK].length === 0;
+    while (q.length) { const x = q.shift()!; for (const y of REWARD_TRANSITIONS[x as RK]) { if (!seen.has(y)) { seen.add(y); q.push(y); } if (REWARD_TRANSITIONS[y as RK].length === 0) end = true; } }
     assert.ok(end, `${s} has no way to finish`);
   }
   // Random walks never leave the table.
   const r = rng(99);
-  for (let i = 0; i < 1000; i++) { let s = "UNDER_REVIEW"; for (let k = 0; k < 30; k++) { const next = REWARD_TRANSITIONS[s as never]; if (!next.length) break; s = next[int(r, 0, next.length - 1)]; assert.ok(states.includes(s as never)); } }
+  for (let i = 0; i < 1000; i++) { let s = "UNDER_REVIEW"; for (let k = 0; k < 30; k++) { const next = REWARD_TRANSITIONS[s as RK]; if (!next.length) break; s = next[int(r, 0, next.length - 1)]; assert.ok((states as string[]).includes(s)); } }
 });
 
 // ---------- money text ----------
@@ -289,6 +290,6 @@ test("money text round-trips without floating point", () => {
   }
   assert.equal(parseNairaToKobo("₦1,234.5"), 123_450n);
   assert.equal(parseNairaToKobo("NGN 10"), 1000n);
-  for (const bad of ["1.234", "-5", "1e3", "", "abc", "1,2,3.456"]) assert.throws(() => parseNairaToKobo(bad), undefined, bad);
+  for (const bad of ["1.234", "-5", "1e3", "", "abc", "1,2,3.456"]) assert.throws(() => parseNairaToKobo(bad), () => true, bad);
   assert.equal(formatKobo(-12_345n), "-₦123.45");
 });

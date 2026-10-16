@@ -218,3 +218,19 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - **Appeals and disputes** once per decision, decided by an administrator. Rewards can be paused per person.
 - **Figures for administrators** are area-level only; areas with fewer than three reports are not broken out.
 - Pages: `/referrals`, `/rewards`, `/vacancies`, `/admin/rewards`, `/admin/rewards/payouts`, `/admin/referrals`, `/admin/vacancies`.
+
+## Built in Phase 11: plan levels, promotions and the platform rating
+
+- **Levels.** Each plan carries a level: Basic (free), Silver or Gold. A company's level follows its subscription and falls back to Basic
+  when the plan ends. Silver joins promotions free. Gold also gets the Golden badge, a "Premium listing" tag on its properties and a boost.
+- **Boost, kept honest.** Gold listings take one of every three places in search, taking turns day by day, and carry the visible Premium tag.
+  Nothing else about the order changes.
+- **Promotions.** The platform creates campaigns (name, look, dates, fee, biggest discount). A company picks published properties and a
+  reviewed price; the platform approves each one. Basic pays a fee per property, confirmed by hand with a reference before approval
+  (a company that upgrades after asking is not charged). Companies cannot approve their own requests (database policy).
+- **Price display.** The listed price is struck through in red and the reviewed price shown in green with the saving; words ("Was", "now") carry
+  the meaning, not colour alone. A promotion shows only while approved, in its dates, the property published and the listed price unchanged.
+- **Rating prompt.** Members are asked once per interval (administrator sets it, default 30 days), can choose "remind me later" (7 days), and
+  may answer without their name shown. Administrators see averages, spread, monthly trend, paged suggestions, a status and note, and a CSV.
+- Pages: `/app/promotions`, `/admin/promotions`, `/feedback`, `/admin/feedback`.
+- **Not built:** online payment of promotion fees (recorded by hand), email or SMS reminders (the prompt is in-app), per-property boost purchase.

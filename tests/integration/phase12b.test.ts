@@ -36,7 +36,7 @@ async function agentCo(label: string) {
 }
 async function completedSale(co: Ctx, type: "SALE" | "RENT" | "LEASE" = "SALE", place?: { city: string; state: string }) {
   const asset = await createAsset(co, { name: `House ${uid()}`, assetClass: "RESIDENTIAL", category: "Flat", companyRelationship: "OWNER", ...(place ?? {}) } as never);
-  const client = await createClient(co, { name: `Secret Client ${uid()}`, phone: "08030000000" } as never);
+  const client = await createClient(co, { name: `Secret Client ${uid()}`, phone: `0803${Math.floor(1000000 + Math.random() * 8999999)}` } as never);
   const deal = await createDeal(co, { clientId: client.id, assetId: asset.id, type, asking: "50,000,000" });
   await withTenant(co.companyId, co.userId, (tx) => tx.deal.update({ where: { id: deal.id }, data: { stage: "COMPLETED", status: "COMPLETED", agreedKobo: 4_800_000_000n, completedAt: new Date(), completedById: co.membershipId } }));
   return { deal, asset, client };
@@ -197,6 +197,6 @@ test("a completed deal is shown only with authorisation and platform approval, w
 
 async function createDealOpen(co: Ctx) {
   const asset = await createAsset(co, { name: `Open ${uid()}`, assetClass: "RESIDENTIAL", category: "Flat", companyRelationship: "OWNER" });
-  const client = await createClient(co, { name: `Open Client ${uid()}`, phone: "08030000001" } as never);
+  const client = await createClient(co, { name: `Open Client ${uid()}`, phone: `0803${Math.floor(1000000 + Math.random() * 8999999)}` } as never);
   return createDeal(co, { clientId: client.id, assetId: asset.id, type: "SALE", asking: "10,000,000" });
 }

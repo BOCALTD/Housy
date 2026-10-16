@@ -3,6 +3,7 @@ import { requirePlatformAdmin } from "@/lib/auth";
 import { reelQueue } from "@/lib/services/reels";
 import { formatDate } from "@/lib/dates";
 import { Field, Flash, ShowMore, sp, type SP } from "@/components/ui";
+import ReelPlayer from "@/components/ReelPlayer";
 import { decideReportsAction, moderateReelAction } from "./actions";
 
 export const metadata = { title: "Reel moderation" };
@@ -21,7 +22,7 @@ export default async function AdminReelsPage({ searchParams }: { searchParams?: 
           <ShowMore noun="more reels" limit={2} items={q.pending.map((r) => (
             <li key={r.id} style={{ listStyle: "none" }}>
               <div className="stack" style={{ width: "100%" }}>
-                <video className="reel-video" controls playsInline preload="none" src={`/reels/${r.id}/video`} />
+                <ReelPlayer id={r.id} label={r.caption || "Reel to check"} />
                 <div><strong>{r.authorName}</strong> <span className="small muted">{formatDate(r.createdAt)}{r.city ? ` · ${r.city}` : ""}</span></div>
                 {r.caption ? <p style={{ overflowWrap: "anywhere" }}>{r.caption}</p> : null}
                 <form action={moderateReelAction} className="stack"><input type="hidden" name="id" value={r.id} />

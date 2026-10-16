@@ -3,13 +3,14 @@ import type { ReelCard as Card } from "@/lib/services/reels";
 import { formatDate } from "@/lib/dates";
 import { Field, Pill } from "@/components/ui";
 import ShareReel from "@/components/ShareReel";
+import ReelPlayer from "@/components/ReelPlayer";
 import { likeAction, reportAction, saveAction } from "@/app/reels/actions";
 
 /** One reel: the clip, who posted it, and the things a person can do with it. */
 export function ReelView({ r, back, signedIn, detail = false }: { r: Card; back: string; signedIn: boolean; detail?: boolean }) {
   return (
     <article className="card stack reel-card">
-      <video className="reel-video" controls playsInline preload="none" src={`/reels/${r.id}/video`} aria-label={r.caption || "Property reel"} />
+      <ReelPlayer id={r.id} label={r.caption || "Property reel"} />
       <div className="stack" style={{ gap: 4 }}>
         <div className="row between">
           <div><strong>{r.authorName}</strong>{r.companyName ? <span className="small muted"> · {r.companyName}</span> : null}</div>

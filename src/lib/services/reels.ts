@@ -291,7 +291,7 @@ export async function toggleLike(userId: string, reelId: string) {
     else {
       await tx.reelLike.create({ data: { reelId, userId } });
       const n = await tx.reelLike.count({ where: { reelId } });
-      if (r.authorId !== userId && isLikeMilestone(n)) await notify(tx, r.authorId, { kind: "reel", title: n === 1 ? "Someone liked your reel" : `Your reel has ${n} likes`, body: r.caption.slice(0, 120), link: `/reels/${r.id}` });
+      if (r.authorId !== userId && isLikeMilestone(n)) await notify(tx, r.authorId, { kind: "reel", email: false, title: n === 1 ? "Someone liked your reel" : `Your reel has ${n} likes`, body: r.caption.slice(0, 120), link: `/reels/${r.id}` });
     }
     return { liked: !had, count: await tx.reelLike.count({ where: { reelId } }) };
   });

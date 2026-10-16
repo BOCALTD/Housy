@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { enqueueEmail } from "./notifications";
 import type { Prisma } from "@prisma/client";
 import { prisma, withPublic, withTenant, withUser } from "../db";
 import { hashPassword } from "../auth-hash";
@@ -15,6 +16,7 @@ export async function registerSeeker(input: { name: string; email: string; passw
   }).parse(input);
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead.");
   const user = await prisma.user.create({ data: { email: data.email, name: data.name, passwordHash: await hashPassword(data.password) } });
+  await enqueueEmail(prisma, user.id, { kind: "onboarding", template: "welcome", vars: { name: user.name, kind: "seeker" }, dedupeKey: "welcome" });
   return { userId: user.id };
 }
 

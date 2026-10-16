@@ -1274,5 +1274,37 @@ DO $$ BEGIN
 EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: reels are limited to 4 MB'; END $$;
 SELECT set_config('app.platform_admin', '', true);
 
+-- 35. Phase 13: preferences are private; anything may queue an email but only the platform reads or changes the queue; the log is append-only for the app.
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+INSERT INTO notification_prefs (id, user_id, email_promotional, updated_at) VALUES ('np-1', 'u1', true, now());
+INSERT INTO email_outbox (id, user_id, kind, category, template, vars, dedupe_key) VALUES ('eo-1', 'u2', 'message.new', 'ACTIVITY', 'generic', '{}', 'k-1');
+INSERT INTO email_outbox (id, user_id, kind, category, template, vars, dedupe_key) VALUES ('eo-dup', 'u2', 'message.new', 'ACTIVITY', 'generic', '{}', 'k-1') ON CONFLICT DO NOTHING;
+INSERT INTO notification_log (id, user_id, kind, outcome) VALUES ('nl-1', 'u1', 'message.new', 'DEDUPED');
+SELECT pg_temp.expect((SELECT count(*) FROM notification_prefs) = 1, 'a person sees their own preferences');
+SELECT pg_temp.expect((SELECT count(*) FROM email_outbox) = 0, 'a person cannot read the email queue');
+SELECT pg_temp.expect((SELECT count(*) FROM notification_log) = 0, 'a person cannot read the delivery log');
+SELECT set_config('app.user_id', 'u2', true);
+SELECT pg_temp.expect((SELECT count(*) FROM notification_prefs) = 0, 'another person cannot see them');
+SELECT set_config('app.user_id', 'padmin', true);
+SELECT set_config('app.platform_admin', 'on', true);
+SELECT pg_temp.expect((SELECT count(*) FROM email_outbox) = 1, 'the platform sees the queue, and a duplicate key was ignored');
+SELECT pg_temp.expect((SELECT count(*) FROM notification_prefs) = 1, 'the platform can read preferences to decide what to send');
+SELECT pg_temp.expect((SELECT count(*) FROM notification_log) = 1, 'the platform sees the delivery log');
+UPDATE email_outbox SET status = 'SKIPPED', skip_reason = 'test' WHERE id = 'eo-1';
+SELECT set_config('app.platform_admin', '', true);
+SELECT set_config('app.user_id', 'u1', true);
+DO $$ BEGIN
+  UPDATE email_outbox SET status = 'SENT', sent_at = now() WHERE id = 'eo-1';
+  IF FOUND THEN RAISE EXCEPTION 'FAIL: a person changed the queue'; END IF;
+  RAISE NOTICE 'ok: only the platform changes the queue';
+END $$;
+DO $$ BEGIN
+  INSERT INTO notification_prefs (id, user_id, quiet_start, quiet_end, updated_at) VALUES ('np-bad', 'u1', 22, 22, now());
+  RAISE EXCEPTION 'FAIL: bad quiet hours';
+EXCEPTION WHEN check_violation OR insufficient_privilege THEN RAISE NOTICE 'ok: quiet hours must differ and be real'; END $$;
+SELECT set_config('app.user_id', '', true);
+
 SELECT 'ALL RLS CHECKS PASSED' AS result;
 ROLLBACK;

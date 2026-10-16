@@ -14,6 +14,7 @@ export default async function MeLayout({ children }: { children: React.ReactNode
           <Link href="/me/collaborations">Collaborations{incoming > 0 ? ` (${incoming})` : ""}</Link>
           <Link href="/me/following">Following</Link>
           <Link href="/me/notifications">Notifications</Link>
+          <Link href="/me/notification-settings">Email settings</Link>
           <Link href="/me/plan">My plan</Link>
           <Link href="/directory">Find agents and companies</Link>
         </nav>

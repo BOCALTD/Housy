@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { enqueueEmail } from "./notifications";
 import { prisma, withTenant, withInviteToken, withUser } from "../db";
 import { logActivity } from "../audit";
 import { hashPassword } from "../auth-hash";
@@ -41,6 +42,7 @@ export async function registerCompany(input: z.input<typeof registerSchema>) {
       detail: { name: data.companyName },
     });
   });
+  await enqueueEmail(prisma, user.id, { kind: "onboarding", template: "welcome", vars: { name: user.name, kind: "company" }, dedupeKey: "welcome" });
   return { userId: user.id, companyId };
 }
 

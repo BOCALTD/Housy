@@ -4403,3 +4403,82 @@ model SocialReport {
   @@index([status, createdAt])
   @@map("social_reports")
 }
+
+// ---------- Phase 13: notifications and email ----------
+
+enum EmailCategory {
+  ESSENTIAL
+  ACTIVITY
+  PROMOTIONAL
+}
+
+enum EmailStatus {
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+  DEAD
+  SKIPPED
+  HELD
+  DIGESTED
+}
+
+enum DigestMode {
+  INSTANT
+  DAILY
+}
+
+/// What one person wants to receive by email. Optional categories are off until the person turns them on, where consent is needed.
+model NotificationPref {
+  id               String     @id @default(uuid())
+  userId           String     @unique @map("user_id")
+  emailActivity    Boolean    @default(true) @map("email_activity")
+  emailAlerts      Boolean    @default(true) @map("email_alerts")
+  emailPromotional Boolean    @default(false) @map("email_promotional")
+  digest           DigestMode @default(INSTANT)
+  quietStart       Int?       @map("quiet_start")
+  quietEnd         Int?       @map("quiet_end")
+  areas            String[]   @default([])
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  @@map("notification_prefs")
+}
+
+/// An email waiting to go, sent, failed or dropped. Who may receive it is decided when it is processed, not when it is queued.
+model EmailOutbox {
+  id                String        @id @default(uuid())
+  userId            String        @map("user_id")
+  kind              String
+  category          EmailCategory
+  template          String
+  vars              Json
+  dedupeKey         String        @unique @map("dedupe_key")
+  status            EmailStatus   @default(QUEUED)
+  attempts          Int           @default(0)
+  nextAttemptAt     DateTime      @default(now()) @map("next_attempt_at")
+  lastError         String        @default("") @map("last_error")
+  skipReason        String        @default("") @map("skip_reason")
+  provider          String        @default("")
+  providerMessageId String        @default("") @map("provider_message_id")
+  digestId          String?       @map("digest_id")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  sentAt            DateTime?     @map("sent_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, status])
+  @@index([category, createdAt])
+  @@map("email_outbox")
+}
+
+/// A record of what the notification system decided, for the administrator's delivery figures. Append-only.
+model NotificationLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  kind      String
+  outcome   String
+  detail    String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([outcome, createdAt])
+  @@map("notification_log")
+}

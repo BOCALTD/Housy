@@ -48,10 +48,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Known-vulnerability report (warns; blocks only on a new critical advisory outside the known Next.js 14 ones)
-        run: |
-          npm audit --omit=dev --json > audit.json || true
-          node -e "const a=require('./audit.json');let bad=0;for(const [n,v] of Object.entries(a.vulnerabilities||{})){const via=(v.via||[]).filter(x=>typeof x==='object').map(x=>x.title+' '+x.url);console.log('::warning::audit '+n+' '+v.severity+' fix='+JSON.stringify(v.fixAvailable)+' '+via.slice(0,3).join(' | '));if(v.severity==='critical'&&n!=='next')bad++}process.exit(bad?1:0)"
+      - name: Known-vulnerability check (fails on any critical issue in what ships)
+        run: npm audit --omit=dev --audit-level=critical
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -129,4 +127,4 @@ jobs:
           name: package-lock
           path: |
             package-lock.json
-            audit.json
+

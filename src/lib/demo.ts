@@ -36,6 +36,9 @@ import { useOnProject } from "./services/inventory";
 import { addWarranty, decideCompletion, fixDefect, raiseDefect, requestCompletion, tickHandoverItem } from "./services/project-handover";
 import { createTask } from "./services/tasks";
 import { saveListingDraft, setListingStatus, reviewListing, reviewQueue } from "./services/listings";
+import { addListingPhoto } from "./services/listing-photos";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { addDepartment, listDepartments, updateRefPrefix, setMemberDepartment } from "./services/settings";
 import { registerCorrespondence, actOnCorrespondence } from "./services/correspondence";
 import { createPhysicalFile, issuePhysicalFile } from "./services/files";
@@ -120,6 +123,7 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     description: "Demonstration listing. Gated estate, boys' quarters, ample parking.",
   });
   await setListingStatus(alpha, duplex.id, "PENDING_REVIEW");
+  await addListingPhoto(alpha, duplex.id, { type: "image/png", bytes: readFileSync(join(process.cwd(), "prisma/demo-photos/duplex.png")) }, "Front view (demo picture)");
 
   const shop = await createAsset(alpha, {
     name: "[DEMO] Ground-floor shop, Allen Avenue", assetClass: "COMMERCIAL", category: "Shop",
@@ -143,6 +147,7 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     description: "Demonstration listing.",
   });
   await setListingStatus(beta, warehouse.id, "PENDING_REVIEW");
+  await addListingPhoto(beta, warehouse.id, { type: "image/png", bytes: readFileSync(join(process.cwd(), "prisma/demo-photos/warehouse.png")) }, "Front view (demo picture)");
 
   // Correspondence and files.
   const officerUser = await prisma.user.findUniqueOrThrow({ where: { email: "demo.officer@example.test" } });

@@ -589,10 +589,27 @@ model Listing {
   asset       Asset          @relation(fields: [assetId], references: [id], onDelete: Restrict)
   enquiries   Enquiry[]
   adCampaigns AdCampaign[]
+  photos      ListingPhoto[]
 
   @@index([status, city])
   @@index([publishedAt(sort: Desc)])
   @@map("listings")
+}
+
+/// Public photographs of a listing. Position 0 is the cover (the front view). Visible to everyone only while the listing is published.
+model ListingPhoto {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  listingId String   @map("listing_id")
+  mimeType  String   @map("mime_type")
+  bytes     Bytes
+  caption   String   @default("")
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  @@index([listingId, position])
+  @@map("listing_photos")
 }
 
 model Enquiry {

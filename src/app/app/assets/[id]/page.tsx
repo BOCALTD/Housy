@@ -5,6 +5,7 @@ import { getAsset, ASSET_STATUSES, PARTY_RELATIONSHIPS, DOCUMENT_CATEGORIES } fr
 import { FREQUENCIES } from "@/lib/services/leases";
 import { TASK_KINDS, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/services/tasks";
 import { PURPOSES } from "@/lib/services/listings";
+import { MAX_LISTING_PHOTOS, listingPhotosFor } from "@/lib/services/listing-photos";
 import { listTeam } from "@/lib/services/companies";
 import { conditionHistory } from "@/lib/services/inspections";
 import SaveDocument from "@/components/SaveDocument";
@@ -19,7 +20,7 @@ import { can } from "@/lib/permissions";
 import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import {
   addPartyAction, createLeaseAction, createTaskAction, listingStatusAction, recordPaymentAction,
-  saveListingAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
+  addListingPhotoAction, makeCoverPhotoAction, removeListingPhotoAction, saveListingAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
 } from "../actions";
 
 export const metadata = { title: "Asset" };
@@ -42,6 +43,7 @@ export default async function AssetPage({ params, searchParams }: { params: { id
   const works = can(member.role, "project.view") ? await assetProjectHistory(member, asset.id) : null;
   const gaps = await assetCompleteness(member, asset.id);
   const listing = asset.listing;
+  const listingPhotos = listing ? await listingPhotosFor(member, asset.id) : [];
   const hidden = <input type="hidden" name="assetId" value={asset.id} />;
 
   return (
@@ -296,7 +298,38 @@ export default async function AssetPage({ params, searchParams }: { params: { id
                 <p><strong>{listing.title}</strong> · {formatKobo(listing.priceKobo)} · {humanize(listing.purpose)}</p>
                 {listing.status === "PUBLISHED" ? <p className="small">Live at <Link href={`/properties/${listing.publicRef}`} className="mono">/properties/{listing.publicRef}</Link></p> : null}
                 {listing.reviewNote && listing.status === "DRAFT" ? <div className="flash error">Review note: {listing.reviewNote}</div> : null}
-                {can(member.role, "listing.manage") ? (
+                {listing && can(member.role, "listing.manage") ? (
+              <details className="inline">
+                <summary>Photographs ({listingPhotos.length} of {MAX_LISTING_PHOTOS})</summary>
+                <div className="stack">
+                  <p className="small muted">The first picture is the cover: use a clear front view. It is shown on search cards and on promotion flyers. Adding or removing a picture sends a live listing back to review.</p>
+                  {listingPhotos.length > 0 ? (
+                    <ul className="photo-admin">
+                      {listingPhotos.map((ph, n) => (
+                        <li key={ph.id}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`/app/listing-photos/${ph.id}`} alt={ph.caption || `Photograph ${n + 1}`} loading="lazy" />
+                          <span className="small">{n === 0 ? <strong>Cover</strong> : `Picture ${n + 1}`}{ph.caption ? ` · ${ph.caption}` : ""}</span>
+                          <span className="row">
+                            {n > 0 ? <form action={makeCoverPhotoAction}>{hidden}<input type="hidden" name="photoId" value={ph.id} /><button className="btn small" type="submit">Make cover</button></form> : null}
+                            <form action={removeListingPhotoAction}>{hidden}<input type="hidden" name="photoId" value={ph.id} /><button className="btn small danger" type="submit">Remove</button></form>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="muted">No pictures yet.</p>}
+                  {listingPhotos.length < MAX_LISTING_PHOTOS ? (
+                    <form action={addListingPhotoAction} className="stack">
+                      {hidden}
+                      <Field label="Picture" hint="JPG, PNG or WEBP, up to 4 MB."><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required /></Field>
+                      <Field label="Caption (optional)"><input name="caption" maxLength={200} placeholder="Front view" /></Field>
+                      <button className="btn" type="submit">Add photograph</button>
+                    </form>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
+            {can(member.role, "listing.manage") ? (
                   <div className="row">
                     {listing.status === "DRAFT" || listing.status === "UNAVAILABLE" ? (
                       <form action={listingStatusAction}>{hidden}<input type="hidden" name="to" value="PENDING_REVIEW" /><button className="btn primary small" type="submit">Submit for review</button></form>

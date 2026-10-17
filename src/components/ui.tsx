@@ -12,6 +12,12 @@ export function Flash({ searchParams }: { searchParams?: { error?: string; notic
   return null;
 }
 
+/** The cover picture of a property, or the house outline when it has none. */
+export function PropPhoto({ id }: { id?: string | null }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return id ? <img className="prop-photo" src={`/photos/${id}`} alt="" loading="lazy" decoding="async" /> : <HouseIcon />;
+}
+
 export function HouseIcon() {
   return (
     <svg viewBox="0 0 120 80" fill="none" strokeWidth="2.5" strokeLinejoin="round" aria-hidden="true">

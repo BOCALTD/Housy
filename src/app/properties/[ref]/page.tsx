@@ -1,3 +1,5 @@
+import { Carousel } from "@/components/Carousel";
+import { publicPhotosOf } from "@/lib/services/listing-photos";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getPublicListing } from "@/lib/services/listings";
@@ -29,6 +31,7 @@ export default async function PropertyPage({ params, searchParams }: { params: {
   // One visit per visitor per day, remembered as coming from an advert or not, so paid and organic attention can be told apart.
   if (!isBot(ua)) await recordView(listing.id, viewerKeyFor(headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
   const session = await getSession();
+  const photos = await publicPhotosOf(listing.id);
   const watching = session ? await isWatching(session.user.id, listing.id) : false;
   const provider = await getFeaturedProvider();
   const prefs = parsePrefs(cookies().get("pv_pref")?.value);
@@ -42,7 +45,17 @@ export default async function PropertyPage({ params, searchParams }: { params: {
   return (
     <div className="two">
       <article className="card stack">
-        <div className="prop-img" style={{ borderRadius: 10 }}><HouseIcon /></div>
+        {photos.length > 0 ? (
+          <Carousel label="Photographs of this property">
+            {photos.map((ph, n) => (
+              <figure key={ph.id} className="shot">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/photos/${ph.id}`} alt={ph.caption || `${listing.title}, photograph ${n + 1}`} loading={n === 0 ? "eager" : "lazy"} decoding="async" />
+                {ph.caption ? <figcaption className="small muted">{ph.caption}</figcaption> : null}
+              </figure>
+            ))}
+          </Carousel>
+        ) : <div className="prop-img" style={{ borderRadius: 10 }}><HouseIcon /></div>}
         {extras.promo ? <div className="promo-tags"><PromoRibbon name={extras.promo.campaignName} pct={extras.promo.pct} theme={extras.promo.theme} /><PromoEnds endsOn={extras.promo.endsOn} /></div> : null}
         <div className="row">
           <PremiumTag tier={extras.tier} /><GoldBadge tier={extras.tier} />

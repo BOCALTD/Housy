@@ -127,6 +127,7 @@ test("no route hands out data without checking who is asking", () => {
     "app/ads/click/[ref]/route.ts": "an advert click: the service decides whether to charge; the visitor always reaches the property",
     "app/api/webhooks/paystack/route.ts": "verified by the provider's signature",
     "app/reels/[id]/video/route.ts": "the service returns only clips the viewer may see",
+    "app/photos/[id]/route.ts": "pictures of published listings; the database returns nothing for any other listing",
   };
   const AUTH = /getMember|getSession|requireUser|requireMember|requirePlatformAdmin|cronAuthorised|signature/;
   for (const f of files.filter((f) => f.endsWith("/route.ts"))) {

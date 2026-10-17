@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export interface PromoSlide { href: string; title: string; place: string; purpose: string; name: string; tagline: string; pct: number; was: string; now: string; save: string; ends: string; theme: string }
+export interface PromoSlide { href: string; title: string; place: string; purpose: string; name: string; tagline: string; pct: number; photo: string | null; was: string; now: string; save: string; ends: string; theme: string }
 
 const THEME_CLASS: Record<string, string> = { RED: "t-red", GOLD: "t-gold", GREEN: "t-green", PURPLE: "t-purple", BLUE: "t-blue" };
 const PIECES = ["#FFE08A", "#FFFFFF", "#9CD3F5", "#FFB3D1", "#B8F0C8", "#FFD66B"];
@@ -41,18 +41,36 @@ export function PromoSlides({ slides }: { slides: PromoSlide[] }) {
       <div className="slides-track" ref={track} onScroll={onScroll} aria-live={paused || calm ? "polite" : "off"}>
         {slides.map((s, n) => (
           <article key={s.href} className={`slide ${THEME_CLASS[s.theme] ?? "t-red"}`} role="group" aria-roledescription="slide" aria-label={`${n + 1} of ${slides.length}`}>
-            <span className="confetti" aria-hidden="true">
-              {Array.from({ length: 12 }, (_, k) => <i key={k} style={{ "--x": `${(k * 41 + n * 13 + 6) % 96}%`, "--d": `${(k % 6) * -0.8}s`, "--c": PIECES[k % PIECES.length], "--r": `${(k * 47) % 180}deg` } as React.CSSProperties} />)}
-            </span>
-            <div className="slide-copy">
-              <span className="slide-eyebrow">{s.name} · {s.purpose}</span>
-              <h2>{s.title}</h2>
-              <p>{s.place}{s.tagline ? ` · ${s.tagline}` : ""}</p>
-              <span className="slide-price"><span className="sr-only">Was </span><s>{s.was}</s><span className="sr-only"> now </span><b>{s.now}</b></span>
-              <p className="small">You save {s.save}. Offer ends {s.ends}.</p>
-              <Link className="btn" href={s.href}>View this property</Link>
+            <div className="flyer">
+              <div className="flyer-paper">
+                <span className="flyer-bunting" aria-hidden="true" />
+                <span className="tape t1" aria-hidden="true" />
+                <span className="confetti" aria-hidden="true">
+                  {Array.from({ length: 12 }, (_, k) => <i key={k} style={{ "--x": `${(k * 41 + n * 13 + 6) % 96}%`, "--d": `${(k % 6) * -0.8}s`, "--c": PIECES[k % PIECES.length], "--r": `${(k * 47) % 180}deg` } as React.CSSProperties} />)}
+                </span>
+                <div className="flyer-grid">
+                  <figure className="flyer-photo">
+                    {s.photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={s.photo} alt={`Front view of ${s.title}`} loading={n === 0 ? "eager" : "lazy"} decoding="async" />
+                    ) : (
+                      <div className="flyer-nophoto" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6" strokeLinejoin="round"><path d="M3 11 12 4l9 7M6 10v10h12V10" /></svg></div>
+                    )}
+                    <figcaption>{s.photo ? "Front view" : "Photo coming soon"}</figcaption>
+                    <div className="burst" aria-label={`${s.pct} percent off`}><span aria-hidden="true">{s.pct}%<small>OFF</small></span></div>
+                  </figure>
+                  <div className="slide-copy">
+                    <span className="slide-eyebrow">{s.name} · {s.purpose}</span>
+                    <h2>{s.title}</h2>
+                    <p>{s.place}{s.tagline ? ` · ${s.tagline}` : ""}</p>
+                    <span className="slide-price"><span className="sr-only">Was </span><s>{s.was}</s><span className="sr-only"> now </span><b>{s.now}</b></span>
+                    <p className="small">You save {s.save}. Offer ends {s.ends}.</p>
+                    <Link className="btn" href={s.href}>View this property</Link>
+                  </div>
+                </div>
+              </div>
+              <span className="flyer-fold" aria-hidden="true" />
             </div>
-            <div className="burst" aria-label={`${s.pct} percent off`}><span aria-hidden="true">{s.pct}%<small>OFF</small></span></div>
           </article>
         ))}
       </div>

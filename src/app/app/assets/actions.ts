@@ -6,6 +6,7 @@ import { addParty, createAsset, setAssetPosition, updateAssetStatus, uploadDocum
 import { createLease, recordPayment } from "@/lib/services/leases";
 import { createTask, updateTaskStatus } from "@/lib/services/tasks";
 import { saveListingDraft, setListingStatus } from "@/lib/services/listings";
+import { addListingPhoto, makeCoverPhoto, removeListingPhoto } from "@/lib/services/listing-photos";
 
 const assetPath = (id: string) => `/app/assets/${encodeURIComponent(id)}`;
 
@@ -139,5 +140,34 @@ export async function setPositionAction(form: FormData) {
     const clear = form.get("clear") === "1";
     await setAssetPosition(member, id, clear ? null : { lat: str(form, "lat"), lng: str(form, "lng") });
     return withNotice(assetPath(id), clear ? "Map position cleared." : "Map position saved.");
+  });
+}
+
+export async function addListingPhotoAction(form: FormData) {
+  const id = str(form, "assetId");
+  return act(assetPath(id), async () => {
+    const member = await requireMember("listing.manage");
+    const file = form.get("file");
+    if (!(file instanceof File) || file.size === 0) throw new Error("Choose a picture to upload");
+    await addListingPhoto(member, id, { type: file.type, bytes: new Uint8Array(await file.arrayBuffer()) }, str(form, "caption"));
+    return withNotice(assetPath(id), "Photograph added. If the listing was live, it is back in review until it is approved again.");
+  });
+}
+
+export async function removeListingPhotoAction(form: FormData) {
+  const id = str(form, "assetId");
+  return act(assetPath(id), async () => {
+    const member = await requireMember("listing.manage");
+    await removeListingPhoto(member, id, str(form, "photoId"));
+    return withNotice(assetPath(id), "Photograph removed.");
+  });
+}
+
+export async function makeCoverPhotoAction(form: FormData) {
+  const id = str(form, "assetId");
+  return act(assetPath(id), async () => {
+    const member = await requireMember("listing.manage");
+    await makeCoverPhoto(member, id, str(form, "photoId"));
+    return withNotice(assetPath(id), "Cover photograph changed.");
   });
 }

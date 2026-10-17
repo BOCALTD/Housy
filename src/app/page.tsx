@@ -10,7 +10,7 @@ import { homeSections, KIND_LABEL, type Kind } from "@/lib/services/completed";
 import { DoneCard } from "@/components/Done";
 import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "@/components/Promo";
 import { humanize } from "@/lib/labels";
-import { HouseIcon, sp, type SP } from "@/components/ui";
+import { PropPhoto, sp, type SP } from "@/components/ui";
 import { getSession } from "@/lib/auth";
 import { saveSearchAction } from "@/app/me/saved/actions";
 import { headers } from "next/headers";
@@ -53,7 +53,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
       {promoted.length > 0 ? <PromoSlides slides={promoted.slice(0, 8).map((l) => ({
         href: `/properties/${l.publicRef}`, title: l.title, place: `${l.city}, ${l.state}`, purpose: l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`,
         name: l.promo!.campaignName, tagline: l.promo!.tagline, pct: l.promo!.pct, was: formatKobo(l.promo!.originalKobo) + (l.purpose !== "SALE" ? " / year" : ""),
-        now: formatKobo(l.promo!.promoKobo) + (l.purpose !== "SALE" ? " / year" : ""), save: formatKobo(l.promo!.originalKobo - l.promo!.promoKobo), ends: formatDate(l.promo!.endsOn), theme: l.promo!.theme,
+        now: formatKobo(l.promo!.promoKobo) + (l.purpose !== "SALE" ? " / year" : ""), save: formatKobo(l.promo!.originalKobo - l.promo!.promoKobo), ends: formatDate(l.promo!.endsOn), theme: l.promo!.theme, photo: l.coverPhotoId ? `/photos/${l.coverPhotoId}` : null,
       }))} /> : null}
       <SponsoredStrip items={sponsored} where={searching ? "search" : "home"} />
 
@@ -78,7 +78,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
             <div className="grid">
             {gridListings.map((l) => (
               <Link key={l.id} href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
-                <div className="prop-img"><HouseIcon /></div>
+                <div className="prop-img"><PropPhoto id={l.coverPhotoId} /></div>
                 <div className="prop-body">
                   {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}
                   <span className="promo-tags">
@@ -98,7 +98,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
             <Carousel label="Latest listings" few={gridListings.length <= 3}>
             {gridListings.map((l) => (
               <Link key={l.id} href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
-                <div className="prop-img"><HouseIcon /></div>
+                <div className="prop-img"><PropPhoto id={l.coverPhotoId} /></div>
                 <div className="prop-body">
                   {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}
                   <span className="promo-tags">

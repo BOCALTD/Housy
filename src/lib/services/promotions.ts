@@ -1,3 +1,4 @@
+import { coverPhotoIds } from "./listing-photos";
 import { z } from "zod";
 import { prisma, withPlatformAdmin, withPublic, withTenant } from "../db";
 import { logActivity } from "../audit";
@@ -223,7 +224,8 @@ export async function searchListingsRanked(f: SearchFilters) {
   const [tiers, promos] = await Promise.all([tiersFor(rows.map((r) => r.companyId)), livePromos(rows)]);
   const seed = new Date().toISOString().slice(0, 10);
   const ranked = rankListings(rows, (r) => tierPerks(tiers.get(r.companyId) ?? "BASIC").autoBoost, seed);
-  return ranked.map((r) => ({ ...r, tier: tiers.get(r.companyId) ?? ("BASIC" as TierName), promo: promos.get(r.id) ?? null }));
+  const covers = await coverPhotoIds(ranked.map((r) => r.id));
+  return ranked.map((r) => ({ ...r, tier: tiers.get(r.companyId) ?? ("BASIC" as TierName), promo: promos.get(r.id) ?? null, coverPhotoId: covers.get(r.id) ?? null }));
 }
 
 export async function listingExtras(l: { id: string; companyId: string; status: string; priceKobo: bigint }) {

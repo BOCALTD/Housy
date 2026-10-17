@@ -100,8 +100,8 @@ body { background:
 details.inline > summary { transition: color .2s; }
 
 /* Back to top */
-.to-top { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40; width: 48px; height: 48px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; color: #fff; background: var(--grad-primary); box-shadow: var(--shadow-2); opacity: 0; transform: translateY(14px) scale(.9); pointer-events: none; transition: opacity .25s, transform .3s var(--ease-spring); }
-.to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+.to-top { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40; width: 48px; height: 48px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; color: #fff; background: var(--grad-primary); box-shadow: var(--shadow-2); opacity: 0; visibility: hidden; transform: translateY(14px); pointer-events: none; transition: opacity .25s, transform .3s var(--ease-spring), visibility 0s .3s; }
+.to-top.show { opacity: 1; visibility: visible; transform: none; pointer-events: auto; transition-delay: 0s; }
 .to-top svg { width: 20px; height: 20px; }
 @media (prefers-color-scheme: dark) { .to-top { color: #161106; } }
 
@@ -138,4 +138,10 @@ details.inline > summary { transition: color .2s; }
 }
 @media (hover: hover) and (prefers-reduced-motion: reduce) {
   .prop:hover { border-color: var(--gold-2); box-shadow: var(--shadow-2); }
+}
+
+/* People who asked for less motion get no movement at all, including colour fades. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001ms !important; transition-delay: 0s !important; }
 }

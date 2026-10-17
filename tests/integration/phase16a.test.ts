@@ -79,7 +79,7 @@ test("every table that holds company records is walled off, for another company,
   // sessions carries the company the person is browsing as, but belongs to the person; it is checked in the sign-in tests.
   const NOT_COMPANY_OWNED = new Set(["sessions"]);
   // Tables that deliberately show some rows to everyone (published pages and directories). Their rules are checked against the catalogue below.
-  const PUBLIC_BY_DESIGN = new Set(["agent_profiles", "collab_participants", "company_profiles", "company_tiers", "listings"]);
+  const PUBLIC_BY_DESIGN = new Set(["agent_profiles", "collab_participants", "company_profiles", "company_tiers", "listing_photos", "listings"]);
 
   // 1. Row-level security is on for every table, and a table either says who may see it or is on the public list.
   const policies = await prisma.$queryRaw<{ t: string; qual: string | null; cmd: string }[]>`SELECT tablename AS t, qual, cmd FROM pg_policies WHERE schemaname = 'public'`;
@@ -135,6 +135,8 @@ test("every table that holds company records is walled off, for another company,
   // 5. The public sees only published listings, never a draft.
   const listingStatuses = await withPublic((tx) => tx.listing.findMany({ select: { status: true } }));
   assert.ok(listingStatuses.every((l) => l.status === "PUBLISHED"));
+  const photoStatuses = await withPublic((tx) => tx.listingPhoto.findMany({ select: { listing: { select: { status: true } } } }));
+  assert.ok(photoStatuses.every((p) => p.listing.status === "PUBLISHED"));
 });
 
 test("people and sign-in records are not readable across accounts", async () => {

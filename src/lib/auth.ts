@@ -15,7 +15,7 @@ export async function createSession(userId: string, companyId: string | null) {
   const token = newToken();
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 864e5);
   await prisma.session.create({ data: { userId, companyId, tokenHash: hashToken(token), expiresAt } });
-  cookies().set(SESSION_COOKIE, token, {
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -25,19 +25,19 @@ export async function createSession(userId: string, companyId: string | null) {
 }
 
 /** The raw token of the current browser session, used to keep this device signed in when the others are signed out. */
-export function currentSessionToken(): string | null {
-  return cookies().get(SESSION_COOKIE)?.value ?? null;
+export async function currentSessionToken(): Promise<string | null> {
+  return (await cookies()).get(SESSION_COOKIE)?.value ?? null;
 }
 
 export async function destroySession() {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (token) await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } });
-  cookies().delete(SESSION_COOKIE);
+  (await cookies()).delete(SESSION_COOKIE);
 }
 
 /** The current session and user, or null. Cached for the duration of one request. */
 export const getSession = cache(async () => {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
@@ -48,7 +48,7 @@ export const getSession = cache(async () => {
 });
 
 export async function setActiveCompany(companyId: string) {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return;
   await prisma.session.update({ where: { tokenHash: hashToken(token) }, data: { companyId } });
 }

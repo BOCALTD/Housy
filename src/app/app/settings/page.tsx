@@ -8,7 +8,8 @@ import { departmentAction, memberDepartmentAction, prefixAction, reminderSetting
 
 export const metadata = { title: "Company settings" };
 
-export default async function SettingsPage({ searchParams }: { searchParams?: SP }) {
+export default async function SettingsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("settings.manage");
   const [{ company, departments }, team] = await Promise.all([getSettings(member), listTeam(member)]);
   const year = todayInLagos().getUTCFullYear();

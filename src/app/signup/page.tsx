@@ -4,7 +4,8 @@ import { signupAction } from "../auth-actions";
 
 export const metadata = { title: "Register a company" };
 
-export default function SignupPage({ searchParams }: { searchParams?: SP }) {
+export default async function SignupPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   return (
     <div style={{ maxWidth: 520, marginInline: "auto" }} className="stack">
       <div className="stack" style={{ gap: 6 }}>

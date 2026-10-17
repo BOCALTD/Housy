@@ -17,7 +17,8 @@ const VIEWS = ["review", "invoices", "payments", "events"] as const;
 type View = (typeof VIEWS)[number];
 const payTone = (s: string) => (s === "SUCCEEDED" ? "ACTIVE" : s === "FAILED" ? "SUSPENDED" : "PENDING");
 
-export default async function AdminPaymentsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminPaymentsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const view: View = (VIEWS as readonly string[]).includes(sp(searchParams, "view") ?? "") ? (sp(searchParams, "view") as View) : "review";
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);

@@ -24,7 +24,9 @@ function koboToInput(k: bigint | null) {
 
 const STATUS_PILL = { SCHEDULED: "OPEN", SUBMITTED: "PENDING", APPROVED: "APPROVED", CANCELLED: "CANCELLED" } as const;
 
-export default async function InspectionPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function InspectionPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const data = await getInspection(member, params.id);
   if (!data) notFound();

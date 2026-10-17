@@ -6,7 +6,8 @@ import { CollabList } from "@/components/CollabViews";
 export const metadata = { title: "My collaborations" };
 export const dynamic = "force-dynamic";
 
-export default async function MyCollaborationsPage({ searchParams }: { searchParams?: SP }) {
+export default async function MyCollaborationsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const data = await listCollaborations(asPerson(user.id));
   return (

@@ -9,7 +9,8 @@ import { platformResumeAction, platformSuspendAction } from "./actions";
 export const metadata = { title: "Collaborations (platform)" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminCollaborationsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminCollaborationsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const rows = await adminCollaborations(admin.id);
   return (

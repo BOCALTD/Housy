@@ -22,9 +22,9 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  serverExternalPackages: ["@prisma/client", "bcryptjs"],
   experimental: {
     serverActions: { bodySizeLimit: "4.5mb" },
-    serverComponentsExternalPackages: ["@prisma/client", "bcryptjs"],
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

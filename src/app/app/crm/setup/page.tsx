@@ -7,7 +7,8 @@ import { addBranchAction, addSourceAction, addTeamAction, placementAction, sourc
 
 export const metadata = { title: "Sales setup" };
 
-export default async function CrmSetupPage({ searchParams }: { searchParams?: SP }) {
+export default async function CrmSetupPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.configure");
   const d = await getCrmSetup(member);
   const leaders = d.members.filter((m) => m.role !== "VIEWER" && m.role !== "OFFICER");

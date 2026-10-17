@@ -7,7 +7,8 @@ import { switchCompanyAction } from "../../auth-actions";
 
 export const metadata = { title: "Choose a company" };
 
-export default async function SwitchPage({ searchParams }: { searchParams?: SP }) {
+export default async function SwitchPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const companies = await myCompanies(user.id);
   return (

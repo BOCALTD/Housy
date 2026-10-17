@@ -11,7 +11,8 @@ import { addRuleAction, ruleActiveAction } from "./actions";
 
 export const metadata = { title: "Commissions" };
 
-export default async function CommissionsPage({ searchParams }: { searchParams?: SP }) {
+export default async function CommissionsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const [q, rules] = await Promise.all([commissionQueue(member), listCommissionRules(member)]);
   const configure = can(member.role, "crm.configure");

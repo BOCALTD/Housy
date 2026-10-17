@@ -10,7 +10,8 @@ import { createServicePeriodAction } from "./actions";
 
 export const metadata = { title: "Service charges" };
 
-export default async function ServiceChargesPage({ searchParams }: { searchParams?: SP }) {
+export default async function ServiceChargesPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("finance.view");
   const { rows, assets } = await listServicePeriods(member);
   const renderRow = (r: (typeof rows)[number]) => (

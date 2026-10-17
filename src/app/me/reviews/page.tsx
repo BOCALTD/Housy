@@ -10,7 +10,8 @@ import { appealReviewAction } from "../../reviews/actions";
 export const metadata = { title: "My reviews" };
 export const dynamic = "force-dynamic";
 
-export default async function MyReviewsPage({ searchParams }: { searchParams?: SP }) {
+export default async function MyReviewsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const [mine, open] = await Promise.all([myReviews(user.id), reviewableConversations(user.id)]);
   return (

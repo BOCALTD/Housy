@@ -7,7 +7,8 @@ import { EnumOptions, Flash, Pager, Pill, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Assets" };
 
-export default async function AssetsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AssetsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const q = sp(searchParams, "q") ?? "";
   const status = sp(searchParams, "status") ?? "";

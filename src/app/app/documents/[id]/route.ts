@@ -4,7 +4,8 @@ import { can } from "@/lib/permissions";
 import { getDocumentForDownload } from "@/lib/services/assets";
 
 // Documents are only served through this authorized route, never from a public folder.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const member = await getMember();
   if (!member) return new NextResponse("Sign in to download documents.", { status: 401 });
   if (!can(member.role, "document.download")) return new NextResponse("You do not have access to documents.", { status: 403 });

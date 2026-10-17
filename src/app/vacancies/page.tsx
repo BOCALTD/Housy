@@ -10,7 +10,8 @@ import { Flash, Pill, sp, type SP } from "@/components/ui";
 export const metadata = { title: "Report a vacancy" };
 export const dynamic = "force-dynamic";
 
-export default async function VacanciesPage({ searchParams }: { searchParams?: SP }) {
+export default async function VacanciesPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);
   const [v, policies] = await Promise.all([myVacancies(user.id, page), activePolicies(user.id, "VACANCY")]);

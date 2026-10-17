@@ -8,7 +8,9 @@ import { acceptInviteAction } from "../../auth-actions";
 
 export const metadata = { title: "Accept invitation" };
 
-export default async function InvitePage({ params, searchParams }: { params: { token: string }; searchParams?: SP }) {
+export default async function InvitePage({ params: paramsP, searchParams: searchP }: { params: Promise<{ token: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const token = decodeURIComponent(params.token);
   const inv = await findInvitation(token);
   const valid = inv && !inv.acceptedAt && inv.expiresAt > new Date();

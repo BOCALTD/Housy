@@ -18,7 +18,8 @@ function Stars({ name, label, required }: { name: string; label: string; require
   );
 }
 
-export default async function FeedbackPage({ searchParams }: { searchParams?: SP }) {
+export default async function FeedbackPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   await requireUser();
   return (
     <div className="stack-lg" style={{ maxWidth: 640 }}>

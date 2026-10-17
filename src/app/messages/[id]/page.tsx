@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic";
 
 const at = (d: Date) => `${formatDate(d)} ${d.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lagos" })}`;
 
-export default async function ConversationPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function ConversationPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const me = await requireUser();
   const { actor } = await currentActor();
   const before = sp(searchParams, "before");

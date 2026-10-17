@@ -7,7 +7,9 @@ import { CollabWorkspaceView } from "@/components/CollabViews";
 export const metadata = { title: "Collaboration" };
 export const dynamic = "force-dynamic";
 
-export default async function CollaborationPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function CollaborationPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("collab.view");
   const a = asCompany(member);
   let w;

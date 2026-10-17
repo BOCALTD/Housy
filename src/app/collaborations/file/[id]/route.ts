@@ -4,7 +4,8 @@ import { currentActor } from "@/lib/collab-session";
 import { getSharedFile } from "@/lib/services/collab";
 
 // Shared documents are served only through this route, and only to people in the workspace.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   if (!(await getSession())) return new NextResponse("Sign in to view documents.", { status: 401 });
   const { actor } = await currentActor();
   let result;

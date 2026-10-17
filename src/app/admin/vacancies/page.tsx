@@ -11,7 +11,8 @@ import { appealDecisionAction } from "./actions";
 export const metadata = { title: "Vacancy reports" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminVacanciesPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminVacanciesPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const outcome = sp(searchParams, "outcome") ?? "OPEN";
   const stage = sp(searchParams, "stage") ?? "";

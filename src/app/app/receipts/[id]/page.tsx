@@ -9,7 +9,8 @@ import { Pill } from "@/components/ui";
 
 export const metadata = { title: "Receipt" };
 
-export default async function ReceiptPage({ params }: { params: { id: string } }) {
+export default async function ReceiptPage({ params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const member = await requireMember("finance.view");
   const result = await getReceipt(member, params.id);
   if (!result) notFound();

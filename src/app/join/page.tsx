@@ -4,7 +4,8 @@ import { joinAction } from "../auth-actions";
 
 export const metadata = { title: "Create an account" };
 
-export default function JoinPage({ searchParams }: { searchParams?: SP }) {
+export default async function JoinPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   return (
     <div style={{ maxWidth: 520, marginInline: "auto" }} className="stack">
       <div className="stack" style={{ gap: 6 }}>

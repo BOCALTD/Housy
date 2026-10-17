@@ -16,7 +16,8 @@ function lastMonths(n: number): string[] {
   return [...new Set(out)];
 }
 
-export default async function AdminAwardsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminAwardsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const [ov, cfg] = await Promise.all([adminAwardOverview(admin.id), readAwardConfig()]);
   const tone = (s: string) => (s === "PUBLISHED" || s === "FROZEN" ? "ACTIVE" : s === "DRAFT" ? "PENDING" : "SUSPENDED");

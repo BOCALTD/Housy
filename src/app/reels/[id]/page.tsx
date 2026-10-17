@@ -10,7 +10,9 @@ import { commentAction, reportAction } from "../actions";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Reel" };
 
-export default async function ReelPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function ReelPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const session = await getSession();
   const viewerId = session?.user.id ?? null;
   const reel = await getReel(params.id, viewerId);

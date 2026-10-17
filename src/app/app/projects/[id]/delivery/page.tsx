@@ -18,7 +18,9 @@ export const metadata = { title: "Project delivery" };
 const procTone = (s: string) => (s === "DONE" ? "DONE" : s === "LATE" ? "OVERDUE" : s === "DUE_SOON" ? "HIGH" : s === "CANCELLED" ? "CANCELLED" : "OPEN");
 const riskTone = (l: string) => (l === "HIGH" ? "OVERDUE" : l === "MEDIUM" ? "HIGH" : "OPEN");
 
-export default async function DeliveryPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function DeliveryPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("project.view");
   const d = await getProjectDelivery(member, params.id);
   if (!d) notFound();

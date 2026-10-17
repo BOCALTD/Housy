@@ -9,7 +9,8 @@ import { submitReviewAction } from "../actions";
 export const metadata = { title: "Write a review" };
 export const dynamic = "force-dynamic";
 
-export default async function WriteReviewPage({ searchParams }: { searchParams?: SP }) {
+export default async function WriteReviewPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const invite = sp(searchParams, "invite");
   const conversation = sp(searchParams, "conversation");

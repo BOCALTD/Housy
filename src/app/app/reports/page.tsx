@@ -8,7 +8,8 @@ import { Field, Flash, Pager, ShowMore, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Rent reports" };
 
-export default async function ReportsPage({ searchParams }: { searchParams?: SP }) {
+export default async function ReportsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("finance.view");
   const today = todayInLagos();
   let from = parseDateOnly(`${today.getUTCFullYear()}-01-01`);

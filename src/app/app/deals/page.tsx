@@ -8,7 +8,8 @@ import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Deals" };
 
-export default async function DealsPage({ searchParams }: { searchParams?: SP }) {
+export default async function DealsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const status = sp(searchParams, "status") ?? "";
   const stage = sp(searchParams, "stage") ?? "";

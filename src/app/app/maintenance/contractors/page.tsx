@@ -8,7 +8,8 @@ import { createContractorAction, toggleContractorAction } from "../actions";
 
 export const metadata = { title: "Contractors" };
 
-export default async function ContractorsPage({ searchParams }: { searchParams?: SP }) {
+export default async function ContractorsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const rows = await contractorSummary(member);
   const manage = can(member.role, "maintenance.manage");

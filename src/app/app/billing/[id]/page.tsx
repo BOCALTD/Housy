@@ -7,7 +7,9 @@ import { Flash, sp, type SP } from "@/components/ui";
 export const metadata = { title: "Invoice" };
 export const dynamic = "force-dynamic";
 
-export default async function CompanyInvoicePage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function CompanyInvoicePage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const m = await requireMember("billing.view");
   const payer = { userId: m.userId, companyId: m.companyId, role: m.role };
   const invoice = await invoiceFor(payer, params.id);

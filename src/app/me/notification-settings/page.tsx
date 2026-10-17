@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const label = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
-export default async function NotificationSettingsPage({ searchParams }: { searchParams?: SP }) {
+export default async function NotificationSettingsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const p = await getPrefs(user.id);
   return (

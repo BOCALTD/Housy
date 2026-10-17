@@ -12,7 +12,8 @@ import { createFileAction, issueFileAction, returnFileAction } from "./actions";
 
 export const metadata = { title: "Files and deadlines" };
 
-export default async function FilesPage({ searchParams }: { searchParams?: SP }) {
+export default async function FilesPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const view = sp(searchParams, "view") ?? "";
   const q = sp(searchParams, "q") ?? "";

@@ -8,7 +8,8 @@ import { unfollowAction } from "../actions";
 export const metadata = { title: "Following" };
 export const dynamic = "force-dynamic";
 
-export default async function FollowingPage({ searchParams }: { searchParams?: SP }) {
+export default async function FollowingPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const follows = await myFollowing(user.id);
   return (

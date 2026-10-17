@@ -11,7 +11,7 @@ export async function changePasswordAction(form: FormData) {
   return act(BACK, async () => {
     const u = await requireUser();
     if (!(await rateLimit(`pwchange:${u.id}`, 10, 60 * 60 * 1000))) throw new Error("Too many attempts. Try again later.");
-    await changePassword(u.id, str(form, "current"), str(form, "next"), currentSessionToken());
+    await changePassword(u.id, str(form, "current"), str(form, "next"), await currentSessionToken());
     return withNotice(BACK, "Your password was changed. Other devices were signed out.");
   });
 }
@@ -19,7 +19,7 @@ export async function changePasswordAction(form: FormData) {
 export async function signOutOthersAction() {
   return act(BACK, async () => {
     const u = await requireUser();
-    const n = await signOutOtherDevices(u.id, currentSessionToken());
+    const n = await signOutOtherDevices(u.id, await currentSessionToken());
     return withNotice(BACK, n ? `Signed out of ${n} other ${n === 1 ? "device" : "devices"}.` : "No other devices were signed in.");
   });
 }

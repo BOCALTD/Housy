@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 const TABS: { id: Tab; label: string }[] = [{ id: "foryou", label: "For you" }, { id: "following", label: "Following" }, { id: "trending", label: "Popular" }];
 
-export default async function ReelsPage({ searchParams }: { searchParams?: SP }) {
+export default async function ReelsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const session = await getSession();
   const viewerId = session?.user.id ?? null;
   const asked = sp(searchParams, "tab");

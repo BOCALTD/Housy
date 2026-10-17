@@ -12,7 +12,8 @@ import { requestPromoAction, withdrawPromoAction } from "./actions";
 export const metadata = { title: "Promotions" };
 export const dynamic = "force-dynamic";
 
-export default async function PromotionsPage({ searchParams }: { searchParams?: SP }) {
+export default async function PromotionsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("listing.manage");
   const [tier, campaigns, entries, instructions] = await Promise.all([tierOf(member.companyId), openCampaigns(), myPromoEntries(member), readPaymentInstructions()]);
   const perks = tierPerks(tier);

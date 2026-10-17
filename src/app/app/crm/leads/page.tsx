@@ -8,7 +8,8 @@ import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Leads" };
 
-export default async function LeadsPage({ searchParams }: { searchParams?: SP }) {
+export default async function LeadsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const status = sp(searchParams, "status") ?? "";
   const d = await listLeads(member, { status: LEAD_STATUSES.includes(status as never) ? status : undefined, mine: sp(searchParams, "mine") === "1" });

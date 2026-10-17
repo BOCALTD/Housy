@@ -9,7 +9,8 @@ import { createItemAction, decideAdjustmentAction, lookupCodeAction } from "./ac
 
 export const metadata = { title: "Inventory" };
 
-export default async function InventoryPage({ searchParams }: { searchParams?: SP }) {
+export default async function InventoryPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const q = sp(searchParams, "q") ?? "";
   const assetId = sp(searchParams, "assetId") || undefined;

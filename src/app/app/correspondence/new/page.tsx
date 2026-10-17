@@ -10,7 +10,8 @@ import { registerAction } from "../actions";
 
 export const metadata = { title: "Register correspondence" };
 
-export default async function NewCorrespondencePage({ searchParams }: { searchParams?: SP }) {
+export default async function NewCorrespondencePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("correspondence.register");
   const [assets, departments, team] = await Promise.all([
     assetOptions(member), listDepartments(member), listTeam(member),

@@ -12,7 +12,9 @@ import { advanceAction, approveAction, askAction, authoriseAction, declineAction
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Vacancy report" };
 
-export default async function AdminVacancyPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function AdminVacancyPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const r = await getVacancyAdmin(admin.id, params.id);
   if (!r) notFound();

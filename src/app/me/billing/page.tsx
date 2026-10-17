@@ -5,7 +5,8 @@ import { Flash, sp, type SP } from "@/components/ui";
 export const metadata = { title: "Billing" };
 export const dynamic = "force-dynamic";
 
-export default async function MyBillingPage({ searchParams }: { searchParams?: SP }) {
+export default async function MyBillingPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   return (
     <div className="stack-lg">

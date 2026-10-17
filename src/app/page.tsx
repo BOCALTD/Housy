@@ -21,13 +21,14 @@ import { SponsoredStrip } from "@/components/Sponsored";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage({ searchParams }: { searchParams?: SP }) {
+export default async function HomePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const filters = {
     q: sp(searchParams, "q"), purpose: sp(searchParams, "purpose"), city: sp(searchParams, "city"),
     maxPrice: sp(searchParams, "maxPrice"), minBeds: sp(searchParams, "minBeds"),
   };
   const searching = Object.values(filters).some(Boolean);
-  const bot = isBot(headers().get("user-agent"));
+  const bot = isBot((await headers()).get("user-agent"));
   const [listings, done, sponsored] = await Promise.all([searchListingsRanked(filters), homeSections(), sponsoredFor(searching ? "SEARCH_TOP" : "HOME_FEATURED", { filters, bot }).catch(() => [])]);
   const session = searching ? await getSession() : null;
   const promoted = searching ? [] : listings.filter((l) => l.promo);

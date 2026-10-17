@@ -8,7 +8,8 @@ import { requestDisplayAction, withdrawDisplayAction } from "./actions";
 export const metadata = { title: "Completed deals on show" };
 export const dynamic = "force-dynamic";
 
-export default async function CompletedDesk({ searchParams }: { searchParams?: SP }) {
+export default async function CompletedDesk({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.manage");
   const deals = await companyDesk(member);
   const manager = member.role === "COMPANY_SUPER_ADMIN" || member.role === "MANAGER";

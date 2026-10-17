@@ -9,7 +9,8 @@ import { changePasswordAction, disableMfaAction, signOutOthersAction, startMfaAc
 export const metadata = { title: "Security" };
 export const dynamic = "force-dynamic";
 
-export default async function SecurityPage({ searchParams }: { searchParams?: SP }) {
+export default async function SecurityPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const st = await mfaStatus(user.id);
   const pending = st.pending ? await prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { mfaSecret: true } }) : null;

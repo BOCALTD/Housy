@@ -12,7 +12,9 @@ import { appealAction, privacyAction, replyAction, withdrawAction } from "../act
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Vacancy report" };
 
-export default async function VacancyDetailPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function VacancyDetailPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const user = await requireUser();
   const r = await getMyVacancy(user.id, params.id);
   if (!r) notFound();

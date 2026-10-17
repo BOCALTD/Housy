@@ -9,7 +9,8 @@ import { createPayoutAction, failPayoutAction, verifyPayoutAction } from "../act
 export const metadata = { title: "Reward payouts" };
 export const dynamic = "force-dynamic";
 
-export default async function PayoutsPage({ searchParams }: { searchParams?: SP }) {
+export default async function PayoutsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const [{ payouts, owed }, settings] = await Promise.all([adminPayouts(admin.id), readRewardSettings()]);
   const pending = payouts.filter((p) => p.status === "PENDING");

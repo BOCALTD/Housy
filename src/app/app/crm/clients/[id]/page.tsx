@@ -18,7 +18,9 @@ import {
 export const metadata = { title: "Client" };
 const ORDER: LeadStatus[] = ["CONTACTED", "QUALIFIED", "LOST"];
 
-export default async function ClientPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function ClientPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const d = await getClient(member, params.id);
   if (!d) notFound();

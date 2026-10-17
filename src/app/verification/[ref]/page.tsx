@@ -7,7 +7,9 @@ import { withdrawAction } from "./actions";
 
 export const metadata = { title: "Verification request", robots: { index: false } };
 
-export default async function LeadStatusPage({ params, searchParams }: { params: { ref: string }; searchParams?: SP }) {
+export default async function LeadStatusPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ ref: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const token = sp(searchParams, "t") ?? "";
   const lead = await getLeadForVisitor(params.ref, token);
   if (!lead) notFound();

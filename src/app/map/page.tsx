@@ -8,7 +8,8 @@ import { sp, type SP } from "@/components/ui";
 export const metadata = { title: "Properties on the map" };
 export const dynamic = "force-dynamic";
 
-export default async function PublicMapPage({ searchParams }: { searchParams?: SP }) {
+export default async function PublicMapPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const f = { purpose: sp(searchParams, "purpose"), city: sp(searchParams, "city"), maxPrice: sp(searchParams, "maxPrice"), minBeds: sp(searchParams, "minBeds") };
   const r = await publicMapPoints(f);
   return (

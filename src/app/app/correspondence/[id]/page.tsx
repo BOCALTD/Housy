@@ -19,7 +19,9 @@ const KIND_LABELS: Record<string, string> = {
   DISPATCH: "Sent", AWAIT_REPLY: "Awaiting reply", CLOSE: "Closed", NOTE: "Note", ATTACHED: "Attachment added",
 };
 
-export default async function CorrespondenceDetail({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function CorrespondenceDetail({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("correspondence.view");
   const result = await getCorrespondence(member, params.id);
   if (!result) notFound();

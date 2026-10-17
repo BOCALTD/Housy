@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 const WHAT = { ACTIVITY: "activity emails", ALERTS: "property alert emails", PROMOTIONAL: "promotional emails", ALL_OPTIONAL: "all optional emails" } as const;
 
-export default async function UnsubscribePage({ searchParams }: { searchParams?: SP }) {
+export default async function UnsubscribePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const t = sp(searchParams, "t") ?? "";
   const done = sp(searchParams, "done");
   const secret = process.env.UNSUBSCRIBE_SECRET || process.env.APP_DB_PASSWORD || "development-only-secret";

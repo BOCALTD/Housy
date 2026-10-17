@@ -25,7 +25,9 @@ const nairaInput = (kobo: string | undefined) => {
 const pctInput = (bps: string | undefined) => (bps === undefined ? "" : String(Number(bps) / 100));
 const areaInput = (a: string | undefined) => (a === undefined ? "" : String(Number(a) / 100));
 
-export default async function ValuationPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function ValuationPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("valuation.view");
   const data = await getValuation(member, params.id);
   const gaps = data ? await valuationCompleteness(member, params.id) : [];

@@ -8,7 +8,8 @@ import { CollabNewForm } from "@/components/CollabViews";
 export const metadata = { title: "Invite an agent" };
 export const dynamic = "force-dynamic";
 
-export default async function NewSeekerCollaborationPage({ searchParams }: { searchParams?: SP }) {
+export default async function NewSeekerCollaborationPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const agent = sp(searchParams, "agent");
   if (!agent) redirect("/directory?kind=agents");

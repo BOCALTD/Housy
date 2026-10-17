@@ -8,7 +8,8 @@ import { createClientAction } from "../actions";
 
 export const metadata = { title: "Clients" };
 
-export default async function ClientsPage({ searchParams }: { searchParams?: SP }) {
+export default async function ClientsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const q = sp(searchParams, "q") ?? "";
   const archived = sp(searchParams, "archived") === "1";

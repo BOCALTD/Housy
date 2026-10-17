@@ -18,7 +18,9 @@ export const metadata = { title: "Deal" };
 const time = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
 const day = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(d);
 
-export default async function DealPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function DealPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const d = await getDeal(member, params.id);
   if (!d) notFound();

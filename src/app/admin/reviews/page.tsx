@@ -23,7 +23,8 @@ const Moderate = ({ id, actions }: { id: string; actions: ("release" | "hide" | 
     {actions.map((a) => <button key={a} className="btn" type="submit" name="action" value={a}>{humanize(a)}</button>)}</form>
 );
 
-export default async function AdminReviewsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminReviewsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const q = await moderationQueue(admin.id);
   return (

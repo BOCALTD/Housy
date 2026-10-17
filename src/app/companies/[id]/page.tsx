@@ -9,12 +9,15 @@ import { GoldBadge } from "@/components/Promo";
 import { reportReviewAction } from "../../reviews/actions";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata({ params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const c = await publicCompany(params.id);
   return { title: c ? c.displayName : "Company not available" };
 }
 
-export default async function CompanyPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function CompanyPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const company = await publicCompany(params.id);
   if (!company) notFound();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);

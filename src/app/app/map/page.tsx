@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 
 const STATUSES = ["ACTIVE", "VACANT", "OCCUPIED", "UNDER_RENOVATION"] as const;
 
-export default async function AppMapPage({ searchParams }: { searchParams?: SP }) {
+export default async function AppMapPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const layer = sp(searchParams, "layer") === "vacancies" && can(member.role, "map.vacancies") ? "vacancies" : "portfolio";
   const status = sp(searchParams, "status") ?? "";

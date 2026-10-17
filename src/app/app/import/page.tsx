@@ -21,7 +21,8 @@ const Guide = ({ title, cols }: { title: string; cols: typeof ASSET_COLUMNS }) =
   </details>
 );
 
-export default async function ImportPage({ searchParams }: { searchParams?: SP }) {
+export default async function ImportPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("import.manage");
   const batches = await listImports(member);
   return (

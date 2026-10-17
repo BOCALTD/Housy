@@ -12,7 +12,8 @@ export const metadata = { title: "Referrals" };
 export const dynamic = "force-dynamic";
 const AUDIENCES = ["SEEKER", "OWNER", "AGENT", "COMPANY", "DEVELOPER", "VENDOR", "SUBSCRIBER", "LISTING", "OTHER"];
 
-export default async function AdminReferralsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminReferralsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const state = sp(searchParams, "show") === "all" ? "ALL" : "FLAGGED";
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);

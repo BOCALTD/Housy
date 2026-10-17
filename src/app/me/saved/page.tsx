@@ -9,7 +9,8 @@ import { deleteSearchAction, saveSearchAction, toggleAlertsAction, unwatchAction
 export const metadata = { title: "Saved searches and watched properties" };
 export const dynamic = "force-dynamic";
 
-export default async function SavedPage({ searchParams }: { searchParams?: SP }) {
+export default async function SavedPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const [searches, watched] = await Promise.all([mySearches(user.id), myWatched(user.id)]);
   const describe = (s: (typeof searches)[number]) => [s.purpose ? (s.purpose === "SALE" ? "Buy" : humanize(s.purpose)) : "", s.city, s.q ? `"${s.q}"` : "", s.maxKobo ? `up to ₦${Math.round(Number(s.maxKobo) / 100).toLocaleString("en-NG")}` : "", s.minBeds != null ? `${s.minBeds}+ beds` : ""].filter(Boolean).join(" · ");

@@ -11,7 +11,9 @@ import { decideAdjustmentAction, movementAction, requestAdjustmentAction, update
 
 export const metadata = { title: "Inventory item" };
 
-export default async function ItemPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function ItemPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const data = await getItem(member, params.id);
   if (!data) notFound();

@@ -11,7 +11,8 @@ export const metadata = { title: "Sales reports" };
 
 const pct = (bps: number) => `${(bps / 100).toFixed(1)}%`;
 
-export default async function SalesReportsPage({ searchParams }: { searchParams?: SP }) {
+export default async function SalesReportsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.report");
   const today = todayInLagos();
   let from = parseDateOnly(`${today.getUTCFullYear()}-01-01`);

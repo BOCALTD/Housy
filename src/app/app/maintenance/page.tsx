@@ -11,7 +11,8 @@ import { generateAction, reportWorkOrderAction } from "./actions";
 
 export const metadata = { title: "Maintenance" };
 
-export default async function MaintenancePage({ searchParams }: { searchParams?: SP }) {
+export default async function MaintenancePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const [d, inv] = await Promise.all([listMaintenance(member), inventorySummary(member)]);
   const urgent = (w: (typeof d.open)[number]) => w.priority === "EMERGENCY" || w.safetyRisk || w.riskLevel === "CRITICAL";

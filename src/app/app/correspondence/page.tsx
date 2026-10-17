@@ -16,7 +16,8 @@ const VIEWS = [
   { key: "approval", label: "Awaiting approval" },
 ] as const;
 
-export default async function CorrespondencePage({ searchParams }: { searchParams?: SP }) {
+export default async function CorrespondencePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("correspondence.view");
   const view = (sp(searchParams, "view") ?? "") as "" | "mine" | "unassigned" | "overdue" | "approval";
   const q = sp(searchParams, "q") ?? "";

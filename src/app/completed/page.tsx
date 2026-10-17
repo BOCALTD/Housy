@@ -6,7 +6,8 @@ import { DoneCard } from "@/components/Done";
 export const metadata = { title: "Recently sold, rented and leased" };
 export const dynamic = "force-dynamic";
 
-export default async function CompletedPage({ searchParams }: { searchParams?: SP }) {
+export default async function CompletedPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const kind = sp(searchParams, "kind") ?? "";
   const city = sp(searchParams, "city") ?? "";
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);

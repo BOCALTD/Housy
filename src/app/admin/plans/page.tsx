@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 
 const stateTone = (s: string) => (s === "ACTIVE" || s === "TRIAL" ? "ACTIVE" : s === "GRACE" || s === "READ_ONLY" ? "PENDING" : "SUSPENDED");
 
-export default async function PlansPage({ searchParams }: { searchParams?: SP }) {
+export default async function PlansPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const [plans, subs, companies, settings] = await Promise.all([listPlans(admin.id), listSubscriptions(admin.id), companyChoices(admin.id), readSettings()]);
   const planForm = (p?: (typeof plans)[number]) => (

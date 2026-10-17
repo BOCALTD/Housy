@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 
 const STATES = ["PENDING_REVIEW", "APPROVED", "PAUSED", "SUSPENDED", "ENDED", "REJECTED"] as const;
 
-export default async function AdminAdsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminAdsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const [q, cfg] = await Promise.all([adQueue(admin.id, { status: sp(searchParams, "status"), page }), readAdConfig()]);

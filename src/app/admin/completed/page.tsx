@@ -8,7 +8,8 @@ import { reviewDisplayAction } from "./actions";
 export const metadata = { title: "Completed deals to check" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminCompletedPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminCompletedPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const q = await displayQueue(admin.id);
   return (

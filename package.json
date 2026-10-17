@@ -4,11 +4,11 @@
   "private": true,
   "description": "Multi-tenant real estate marketplace and asset management CRM. First end-to-end vertical slice.",
   "engines": {
-    "node": ">=20.11"
+    "node": ">=20.19"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "prisma generate && next build",
+    "dev": "next dev --webpack",
+    "build": "prisma generate && next build --webpack",
     "start": "next start",
     "typecheck": "prisma generate && tsc --noEmit",
     "db:migrate": "DATABASE_URL=\"$MIGRATION_DATABASE_URL\" prisma migrate deploy",
@@ -24,17 +24,17 @@
   "dependencies": {
     "@prisma/client": "5.22.0",
     "bcryptjs": "2.4.3",
-    "next": "14.2.35",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "next": "16.4.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
     "zod": "3.23.8"
   },
   "devDependencies": {
-    "@playwright/test": "1.48.2",
+    "@playwright/test": "1.64.1",
     "@types/bcryptjs": "2.4.6",
     "@types/node": "22.9.0",
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
     "prisma": "5.22.0",
     "tsx": "4.19.2",
     "typescript": "5.6.3"

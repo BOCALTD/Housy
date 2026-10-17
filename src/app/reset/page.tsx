@@ -6,7 +6,8 @@ import { resetAction } from "./actions";
 export const metadata = { title: "Choose a new password" };
 export const dynamic = "force-dynamic";
 
-export default async function ResetPage({ searchParams }: { searchParams?: SP }) {
+export default async function ResetPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const token = sp(searchParams, "t") ?? "";
   const ok = await resetLinkIsValid(token);
   return (

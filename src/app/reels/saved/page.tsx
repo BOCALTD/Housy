@@ -7,7 +7,8 @@ import { ReelView } from "@/components/ReelCard";
 export const metadata = { title: "Saved reels" };
 export const dynamic = "force-dynamic";
 
-export default async function SavedReelsPage({ searchParams }: { searchParams?: SP }) {
+export default async function SavedReelsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const page = Math.max(0, Number.parseInt(sp(searchParams, "page") ?? "0", 10) || 0);
   const saved = await mySaved(user.id, page);

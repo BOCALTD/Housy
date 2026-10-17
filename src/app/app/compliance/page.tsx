@@ -23,7 +23,8 @@ function when(days: number) {
   return `${-days} day${days === -1 ? "" : "s"} ago`;
 }
 
-export default async function CompliancePage({ searchParams }: { searchParams?: SP }) {
+export default async function CompliancePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const [{ items, leadDays, escalationDays }, { open, closed, assets }] = await Promise.all([complianceCalendar(member), listObligations(member)]);
   const todayText = toDateOnlyString(todayInLagos());

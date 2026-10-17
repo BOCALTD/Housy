@@ -9,7 +9,8 @@ import { disputeAction, inviteAction, respondAction, revokeInviteAction } from "
 export const metadata = { title: "Reviews" };
 export const dynamic = "force-dynamic";
 
-export default async function CompanyReviewsPage({ searchParams }: { searchParams?: SP }) {
+export default async function CompanyReviewsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.manage");
   const desk = await companyReviewDesk(member);
   const inviteForm = (basis: "TRANSACTION" | "INSPECTION", ref: string, state: string) => state === "REVIEWED" ? <span className="small muted">Reviewed</span> : (

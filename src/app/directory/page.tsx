@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
 
 const TABS: { kind: DirectoryKind; label: string }[] = [{ kind: "agents", label: "Agents" }, { kind: "companies", label: "Companies" }, { kind: "developers", label: "Developers" }];
 
-export default async function DirectoryPage({ searchParams }: { searchParams?: SP }) {
+export default async function DirectoryPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const session = await getSession();
   const member = session ? await getMember() : null;
   const inviteCompany = !!member && can(member.role, "collab.company");

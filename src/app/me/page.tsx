@@ -10,7 +10,8 @@ import { formatDateTime } from "@/lib/dates";
 export const metadata = { title: "My account" };
 export const dynamic = "force-dynamic";
 
-export default async function MePage({ searchParams }: { searchParams?: SP }) {
+export default async function MePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const [follows, notes, plan, companies] = await Promise.all([myFollowing(user.id), myNotifications(user.id, 30), mySubscription(user.id), myCompanies(user.id)]);
   const unread = notes.filter((n) => !n.readAt);

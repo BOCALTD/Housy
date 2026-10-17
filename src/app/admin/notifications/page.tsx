@@ -9,7 +9,8 @@ import { alertConfigAction, processNowAction, retryAction } from "./actions";
 export const metadata = { title: "Notifications and email" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminNotificationsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminNotificationsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const page = Math.max(0, Number.parseInt(sp(searchParams, "page") ?? "0", 10) || 0);
   const [s, fails, cfg] = await Promise.all([deliveryStats(admin.id, 7), failureList(admin.id, page), readAlertConfig()]);

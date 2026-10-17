@@ -22,7 +22,7 @@ echo "Preparing the database (runtime role, migrations, privileges)"
 npm run db:setup
 echo "Building"
 npx prisma generate
-npx next build
+npx next build --webpack
 
 PREVIOUS=$(readlink -f $ROOT/current || true)
 ln -sfn "$DIR" $ROOT/current.new && mv -T $ROOT/current.new $ROOT/current

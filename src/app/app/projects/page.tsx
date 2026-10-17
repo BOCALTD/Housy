@@ -10,7 +10,8 @@ import { createProjectAction } from "./actions";
 
 export const metadata = { title: "Projects" };
 
-export default async function ProjectsPage({ searchParams }: { searchParams?: SP }) {
+export default async function ProjectsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("project.view");
   const d = await listProjects(member);
   const active = d.rows.filter((r) => r.project.status === "ACTIVE");

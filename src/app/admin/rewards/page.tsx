@@ -13,7 +13,8 @@ import { approveAction, budgetAction, cancelAction, clearAction, disputeDecision
 export const metadata = { title: "Rewards" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminRewardsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminRewardsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const status = (REWARD_STATUSES as readonly string[]).includes(sp(searchParams, "status") ?? "") ? (sp(searchParams, "status") as (typeof REWARD_STATUSES)[number]) : "ELIGIBLE";
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);

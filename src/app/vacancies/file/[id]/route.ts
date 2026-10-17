@@ -4,7 +4,8 @@ import { vacancyPhoto } from "@/lib/services/vacancies";
 
 export const dynamic = "force-dynamic";
 /** A photograph is shown only to the person who took it and to the review team. */
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const s = await getSession();
   if (!s) return new NextResponse("Sign in to view photographs.", { status: 401 });
   const f = await vacancyPhoto(s.user.id, params.id);

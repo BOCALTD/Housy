@@ -8,7 +8,8 @@ import { withdrawAction } from "../actions";
 export const metadata = { title: "My reels" };
 export const dynamic = "force-dynamic";
 
-export default async function MyReelsPage({ searchParams }: { searchParams?: SP }) {
+export default async function MyReelsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const mine = await myReels(user.id);
   return (

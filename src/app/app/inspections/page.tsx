@@ -9,7 +9,8 @@ import { scheduleInspectionAction } from "./actions";
 
 export const metadata = { title: "Inspections" };
 
-export default async function InspectionsPage({ searchParams }: { searchParams?: SP }) {
+export default async function InspectionsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const d = await listInspections(member);
   const row = (i: (typeof d.overdue)[number]) => (

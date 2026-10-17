@@ -5,7 +5,8 @@ import { isCodeShape } from "@/lib/reward-rules";
 export const dynamic = "force-dynamic";
 
 /** A referral link. It counts the visit, remembers the code for 30 days in a first-party cookie, and sends the visitor to sign up. No consent is assumed for anything beyond that one code. */
-export async function GET(req: Request, { params }: { params: { code: string } }) {
+export async function GET(req: Request, { params: paramsP }: { params: Promise<{ code: string }> }) {
+  const params = await paramsP;
   const code = params.code.toUpperCase();
   const to = new URL(new URL(req.url).searchParams.get("for") === "company" ? "/signup" : "/join", req.url);
   const res = NextResponse.redirect(to, 302);

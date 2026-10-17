@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic";
 
 const FILTERS = ["READY", "DUPLICATE", "ERROR", "IMPORTED", "FAILED"] as const;
 
-export default async function ImportBatchPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function ImportBatchPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("import.manage");
   const status = sp(searchParams, "status") ?? "";
   const page0 = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);

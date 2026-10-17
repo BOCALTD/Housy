@@ -4,7 +4,8 @@ import { loginAction } from "../auth-actions";
 
 export const metadata = { title: "Sign in" };
 
-export default function LoginPage({ searchParams }: { searchParams?: SP }) {
+export default async function LoginPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   return (
     <div style={{ maxWidth: 440, marginInline: "auto" }} className="stack">
       <h1>Sign in</h1>

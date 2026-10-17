@@ -9,7 +9,8 @@ import { liftAction, pauseAction, resolveReportAction } from "./actions";
 export const metadata = { title: "Message reports" };
 export const dynamic = "force-dynamic";
 
-export default async function ModerationPage({ searchParams }: { searchParams?: SP }) {
+export default async function ModerationPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const q = await moderationQueue(admin.id);
   return (

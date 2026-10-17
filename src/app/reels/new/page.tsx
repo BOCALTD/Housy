@@ -7,7 +7,8 @@ import { uploadAction } from "../actions";
 export const metadata = { title: "Post a reel" };
 export const dynamic = "force-dynamic";
 
-export default async function NewReelPage({ searchParams }: { searchParams?: SP }) {
+export default async function NewReelPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const c = await listingChoices(user.id);
   return (

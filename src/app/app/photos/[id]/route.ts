@@ -3,7 +3,8 @@ import { getMember } from "@/lib/auth";
 import { getPhotoForDownload } from "@/lib/services/photos";
 
 // Photographs are only served through this authorized route, never from a public folder.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const member = await getMember();
   if (!member) return new NextResponse("Sign in to view photographs.", { status: 401 });
   let result;

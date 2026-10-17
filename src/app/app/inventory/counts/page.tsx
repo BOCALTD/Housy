@@ -9,7 +9,8 @@ import { startCountAction } from "../actions";
 
 export const metadata = { title: "Physical counts" };
 
-export default async function CountsPage({ searchParams }: { searchParams?: SP }) {
+export default async function CountsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const d = await listInventory(member);
   return (

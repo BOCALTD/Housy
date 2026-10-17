@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 // Creating demo data hashes several passwords; allow time for it on serverless hosts.
 export const maxDuration = 60;
 
-export default async function SetupPage({ searchParams }: { searchParams?: SP }) {
+export default async function SetupPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   if (await prisma.user.count({ where: { isPlatformAdmin: true } })) redirect("/login");
   const configured = (process.env.SETUP_TOKEN ?? "").length >= 16;
 

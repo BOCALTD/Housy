@@ -8,7 +8,8 @@ import { Flash, sp, type SP } from "@/components/ui";
 export const metadata = { title: "Messages" };
 export const dynamic = "force-dynamic";
 
-export default async function MessagesPage({ searchParams }: { searchParams?: SP }) {
+export default async function MessagesPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   await requireUser();
   const { actor } = await currentActor();
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);

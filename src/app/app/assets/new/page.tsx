@@ -5,7 +5,8 @@ import { createAssetAction } from "../actions";
 
 export const metadata = { title: "Register an asset" };
 
-export default async function NewAssetPage({ searchParams }: { searchParams?: SP }) {
+export default async function NewAssetPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   await requireMember("asset.create");
   return (
     <div className="stack" style={{ maxWidth: 760 }}>

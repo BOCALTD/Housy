@@ -17,7 +17,8 @@ function pct(a: number, b: number) {
   return b ? `${((a / b) * 100).toFixed(1)}%` : "—";
 }
 
-export default async function AdminPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const [mfa, queue, metrics, providers, leads] = await Promise.all([
     mfaStatus(admin.id),

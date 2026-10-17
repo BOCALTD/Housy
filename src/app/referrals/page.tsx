@@ -13,11 +13,12 @@ import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 export const metadata = { title: "Refer and earn" };
 export const dynamic = "force-dynamic";
 
-export default async function ReferralsPage({ searchParams }: { searchParams?: SP }) {
+export default async function ReferralsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);
   const [r, policies, campaigns] = await Promise.all([myReferrals(user.id, page), activePolicies(user.id, "REFERRAL"), listCampaigns(user.id)]);
-  const h = headers();
+  const h = (await headers());
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host") ?? ""}`;
   const now = new Date();
   const open = campaigns.filter((c) => campaignOpen(c, now));

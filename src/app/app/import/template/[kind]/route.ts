@@ -6,7 +6,8 @@ import { IMPORT_KINDS, templateCsv, type ImportKindName } from "@/lib/import-rul
 export const dynamic = "force-dynamic";
 
 /** A blank spreadsheet with the right headings and one example line. */
-export async function GET(_req: Request, { params }: { params: { kind: string } }) {
+export async function GET(_req: Request, { params: paramsP }: { params: Promise<{ kind: string }> }) {
+  const params = await paramsP;
   const member = await getMember();
   if (!member) return new NextResponse("Sign in first.", { status: 401 });
   if (!can(member.role, "import.manage")) return new NextResponse("Only the company administrator can import records.", { status: 403 });

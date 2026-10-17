@@ -8,7 +8,8 @@ import { completeFollowUpAction, makeLeadFromEnquiryAction } from "./actions";
 
 export const metadata = { title: "Clients and leads" };
 
-export default async function CrmPage({ searchParams }: { searchParams?: SP }) {
+export default async function CrmPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const [o, followUps, enquiries] = await Promise.all([crmOverview(member), myFollowUps(member, 7), can(member.role, "enquiry.view") && can(member.role, "crm.manage") ? pendingEnquiries(member) : Promise.resolve([])]);
   return (

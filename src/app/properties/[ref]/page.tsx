@@ -17,24 +17,27 @@ import { VerifyModal, type ProviderView } from "./VerifyModal";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: { params: { ref: string } }) {
+export async function generateMetadata({ params: paramsP }: { params: Promise<{ ref: string }> }) {
+  const params = await paramsP;
   const l = await getPublicListing(params.ref);
   return { title: l ? l.title : "Property not available" };
 }
 
-export default async function PropertyPage({ params, searchParams }: { params: { ref: string }; searchParams?: SP }) {
+export default async function PropertyPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ ref: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const listing = await getPublicListing(params.ref);
   if (!listing) notFound();
   const extras = await listingExtras(listing);
   const adRef = /^AD-[A-Z0-9]{8}$/.test(sp(searchParams, "ad") ?? "") ? (sp(searchParams, "ad") as string) : null;
-  const ua = headers().get("user-agent") ?? "";
+  const ua = (await headers()).get("user-agent") ?? "";
   // One visit per visitor per day, remembered as coming from an advert or not, so paid and organic attention can be told apart.
-  if (!isBot(ua)) await recordView(listing.id, viewerKeyFor(headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
+  if (!isBot(ua)) await recordView(listing.id, viewerKeyFor((await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
   const session = await getSession();
   const photos = await publicPhotosOf(listing.id);
   const watching = session ? await isWatching(session.user.id, listing.id) : false;
   const provider = await getFeaturedProvider();
-  const prefs = parsePrefs(cookies().get("pv_pref")?.value);
+  const prefs = parsePrefs((await cookies()).get("pv_pref")?.value);
   const autoOpen = !!provider && shouldAutoShow(prefs, listing.purpose) && !sp(searchParams, "notice");
   const providerView: ProviderView | null = provider ? {
     id: provider.id, name: provider.name, shortName: provider.shortName, profile: provider.profile,

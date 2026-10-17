@@ -10,7 +10,8 @@ import { createInstructionAction } from "./actions";
 
 export const metadata = { title: "Valuations" };
 
-export default async function ValuationsPage({ searchParams }: { searchParams?: SP }) {
+export default async function ValuationsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("valuation.view");
   const d = await listValuations(member);
   const manage = can(member.role, "valuation.manage");

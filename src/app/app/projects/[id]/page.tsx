@@ -19,7 +19,9 @@ export const metadata = { title: "Project" };
 const stateTone = (s: string) => (s === "DONE" ? "DONE" : s === "LATE" ? "OVERDUE" : s === "BEHIND" || s === "BLOCKED" ? "HIGH" : "OPEN");
 const nairaInput = (k: bigint) => `${k / 100n}.${String(k % 100n).padStart(2, "0")}`;
 
-export default async function ProjectPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function ProjectPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("project.view");
   const data = await getProject(member, params.id);
   if (!data) notFound();

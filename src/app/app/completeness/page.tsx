@@ -6,7 +6,8 @@ import { Pill, sp, type SP } from "@/components/ui";
 export const metadata = { title: "Missing information" };
 export const dynamic = "force-dynamic";
 
-export default async function CompletenessPage({ searchParams }: { searchParams?: SP }) {
+export default async function CompletenessPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const r = await portfolioCompleteness(member, page);

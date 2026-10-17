@@ -13,7 +13,8 @@ import { Flash, ShowMore, sp, type SP } from "@/components/ui";
 
 export const metadata = { title: "Dashboard" };
 
-export default async function DashboardPage({ searchParams }: { searchParams?: SP }) {
+export default async function DashboardPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember();
   const [d, corr, filesOverdue, expiring, calendar, work] = await Promise.all([
     dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60), complianceCalendar(member), workOverview(member),

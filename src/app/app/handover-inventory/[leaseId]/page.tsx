@@ -12,7 +12,9 @@ export const metadata = { title: "Handover inventory" };
 
 const KIND_TEXT = { SAME: "No change", WORSE: "Condition worse", BETTER: "Condition better", FEWER: "Fewer than at move-in", MORE: "More than at move-in", MISSING: "Missing", NEW: "Not at move-in" } as const;
 
-export default async function HandoverInventoryPage({ params, searchParams }: { params: { leaseId: string }; searchParams?: SP }) {
+export default async function HandoverInventoryPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ leaseId: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const d = await getHandoverInventory(member, params.leaseId);
   if (!d) notFound();

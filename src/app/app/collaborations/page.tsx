@@ -8,7 +8,8 @@ import { CollabList } from "@/components/CollabViews";
 export const metadata = { title: "Collaborations" };
 export const dynamic = "force-dynamic";
 
-export default async function CollaborationsPage({ searchParams }: { searchParams?: SP }) {
+export default async function CollaborationsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("collab.view");
   const data = await listCollaborations(asCompany(member));
   const supervisor = can(member.role, "collab.company");

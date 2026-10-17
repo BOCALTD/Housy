@@ -16,7 +16,9 @@ import { addConversationAction, addDocumentAction, addTaskAction, linkCorrespond
 
 export const metadata = { title: "Deal file" };
 
-export default async function DealFilePage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function DealFilePage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const f = await getDealFile(member, params.id);
   if (!f) notFound();

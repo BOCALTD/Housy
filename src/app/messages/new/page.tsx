@@ -8,7 +8,8 @@ import { startAction } from "../actions";
 export const metadata = { title: "New message" };
 export const dynamic = "force-dynamic";
 
-export default async function NewMessagePage({ searchParams }: { searchParams?: SP }) {
+export default async function NewMessagePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const me = await requireUser();
   const to = sp(searchParams, "to");
   if (!to || to === me.id) redirect("/messages");

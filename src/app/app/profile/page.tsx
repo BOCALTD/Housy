@@ -10,7 +10,8 @@ import { agentProfileAction, companyProfileAction } from "./actions";
 export const metadata = { title: "Public profile and plan" };
 export const dynamic = "force-dynamic";
 
-export default async function ProfilePage({ searchParams }: { searchParams?: SP }) {
+export default async function ProfilePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("crm.view");
   const [{ agent, company }, plan] = await Promise.all([myProfiles(member), companySubscription(member.companyId, member.userId)]);
   const admin = can(member.role, "settings.manage");

@@ -18,20 +18,20 @@ const noAccountHash = () => (dummyHash ??= hashPassword("no-such-account-passwor
 
 /** The first-party cookie /r/CODE sets: "CODE.milliseconds". Read once at sign-up and then cleared. */
 async function takeReferral() {
-  const jar = cookies();
+  const jar = (await cookies());
   const raw = jar.get("ref")?.value ?? "";
   const [code = "", at = ""] = raw.split(".");
   if (raw) jar.set("ref", "", { path: "/", maxAge: 0 });
   return code ? { code, at: Number(at) } : null;
 }
 
-function clientIp() {
-  return headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+async function clientIp() {
+  return (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 }
 
 export async function signupAction(form: FormData) {
   return act("/signup", async () => {
-    if (!(await rateLimit(`signup:${clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
+    if (!(await rateLimit(`signup:${await clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
     const { userId, companyId } = await registerCompany({
       companyName: str(form, "companyName"), name: str(form, "name"),
       email: str(form, "email"), password: str(form, "password"),
@@ -44,7 +44,7 @@ export async function signupAction(form: FormData) {
 
 export async function joinAction(form: FormData) {
   return act("/join", async () => {
-    if (!(await rateLimit(`signup:${clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
+    if (!(await rateLimit(`signup:${await clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
     const { userId } = await registerSeeker({ name: str(form, "name"), email: str(form, "email"), password: str(form, "password") });
     await captureReferral({ id: userId, name: str(form, "name"), email: str(form, "email").toLowerCase() }, "SEEKER", await takeReferral());
     await createSession(userId, null);
@@ -55,7 +55,7 @@ export async function joinAction(form: FormData) {
 export async function loginAction(form: FormData) {
   return act("/login", async () => {
     const email = str(form, "email").toLowerCase();
-    if (!(await rateLimit(`login:${clientIp()}:${email}`, 8, 15 * 60 * 1000))) {
+    if (!(await rateLimit(`login:${await clientIp()}:${email}`, 8, 15 * 60 * 1000))) {
       throw new Error("Too many sign-in attempts. Wait 15 minutes and try again.");
     }
     const user = await prisma.user.findUnique({ where: { email } });

@@ -11,7 +11,9 @@ import { cancelCountAction, decideCountAction, saveCountAction, submitCountActio
 
 export const metadata = { title: "Count sheet" };
 
-export default async function CountPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function CountPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const data = await getCount(member, params.id);
   if (!data) notFound();

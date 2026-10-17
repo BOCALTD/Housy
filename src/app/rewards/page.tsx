@@ -12,7 +12,8 @@ import { disputeRewardAction } from "./actions";
 export const metadata = { title: "My rewards" };
 export const dynamic = "force-dynamic";
 
-export default async function RewardsPage({ searchParams }: { searchParams?: SP }) {
+export default async function RewardsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);
   const r = await myRewards(user.id, page);

@@ -13,7 +13,8 @@ import { decideAction, sortDocumentsAction } from "./actions";
 export const metadata = { title: "Assistant" };
 export const dynamic = "force-dynamic";
 
-export default async function AssistantPage({ searchParams }: { searchParams?: SP }) {
+export default async function AssistantPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("ai.use");
   const q = (sp(searchParams, "q") ?? "").slice(0, 300);
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);

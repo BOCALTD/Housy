@@ -18,7 +18,9 @@ export const metadata = { title: "Completion and handover" };
 const defectTone = (s: string) => (s === "OVERDUE" ? "OVERDUE" : s === "CLOSED" ? "DONE" : s === "AWAITING_VERIFICATION" ? "HIGH" : "OPEN");
 const warrantyTone = (s: string) => (s === "EXPIRED" ? "CANCELLED" : s === "EXPIRING" ? "HIGH" : s === "NOT_STARTED" ? "PENDING" : "DONE");
 
-export default async function HandoverPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function HandoverPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("project.view");
   const d = await getProjectHandover(member, params.id);
   if (!d) notFound();

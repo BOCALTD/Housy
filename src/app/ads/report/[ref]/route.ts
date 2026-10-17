@@ -7,7 +7,8 @@ import { campaignReport, reportCsv } from "@/lib/services/ads";
 export const dynamic = "force-dynamic";
 
 /** A campaign's results as a spreadsheet, for the person who runs it or the platform administrator. */
-export async function GET(_req: Request, { params }: { params: { ref: string } }) {
+export async function GET(_req: Request, { params: paramsP }: { params: Promise<{ ref: string }> }) {
+  const params = await paramsP;
   const s = await getSession();
   if (!s) return new NextResponse("Sign in to download reports.", { status: 401 });
   let r = s.user.isPlatformAdmin ? await campaignReport({ admin: s.user.id }, params.ref) : await campaignReport({ payer: { userId: s.user.id, companyId: null, role: null } }, params.ref);

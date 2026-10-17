@@ -10,7 +10,8 @@ import { intervalAction, reviewRatingAction } from "./actions";
 export const metadata = { title: "Ratings and feedback" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminFeedbackPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminFeedbackPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const status = sp(searchParams, "status") ?? "";

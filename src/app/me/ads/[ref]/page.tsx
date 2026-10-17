@@ -7,7 +7,9 @@ import { Flash, sp, type SP } from "@/components/ui";
 export const metadata = { title: "Campaign" };
 export const dynamic = "force-dynamic";
 
-export default async function MyAdPage({ params, searchParams }: { params: { ref: string }; searchParams?: SP }) {
+export default async function MyAdPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ ref: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const user = await requireUser();
   const payer = { userId: user.id, companyId: null, role: null };
   const r = await campaignReport({ payer }, params.ref);

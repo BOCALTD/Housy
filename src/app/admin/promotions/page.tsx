@@ -11,7 +11,8 @@ import { campaignActiveAction, instructionsAction, paymentAction, reviewPromoAct
 export const metadata = { title: "Promotions" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminPromotionsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminPromotionsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const [campaigns, queue, instructions] = await Promise.all([listCampaigns(), promoQueue(admin.id, "REQUESTED"), readPaymentInstructions()]);
   const form = (c?: (typeof campaigns)[number]) => (

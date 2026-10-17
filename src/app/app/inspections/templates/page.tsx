@@ -8,7 +8,8 @@ import { createTemplateAction, installStartersAction, toggleTemplateAction } fro
 
 export const metadata = { title: "Inspection templates" };
 
-export default async function TemplatesPage({ searchParams }: { searchParams?: SP }) {
+export default async function TemplatesPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const { templates } = await listInspections(member);
   const manage = can(member.role, "inspection.manage");

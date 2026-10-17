@@ -10,7 +10,8 @@ import { saveAiConfigAction } from "./actions";
 export const metadata = { title: "Assistant" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminAiPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminAiPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const [st, audit] = await Promise.all([aiStatus(admin.id), aiAuditForAdmin(admin.id, page)]);

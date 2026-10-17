@@ -9,11 +9,14 @@ import { PlaqueBadge } from "@/components/Awards";
 import { awardDisputeAction } from "../actions";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata({ params }: { params: { month: string } }) {
+export async function generateMetadata({ params: paramsP }: { params: Promise<{ month: string }> }) {
+  const params = await paramsP;
   return { title: `Top Agents, ${/^\d{4}-\d{2}$/.test(params.month) ? monthLabel(params.month) : "month"}` };
 }
 
-export default async function AwardMonthPage({ params, searchParams }: { params: { month: string }; searchParams?: SP }) {
+export default async function AwardMonthPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ month: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(params.month)) notFound();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const [lb, months, session] = await Promise.all([leaderboard(params.month, page), publishedMonths(), getSession()]);

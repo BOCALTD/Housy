@@ -3,7 +3,8 @@ import { getMember } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getCorrespondenceAttachment } from "@/lib/services/correspondence";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const member = await getMember();
   if (!member) return new NextResponse("Sign in to download attachments.", { status: 401 });
   if (!can(member.role, "correspondence.view")) return new NextResponse("You do not have access to correspondence.", { status: 403 });

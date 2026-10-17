@@ -7,7 +7,8 @@ import { CollabNewForm } from "@/components/CollabViews";
 export const metadata = { title: "Invite a company" };
 export const dynamic = "force-dynamic";
 
-export default async function NewCollaborationPage({ searchParams }: { searchParams?: SP }) {
+export default async function NewCollaborationPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("collab.company");
   const companies = await inviteableCompanies(asCompany(member));
   const chosen = companies.find((c) => c.companyId === sp(searchParams, "company"));

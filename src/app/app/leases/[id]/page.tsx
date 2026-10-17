@@ -24,7 +24,9 @@ function koboToInput(k: bigint) {
   return frac === 0n ? whole.toString() : `${whole}.${frac.toString().padStart(2, "0")}`;
 }
 
-export default async function LeasePage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function LeasePage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("finance.view");
   const result = await getLease(member, params.id);
   if (!result) notFound();

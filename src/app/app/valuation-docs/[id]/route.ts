@@ -3,7 +3,8 @@ import { getMember } from "@/lib/auth";
 import { getValuationDocument } from "@/lib/services/valuation";
 
 // Valuation documents are served only through this authorized route.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const member = await getMember();
   if (!member) return new NextResponse("Sign in to view documents.", { status: 401 });
   let result;

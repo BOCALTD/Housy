@@ -10,12 +10,15 @@ import { BadgeRow, ReviewCard, ScoreLine } from "@/components/Reputation";
 import { reportReviewAction } from "../../reviews/actions";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata({ params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const a = await publicAgent(params.id);
   return { title: a ? a.displayName : "Agent not available" };
 }
 
-export default async function AgentPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function AgentPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const agent = await publicAgent(params.id);
   if (!agent) notFound();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);

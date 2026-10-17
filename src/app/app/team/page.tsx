@@ -8,12 +8,13 @@ import { inviteAction, updateMemberAction } from "./actions";
 
 export const metadata = { title: "Team" };
 
-export default async function TeamPage({ searchParams }: { searchParams?: SP }) {
+export default async function TeamPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("team.manage");
   const { members, invitations } = await listTeam(member);
   const invite = sp(searchParams, "invite");
-  const host = headers().get("host") ?? "localhost:3000";
-  const proto = headers().get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const host = (await headers()).get("host") ?? "localhost:3000";
+  const proto = (await headers()).get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const inviteUrl = invite ? `${proto}://${host}/invite/${encodeURIComponent(invite)}` : null;
 
   return (

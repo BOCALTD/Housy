@@ -24,7 +24,9 @@ function koboToInput(k: bigint | null) {
   return frac === 0n ? whole.toString() : `${whole}.${frac.toString().padStart(2, "0")}`;
 }
 
-export default async function WorkOrderPage({ params, searchParams }: { params: { id: string }; searchParams?: SP }) {
+export default async function WorkOrderPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
+  const params = await paramsP;
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const data = await getWorkOrder(member, params.id);
   if (!data) notFound();

@@ -4,7 +4,8 @@ import { forgotAction } from "./actions";
 
 export const metadata = { title: "Forgot your password" };
 
-export default function ForgotPage({ searchParams }: { searchParams?: SP }) {
+export default async function ForgotPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   return (
     <div style={{ maxWidth: 440, marginInline: "auto" }} className="stack">
       <h1>Forgot your password?</h1>

@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
  * An advert was clicked. The visitor always reaches the property. Whether the advertiser is charged is decided by the service: only a
  * live advert, a real person who is not the advertiser's own, and the first click from that visitor today.
  */
-export async function GET(req: Request, { params }: { params: { ref: string } }) {
+export async function GET(req: Request, { params: paramsP }: { params: Promise<{ ref: string }> }) {
+  const params = await paramsP;
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const ua = req.headers.get("user-agent") ?? "";
   const session = await getSession().catch(() => null);

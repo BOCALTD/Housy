@@ -9,7 +9,8 @@ import { formatKobo } from "@/lib/money";
 export const metadata = { title: "Campaign results" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminAdPage({ params }: { params: { ref: string } }) {
+export default async function AdminAdPage({ params: paramsP }: { params: Promise<{ ref: string }> }) {
+  const params = await paramsP;
   const admin = await requirePlatformAdmin();
   const r = await campaignReport({ admin: admin.id }, params.ref);
   if (!r) notFound();

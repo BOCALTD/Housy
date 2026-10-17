@@ -15,7 +15,7 @@ A user from one company cannot reach another company's records. This is enforced
 
 | Layer | Choice |
 |---|---|
-| Web | Next.js 14 (App Router, server actions), React 18, TypeScript |
+| Web | Next.js 16 (App Router, server actions), React 19, TypeScript |
 | Data | PostgreSQL 16, Prisma 5 |
 | Isolation | Application scoping plus PostgreSQL row-level security (`prisma/migrations/*_rls`) |
 | Auth | Email and password (bcrypt), database sessions in an httpOnly cookie |

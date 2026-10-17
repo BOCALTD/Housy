@@ -7,7 +7,8 @@ export const metadata = { title: "Payment" };
 export const dynamic = "force-dynamic";
 
 /** Where the payment provider sends a person back to. The page does not trust the address it was opened with: it asks the provider. */
-export default async function PaymentReturnPage({ searchParams }: { searchParams?: SP }) {
+export default async function PaymentReturnPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const user = await requireUser();
   const ref = sp(searchParams, "ref") ?? "";
   const info = ref ? await returnInfo(user.id, ref) : null;

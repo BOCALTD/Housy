@@ -13,16 +13,16 @@ import { parsePrefs, recordRecommendationEvent, submitLead } from "@/lib/service
 const PREF_COOKIE = "pv_pref";
 const VISITOR_COOKIE = "pv_vid";
 
-function clientKey() {
-  return headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+async function clientKey() {
+  return (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 }
 
 /** An anonymous, random visitor id used only to separate analytics events. Not linked to personal data. */
-function visitorKey() {
-  const existing = cookies().get(VISITOR_COOKIE)?.value;
+async function visitorKey() {
+  const existing = (await cookies()).get(VISITOR_COOKIE)?.value;
   if (existing) return existing;
   const id = randomUUID();
-  cookies().set(VISITOR_COOKIE, id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
+  (await cookies()).set(VISITOR_COOKIE, id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
     secure: process.env.NODE_ENV === "production" });
   return id;
 }
@@ -32,7 +32,7 @@ export async function enquiryAction(form: FormData) {
   const back = `/properties/${encodeURIComponent(ref)}`;
   return act(back, async () => {
     const ad = str(form, "ad");
-    await createEnquiry(ref, { name: str(form, "name"), contact: str(form, "contact"), message: str(form, "message") }, clientKey(), ad ? { adRef: ad, viewerKey: viewerKeyFor(clientKey(), headers().get("user-agent") ?? "") } : undefined);
+    await createEnquiry(ref, { name: str(form, "name"), contact: str(form, "contact"), message: str(form, "message") }, await clientKey(), ad ? { adRef: ad, viewerKey: viewerKeyFor(await clientKey(), (await headers()).get("user-agent") ?? "") } : undefined);
     return withNotice(back, "Your enquiry was sent to the listing company.");
   });
 }
@@ -45,15 +45,15 @@ export async function recommendationEventAction(input: { providerId: string; lis
   if (!allowed.includes(input.event)) return { ok: false };
   const session = await getSession();
   try {
-    await recordRecommendationEvent({ ...input, userId: session?.user.id ?? null, visitorKey: visitorKey() });
+    await recordRecommendationEvent({ ...input, userId: session?.user.id ?? null, visitorKey: await visitorKey() });
   } catch {
     return { ok: false };
   }
   if (input.event === "DECLINED" || input.event === "LATER") {
-    const prefs = parsePrefs(cookies().get(PREF_COOKIE)?.value);
+    const prefs = parsePrefs((await cookies()).get(PREF_COOKIE)?.value);
     if (input.event === "DECLINED") prefs.declinedAt = Date.now();
     else prefs.laterAt = Date.now();
-    cookies().set(PREF_COOKIE, JSON.stringify(prefs), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
+    (await cookies()).set(PREF_COOKIE, JSON.stringify(prefs), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
       secure: process.env.NODE_ENV === "production" });
   }
   return { ok: true };
@@ -67,7 +67,7 @@ export async function submitLeadAction(form: FormData): Promise<{ ok: true; ref:
       providerId: str(form, "providerId"), listingRef: str(form, "listingRef"), name: str(form, "name"),
       contactMethod: str(form, "contactMethod") as never, contactValue: str(form, "contactValue"),
       note: str(form, "note"), consent: str(form, "consent") as never,
-    }, session?.user.id ?? null, clientKey());
+    }, session?.user.id ?? null, await clientKey());
     return { ok: true, ref, statusUrl: `/verification/${ref}?t=${encodeURIComponent(token)}` };
   } catch (err) {
     return { ok: false, error: messageFor(err) };
@@ -75,7 +75,7 @@ export async function submitLeadAction(form: FormData): Promise<{ ok: true; ref:
 }
 
 export async function clearVerificationPrefsAction() {
-  cookies().delete(PREF_COOKIE);
+  (await cookies()).delete(PREF_COOKIE);
 }
 
 export async function watchAction(form: FormData) {

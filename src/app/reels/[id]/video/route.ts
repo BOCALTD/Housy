@@ -4,7 +4,8 @@ import { reelVideo } from "@/lib/services/reels";
 export const dynamic = "force-dynamic";
 
 /** Serves a clip with byte ranges, which iPhones need before they will play or scrub a video. */
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params: paramsP }: { params: Promise<{ id: string }> }) {
+  const params = await paramsP;
   const session = await getSession();
   const v = await reelVideo(params.id, session?.user.id ?? null);
   if (!v) return new Response("Not found", { status: 404 });

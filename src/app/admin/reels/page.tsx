@@ -9,7 +9,8 @@ import { decideReportsAction, moderateReelAction } from "./actions";
 export const metadata = { title: "Reel moderation" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminReelsPage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminReelsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const q = await reelQueue(admin.id);
   return (

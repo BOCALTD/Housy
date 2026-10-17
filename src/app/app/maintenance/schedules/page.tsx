@@ -8,7 +8,8 @@ import { createScheduleAction, toggleScheduleAction } from "../actions";
 
 export const metadata = { title: "Recurring maintenance" };
 
-export default async function SchedulesPage({ searchParams }: { searchParams?: SP }) {
+export default async function SchedulesPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const member = await requireMember("asset.view");
   const { schedules, assets, contractors, members, names } = await listSchedules(member);
   const manage = can(member.role, "maintenance.manage");

@@ -11,7 +11,8 @@ import { adjustAction } from "./actions";
 export const metadata = { title: "Finance" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminFinancePage({ searchParams }: { searchParams?: SP }) {
+export default async function AdminFinancePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
+  const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const ledger = (LEDGERS as readonly string[]).includes(sp(searchParams, "ledger") ?? "") ? sp(searchParams, "ledger")! : "";
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);

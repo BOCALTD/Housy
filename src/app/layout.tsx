@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./polish.css";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { PLATFORM_NAME } from "@/lib/labels";
 import { snoozeAction } from "./feedback/actions";
 import { logoutAction } from "./auth-actions";
 import { NavigationLoader } from "@/components/NavigationLoader";
+import { BackToTop } from "@/components/BackToTop";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -91,6 +93,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </aside>
         ) : null}
         <NavigationLoader />
+        <BackToTop />
         <main id="main" tabIndex={-1}>
           <div className="wrap">{children}</div>
         </main>

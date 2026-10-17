@@ -156,7 +156,7 @@ async function main() {
   const rows: string[] = [];
   for (const prof of PROFILES) {
     const d = devices[prof.device];
-    const context = await browsers[prof.engine].newContext({ ...d });
+    const context = await browsers[prof.engine].newContext({ ...d, reducedMotion: "reduce" });
     // tsx adds a __name helper to functions it compiles; the browser page does not have it.
     await context.addInitScript("window.__name = (f) => f;");
     await context.addCookies([{ name: "sid", value: token, domain: "localhost", path: "/" }]);

@@ -28,8 +28,9 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
   return (
     <div className="stack-lg">
       <section className="hero">
+        <span className="hero-orb a" aria-hidden="true" /><span className="hero-orb b" aria-hidden="true" /><span className="hero-orb c" aria-hidden="true" />
         <p className="eyebrow" style={{ color: "inherit", opacity: .8 }}>Property in Nigeria</p>
-        <h1>Find property, then verify it before you buy.</h1>
+        <h1>Find property, then <em className="hl">verify it before you buy.</em></h1>
         <p>Every listing here is submitted by a registered company and reviewed before it is published.</p>
         <form className="search" role="search" aria-label="Search properties">
           <input name="city" defaultValue={filters.city ?? ""} placeholder="City, area or state" aria-label="Location" />
@@ -44,6 +45,23 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
         <p className="small" style={{ margin: 0 }}><Link href="/find" style={{ color: "inherit", textDecoration: "underline" }}>Describe what you want in a sentence</Link> · <Link href="/map" style={{ color: "inherit", textDecoration: "underline" }}>See properties on a map</Link></p>
       </section>
 
+      {(() => {
+        const promoted = listings.filter((l) => l.promo);
+        if (promoted.length === 0) return null;
+        const pieces = ["#FFE08A", "#FFFFFF", "#9CD3F5", "#FFB3D1", "#B8F0C8", "#FFD66B"];
+        return (
+          <section className="festive" aria-label="Offers on now">
+            <span className="confetti" aria-hidden="true">
+              {Array.from({ length: 16 }, (_, i) => <i key={i} style={{ "--x": `${(i * 37 + 5) % 96}%`, "--d": `${(i % 8) * -0.65}s`, "--c": pieces[i % pieces.length], "--r": `${(i * 53) % 180}deg` } as React.CSSProperties} />)}
+            </span>
+            <div className="festive-text">
+              <strong>Festive offers are on</strong>
+              <p>{promoted.length === 1 ? "One property has" : `${promoted.length} properties have`} a promotion right now. Prices below already show the discount and what you save.</p>
+            </div>
+            <span className="festive-pill">{promoted[0].promo!.campaignName}</span>
+          </section>
+        );
+      })()}
       <SponsoredStrip items={sponsored} where={searching ? "search" : "home"} />
 
       <section className="stack">
@@ -65,7 +83,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
         ) : (
           <div className="grid">
             {listings.map((l) => (
-              <Link key={l.id} href={`/properties/${l.publicRef}`} className="prop">
+              <Link key={l.id} href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
                 <div className="prop-img"><HouseIcon /></div>
                 <div className="prop-body">
                   {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}

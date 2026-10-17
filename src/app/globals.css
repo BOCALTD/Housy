@@ -286,3 +286,9 @@ input[type="file"]::file-selector-button { min-height: 32px; margin-right: 10px;
 .barrow { display: grid; grid-template-columns: minmax(90px, 160px) 1fr auto; gap: 10px; align-items: center; }
 .barrow > span:last-child { font-variant-numeric: tabular-nums; }
 @media (max-width: 520px) { .barrow { grid-template-columns: 1fr auto; } .barrow .bar { grid-column: 1 / -1; order: 3; } }
+
+.loader { min-height: 50vh; display: flex; align-items: center; justify-content: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .loader svg { animation: loader-pulse 1.4s ease-in-out infinite; }
+  @keyframes loader-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.92); opacity: .7; } }
+}

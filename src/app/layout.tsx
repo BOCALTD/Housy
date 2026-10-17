@@ -11,8 +11,11 @@ import { snoozeAction } from "./feedback/actions";
 import { logoutAction } from "./auth-actions";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: { default: PLATFORM_NAME, template: `%s · ${PLATFORM_NAME}` },
   description: "Discover verified property and manage property portfolios in one place.",
+  openGraph: { type: "website", siteName: PLATFORM_NAME, title: PLATFORM_NAME, description: "Discover verified property and manage property portfolios in one place." },
+  twitter: { card: "summary_large_image", title: PLATFORM_NAME },
 };
 
 export const viewport: Viewport = {

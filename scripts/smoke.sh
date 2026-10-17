@@ -16,6 +16,15 @@ curl -s http://localhost:3100/ | grep -q "DEMO" || fail "home page does not list
 [ "$(code /join)" = "200" ] || fail "/join returned $(code /join)"
 [ "$(code /directory)" = "200" ] || fail "/directory returned $(code /directory) for a signed-out visitor"
 [ "$(code /me)" = "307" ] || fail "/me returned $(code /me) for a signed-out visitor (expected 307)"
+# Brand images: tab icon, home-screen icon, and the picture shown when a link is shared
+for spec in "/icon.svg:image/svg" "/apple-icon.png:image/png" "/opengraph-image:image/png" "/twitter-image:image/png"; do
+  path=${spec%%:*}; type=${spec#*:}
+  ct=$(curl -s -o /tmp/brand.bin -w '%{http_code} %{content_type}' "http://localhost:3100$path")
+  case "$ct" in "200 $type"*) ;; *) fail "$path did not return $type ($ct)";; esac
+  [ -s /tmp/brand.bin ] || fail "$path is empty"
+done
+curl -s http://localhost:3100/ | grep -q 'property="og:image"' || fail "home page has no og:image tag"
+curl -s http://localhost:3100/ | grep -q 'rel="icon"' || fail "home page has no icon link"
 REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)
 [ -n "$REF" ] || fail "no property link on the home page"
 curl -s "http://localhost:3100/$REF" | grep -q "Verify this property" || fail "$REF has no verification link"

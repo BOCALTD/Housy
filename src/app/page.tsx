@@ -16,6 +16,7 @@ import { saveSearchAction } from "@/app/me/saved/actions";
 import { headers } from "next/headers";
 import { sponsoredFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
+import { ModeSwitch } from "@/components/ModeSwitch";
 import { SponsoredStrip } from "@/components/Sponsored";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
 
   return (
     <div className="stack-lg">
+      <ModeSwitch active="listings" />
       <section className="hero">
         <span className="hero-orb a" aria-hidden="true" /><span className="hero-orb b" aria-hidden="true" /><span className="hero-orb c" aria-hidden="true" />
         <HeroRotator />

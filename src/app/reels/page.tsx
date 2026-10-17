@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { discover, type Tab } from "@/lib/services/reels";
 import { Flash, sp, type SP } from "@/components/ui";
+import { ModeSwitch } from "@/components/ModeSwitch";
 import { ReelView } from "@/components/ReelCard";
 
 export const metadata = { title: "Reels" };
@@ -19,6 +20,7 @@ export default async function ReelsPage({ searchParams }: { searchParams?: SP })
   const here = `/reels?tab=${tab}&page=${page}`;
   return (
     <div className="stack-lg">
+      <ModeSwitch active="reels" />
       <div className="stack" style={{ gap: 6 }}>
         <h1>Reels</h1>
         <p className="muted">Short videos of homes and neighbourhoods from agents. What you see first comes from people you follow and from what others find useful. Paying for a plan or a promotion does not move a reel up.</p>

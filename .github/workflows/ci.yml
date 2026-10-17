@@ -51,7 +51,7 @@ jobs:
       - name: Known-vulnerability check (fails on critical issues in what ships)
         run: |
           set -o pipefail
-          npm audit --omit=dev --audit-level=critical 2>&1 | tee audit.txt
+          npm audit --omit=dev --audit-level=critical 2>&1 | tee audit.txt || { grep -E 'critical|Severity|^[a-z@]' audit.txt | head -25 | while read -r l; do echo "::error::audit: $l"; done; exit 1; }
 
       - name: Generate Prisma client
         run: npx prisma generate

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PromoSlides } from "@/components/PromoSlides";
+import { HeroRotator } from "@/components/HeroRotator";
+import { Carousel } from "@/components/Carousel";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { PURPOSES } from "@/lib/services/listings";
@@ -34,9 +36,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
     <div className="stack-lg">
       <section className="hero">
         <span className="hero-orb a" aria-hidden="true" /><span className="hero-orb b" aria-hidden="true" /><span className="hero-orb c" aria-hidden="true" />
-        <p className="eyebrow" style={{ color: "inherit", opacity: .8 }}>Property in Nigeria</p>
-        <h1>Find property, then <em className="hl">verify it before you buy.</em></h1>
-        <p>Every listing here is submitted by a registered company and reviewed before it is published.</p>
+        <HeroRotator />
         <form className="search" role="search" aria-label="Search properties">
           <input name="city" defaultValue={filters.city ?? ""} placeholder="City, area or state" aria-label="Location" />
           <select name="purpose" defaultValue={filters.purpose ?? ""} aria-label="Purpose">
@@ -74,7 +74,8 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
         {listings.length === 0 ? (
           <div className="card"><p className="muted">{searching ? "No published properties match that search. Try a wider area or a higher price." : "No properties have been published yet."}</p></div>
         ) : (
-          <div className="grid">
+          searching ? (
+            <div className="grid">
             {gridListings.map((l) => (
               <Link key={l.id} href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
                 <div className="prop-img"><HouseIcon /></div>
@@ -92,7 +93,28 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
                 </div>
               </Link>
             ))}
-          </div>
+            </div>
+          ) : (
+            <Carousel label="Latest listings" few={gridListings.length <= 3}>
+            {gridListings.map((l) => (
+              <Link key={l.id} href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
+                <div className="prop-img"><HouseIcon /></div>
+                <div className="prop-body">
+                  {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}
+                  <span className="promo-tags">
+                    <span className="pill brand">{l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`}</span>
+                    <PremiumTag tier={l.tier} /><GoldBadge tier={l.tier} />
+                  </span>
+                  <strong>{l.title}</strong>
+                  <PriceBlock priceKobo={l.priceKobo} promo={l.promo} suffix={l.purpose !== "SALE" ? " / year" : ""} />
+                  <span className="small muted">
+                    {[l.bedrooms != null ? `${l.bedrooms} bed` : null, l.bathrooms != null ? `${l.bathrooms} bath` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ")}
+                  </span>
+                </div>
+              </Link>
+            ))}
+            </Carousel>
+          )
         )}
       </section>
       {(Object.keys(KIND_LABEL) as Kind[]).some((k) => done[k].length) ? (

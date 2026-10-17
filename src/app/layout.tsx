@@ -9,6 +9,7 @@ import { feedbackDue } from "@/lib/services/feedback";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { snoozeAction } from "./feedback/actions";
 import { logoutAction } from "./auth-actions";
+import { NavigationLoader } from "@/components/NavigationLoader";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -89,6 +90,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </aside>
         ) : null}
+        <NavigationLoader />
         <main id="main" tabIndex={-1}>
           <div className="wrap">{children}</div>
         </main>

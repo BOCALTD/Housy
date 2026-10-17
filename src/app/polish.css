@@ -145,3 +145,4 @@ details.inline > summary { transition: color .2s; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001ms !important; transition-delay: 0s !important; }
 }
+@media (prefers-reduced-motion: reduce) { .confetti i { top: auto; bottom: 6px; } }

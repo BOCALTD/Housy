@@ -13,17 +13,7 @@ export const metadata = { title: "Service charges" };
 export default async function ServiceChargesPage({ searchParams }: { searchParams?: SP }) {
   const member = await requireMember("finance.view");
   const { rows, assets } = await listServicePeriods(member);
-  return (
-    <div className="stack-lg">
-      <div className="stack" style={{ gap: 6 }}>
-        <h1>Service charges</h1>
-        <p className="muted">Each period has a budget, shared between the tenants. What is collected goes into a fund that is kept apart from rent.</p>
-      </div>
-      <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
-      {rows.length === 0 ? <p className="muted">No service charge periods yet.</p> : (
-        <div className="card">
-          <div className="stack">
-            {rows.map((r) => (
+  const renderRow = (r: (typeof rows)[number]) => (
               <div key={r.period.id} className="row between">
                 <div>
                   <Link href={`/app/service-charges/${r.period.id}`}><strong>{r.period.name}</strong></Link>
@@ -34,7 +24,24 @@ export default async function ServiceChargesPage({ searchParams }: { searchParam
                   <Pill status={r.period.status === "OPEN" ? "OPEN" : "ACTIVE"} label={r.period.status === "OPEN" ? "Not yet shared" : "Shared"} />
                 </div>
               </div>
-            ))}
+  );
+  return (
+    <div className="stack-lg">
+      <div className="stack" style={{ gap: 6 }}>
+        <h1>Service charges</h1>
+        <p className="muted">Each period has a budget, shared between the tenants. What is collected goes into a fund that is kept apart from rent.</p>
+      </div>
+      <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+      {rows.length === 0 ? <p className="muted">No service charge periods yet.</p> : (
+        <div className="card">
+          <div className="stack">
+            {rows.slice(0, 6).map(renderRow)}
+            {rows.length > 6 ? (
+              <details className="inline">
+                <summary>Show {rows.length - 6} more periods</summary>
+                <div className="stack">{rows.slice(6).map(renderRow)}</div>
+              </details>
+            ) : null}
           </div>
         </div>
       )}

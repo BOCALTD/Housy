@@ -48,6 +48,15 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Known-vulnerability check (fails on critical issues in what ships)
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Keep the lockfile this install produced
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json
+
       - name: Generate Prisma client
         run: npx prisma generate
 

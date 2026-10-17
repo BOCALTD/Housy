@@ -3,11 +3,31 @@ import { getMember, requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { asCompany, pendingIncoming } from "@/lib/services/collab";
+import { MoreMenu } from "@/components/MoreMenu";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   await requireUser();
   const member = await getMember();
   const incoming = member && can(member.role, "collab.view") ? await pendingIncoming(asCompany(member)).catch(() => 0) : 0;
+  const r = member?.role;
+  const menu: [string, string, boolean][] = r ? [
+    ["/app", "Dashboard", true], ["/app/assets", "Assets", true],
+    ["/app/crm", "Clients", can(r, "crm.view")], ["/app/deals", "Deals", can(r, "crm.view")], ["/app/sales", "Sales", can(r, "crm.view")],
+    ["/app/correspondence", "Correspondence", true], ["/app/service-charges", "Service charges", can(r, "finance.view")],
+    ["/app/inspections", "Inspections", true], ["/app/maintenance", "Maintenance", true], ["/app/inventory", "Inventory", true],
+    ["/app/projects", "Projects", can(r, "project.view")], ["/app/valuations", "Valuations", can(r, "valuation.view")],
+    ["/app/compliance", "Compliance", true], ["/app/reports", "Reports", can(r, "finance.view")], ["/app/files", "Files", true],
+    ["/app/collaborations", `Collaborations${incoming > 0 ? ` (${incoming})` : ""}`, can(r, "collab.view")],
+    ["/app/reviews", "Reviews", can(r, "crm.manage")], ["/app/completed", "Completed deals", can(r, "crm.manage")],
+    ["/app/promotions", "Promotions", can(r, "listing.manage")], ["/app/profile", "Public profile", can(r, "crm.view")],
+    ["/app/analytics", "Analytics", true], ["/app/map", "Map", true], ["/app/assistant", "Assistant", can(r, "ai.use")],
+    ["/app/billing", "Billing", can(r, "billing.view")], ["/app/ads", "Advertising", can(r, "billing.view")],
+    ["/app/import", "Bring in records", can(r, "import.manage")], ["/app/team", "Team", can(r, "team.manage")],
+    ["/app/settings", "Settings", can(r, "settings.manage")], ["/app/switch", "Switch company", true],
+  ] : [];
+  const shown = menu.filter((m) => m[2]);
+  const head = shown.slice(0, 6);
+  const rest = shown.slice(6);
   return (
     <div className="stack-lg">
       {member ? (
@@ -16,36 +36,13 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
             <strong>{member.companyName}</strong>
             <span className="small muted"> · {member.userName}, {ROLE_LABELS[member.role]}</span>
           </div>
-          <nav className="nav nav-scroll" aria-label="Workspace">
-            <Link href="/app">Dashboard</Link>
-            <Link href="/app/assets">Assets</Link>
-            {can(member.role, "crm.view") ? <Link href="/app/crm">Clients</Link> : null}
-            {can(member.role, "crm.view") ? <Link href="/app/deals">Deals</Link> : null}
-            {can(member.role, "crm.view") ? <Link href="/app/sales">Sales</Link> : null}
-            <Link href="/app/correspondence">Correspondence</Link>
-            {can(member.role, "finance.view") ? <Link href="/app/service-charges">Service charges</Link> : null}
-            <Link href="/app/inspections">Inspections</Link>
-            <Link href="/app/maintenance">Maintenance</Link>
-            <Link href="/app/inventory">Inventory</Link>
-            {can(member.role, "project.view") ? <Link href="/app/projects">Projects</Link> : null}
-            {can(member.role, "valuation.view") ? <Link href="/app/valuations">Valuations</Link> : null}
-            <Link href="/app/compliance">Compliance</Link>
-            {can(member.role, "finance.view") ? <Link href="/app/reports">Reports</Link> : null}
-            <Link href="/app/files">Files</Link>
-            {can(member.role, "collab.view") ? <Link href="/app/collaborations">Collaborations{incoming > 0 ? ` (${incoming})` : ""}</Link> : null}
-            {can(member.role, "crm.manage") ? <Link href="/app/reviews">Reviews</Link> : null}
-            {can(member.role, "crm.manage") ? <Link href="/app/completed">Completed deals</Link> : null}
-            {can(member.role, "listing.manage") ? <Link href="/app/promotions">Promotions</Link> : null}
-            {can(member.role, "crm.view") ? <Link href="/app/profile">Public profile</Link> : null}
-            <Link href="/app/analytics">Analytics</Link>
-            <Link href="/app/map">Map</Link>
-            {can(member.role, "ai.use") ? <Link href="/app/assistant">Assistant</Link> : null}
-            {can(member.role, "billing.view") ? <Link href="/app/billing">Billing</Link> : null}
-            {can(member.role, "billing.view") ? <Link href="/app/ads">Advertising</Link> : null}
-            {can(member.role, "import.manage") ? <Link href="/app/import">Bring in records</Link> : null}
-            {can(member.role, "team.manage") ? <Link href="/app/team">Team</Link> : null}
-            {can(member.role, "settings.manage") ? <Link href="/app/settings">Settings</Link> : null}
-            <Link href="/app/switch">Switch company</Link>
+          <nav className="nav workspace-nav" aria-label="Workspace">
+            {head.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
+            {rest.length > 0 ? (
+              <MoreMenu label={`More (${rest.length})`}>
+                {rest.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
+              </MoreMenu>
+            ) : null}
           </nav>
         </div>
       ) : null}

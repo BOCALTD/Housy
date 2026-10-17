@@ -44,6 +44,8 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
         <div className="stat"><b>{d.enquiries30d}</b><span>Enquiries, last 30 days</span></div>
       </section>
 
+      <details className="inline more-figures">
+        <summary>More figures: letters, deadlines, files, projects</summary>
       <section className="stats" aria-label="Administration alerts">
         <Link href="/app/correspondence?view=overdue" className={`stat${corr.overdue ? " alert" : ""}`} style={{ textDecoration: "none" }}>
           <b>{corr.overdue}</b><span>Overdue correspondence replies</span>
@@ -101,6 +103,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: S
           ) : null}
         </section>
       ) : null}
+      </details>
 
       <div className="two">
         <section className="card">

@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { PromoSlides } from "@/components/PromoSlides";
+import { formatKobo } from "@/lib/money";
+import { formatDate } from "@/lib/dates";
 import { PURPOSES } from "@/lib/services/listings";
 import { searchListingsRanked } from "@/lib/services/promotions";
 import { homeSections, KIND_LABEL, type Kind } from "@/lib/services/completed";
@@ -24,6 +27,8 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
   const bot = isBot(headers().get("user-agent"));
   const [listings, done, sponsored] = await Promise.all([searchListingsRanked(filters), homeSections(), sponsoredFor(searching ? "SEARCH_TOP" : "HOME_FEATURED", { filters, bot }).catch(() => [])]);
   const session = searching ? await getSession() : null;
+  const promoted = searching ? [] : listings.filter((l) => l.promo);
+  const gridListings = searching ? listings : listings.filter((l) => !l.promo);
 
   return (
     <div className="stack-lg">
@@ -45,23 +50,11 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
         <p className="small" style={{ margin: 0 }}><Link href="/find" style={{ color: "inherit", textDecoration: "underline" }}>Describe what you want in a sentence</Link> · <Link href="/map" style={{ color: "inherit", textDecoration: "underline" }}>See properties on a map</Link></p>
       </section>
 
-      {(() => {
-        const promoted = listings.filter((l) => l.promo);
-        if (promoted.length === 0) return null;
-        const pieces = ["#FFE08A", "#FFFFFF", "#9CD3F5", "#FFB3D1", "#B8F0C8", "#FFD66B"];
-        return (
-          <section className="festive" aria-label="Offers on now">
-            <span className="confetti" aria-hidden="true">
-              {Array.from({ length: 16 }, (_, i) => <i key={i} style={{ "--x": `${(i * 37 + 5) % 96}%`, "--d": `${(i % 8) * -0.65}s`, "--c": pieces[i % pieces.length], "--r": `${(i * 53) % 180}deg` } as React.CSSProperties} />)}
-            </span>
-            <div className="festive-text">
-              <strong>Festive offers are on</strong>
-              <p>{promoted.length === 1 ? "One property has" : `${promoted.length} properties have`} a promotion right now. Prices below already show the discount and what you save.</p>
-            </div>
-            <span className="festive-pill">{promoted[0].promo!.campaignName}</span>
-          </section>
-        );
-      })()}
+      {promoted.length > 0 ? <PromoSlides slides={promoted.slice(0, 8).map((l) => ({
+        href: `/properties/${l.publicRef}`, title: l.title, place: `${l.city}, ${l.state}`, purpose: l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`,
+        name: l.promo!.campaignName, tagline: l.promo!.tagline, pct: l.promo!.pct, was: formatKobo(l.promo!.originalKobo) + (l.purpose !== "SALE" ? " / year" : ""),
+        now: formatKobo(l.promo!.promoKobo) + (l.purpose !== "SALE" ? " / year" : ""), save: formatKobo(l.promo!.originalKobo - l.promo!.promoKobo), ends: formatDate(l.promo!.endsOn), theme: l.promo!.theme,
+      }))} /> : null}
       <SponsoredStrip items={sponsored} where={searching ? "search" : "home"} />
 
       <section className="stack">
@@ -82,7 +75,7 @@ export default async function HomePage({ searchParams }: { searchParams?: SP }) 
           <div className="card"><p className="muted">{searching ? "No published properties match that search. Try a wider area or a higher price." : "No properties have been published yet."}</p></div>
         ) : (
           <div className="grid">
-            {listings.map((l) => (
+            {gridListings.map((l) => (
               <Link key={l.id} href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
                 <div className="prop-img"><HouseIcon /></div>
                 <div className="prop-body">

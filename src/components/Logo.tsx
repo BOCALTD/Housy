@@ -2,10 +2,10 @@
 export function LogoMark({ size = 48 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <rect width="64" height="64" rx="14" fill="#14284B" />
+      <rect width="64" height="64" rx="14" fill="#A3162D" />
       <path d="M12 31 32 14l20 17" fill="none" stroke="#FFFFFF" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M18 29v21h28V29" fill="none" stroke="#FFFFFF" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <rect x="27" y="36" width="10" height="14" rx="2" fill="#C9A24A" />
+      <rect x="27" y="36" width="10" height="14" rx="2" fill="#FFC94D" />
     </svg>
   );
 }

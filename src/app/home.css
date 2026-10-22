@@ -357,3 +357,30 @@ body.no-scroll { overflow: hidden; }
   .top .top-nav.open form, .top .top-nav.open form .btn { width: 100%; }
   .top .top-nav.open form .btn { min-height: 44px; justify-content: flex-start; }
 }
+
+/* Finishing touches: hover and focus states for the side menu and portal pages.
+   Hover styles only where a pointer can hover; movement only when the person has not asked for less motion. */
+.shell-link { position: relative; }
+.shell-link.active::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--primary); }
+.shell-link:focus-visible, .shell-group > summary:focus-visible, .shell-open:focus-visible, .shell-close:focus-visible, .top-toggle:focus-visible, .portal-tile:focus-visible, .job-row:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 70%, transparent); outline-offset: 2px; }
+.shell-side { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.portal-kpis .kpi { box-shadow: 0 1px 2px rgba(17, 24, 39, .04); }
+.portal-tile { box-shadow: 0 1px 2px rgba(17, 24, 39, .04); }
+@media (hover: hover) {
+  .shell-link:hover svg { color: var(--primary-text); }
+  .shell-link.active:hover { background: color-mix(in srgb, var(--primary) 26%, transparent); }
+  .shell-open:hover, .top-toggle:hover { border-color: var(--primary); }
+  .shell-close:hover { background: var(--surface-2); }
+  .portal-tile:hover { box-shadow: 0 14px 30px -18px rgba(17, 24, 39, .45); }
+  .portal-kpis .kpi:hover { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); }
+  .job-row:hover { background: var(--surface-2); }
+  .job-row:hover strong { color: var(--primary-text); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .shell-link, .shell-group > summary, .shell-open, .top-toggle, .portal-tile, .portal-kpis .kpi, .job-row { transition: background-color .18s ease, border-color .18s ease, box-shadow .22s ease, transform .22s ease, color .18s ease; }
+  .shell-link svg { transition: transform .22s ease, color .18s ease; }
+  .shell-link:hover svg { transform: translateX(2px); }
+  .portal-tile:hover { transform: translateY(-3px); }
+  .shell-group > summary::after { transition: transform .2s ease; }
+}
+.job-row { border-radius: 8px; padding-inline: 8px; margin-inline: -8px; }

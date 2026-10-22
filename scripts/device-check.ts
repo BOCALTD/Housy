@@ -34,7 +34,7 @@ async function shot(page: import("@playwright/test").Page, opts: Parameters<impo
 }
 
 // Pages that get a screenshot on the profiles that take them.
-const SHOT_PATTERNS = ["/", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline"];
+const SHOT_PATTERNS = ["/", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline", "/me", "/admin", "/app/crm", "/app/deals", "/app/projects/:id", "/app/valuations/:id", "/app/team", "/app/settings", "/app/reports", "/app/analytics", "/app/files", "/app/correspondence"];
 
 interface Issue { kind: string; page: string; profile: string; detail: string; items: string[] }
 const issues: Issue[] = [];
@@ -178,7 +178,7 @@ async function main() {
       try {
         const res = await page.goto(`${BASE}${p}`, { waitUntil: "networkidle", timeout: 30000 });
         if (!res || res.status() >= 400) add("http", `status ${res?.status()}`);
-        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") || p.startsWith("/reels") || p.startsWith("/awards") || p.startsWith("/completed") || p.startsWith("/admin")) {
+        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") || p.startsWith("/reels") || p.startsWith("/awards") || p.startsWith("/completed") || p.startsWith("/admin") || p.startsWith("/portal")) {
           const r = await inspect(page, touch);
           if (!/width=device-width/.test(r.viewport)) add("viewport", `viewport meta is "${r.viewport}"`);
           if (r.overflow > 1) add("sideways-scroll", `page is ${r.overflow}px wider than the screen`, r.wide);
@@ -235,6 +235,17 @@ async function main() {
             await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}__${t}.png` });
           }
         } else if (wantShot) await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
+        // The side menu as a drawer: open it on phones and tablets and photograph it.
+        if (prof.shots && touch && pattern(p) === "/app") {
+          const opener = page.locator(".shell-open");
+          if (await opener.isVisible()) {
+            await opener.click();
+            await page.waitForTimeout(400);
+            if (!(await page.locator(".shell-side").isVisible())) add("drawer", "the side menu did not open");
+            await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__app_drawer.png` });
+            await page.keyboard.press("Escape");
+          }
+        }
       } catch (e) {
         add("load-failed", String(e).slice(0, 200));
       }

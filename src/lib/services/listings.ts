@@ -276,3 +276,10 @@ export async function createEnquiry(publicRef: string, input: z.input<typeof enq
   });
   try { await notifyEnquiry(listing, data.name, data.message); } catch (e) { console.error("enquiry notice failed", e); }
 }
+
+/** Published listings by reference, in the order given (for the comparison page). */
+export async function publicListingsByRefs(refs: string[]) {
+  if (!refs.length) return [];
+  const rows = await withPublic((tx) => tx.listing.findMany({ where: { publicRef: { in: refs }, status: "PUBLISHED" } }));
+  return refs.map((r) => rows.find((x) => x.publicRef === r)).filter((x): x is NonNullable<typeof x> => !!x);
+}

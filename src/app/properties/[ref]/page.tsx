@@ -1,3 +1,4 @@
+import { CompareToggle } from "@/components/Compare";
 import { AMENITIES, CONDITIONS, CONSTRUCTION, FURNISHING, PROPERTY_TYPES, TITLE_DOCUMENTS, isCode, parseAmenities } from "@/lib/listing-rules";
 import Link from "next/link";
 import { priceSuffix } from "@/lib/listing-rules";
@@ -42,6 +43,10 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   if (!isBot(ua)) await recordView(listing.id, viewerKeyFor((await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
   const session = await getSession();
   const photos = await publicPhotosOf(listing.id);
+  const naira = (k: bigint | null) => (k == null ? "" : String(k / 100n));
+  const calcHref = listing.purpose === "SALE"
+    ? `/calculators?tab=purchase&price=${naira(listing.priceKobo)}`
+    : `/calculators?tab=movein&yearlyRent=${naira(listing.pricePeriod === "MONTH" ? listing.priceKobo * 12n : listing.priceKobo)}${listing.serviceChargeKobo != null ? `&serviceCharge=${naira(listing.serviceChargeKobo)}` : ""}`;
   const pics = photos.filter((p) => p.kind !== "FLOOR_PLAN");
   const plans = photos.filter((p) => p.kind === "FLOOR_PLAN");
   const [trust, company] = await Promise.all([companyTrust(listing.companyId), withPublic((tx) => tx.companyProfile.findFirst({ where: { companyId: listing.companyId, listed: true }, select: { displayName: true } }))]);
@@ -135,6 +140,10 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
       </article>
 
       <aside className="card stack">
+        <div className="row">
+          <CompareToggle refId={listing.publicRef} />
+          <Link className="btn" href={calcHref}>{listing.purpose === "SALE" ? "Work out buying costs" : "Work out move-in costs"}</Link>
+        </div>
         <div className="stack" style={{ gap: 6 }}>
           <p className="eyebrow">Listed by</p>
           {company ? <Link className="tap" href={`/companies/${listing.companyId}`}><strong>{company.displayName}</strong></Link> : <strong>A registered company</strong>}

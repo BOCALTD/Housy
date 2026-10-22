@@ -6,6 +6,7 @@ import { decorateListings } from "@/lib/services/promotions";
 import { verifiedCompanyIds } from "@/lib/services/kyc";
 import { saveSearchAction } from "@/app/me/saved/actions";
 import { ListingCard } from "./ListingCard";
+import { CompareToggle } from "./Compare";
 import { SponsoredStrip } from "./Sponsored";
 import { sponsoredFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
@@ -105,7 +106,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
         ) : <p className="small muted"><Link href="/login">Sign in</Link> to save this search and be told about new matches.</p>}
         {rows.length === 0 ? (
           <div className="card stack"><p className="muted">No published properties match these filters yet.</p><p><Link href={basePath}>Clear the filters</Link> or <Link href="/browse">search everything</Link>.</p></div>
-        ) : <div className="grid">{rows.map((l) => <ListingCard key={l.id} l={l} />)}</div>}
+        ) : <div className="grid">{rows.map((l) => <div key={l.id} className="card-wrap"><ListingCard l={l} /><CompareToggle refId={l.publicRef} compact /></div>)}</div>}
         <Pager page={f.page - 1} total={page.total} pageSize={SEARCH_PAGE} noun="properties" href={(p) => href({ page: p > 0 ? p + 1 : undefined })} />
       </section>
     </div>

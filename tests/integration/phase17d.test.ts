@@ -7,7 +7,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { prisma, withTenant } from "../../src/lib/db";
 import { createAsset } from "../../src/lib/services/assets";
-import { categoryCounts, reviewListing, saveListingDraft, searchListingsPage, setListingStatus } from "../../src/lib/services/listings";
+import { categoryCounts, publicListingsByRefs, reviewListing, saveListingDraft, searchListingsPage, setListingStatus } from "../../src/lib/services/listings";
 import { decideKyc, submitCompanyKyc, verifiedCompanyIds } from "../../src/lib/services/kyc";
 import { categoryBySlug, CATEGORIES, parseFilters } from "../../src/lib/listing-rules";
 import { PDF_BYTES, newCompany, newPlatformAdmin } from "./helpers";
@@ -67,6 +67,11 @@ test("listing details: saved, validated, filtered and categorised", async () => 
   const verified = await verifiedCompanyIds();
   assert.ok(verified.includes(a.companyId));
   assert.equal((await ids("", undefined, verified)).length, 4);
+
+  // Comparison: published listings only, in the order asked for.
+  const draft = await withTenant(a.companyId, a.userId, (tx) => tx.listing.findFirstOrThrow({ where: { title: `Draft ${tag}` } }));
+  const cmp = await publicListingsByRefs([land.l.publicRef, draft.publicRef, duplex.l.publicRef]);
+  assert.deepEqual(cmp.map((l) => l.id), [land.l.id, duplex.l.id]);
 
   const counts = await categoryCounts(CATEGORIES);
   assert.ok(counts["short-let"] >= 1);

@@ -14,6 +14,7 @@ import { logoutAction } from "./auth-actions";
 import { NavigationLoader } from "@/components/NavigationLoader";
 import { BackToTop } from "@/components/BackToTop";
 import { SiteFooter } from "@/components/SiteFooter";
+import { CompareBar } from "@/components/Compare";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -95,6 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : null}
         <NavigationLoader />
         <BackToTop />
+        <CompareBar />
         <main id="main" tabIndex={-1}>
           <div className="wrap">{children}</div>
         </main>

@@ -220,10 +220,14 @@ export async function livePromos(listings: { id: string; status: string; priceKo
 
 /** Search results with their tier and live promotion attached, Gold listings lifted as the ranking rules say. */
 export async function searchListingsRanked(f: SearchFilters) {
-  const rows = await searchListings(f);
+  return decorateListings(await searchListings(f), true);
+}
+
+/** Add each listing's plan level, live promotion and cover photograph. With rank, Gold listings are lifted as the ranking rules say. */
+export async function decorateListings<T extends { id: string; companyId: string; status: string; priceKobo: bigint; publishedAt: Date | null }>(rows: T[], rank: boolean) {
   const [tiers, promos] = await Promise.all([tiersFor(rows.map((r) => r.companyId)), livePromos(rows)]);
   const seed = new Date().toISOString().slice(0, 10);
-  const ranked = rankListings(rows, (r) => tierPerks(tiers.get(r.companyId) ?? "BASIC").autoBoost, seed);
+  const ranked = rank ? rankListings(rows, (r) => tierPerks(tiers.get(r.companyId) ?? "BASIC").autoBoost, seed) : rows;
   const covers = await coverPhotoIds(ranked.map((r) => r.id));
   return ranked.map((r) => ({ ...r, tier: tiers.get(r.companyId) ?? ("BASIC" as TierName), promo: promos.get(r.id) ?? null, coverPhotoId: covers.get(r.id) ?? null }));
 }

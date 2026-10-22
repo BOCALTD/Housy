@@ -17,7 +17,7 @@ async function listingOf(tx: Tx, ctx: Ctx, assetId: string) {
   return listing;
 }
 
-export async function addListingPhoto(ctx: Ctx, assetId: string, file: { type: string; bytes: Uint8Array }, caption: string) {
+export async function addListingPhoto(ctx: Ctx, assetId: string, file: { type: string; bytes: Uint8Array }, caption: string, kind: "PHOTO" | "FLOOR_PLAN" = "PHOTO") {
   assertCan(ctx, "listing.manage");
   if (!IMAGE_TYPES.includes(file.type)) throw new Error("Upload a JPG, PNG or WEBP picture");
   validateUpload(file.type, file.bytes);
@@ -27,7 +27,7 @@ export async function addListingPhoto(ctx: Ctx, assetId: string, file: { type: s
     const existing = await tx.listingPhoto.findMany({ where: { listingId: listing.id }, select: { position: true }, orderBy: { position: "desc" } });
     if (existing.length >= MAX_LISTING_PHOTOS) throw new Error(`A listing can have up to ${MAX_LISTING_PHOTOS} photographs. Remove one first.`);
     const photo = await tx.listingPhoto.create({
-      data: { companyId: ctx.companyId, listingId: listing.id, mimeType: file.type, bytes: Buffer.from(file.bytes), caption: note, position: existing.length ? existing[0].position + 1 : 0 },
+      data: { companyId: ctx.companyId, listingId: listing.id, kind: kind === "FLOOR_PLAN" ? "FLOOR_PLAN" : "PHOTO", mimeType: file.type, bytes: Buffer.from(file.bytes), caption: note, position: existing.length ? existing[0].position + 1 : 0 },
       select: { id: true },
     });
     await backToReview(tx, listing);
@@ -54,6 +54,7 @@ export async function makeCoverPhoto(ctx: Ctx, assetId: string, photoId: string)
     const listing = await listingOf(tx, ctx, assetId);
     const all = await tx.listingPhoto.findMany({ where: { listingId: listing.id }, select: { id: true }, orderBy: { position: "asc" } });
     if (!all.some((p) => p.id === photoId)) throw new Error("Photograph not found");
+    if ((await tx.listingPhoto.findFirst({ where: { id: photoId }, select: { kind: true } }))?.kind === "FLOOR_PLAN") throw new Error("A floor plan cannot be the cover photograph");
     const order = [photoId, ...all.map((p) => p.id).filter((id) => id !== photoId)];
     for (let i = 0; i < order.length; i++) await tx.listingPhoto.update({ where: { id: order[i] }, data: { position: i } });
     await backToReview(tx, listing);
@@ -66,14 +67,14 @@ export async function listingPhotosFor(ctx: Ctx, assetId: string) {
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const listing = await tx.listing.findFirst({ where: { assetId, companyId: ctx.companyId }, select: { id: true } });
     if (!listing) return [];
-    return tx.listingPhoto.findMany({ where: { listingId: listing.id }, select: { id: true, caption: true, position: true }, orderBy: { position: "asc" } });
+    return tx.listingPhoto.findMany({ where: { listingId: listing.id }, select: { id: true, caption: true, position: true, kind: true }, orderBy: { position: "asc" } });
   });
 }
 
 /** The cover photograph of each listing, for cards. Only published listings are visible to the public. */
 export async function coverPhotoIds(listingIds: string[]) {
   if (listingIds.length === 0) return new Map<string, string>();
-  const rows = await withPublic((tx) => tx.listingPhoto.findMany({ where: { listingId: { in: listingIds } }, select: { id: true, listingId: true }, orderBy: { position: "asc" } }));
+  const rows = await withPublic((tx) => tx.listingPhoto.findMany({ where: { listingId: { in: listingIds }, kind: "PHOTO" }, select: { id: true, listingId: true }, orderBy: { position: "asc" } }));
   const out = new Map<string, string>();
   for (const r of rows) if (!out.has(r.listingId)) out.set(r.listingId, r.id);
   return out;
@@ -82,7 +83,7 @@ export async function coverPhotoIds(listingIds: string[]) {
 /** Cover photographs looked up by public reference (for search results and sponsored cards). */
 export async function coverPhotoIdsByRef(refs: string[]) {
   if (refs.length === 0) return new Map<string, string>();
-  const rows = await withPublic((tx) => tx.listingPhoto.findMany({ where: { listing: { publicRef: { in: refs } } }, select: { id: true, listing: { select: { publicRef: true } } }, orderBy: { position: "asc" } }));
+  const rows = await withPublic((tx) => tx.listingPhoto.findMany({ where: { listing: { publicRef: { in: refs } }, kind: "PHOTO" }, select: { id: true, listing: { select: { publicRef: true } } }, orderBy: { position: "asc" } }));
   const out = new Map<string, string>();
   for (const r of rows) if (!out.has(r.listing.publicRef)) out.set(r.listing.publicRef, r.id);
   return out;
@@ -95,7 +96,7 @@ export async function ownListingPhotoBytes(ctx: Ctx, id: string) {
 
 /** All photographs of a published listing, in order. */
 export async function publicPhotosOf(listingId: string) {
-  return withPublic((tx) => tx.listingPhoto.findMany({ where: { listingId }, select: { id: true, caption: true }, orderBy: { position: "asc" } }));
+  return withPublic((tx) => tx.listingPhoto.findMany({ where: { listingId }, select: { id: true, caption: true, kind: true }, orderBy: { position: "asc" } }));
 }
 
 /** One picture for the public route. Row-level security returns nothing unless its listing is published. */

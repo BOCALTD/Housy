@@ -8,7 +8,7 @@ import { runAi, type Deps } from "./ai";
  * The assistant turns the sentence into search settings; the platform's own query and scoring do the finding and ranking.
  */
 
-export interface Found { listing: { publicRef: string; title: string; description: string; city: string; state: string; purpose: string; priceKobo: bigint; bedrooms: number | null; bathrooms: number | null }; score: number; reasons: string[]; misses: string[]; exact: boolean }
+export interface Found { listing: { publicRef: string; title: string; description: string; city: string; state: string; purpose: string; pricePeriod: string; priceKobo: bigint; bedrooms: number | null; bathrooms: number | null }; score: number; reasons: string[]; misses: string[]; exact: boolean }
 export interface SmartResult { understood: SearchIntent; found: Found[]; source: "AI" | "RULES"; notice: string; nothingUnderstood: boolean }
 
 const SYSTEM = `${SAFETY_RULES}
@@ -45,7 +45,7 @@ export async function smartSearch(text: string, visitorKey: string, deps?: Deps)
   }));
   const scored: Found[] = rows.map((l) => {
     const m = matchScore(l, want);
-    return { listing: { publicRef: l.publicRef, title: l.title, description: l.description, city: l.city, state: l.state, purpose: l.purpose, priceKobo: l.priceKobo, bedrooms: l.bedrooms, bathrooms: l.bathrooms }, score: m.score, reasons: m.reasons, misses: m.misses, exact: m.misses.length === 0 };
+    return { listing: { publicRef: l.publicRef, title: l.title, description: l.description, city: l.city, state: l.state, purpose: l.purpose, pricePeriod: l.pricePeriod, priceKobo: l.priceKobo, bedrooms: l.bedrooms, bathrooms: l.bathrooms }, score: m.score, reasons: m.reasons, misses: m.misses, exact: m.misses.length === 0 };
   });
   const exact = scored.filter((x) => x.exact).sort((a, b) => b.score - a.score);
   const near = scored.filter((x) => !x.exact && x.score >= 40).sort((a, b) => b.score - a.score);

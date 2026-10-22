@@ -2,8 +2,9 @@ import Link from "next/link";
 import { PropPhoto } from "./ui";
 import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "./Promo";
 import type { TierName } from "@/lib/tier-rules";
+import { keyFacts, priceSuffix } from "@/lib/listing-rules";
 
-type L = { id: string; publicRef: string; title: string; purpose: string; priceKobo: bigint; bedrooms: number | null; bathrooms: number | null; city: string; state: string; coverPhotoId: string | null; tier: TierName; promo: { campaignName: string; pct: number; theme: string; originalKobo: bigint; promoKobo: bigint } | null };
+type L = { id: string; publicRef: string; title: string; purpose: string; priceKobo: bigint; bedrooms: number | null; bathrooms: number | null; city: string; state: string; propertyType: string; pricePeriod: string; toilets: number | null; buildingSqm: number | null; landSqm: number | null; furnishing: string; negotiable: boolean; coverPhotoId: string | null; tier: TierName; promo: { campaignName: string; pct: number; theme: string; originalKobo: bigint; promoKobo: bigint } | null };
 
 /** One property card, used in carousels and result grids. */
 export function ListingCard({ l }: { l: L }) {
@@ -17,8 +18,8 @@ export function ListingCard({ l }: { l: L }) {
           <PremiumTag tier={l.tier} /><GoldBadge tier={l.tier} />
         </span>
         <strong>{l.title}</strong>
-        <PriceBlock priceKobo={l.priceKobo} promo={l.promo} suffix={l.purpose !== "SALE" ? " / year" : ""} />
-        <span className="small muted">{[l.bedrooms != null ? `${l.bedrooms} bed` : null, l.bathrooms != null ? `${l.bathrooms} bath` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ")}</span>
+        <PriceBlock priceKobo={l.priceKobo} promo={l.promo} suffix={priceSuffix(l.pricePeriod)} />
+        <span className="small muted">{[...keyFacts(l).slice(0, 4), `${l.city}, ${l.state}`].join(" · ")}{l.negotiable ? " · Negotiable" : ""}</span>
       </div>
     </Link>
   );

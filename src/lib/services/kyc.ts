@@ -207,3 +207,9 @@ export async function trustMany(kind: KycKind, ids: string[]) {
   const rows = await withPublic((tx) => tx.trustScore.findMany({ where: { subjectKey: { in: ids.map((i) => keyOf(kind, i)) } } }));
   return new Map(ids.map((i) => [i, fromStored(kind, rows.find((r) => r.subjectKey === keyOf(kind, i))?.checks ?? [])]));
 }
+
+/** Companies whose trust level is Verified or higher today (for the "verified companies only" search filter). */
+export async function verifiedCompanyIds(now = new Date()) {
+  const rows = await withPublic((tx) => tx.trustScore.findMany({ where: { subjectKind: "COMPANY" }, select: { companyId: true, checks: true } }));
+  return rows.filter((r) => fromStored("COMPANY", r.checks, now).level >= 2).map((r) => r.companyId);
+}

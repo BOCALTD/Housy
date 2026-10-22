@@ -579,6 +579,28 @@ model Listing {
   state       String
   /// Two-letter country code (ISO 3166-1). The platform starts in Nigeria.
   country     String         @default("NG")
+  /// Listing details (master prompt §7). Codes and labels live in src/lib/listing-rules.ts.
+  propertyType       String    @default("OTHER") @map("property_type")
+  pricePeriod        String    @default("TOTAL") @map("price_period")
+  negotiable         Boolean   @default(false)
+  depositKobo        BigInt?   @map("deposit_kobo")
+  serviceChargeKobo  BigInt?   @map("service_charge_kobo")
+  feesNote           String    @default("") @map("fees_note")
+  toilets            Int?
+  floors             Int?
+  buildingSqm        Int?      @map("building_sqm")
+  landSqm            Int?      @map("land_sqm")
+  plotDimensions     String    @default("") @map("plot_dimensions")
+  furnishing         String    @default("UNSPECIFIED")
+  condition          String    @default("UNSPECIFIED")
+  constructionStatus String    @default("COMPLETED") @map("construction_status")
+  serviced           Boolean   @default(false)
+  amenities          String    @default("")
+  titleDocument      String    @default("UNSPECIFIED") @map("title_document")
+  availableFrom      DateTime? @map("available_from") @db.Date
+  minLeaseMonths     Int?      @map("min_lease_months")
+  estateName         String    @default("") @map("estate_name")
+  videoUrl           String    @default("") @map("video_url")
   /// Approximate position only (rounded to about 1 km). The exact position of an asset is never published.
   lat         Float?
   lng         Float?
@@ -594,6 +616,7 @@ model Listing {
   photos      ListingPhoto[]
 
   @@index([status, city])
+  @@index([status, propertyType])
   @@index([publishedAt(sort: Desc)])
   @@map("listings")
 }
@@ -607,6 +630,8 @@ model ListingPhoto {
   bytes     Bytes
   caption   String   @default("")
   position  Int      @default(0)
+  /// PHOTO or FLOOR_PLAN.
+  kind      String   @default("PHOTO")
   createdAt DateTime @default(now()) @map("created_at")
   listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
 

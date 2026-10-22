@@ -322,7 +322,7 @@ export function viewerKeyFor(ip: string, ua: string, now: Date = new Date()): st
 
 const factsOf = (c: { status: string; startsOn: Date; endsOn: Date; fundedKobo: bigint; spentKobo: bigint; budgetKobo: bigint; cpcKobo: bigint }): CampaignFacts => ({ status: c.status as CampaignFacts["status"], startsOn: c.startsOn, endsOn: c.endsOn, fundedKobo: c.fundedKobo, spentKobo: c.spentKobo, budgetKobo: c.budgetKobo, cpcKobo: c.cpcKobo });
 
-export interface SponsoredItem { ref: string; headline: string; listing: { publicRef: string; title: string; priceKobo: bigint; purpose: string; city: string; state: string; bedrooms: number | null; bathrooms: number | null } }
+export interface SponsoredItem { ref: string; headline: string; listing: { publicRef: string; title: string; priceKobo: bigint; purpose: string; pricePeriod: string; city: string; state: string; bedrooms: number | null; bathrooms: number | null } }
 
 /**
  * The adverts to show in one place. Only campaigns that are live right now, whose property is still published and whose plan still
@@ -355,7 +355,7 @@ export async function sponsoredFor(placement: Placement, o: { filters?: { q?: st
         await tx.adDay.upsert({ where: { campaignId_day: { campaignId: c.id, day: today } }, create: { campaignId: c.id, day: today, impressions: 1 }, update: { impressions: { increment: 1 } } });
       }
     }
-    return chosen.map((c) => ({ ref: c.ref, headline: c.headline, listing: { publicRef: c.listing.publicRef, title: c.listing.title, priceKobo: c.listing.priceKobo, purpose: c.listing.purpose, city: c.listing.city, state: c.listing.state, bedrooms: c.listing.bedrooms, bathrooms: c.listing.bathrooms } }));
+    return chosen.map((c) => ({ ref: c.ref, headline: c.headline, listing: { publicRef: c.listing.publicRef, title: c.listing.title, priceKobo: c.listing.priceKobo, purpose: c.listing.purpose, pricePeriod: c.listing.pricePeriod, city: c.listing.city, state: c.listing.state, bedrooms: c.listing.bedrooms, bathrooms: c.listing.bathrooms } }));
   });
 }
 

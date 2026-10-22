@@ -1,13 +1,18 @@
 import { withPublic, withTenant } from "../db";
 import { parseNairaToKobo } from "../money";
 import { money } from "../api-rules";
+import { parseAmenities } from "../listing-rules";
 import type { Prisma } from "@prisma/client";
 
 const PURPOSES = ["SALE", "RENT", "LEASE"] as const;
 
-type L = { publicRef: string; title: string; purpose: string; priceKobo: bigint; bedrooms: number | null; bathrooms: number | null; description: string; city: string; state: string; lat: number | null; lng: number | null; publishedAt: Date | null; photos: { id: string; caption: string }[] };
+type L = { publicRef: string; title: string; purpose: string; pricePeriod: string; propertyType: string; negotiable: boolean; depositKobo: bigint | null; serviceChargeKobo: bigint | null; toilets: number | null; buildingSqm: number | null; landSqm: number | null; furnishing: string; constructionStatus: string; amenities: string; titleDocument: string; availableFrom: Date | null; priceKobo: bigint; bedrooms: number | null; bathrooms: number | null; description: string; city: string; state: string; lat: number | null; lng: number | null; publishedAt: Date | null; photos: { id: string; caption: string }[] };
 const listingOut = (l: L, origin: string) => ({
-  ref: l.publicRef, title: l.title, purpose: l.purpose, price: money(l.priceKobo), bedrooms: l.bedrooms, bathrooms: l.bathrooms,
+  ref: l.publicRef, title: l.title, purpose: l.purpose, property_type: l.propertyType, price: money(l.priceKobo), price_period: l.pricePeriod, negotiable: l.negotiable,
+  deposit: money(l.depositKobo), service_charge_per_year: money(l.serviceChargeKobo), bedrooms: l.bedrooms, bathrooms: l.bathrooms, toilets: l.toilets,
+  building_sqm: l.buildingSqm, land_sqm: l.landSqm, furnishing: l.furnishing, construction_status: l.constructionStatus, amenities: parseAmenities(l.amenities),
+  // As stated by the listing company. The platform does not verify title.
+  title_document_stated: l.titleDocument, available_from: l.availableFrom?.toISOString().slice(0, 10) ?? null,
   description: l.description, city: l.city, state: l.state,
   // Only an approximate position (about 1 km) is ever published.
   approximate_location: l.lat != null && l.lng != null ? { lat: l.lat, lng: l.lng } : null,
@@ -15,7 +20,7 @@ const listingOut = (l: L, origin: string) => ({
   photos: l.photos.map((p) => ({ url: `${origin}/photos/${p.id}`, caption: p.caption })),
   url: `${origin}/properties/${l.publicRef}`,
 });
-const listingSelect = { publicRef: true, title: true, purpose: true, priceKobo: true, bedrooms: true, bathrooms: true, description: true, city: true, state: true, lat: true, lng: true, publishedAt: true, photos: { select: { id: true, caption: true }, orderBy: { position: "asc" as const }, take: 8 } };
+const listingSelect = { publicRef: true, title: true, purpose: true, pricePeriod: true, propertyType: true, negotiable: true, depositKobo: true, serviceChargeKobo: true, toilets: true, buildingSqm: true, landSqm: true, furnishing: true, constructionStatus: true, amenities: true, titleDocument: true, availableFrom: true, priceKobo: true, bedrooms: true, bathrooms: true, description: true, city: true, state: true, lat: true, lng: true, publishedAt: true, photos: { where: { kind: "PHOTO" }, select: { id: true, caption: true }, orderBy: { position: "asc" as const }, take: 8 } };
 
 /** Published listings only. Row-level security gives nothing else to a program that is not signed in. */
 export async function apiListings(params: URLSearchParams, skip: number, take: number, origin: string) {

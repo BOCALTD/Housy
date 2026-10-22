@@ -31,10 +31,10 @@ async function seed(companyId: string, userId: string) {
       SELECT 'pf-a-' || g, $1, 'PF-' || g, 'Perf asset ' || g, 'RESIDENTIAL'::"AssetClass", 'Flat', (${CITIES})[1 + g % 8], (${STATES})[1 + g % 8],
         6.4 + (g % 100) / 100.0, 3.3 + (g % 70) / 100.0, (ARRAY['ACTIVE','VACANT','OCCUPIED','UNDER_RENOVATION'])[1 + g % 4]::"AssetStatus", 'OWNER', $2, now() - (g || ' seconds')::interval, now()
       FROM generate_series(1, ${ASSETS}) g`, companyId, userId);
-    await tx.$executeRawUnsafe(`INSERT INTO listings (id, company_id, asset_id, public_ref, title, purpose, price_kobo, bedrooms, bathrooms, city, state, status, published_at, created_at, updated_at)
+    await tx.$executeRawUnsafe(`INSERT INTO listings (id, company_id, asset_id, public_ref, title, purpose, price_period, price_kobo, bedrooms, bathrooms, city, state, status, published_at, created_at, updated_at)
       SELECT 'pf-l-' || g, $1, 'pf-a-' || g, 'PFL-' || g,
         (ARRAY['Bright','Modern','Spacious','Cosy'])[1 + g % 4] || ' ' || (1 + g % 5) || ' bedroom flat in ' || (${CITIES})[1 + g % 8],
-        (CASE WHEN g % 3 = 0 THEN 'SALE' ELSE 'RENT' END)::"ListingPurpose", ((1000000 + (g % 900) * 100000)::bigint) * 100, 1 + g % 5, 1 + g % 4,
+        (CASE WHEN g % 3 = 0 THEN 'SALE' ELSE 'RENT' END)::"ListingPurpose", (CASE WHEN g % 3 = 0 THEN 'TOTAL' ELSE 'YEAR' END), ((1000000 + (g % 900) * 100000)::bigint) * 100, 1 + g % 5, 1 + g % 4,
         (${CITIES})[1 + g % 8], (${STATES})[1 + g % 8], (CASE WHEN g % 10 < 7 THEN 'PUBLISHED' ELSE 'DRAFT' END)::"ListingStatus", now() - (g || ' minutes')::interval, now(), now()
       FROM generate_series(1, ${ASSETS}) g`, companyId);
     await tx.$executeRawUnsafe(`INSERT INTO leases (id, company_id, asset_id, ref, occupant_name, start_date, end_date, rent_kobo, frequency, deposit_kobo, status, created_by_id, created_at)

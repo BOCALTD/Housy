@@ -1,4 +1,5 @@
 import { prisma, withPublic, withPlatformAdmin, withTenant } from "../db";
+import { priceSuffix } from "../listing-rules";
 import { MIN_AREA_COUNT, areaSafe, findPlace, locate, type MapPoint } from "../geo-rules";
 import { formatKobo } from "../money";
 import { assertCan, type Ctx } from "./context";
@@ -27,7 +28,7 @@ export async function publicMapPoints(f: PublicMapFilters) {
       ...(maxKobo !== undefined ? { priceKobo: { lte: maxKobo } } : {}),
       ...(Number.isInteger(beds) ? { bedrooms: { gte: beds } } : {}),
     },
-    select: { publicRef: true, title: true, city: true, state: true, purpose: true, priceKobo: true, bedrooms: true, lat: true, lng: true },
+    select: { publicRef: true, title: true, city: true, state: true, purpose: true, pricePeriod: true, priceKobo: true, bedrooms: true, lat: true, lng: true },
     orderBy: { publishedAt: "desc" }, take: 500,
   }));
   const points: MapPoint[] = [];
@@ -35,7 +36,7 @@ export async function publicMapPoints(f: PublicMapFilters) {
   for (const l of rows) {
     const at = locate({ lat: l.lat, lng: l.lng, city: l.city, state: l.state });
     if (!at) { unplaced += 1; continue; }
-    points.push({ id: l.publicRef, lat: at.lat, lng: at.lng, approximate: true, label: `${l.title} · ${formatKobo(l.priceKobo)}${l.purpose === "SALE" ? "" : " / year"}${l.bedrooms !== null ? ` · ${l.bedrooms} bed` : ""} · ${l.city}`, href: `/properties/${l.publicRef}`, group: l.purpose });
+    points.push({ id: l.publicRef, lat: at.lat, lng: at.lng, approximate: true, label: `${l.title} · ${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}${l.bedrooms !== null ? ` · ${l.bedrooms} bed` : ""} · ${l.city}`, href: `/properties/${l.publicRef}`, group: l.purpose });
   }
   return { points, unplaced, total: rows.length };
 }

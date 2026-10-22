@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { priceSuffix } from "@/lib/listing-rules";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { PromoSlides } from "@/components/PromoSlides";
 import { HeroRotator } from "@/components/HeroRotator";
 import { HomeHero } from "@/components/HomeHero";
@@ -14,7 +16,7 @@ import { SponsoredStrip } from "@/components/Sponsored";
 import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
-import { humanize, PLATFORM_NAME } from "@/lib/labels";
+import { PLATFORM_NAME } from "@/lib/labels";
 import { FAQS } from "@/lib/faq";
 import { countryName, visitorCountry } from "@/lib/countries";
 import { searchListingsRanked } from "@/lib/services/promotions";
@@ -25,8 +27,6 @@ import { discover } from "@/lib/services/reels";
 import { trustMany } from "@/lib/services/kyc";
 import { sponsoredFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
-import { getSession } from "@/lib/auth";
-import { saveSearchAction } from "@/app/me/saved/actions";
 import { sp, type SP } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -37,14 +37,14 @@ const HERO = [
   { src: "/stock/hero-3.jpg", alt: "A contemporary villa with a pool" },
 ];
 const CATEGORIES = [
-  { href: "/?purpose=SALE", img: "/stock/buy.jpg", title: "Buy a home", sub: "Houses, duplexes and flats", purpose: "SALE" },
-  { href: "/?purpose=RENT", img: "/stock/rent.jpg", title: "Rent", sub: "Apartments and family homes", purpose: "RENT" },
-  { href: "/?purpose=LEASE", img: "/stock/commercial.jpg", title: "Lease", sub: "Offices and commercial space", purpose: "LEASE" },
-  { href: "/?q=land", img: "/stock/land.jpg", title: "Land", sub: "Plots and acreage", purpose: null },
-  { href: "/?q=warehouse", img: "/stock/warehouse.jpg", title: "Warehouses", sub: "Industrial and logistics", purpose: null },
-  { href: "/?q=shop", img: "/stock/shops.jpg", title: "Shops and offices", sub: "Retail and workspace", purpose: null },
-  { href: "/?q=short let", img: "/stock/shortlet.jpg", title: "Short let", sub: "Furnished stays", purpose: null },
-  { href: "/directory?kind=developers", img: "/stock/developments.jpg", title: "New developments", sub: "Estates and developers", purpose: null },
+  { href: "/browse/buy", img: "/stock/buy.jpg", title: "Buy a home", sub: "Houses, duplexes and flats", purpose: "SALE" },
+  { href: "/browse/rent", img: "/stock/rent.jpg", title: "Rent", sub: "Apartments and family homes", purpose: "RENT" },
+  { href: "/browse/commercial", img: "/stock/commercial.jpg", title: "Commercial", sub: "Offices, shops, hotels and halls", purpose: null },
+  { href: "/browse/land", img: "/stock/land.jpg", title: "Land", sub: "Plots and acreage", purpose: null },
+  { href: "/browse/warehouses", img: "/stock/warehouse.jpg", title: "Warehouses", sub: "Industrial and logistics", purpose: null },
+  { href: "/browse/shops", img: "/stock/shops.jpg", title: "Shops and offices", sub: "Retail and workspace", purpose: null },
+  { href: "/browse/short-let", img: "/stock/shortlet.jpg", title: "Short let", sub: "Furnished stays", purpose: null },
+  { href: "/browse/new-developments", img: "/stock/developments.jpg", title: "New developments", sub: "Off-plan and new estates", purpose: null },
 ] as const;
 const COUNT_ICONS = [Icon.building, Icon.person, Icon.home, Icon.handshake, Icon.pin];
 const initials = (s: string) => s.replace(/\[[^\]]*\]/g, " ").split(/\s+/).filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
@@ -65,16 +65,21 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
     maxPrice: sp(searchParams, "maxPrice"), minBeds: sp(searchParams, "minBeds"),
   };
   const searching = Object.values(filters).some(Boolean);
+  // Searches live on the browse page now; old links to "/?city=..." still work.
+  if (searching) {
+    const q = new URLSearchParams(Object.entries(filters).filter(([, v]) => v) as [string, string][]);
+    redirect(`/browse?${q.toString()}`);
+  }
   const h = await headers();
   const bot = isBot(h.get("user-agent"));
   const country = visitorCountry(h);
   const [listings, sponsored] = await Promise.all([
     searchListingsRanked(filters),
-    sponsoredFor(searching ? "SEARCH_TOP" : "HOME_FEATURED", { filters, bot }).catch(() => []),
+    sponsoredFor("HOME_FEATURED", { filters, bot }).catch(() => []),
   ]);
 
   const search = (
-    <form className="hx-search" role="search" aria-label="Search properties" action="/">
+    <form className="hx-search" role="search" aria-label="Search properties" action="/browse">
       <fieldset className="hx-tabs">
         <legend>What are you looking for?</legend>
         {[["", "All"], ["SALE", "Buy"], ["RENT", "Rent"], ["LEASE", "Lease"]].map(([v, l]) => (
@@ -97,31 +102,6 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
     </HomeHero>
   );
 
-  if (searching) {
-    const session = await getSession();
-    return (
-      <div className="stack-lg">
-        <ModeSwitch active="listings" />
-        {hero}
-        <SponsoredStrip items={sponsored} where="search" />
-        <section className="sec">
-          <div className="sec-head"><h2>{listings.length} {listings.length === 1 ? "property" : "properties"} found</h2><Link href="/" className="sec-link">Clear search</Link></div>
-          {session ? (
-            <details className="inline"><summary>Save this search and get alerts</summary>
-              <form action={saveSearchAction} className="stack">
-                <input type="hidden" name="back" value="/" />
-                {(["city", "purpose", "q", "maxPrice", "minBeds"] as const).map((k) => filters[k] ? <input key={k} type="hidden" name={k} value={filters[k]} /> : null)}
-                <label className="field">Name this search<input name="name" required maxLength={80} defaultValue={[filters.city, filters.purpose === "SALE" ? "Buy" : filters.purpose ? humanize(filters.purpose) : ""].filter(Boolean).join(" ") || "My search"} /></label>
-                <button className="btn" type="submit">Save search</button>
-              </form></details>
-          ) : <p className="small muted"><Link href="/login">Sign in</Link> to save this search and be told about new matches.</p>}
-          {listings.length === 0 ? <div className="card"><p className="muted">No published properties match that search. Try a wider area or a higher price.</p></div> : (
-            <div className="grid">{listings.map((l) => <ListingCard key={l.id} l={l} />)}</div>
-          )}
-        </section>
-      </div>
-    );
-  }
 
   const [counts, byPurpose, cities, reviews, partners, done, companies, agents, reels] = await Promise.all([
     siteCounts(), purposeCounts(), cityCounts(country), latestReviews(9), publicPartners(), homeSections(),
@@ -135,8 +115,8 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
   const featured = listings.filter((l) => !l.promo);
   const slides = promoted.slice(0, 5).map((l) => ({
     href: `/properties/${l.publicRef}`, title: l.title, place: `${l.city}, ${l.state}`, purpose: l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`,
-    name: l.promo!.campaignName, tagline: l.promo!.tagline, pct: l.promo!.pct, was: formatKobo(l.promo!.originalKobo) + (l.purpose !== "SALE" ? " / year" : ""),
-    now: formatKobo(l.promo!.promoKobo) + (l.purpose !== "SALE" ? " / year" : ""), save: formatKobo(l.promo!.originalKobo - l.promo!.promoKobo), ends: formatDate(l.promo!.endsOn), theme: l.promo!.theme, photo: l.coverPhotoId ? `/photos/${l.coverPhotoId}` : null,
+    name: l.promo!.campaignName, tagline: l.promo!.tagline, pct: l.promo!.pct, was: formatKobo(l.promo!.originalKobo) + priceSuffix(l.pricePeriod),
+    now: formatKobo(l.promo!.promoKobo) + priceSuffix(l.pricePeriod), save: formatKobo(l.promo!.originalKobo - l.promo!.promoKobo), ends: formatDate(l.promo!.endsOn), theme: l.promo!.theme, photo: l.coverPhotoId ? `/photos/${l.coverPhotoId}` : null,
   }));
   const THEME: Record<string, string> = { RED: "t-red", GOLD: "t-gold", GREEN: "t-green", PURPLE: "t-purple", BLUE: "t-blue" };
   const countRows = [

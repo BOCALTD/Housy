@@ -123,6 +123,9 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     title: "[DEMO] 4-bedroom semi-detached duplex with BQ", purpose: "SALE", price: "185,000,000",
     bedrooms: "4", bathrooms: "5", city: "Lekki", state: "Lagos",
     description: "Demonstration listing. Gated estate, boys' quarters, ample parking.",
+    propertyType: "SEMI_DETACHED", toilets: "6", floors: "2", buildingSqm: "420", landSqm: "500", furnishing: "UNFURNISHED", condition: "NEW",
+    constructionStatus: "COMPLETED", amenities: ["SECURITY", "GATED", "PARKING", "BOYS_QUARTERS", "FITTED_KITCHEN", "PREPAID_METER", "BOREHOLE", "CCTV"],
+    titleDocument: "GOVERNORS_CONSENT", estateName: "[DEMO] Palm Grove Estate", negotiable: "yes", feesNote: "Agency 5%, legal 5% (demonstration)",
   });
   await setListingStatus(alpha, duplex.id, "PENDING_REVIEW");
   for (const [file, caption] of [["duplex", "Front view"], ["duplex-living", "Living room"], ["duplex-kitchen", "Kitchen"], ["duplex-room", "Dining and lounge"]]) {
@@ -148,11 +151,32 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   });
   await saveListingDraft(beta, warehouse.id, {
     title: "[DEMO] 2,000 m² warehouse to lease", purpose: "LEASE", price: "45,000,000", city: "Agbara", state: "Ogun",
-    description: "Demonstration listing.",
+    description: "Demonstration listing.", propertyType: "WAREHOUSE", buildingSqm: "2000", landSqm: "4500", condition: "GOOD",
+    amenities: ["SECURITY", "FENCED", "LOADING_BAY", "PARKING", "TARRED_ROAD", "GENERATOR"], minLeaseMonths: "24", deposit: "11,250,000", serviceCharge: "3,000,000",
   });
   await setListingStatus(beta, warehouse.id, "PENDING_REVIEW");
   for (const [file, caption] of [["warehouse", "Loading area"], ["warehouse-inside", "Inside the warehouse"]]) {
     await addListingPhoto(beta, warehouse.id, { type: "image/jpeg", bytes: readFileSync(join(process.cwd(), `prisma/demo-photos/${file}.jpg`)) }, `${caption} (demonstration photo)`);
+  }
+
+  // More demonstration listings, so each browse page has something in it. Photographs are stock pictures (public/stock/CREDITS.md).
+  const more: { name: string; cls: "RESIDENTIAL" | "COMMERCIAL" | "LAND"; category: string; city: string; state: string; photo: string; listing: Record<string, unknown> }[] = [
+    { name: "[DEMO] Furnished 2-bedroom apartment, Victoria Island", cls: "RESIDENTIAL", category: "Apartment", city: "Victoria Island", state: "Lagos", photo: "shortlet",
+      listing: { title: "[DEMO] Furnished 2-bedroom short let with sea view", purpose: "RENT", pricePeriod: "NIGHT", price: "85,000", bedrooms: "2", bathrooms: "2", toilets: "3", propertyType: "FLAT", furnishing: "FURNISHED", serviced: "yes", condition: "RENOVATED", amenities: ["AIR_CON", "INTERNET", "GENERATOR", "SECURITY", "ELEVATOR", "PARKING", "POOL"], deposit: "100,000", description: "Demonstration listing. Minimum two nights." } },
+    { name: "[DEMO] 600 m² plot, Ibeju-Lekki", cls: "LAND", category: "Land", city: "Ibeju-Lekki", state: "Lagos", photo: "land",
+      listing: { title: "[DEMO] 600 m² dry plot near the coastal road", purpose: "SALE", price: "18,500,000", propertyType: "LAND", landSqm: "600", plotDimensions: "18m x 33m", titleDocument: "C_OF_O", amenities: ["TARRED_ROAD", "DRAINAGE"], estateName: "[DEMO] Coastal Gardens", description: "Demonstration listing." } },
+    { name: "[DEMO] Office floor, Ikoyi", cls: "COMMERCIAL", category: "Office", city: "Ikoyi", state: "Lagos", photo: "commercial",
+      listing: { title: "[DEMO] 350 m² open-plan office floor", purpose: "LEASE", price: "52,000,000", propertyType: "OFFICE", buildingSqm: "350", floors: "1", toilets: "4", condition: "GOOD", serviced: "yes", amenities: ["ELEVATOR", "AIR_CON", "GENERATOR", "SECURITY", "PARKING", "INTERNET", "ACCESSIBLE"], serviceCharge: "6,500,000", minLeaseMonths: "36", description: "Demonstration listing." } },
+    { name: "[DEMO] Room in a shared flat, Yaba", cls: "RESIDENTIAL", category: "Room", city: "Yaba", state: "Lagos", photo: "rent",
+      listing: { title: "[DEMO] Ensuite room in a shared 3-bedroom flat", purpose: "RENT", pricePeriod: "MONTH", price: "120,000", bedrooms: "1", bathrooms: "1", propertyType: "ROOM", furnishing: "SEMI_FURNISHED", amenities: ["INTERNET", "PREPAID_METER", "WATER", "SECURITY"], availableFrom: `${new Date().getUTCFullYear() + 1}-01-01`, minLeaseMonths: "6", description: "Demonstration listing." } },
+    { name: "[DEMO] Off-plan terrace, Abuja", cls: "RESIDENTIAL", category: "Terrace", city: "Lokogoma", state: "FCT Abuja", photo: "developments",
+      listing: { title: "[DEMO] Off-plan 4-bedroom terrace, payment plan available", purpose: "SALE", price: "95,000,000", bedrooms: "4", bathrooms: "4", toilets: "5", propertyType: "TERRACE", constructionStatus: "OFF_PLAN", buildingSqm: "280", estateName: "[DEMO] Cedar Court", titleDocument: "DEED_OF_ASSIGNMENT", amenities: ["GATED", "SECURITY", "PARKING", "SOLAR"], availableFrom: `${new Date().getUTCFullYear() + 1}-06-30`, description: "Demonstration listing." } },
+  ];
+  for (const m of more) {
+    const asset = await createAsset(alpha, { name: m.name, assetClass: m.cls, category: m.category, city: m.city, state: m.state, companyRelationship: "MANAGER" } as never);
+    await saveListingDraft(alpha, asset.id, { ...m.listing, city: m.city, state: m.state } as never);
+    await addListingPhoto(alpha, asset.id, { type: "image/jpeg", bytes: readFileSync(join(process.cwd(), `public/stock/${m.photo}.jpg`)) }, "Demonstration photo");
+    await setListingStatus(alpha, asset.id, "PENDING_REVIEW");
   }
 
   // Correspondence and files.

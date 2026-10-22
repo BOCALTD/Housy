@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { priceSuffix } from "@/lib/listing-rules";
 import { headers } from "next/headers";
 import { smartSearch } from "@/lib/services/ai-search";
 import { viewerKeyFor } from "@/lib/services/ads";
@@ -68,7 +69,7 @@ function ResultCard({ f, cover }: { f: NonNullable<Awaited<ReturnType<typeof sma
       <div className="prop-body">
         <span className="promo-tags"><span className="pill brand">{l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`}</span><span className={`pill ${f.exact ? "ACTIVE" : "PENDING"}`}>{f.exact ? "Matches" : "Close"} · {f.score}%</span></span>
         <strong>{l.title}</strong>
-        <span>{formatKobo(l.priceKobo)}{l.purpose !== "SALE" ? " / year" : ""}</span>
+        <span>{formatKobo(l.priceKobo)}{priceSuffix(l.pricePeriod)}</span>
         <span className="small muted">{[l.bedrooms != null ? `${l.bedrooms} bed` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ")}</span>
         {f.reasons.length ? <span className="small">{f.reasons.slice(0, 3).join(" · ")}</span> : null}
         {f.misses.length ? <span className="small muted">{f.misses.slice(0, 2).join(" · ")}</span> : null}

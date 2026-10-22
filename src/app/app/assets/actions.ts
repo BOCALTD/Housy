@@ -116,6 +116,13 @@ export async function saveListingAction(form: FormData) {
       title: str(form, "title"), purpose: str(form, "purpose") as never, price: str(form, "price"),
       bedrooms: optStr(form, "bedrooms"), bathrooms: optStr(form, "bathrooms"),
       description: str(form, "description"), city: str(form, "city"), state: str(form, "state"),
+      propertyType: str(form, "propertyType"), pricePeriod: str(form, "pricePeriod"), negotiable: str(form, "negotiable"),
+      deposit: optStr(form, "deposit"), serviceCharge: optStr(form, "serviceCharge"), feesNote: str(form, "feesNote"),
+      toilets: optStr(form, "toilets"), floors: optStr(form, "floors"), buildingSqm: optStr(form, "buildingSqm"), landSqm: optStr(form, "landSqm"),
+      plotDimensions: str(form, "plotDimensions"), furnishing: str(form, "furnishing"), condition: str(form, "condition"),
+      constructionStatus: str(form, "constructionStatus"), serviced: str(form, "serviced"), amenities: form.getAll("amenity").map(String),
+      titleDocument: str(form, "titleDocument"), availableFrom: str(form, "availableFrom"), minLeaseMonths: optStr(form, "minLeaseMonths"),
+      estateName: str(form, "estateName"), videoUrl: str(form, "videoUrl"),
     });
     return withNotice(assetPath(id), "Listing saved as a draft. Submit it for review to publish it.");
   });
@@ -149,7 +156,7 @@ export async function addListingPhotoAction(form: FormData) {
     const member = await requireMember("listing.manage");
     const file = form.get("file");
     if (!(file instanceof File) || file.size === 0) throw new Error("Choose a picture to upload");
-    await addListingPhoto(member, id, { type: file.type, bytes: new Uint8Array(await file.arrayBuffer()) }, str(form, "caption"));
+    await addListingPhoto(member, id, { type: file.type, bytes: new Uint8Array(await file.arrayBuffer()) }, str(form, "caption"), str(form, "kind") === "FLOOR_PLAN" ? "FLOOR_PLAN" : "PHOTO");
     return withNotice(assetPath(id), "Photograph added. If the listing was live, it is back in review until it is approved again.");
   });
 }

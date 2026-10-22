@@ -1,4 +1,5 @@
 import { PropPhoto } from "@/components/ui";
+import { priceSuffix } from "@/lib/listing-rules";
 import { coverPhotoIdsByRef } from "@/lib/services/listing-photos";
 import { formatKobo } from "@/lib/money";
 import type { SponsoredItem } from "@/lib/services/ads";
@@ -21,7 +22,7 @@ export async function SponsoredStrip({ items, where }: { items: SponsoredItem[];
               <span className="promo-tags"><span className="pill disc">Sponsored</span><span className="pill brand">{a.listing.purpose === "SALE" ? "For sale" : `For ${a.listing.purpose.toLowerCase()}`}</span></span>
               <strong>{a.headline || a.listing.title}</strong>
               {a.headline ? <span className="small muted">{a.listing.title}</span> : null}
-              <span className="price">{formatKobo(a.listing.priceKobo)}{a.listing.purpose !== "SALE" ? " / year" : ""}</span>
+              <span className="price">{formatKobo(a.listing.priceKobo)}{priceSuffix(a.listing.pricePeriod)}</span>
               <span className="small muted">{[a.listing.bedrooms != null ? `${a.listing.bedrooms} bed` : null, a.listing.bathrooms != null ? `${a.listing.bathrooms} bath` : null, `${a.listing.city}, ${a.listing.state}`].filter(Boolean).join(" · ")}</span>
             </div>
           </a>

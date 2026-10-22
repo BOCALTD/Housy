@@ -22,8 +22,8 @@ SELECT set_config('app.company_id', 'co-b', true);
 INSERT INTO companies (id, name, slug) VALUES ('co-b', 'Beta Homes', 'beta');
 INSERT INTO assets (id, company_id, ref, name, asset_class, category, company_relationship, created_by_id, updated_at)
   VALUES ('as-b', 'co-b', 'AST-0001', 'Beta warehouse', 'INDUSTRIAL', 'Warehouse', 'MANAGER', 'u2', now());
-INSERT INTO listings (id, company_id, asset_id, public_ref, title, purpose, price_kobo, city, state, status, updated_at)
-  VALUES ('li-b', 'co-b', 'as-b', 'PROP-BBBBBB', 'Beta warehouse', 'LEASE', 200, 'Ikeja', 'Lagos', 'DRAFT', now());
+INSERT INTO listings (id, company_id, asset_id, public_ref, title, purpose, price_period, price_kobo, city, state, status, updated_at)
+  VALUES ('li-b', 'co-b', 'as-b', 'PROP-BBBBBB', 'Beta warehouse', 'LEASE', 'YEAR', 200, 'Ikeja', 'Lagos', 'DRAFT', now());
 
 -- 1. Company B sees only its own assets and company row.
 SELECT pg_temp.expect((SELECT count(*) FROM assets) = 1, 'B sees one asset');

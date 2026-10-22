@@ -23,6 +23,8 @@ import {
   addListingPhotoAction, makeCoverPhotoAction, removeListingPhotoAction, saveListingAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
 } from "../actions";
 
+import { AMENITIES, CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, TITLE_DOCUMENTS, parseAmenities } from "@/lib/listing-rules";
+
 export const metadata = { title: "Asset" };
 
 function koboToInput(k: bigint) {
@@ -311,9 +313,9 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                         <li key={ph.id}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={`/app/listing-photos/${ph.id}`} alt={ph.caption || `Photograph ${n + 1}`} loading="lazy" />
-                          <span className="small">{n === 0 ? <strong>Cover</strong> : `Picture ${n + 1}`}{ph.caption ? ` · ${ph.caption}` : ""}</span>
+                          <span className="small">{ph.kind === "FLOOR_PLAN" ? <strong>Floor plan</strong> : n === 0 ? <strong>Cover</strong> : `Picture ${n + 1}`}{ph.caption ? ` · ${ph.caption}` : ""}</span>
                           <span className="row">
-                            {n > 0 ? <form action={makeCoverPhotoAction}>{hidden}<input type="hidden" name="photoId" value={ph.id} /><button className="btn small" type="submit">Make cover</button></form> : null}
+                            {n > 0 && ph.kind !== "FLOOR_PLAN" ? <form action={makeCoverPhotoAction}>{hidden}<input type="hidden" name="photoId" value={ph.id} /><button className="btn small" type="submit">Make cover</button></form> : null}
                             <form action={removeListingPhotoAction}>{hidden}<input type="hidden" name="photoId" value={ph.id} /><button className="btn small danger" type="submit">Remove</button></form>
                           </span>
                         </li>
@@ -325,6 +327,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                       {hidden}
                       <Field label="Picture" hint="JPG, PNG or WEBP, up to 4 MB."><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required /></Field>
                       <Field label="Caption (optional)"><input name="caption" maxLength={200} placeholder="Front view" /></Field>
+                      <Field label="This picture is"><select name="kind" defaultValue="PHOTO"><option value="PHOTO">A photograph</option><option value="FLOOR_PLAN">A floor plan</option></select></Field>
                       <button className="btn" type="submit">Add photograph</button>
                     </form>
                   ) : null}
@@ -365,16 +368,62 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                   {listing?.status === "PUBLISHED" ? <p className="small muted">Saving changes takes the listing offline until it is reviewed again.</p> : null}
                   <Field label="Listing title"><input name="title" required defaultValue={listing?.title ?? asset.name} /></Field>
                   <div className="fields">
+                    <Field label="Type of property"><select name="propertyType" defaultValue={listing?.propertyType ?? "OTHER"}>{Object.entries(PROPERTY_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
                     <Field label="Purpose"><select name="purpose" defaultValue={listing?.purpose ?? "SALE"}><EnumOptions values={PURPOSES} /></select></Field>
-                    <Field label="Price (₦)" hint="For rent or lease, the yearly amount."><input name="price" required inputMode="decimal" defaultValue={listing ? koboToInput(listing.priceKobo) : ""} /></Field>
+                  </div>
+                  <div className="fields">
+                    <Field label="Price (₦)"><input name="price" required inputMode="decimal" defaultValue={listing ? koboToInput(listing.priceKobo) : ""} /></Field>
+                    <Field label="Price is" hint="A sale price is always the total."><select name="pricePeriod" defaultValue={listing?.pricePeriod ?? "YEAR"}>{Object.entries(PRICE_PERIODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                    <label className="check"><input type="checkbox" name="negotiable" value="yes" defaultChecked={listing?.negotiable ?? false} /> Price is negotiable</label>
                   </div>
                   <div className="fields">
                     <Field label="Bedrooms"><input name="bedrooms" inputMode="numeric" defaultValue={listing?.bedrooms ?? ""} /></Field>
                     <Field label="Bathrooms"><input name="bathrooms" inputMode="numeric" defaultValue={listing?.bathrooms ?? ""} /></Field>
+                    <Field label="Toilets"><input name="toilets" inputMode="numeric" defaultValue={listing?.toilets ?? ""} /></Field>
                     <Field label="City or area"><input name="city" required defaultValue={listing?.city ?? asset.city} /></Field>
                     <Field label="State"><input name="state" required defaultValue={listing?.state ?? asset.state} /></Field>
                   </div>
                   <Field label="Public description" hint="Do not include the exact address of occupied homes."><textarea name="description" rows={4} defaultValue={listing?.description ?? ""} /></Field>
+                  <details className="inline">
+                    <summary>Size, condition and availability</summary>
+                    <div className="stack">
+                      <div className="fields">
+                        <Field label="Building size (m²)"><input name="buildingSqm" inputMode="numeric" defaultValue={listing?.buildingSqm ?? ""} /></Field>
+                        <Field label="Land size (m²)"><input name="landSqm" inputMode="numeric" defaultValue={listing?.landSqm ?? ""} /></Field>
+                        <Field label="Plot dimensions" hint="For example 18m x 36m"><input name="plotDimensions" maxLength={60} defaultValue={listing?.plotDimensions ?? ""} /></Field>
+                        <Field label="Floors"><input name="floors" inputMode="numeric" defaultValue={listing?.floors ?? ""} /></Field>
+                      </div>
+                      <div className="fields">
+                        <Field label="Furnishing"><select name="furnishing" defaultValue={listing?.furnishing ?? "UNSPECIFIED"}>{Object.entries(FURNISHING).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                        <Field label="Condition"><select name="condition" defaultValue={listing?.condition ?? "UNSPECIFIED"}>{Object.entries(CONDITIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                        <Field label="Construction"><select name="constructionStatus" defaultValue={listing?.constructionStatus ?? "COMPLETED"}>{Object.entries(CONSTRUCTION).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                      </div>
+                      <div className="fields">
+                        <Field label="Available from"><input name="availableFrom" type="date" defaultValue={listing?.availableFrom ? listing.availableFrom.toISOString().slice(0, 10) : ""} /></Field>
+                        <Field label="Minimum lease (months)" hint="Rent or lease only"><input name="minLeaseMonths" inputMode="numeric" defaultValue={listing?.minLeaseMonths ?? ""} /></Field>
+                        <Field label="Estate or development name"><input name="estateName" maxLength={120} defaultValue={listing?.estateName ?? ""} /></Field>
+                      </div>
+                      <label className="check"><input type="checkbox" name="serviced" value="yes" defaultChecked={listing?.serviced ?? false} /> Serviced (cleaning, maintenance or shared services included)</label>
+                    </div>
+                  </details>
+                  <details className="inline">
+                    <summary>Costs and documents</summary>
+                    <div className="stack">
+                      <div className="fields">
+                        <Field label="Caution deposit (₦)"><input name="deposit" inputMode="decimal" defaultValue={listing?.depositKobo != null ? koboToInput(listing.depositKobo) : ""} /></Field>
+                        <Field label="Service charge per year (₦)"><input name="serviceCharge" inputMode="decimal" defaultValue={listing?.serviceChargeKobo != null ? koboToInput(listing.serviceChargeKobo) : ""} /></Field>
+                      </div>
+                      <Field label="Other fees" hint="For example agency 10%, legal 10%, caution as stated"><input name="feesNote" maxLength={500} defaultValue={listing?.feesNote ?? ""} /></Field>
+                      <Field label="Title document the company says it holds" hint="Shown as stated by your company. The platform does not verify title."><select name="titleDocument" defaultValue={listing?.titleDocument ?? "UNSPECIFIED"}>{Object.entries(TITLE_DOCUMENTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                      <Field label="Video tour link" hint="A YouTube or Vimeo link (optional)"><input name="videoUrl" type="url" maxLength={300} placeholder="https://www.youtube.com/watch?v=..." defaultValue={listing?.videoUrl ?? ""} /></Field>
+                    </div>
+                  </details>
+                  <details className="inline">
+                    <summary>Amenities ({listing ? parseAmenities(listing.amenities).length : 0} ticked)</summary>
+                    <div className="amenity-grid">
+                      {Object.entries(AMENITIES).map(([k, v]) => <label key={k} className="check"><input type="checkbox" name="amenity" value={k} defaultChecked={listing ? parseAmenities(listing.amenities).includes(k as never) : false} /> {v}</label>)}
+                    </div>
+                  </details>
                   <div className="row"><button className="btn primary" type="submit">Save draft</button></div>
                 </form>
               </details>

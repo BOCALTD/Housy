@@ -1,4 +1,6 @@
+import { AMENITIES, CONDITIONS, CONSTRUCTION, FURNISHING, PROPERTY_TYPES, TITLE_DOCUMENTS, isCode, parseAmenities } from "@/lib/listing-rules";
 import Link from "next/link";
+import { priceSuffix } from "@/lib/listing-rules";
 import { companyTrust } from "@/lib/services/kyc";
 import { TrustBadge } from "@/components/TrustBadge";
 import { withPublic } from "@/lib/db";
@@ -11,6 +13,7 @@ import { getFeaturedProvider, parsePrefs, shouldAutoShow } from "@/lib/services/
 import { listingExtras } from "@/lib/services/promotions";
 import { GoldBadge, PremiumTag, PriceBlock, PromoEnds, PromoRibbon } from "@/components/Promo";
 import { formatDate } from "@/lib/dates";
+import { formatKobo } from "@/lib/money";
 import { Field, Flash, HouseIcon, sp, type SP } from "@/components/ui";
 import { getSession } from "@/lib/auth";
 import { isWatching } from "@/lib/services/alerts";
@@ -39,6 +42,8 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   if (!isBot(ua)) await recordView(listing.id, viewerKeyFor((await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
   const session = await getSession();
   const photos = await publicPhotosOf(listing.id);
+  const pics = photos.filter((p) => p.kind !== "FLOOR_PLAN");
+  const plans = photos.filter((p) => p.kind === "FLOOR_PLAN");
   const [trust, company] = await Promise.all([companyTrust(listing.companyId), withPublic((tx) => tx.companyProfile.findFirst({ where: { companyId: listing.companyId, listed: true }, select: { displayName: true } }))]);
   const watching = session ? await isWatching(session.user.id, listing.id) : false;
   const provider = await getFeaturedProvider();
@@ -53,9 +58,9 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   return (
     <div className="two">
       <article className="card stack">
-        {photos.length > 0 ? (
+        {pics.length > 0 ? (
           <Carousel label="Photographs of this property">
-            {photos.map((ph, n) => (
+            {pics.map((ph, n) => (
               <figure key={ph.id} className="shot">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`/photos/${ph.id}`} alt={ph.caption || `${listing.title}, photograph ${n + 1}`} loading={n === 0 ? "eager" : "lazy"} decoding="async" />
@@ -72,13 +77,56 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
         </div>
         <h1>{listing.title}</h1>
         <p className="price" style={{ fontSize: 26 }}>
-          <PriceBlock priceKobo={listing.priceKobo} promo={extras.promo} suffix={listing.purpose !== "SALE" ? " / year" : ""} />
+          <PriceBlock priceKobo={listing.priceKobo} promo={extras.promo} suffix={priceSuffix(listing.pricePeriod)} />
         </p>
         <p className="muted">
           {[listing.bedrooms != null ? `${listing.bedrooms} bedrooms` : null, listing.bathrooms != null ? `${listing.bathrooms} bathrooms` : null,
             `${listing.city}, ${listing.state}`].filter(Boolean).join(" · ")}
         </p>
         {listing.description ? <p style={{ whiteSpace: "pre-line", maxWidth: "65ch" }}>{listing.description}</p> : null}
+        {(() => {
+          const money = (k: bigint | null) => (k == null ? null : formatKobo(k));
+          const rows: [string, string | null][] = [
+            ["Type", isCode(PROPERTY_TYPES, listing.propertyType) && listing.propertyType !== "OTHER" ? PROPERTY_TYPES[listing.propertyType] : null],
+            ["Price", `${formatKobo(listing.priceKobo)}${priceSuffix(listing.pricePeriod)}${listing.negotiable ? " (negotiable)" : ""}`],
+            ["Caution deposit", money(listing.depositKobo)],
+            ["Service charge", listing.serviceChargeKobo != null ? `${formatKobo(listing.serviceChargeKobo)} / year` : null],
+            ["Other fees", listing.feesNote || null],
+            ["Building size", listing.buildingSqm != null ? `${listing.buildingSqm.toLocaleString("en-NG")} m²` : null],
+            ["Land size", listing.landSqm != null ? `${listing.landSqm.toLocaleString("en-NG")} m²` : null],
+            ["Plot", listing.plotDimensions || null],
+            ["Floors", listing.floors != null ? String(listing.floors) : null],
+            ["Toilets", listing.toilets != null ? String(listing.toilets) : null],
+            ["Furnishing", listing.furnishing !== "UNSPECIFIED" && isCode(FURNISHING, listing.furnishing) ? FURNISHING[listing.furnishing] : null],
+            ["Condition", listing.condition !== "UNSPECIFIED" && isCode(CONDITIONS, listing.condition) ? CONDITIONS[listing.condition] : null],
+            ["Construction", isCode(CONSTRUCTION, listing.constructionStatus) ? CONSTRUCTION[listing.constructionStatus] : null],
+            ["Serviced", listing.serviced ? "Yes" : null],
+            ["Available from", listing.availableFrom ? formatDate(listing.availableFrom) : null],
+            ["Minimum lease", listing.minLeaseMonths != null ? `${listing.minLeaseMonths} months` : null],
+            ["Estate or development", listing.estateName || null],
+            ["Title document (as stated by the company, not verified)", listing.titleDocument !== "UNSPECIFIED" && isCode(TITLE_DOCUMENTS, listing.titleDocument) ? TITLE_DOCUMENTS[listing.titleDocument] : null],
+          ];
+          const amenities = parseAmenities(listing.amenities);
+          return (
+            <section className="stack" aria-labelledby="details-h">
+              <h2 id="details-h">Details</h2>
+              <dl className="spec">{rows.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+              {amenities.length ? <><h3>Features</h3><ul className="chips">{amenities.map((a) => <li key={a}>{AMENITIES[a]}</li>)}</ul></> : null}
+              {plans.length ? (
+                <details className="inline"><summary>Floor plans ({plans.length})</summary>
+                  <div className="stack">{plans.map((ph, n) => (
+                    <figure key={ph.id} className="shot" style={{ margin: 0 }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/photos/${ph.id}`} alt={ph.caption || `Floor plan ${n + 1}`} loading="lazy" decoding="async" style={{ objectFit: "contain", background: "#fff" }} />
+                      {ph.caption ? <figcaption className="small muted">{ph.caption}</figcaption> : null}
+                    </figure>
+                  ))}</div>
+                </details>
+              ) : null}
+              {listing.videoUrl ? <p><a className="btn" href={listing.videoUrl} target="_blank" rel="noopener noreferrer">Watch the video tour (opens YouTube or Vimeo)</a></p> : null}
+            </section>
+          );
+        })()}
         <div className="flash" style={{ background: "var(--surface-2)" }}>
           <strong>What has been checked:</strong> this listing was submitted by a registered company and reviewed by the platform
           before publication{listing.publishedAt ? ` on ${formatDate(listing.publishedAt)}` : ""}. Title and ownership have <strong>not</strong> been verified by the platform.

@@ -74,6 +74,9 @@ test("agent checks: private to the agent and reviewers, not the employer", async
   assert.ok(await kycDocument({ userId: agent.userId, companyId: a.companyId, canManageCompany: false, platformAdmin: false }, id));
   assert.equal((await agentKyc(agent.userId)).items.find((i) => i.req.code === "AGENT_ID")?.status, "SUBMITTED");
   await decideKyc(admin.id, id, { decision: "verify", note: "", evidence: "Passport checked against the original" });
+  assert.equal((await agentTrust(agent.userId)).level, 1, "an ID alone is 35 points: not yet Verified");
+  const photo = await submitAgentKyc(agent.userId, a.companyId, "AGENT_PHOTO", {}, pdf("photo.pdf"));
+  await decideKyc(admin.id, photo, { decision: "verify", note: "", evidence: "Photo matches the passport" });
   const t = await agentTrust(agent.userId);
   assert.equal(t.level, 2);
   // The public sees the trust result, never the check itself.

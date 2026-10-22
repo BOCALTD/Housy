@@ -47,7 +47,13 @@ async function inspect(page: Page, touch: boolean) {
     const visible = (el: Element) => {
       const r = el.getBoundingClientRect();
       const s = getComputedStyle(el);
-      return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none";
+      if (!(r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none")) return false;
+      // Inside a closed fold (other than its own summary) the person cannot see or touch it.
+      for (let d = el.closest("details"); d; d = d.parentElement?.closest("details") ?? null) {
+        const sum = d.querySelector(":scope > summary");
+        if (!(d as HTMLDetailsElement).open && !(sum && sum.contains(el))) return false;
+      }
+      return true;
     };
     const scrollsSideways = (el: Element | null) => {
       for (let e = el; e && e !== document.body; e = e.parentElement) {

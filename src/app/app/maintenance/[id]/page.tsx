@@ -259,11 +259,13 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
               {v.note ? <p className="small">{v.note}</p> : null}
               <div className="small muted">{formatDateTime(v.createdAt)}{v.docName ? <> · <a className="tap" href={`/portal/doc/${v.id}`}>{v.docName}</a></> : null}{v.decisionNote ? ` · ${v.decisionNote}` : ""}</div>
               {v.status === "SUBMITTED" ? (
-                <form action={decideSubmissionAction} className="row wrap">
+                <form action={decideSubmissionAction} className="stack" style={{ gap: 8 }}>
                   {hidden}<input type="hidden" name="id" value={v.id} />
-                  <input name="note" placeholder="Note to the vendor (needed when not accepting)" aria-label="Note to the vendor" style={{ flex: "1 1 220px" }} />
-                  <button className="btn primary" name="decision" value="accept" type="submit">Accept</button>
-                  <button className="btn" name="decision" value="reject" type="submit">Not accepted</button>
+                  <input name="note" placeholder="Note to the vendor (needed when not accepting)" aria-label="Note to the vendor" style={{ width: "100%", minWidth: 0 }} />
+                  <div className="row wrap">
+                    <button className="btn primary" name="decision" value="accept" type="submit">Accept</button>
+                    <button className="btn" name="decision" value="reject" type="submit">Not accepted</button>
+                  </div>
                 </form>
               ) : null}
             </div></li>

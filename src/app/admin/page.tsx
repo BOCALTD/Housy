@@ -153,7 +153,7 @@ export default async function AdminPage({ searchParams: searchP }: { searchParam
                 ))}
                 <form action={addProviderMemberAction} className="row wrap">
                   <input type="hidden" name="providerId" value={p.id} />
-                  <input name="email" type="email" required placeholder="Their account email" aria-label={`Add a person to ${p.shortName}`} style={{ flex: "1 1 220px" }} />
+                  <input name="email" type="email" required placeholder="Their account email" aria-label={`Add a person to ${p.shortName}`} style={{ flex: "1 1 200px", minWidth: 0, maxWidth: "100%" }} />
                   <button className="btn" type="submit">Add person</button>
                 </form>
               </div>

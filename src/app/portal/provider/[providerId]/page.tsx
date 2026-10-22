@@ -61,7 +61,7 @@ export default async function ProviderPortal({ params, searchParams }: { params:
                 <form action={providerLeadAction} className="row wrap">
                   <input type="hidden" name="providerId" value={provider.id} /><input type="hidden" name="ref" value={l.ref} />
                   <select name="status" aria-label={`New status for ${l.ref}`} defaultValue={next[0]}>{next.map((n) => <option key={n} value={n}>{LEAD_STATUS_LABELS[n]}</option>)}</select>
-                  <input name="note" placeholder="Note for the person (optional)" aria-label="Note for the person" maxLength={1000} style={{ flex: "1 1 200px" }} />
+                  <input name="note" placeholder="Note for the person (optional)" aria-label="Note for the person" maxLength={1000} style={{ flex: "1 1 200px", minWidth: 0, maxWidth: "100%" }} />
                   <button className="btn primary" type="submit">Update</button>
                 </form>
               ) : null}

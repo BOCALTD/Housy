@@ -102,15 +102,16 @@ const SPECS: Record<CalcId, { intro: string; fields: Field[]; run: (v: Record<st
   },
 };
 
+const show = (n: number) => n.toLocaleString("en-NG", { maximumFractionDigits: 2 });
 const parse = (s: string) => { const n = Number(s.replace(/[,\s₦]/g, "")); return Number.isFinite(n) ? n : 0; };
 
 /** All calculators, one at a time behind tabs. Every assumption is an editable field with its default showing. */
 export function Calculators({ start, preset }: { start: CalcId; preset: Record<string, number> }) {
   const [tab, setTab] = useState<CalcId>(start);
-  const [vals, setVals] = useState<Record<CalcId, Record<string, string>>>(() => Object.fromEntries((Object.keys(SPECS) as CalcId[]).map((id) => [id, Object.fromEntries(SPECS[id].fields.map((f) => [f.key, String(preset[f.key] ?? f.def)]))])) as Record<CalcId, Record<string, string>>);
+  const [vals, setVals] = useState<Record<CalcId, Record<string, string>>>(() => Object.fromEntries((Object.keys(SPECS) as CalcId[]).map((id) => [id, Object.fromEntries(SPECS[id].fields.map((f) => [f.key, show(preset[f.key] ?? f.def)]))])) as Record<CalcId, Record<string, string>>);
   const spec = SPECS[tab];
   const rows = useMemo(() => spec.run(Object.fromEntries(Object.entries(vals[tab]).map(([k, v]) => [k, parse(v)]))), [spec, vals, tab]);
-  const reset = () => setVals((all) => ({ ...all, [tab]: Object.fromEntries(spec.fields.map((f) => [f.key, String(f.def)])) }));
+  const reset = () => setVals((all) => ({ ...all, [tab]: Object.fromEntries(spec.fields.map((f) => [f.key, show(f.def)])) }));
   return (
     <div className="calc">
       <div className="calc-tabs" role="tablist" aria-label="Calculators">
@@ -122,7 +123,7 @@ export function Calculators({ start, preset }: { start: CalcId; preset: Record<s
           <p className="muted">{spec.intro}</p>
           <div className="calc-fields">
             {spec.fields.map((f) => (
-              <label key={f.key} className="field">{f.label} <span className="small muted">({f.unit})</span>
+              <label key={f.key} className="field">{`${f.label} (${f.unit})`}
                 <input inputMode="decimal" value={vals[tab][f.key]} onChange={(e) => setVals((all) => ({ ...all, [tab]: { ...all[tab], [f.key]: e.target.value } }))} />
                 {f.hint ? <small>{f.hint}</small> : null}
               </label>

@@ -8,10 +8,12 @@ import { randomUUID } from "node:crypto";
 import { prisma, withTenant, withUser } from "../../src/lib/db";
 import { createAsset } from "../../src/lib/services/assets";
 import { createLease } from "../../src/lib/services/leases";
-import { assignWorkOrder, createContractor, reportWorkOrder } from "../../src/lib/services/maintenance";
+import { assignWorkOrder, createContractor, reportWorkOrder, setProgress } from "../../src/lib/services/maintenance";
+import { recordPayment } from "../../src/lib/services/leases";
+import { renderStatement } from "../../src/lib/statement-pdf";
 import { registerSeeker } from "../../src/lib/services/community";
 import {
-  acceptPortalInvite, addProviderMember, decideSubmission, findPortalInvite, inviteOwner, inviteVendor, listGrants, myPortals, ownerPortal,
+  acceptPortalInvite, addProviderMember, clearInvoicePayment, markInvoicePaid, ownerStatement, ownerStatementForCompany, decideSubmission, findPortalInvite, inviteOwner, inviteVendor, listGrants, myPortals, ownerPortal,
   providerLeads, reissueInvite, revokeGrant, saveVendorProfile, setGrantAssets, submissionsFor, submitVendorWork, updateProviderLead, vendorJob, vendorPortal,
 } from "../../src/lib/services/portals";
 import { PASSWORD, PDF_BYTES, addMember, newCompany, newPlatformAdmin, withRole } from "./helpers";
@@ -174,4 +176,85 @@ test("a provider member sees only that provider's leads, only once it is approve
   assert.equal(after1.status, "CONTACTED");
   assert.equal(after1.providerNote, "Called them");
   assert.equal((await myPortals(staff.id)).providers.length, 1);
+});
+
+test("an owner statement covers only the granted properties and adds up", async () => {
+  const co = await newCompany("stmt-a");
+  const x = await asset(co, "Statement house X");
+  const y = await asset(co, "Not on the grant Y");
+  await createLease(co, x.id, { occupantName: "Tenant X", startDate: "2026-01-01", endDate: "2027-01-01", rent: "400,000", frequency: "QUARTERLY" } as never);
+  await createLease(co, y.id, { occupantName: "Tenant Y", startDate: "2026-01-01", endDate: "2027-01-01", rent: "999,000", frequency: "QUARTERLY" } as never);
+  const charges = await withTenant(co.companyId, co.userId, (tx) => tx.rentCharge.findMany({ where: { lease: { assetId: x.id } }, orderBy: { dueDate: "asc" } }));
+  await recordPayment(co, charges[0].id, { amount: "400,000", paidOn: "2026-01-05", evidence: `STMT-${randomUUID().slice(0, 6)}` });
+  const owner = await person("stmt-owner");
+  await acceptPortalInvite(await inviteOwner(co, { email: owner.email, displayName: "Statement Owner", assetIds: [x.id] }), owner);
+  const grantId = (await myPortals(owner.id)).grants[0].id;
+
+  const q1 = await ownerStatement(owner.id, grantId, "2026-01-01", "2026-03-31");
+  assert.ok(q1);
+  assert.deepEqual(q1.properties.map((p) => p.name), ["Statement house X"]);
+  assert.equal(q1.totals.charged, 40_000_000n);
+  assert.equal(q1.totals.received, 40_000_000n);
+  assert.equal(q1.totals.outstanding, 0n);
+  assert.equal(q1.properties[0].leases[0].receipts.length, 1);
+
+  const h1 = await ownerStatement(owner.id, grantId, "2026-01-01", "2026-06-30");
+  assert.equal(h1!.totals.charged, 80_000_000n);
+  assert.equal(h1!.totals.received, 40_000_000n);
+  assert.equal(h1!.totals.outstanding, 40_000_000n);
+
+  const forCompany = await ownerStatementForCompany(co, grantId, "2026-01-01", "2026-06-30");
+  assert.equal(forCompany!.totals.charged, h1!.totals.charged);
+  await assert.rejects(ownerStatementForCompany(withRole(co, "OFFICER"), grantId, null, null), /permission/);
+  const other = await newCompany("stmt-b");
+  assert.equal(await ownerStatementForCompany(other, grantId, null, null), null, "another company cannot prepare it");
+  assert.equal(await ownerStatement((await person("stmt-stranger")).id, grantId, null, null), null);
+  await assert.rejects(ownerStatement(owner.id, grantId, "2026-06-30", "2026-01-01"), /start date/);
+  await assert.rejects(ownerStatement(owner.id, grantId, "2024-01-01", "2026-01-01"), /one year/);
+
+  const pdf = Buffer.from(renderStatement(h1!)).toString("latin1");
+  assert.ok(pdf.startsWith("%PDF-1.4"));
+  assert.match(pdf, /Statement Owner/);
+  assert.doesNotMatch(pdf, /Tenant Y/);
+});
+
+test("a company records payment of an accepted invoice and the vendor sees it", async () => {
+  const co = await newCompany("pay-a");
+  const officer = await addMember(co, "OFFICER", "pay-officer");
+  const x = await asset(co, "Pay block");
+  const c = await createContractor(co, { name: "Pay Plumbing", trade: "Plumbing", phone: "", email: "", notes: "" });
+  const job = await reportWorkOrder(officer, x.id, { title: "Leak", description: "", priority: "EMERGENCY", riskLevel: "HIGH" } as never);
+  await assignWorkOrder(co, job.id, { assigneeId: officer.membershipId, contractorId: c.id });
+  await setProgress(officer, job.id, "IN_PROGRESS", "");
+  const vendor = await person("pay-vendor");
+  await acceptPortalInvite(await inviteVendor(co, { email: vendor.email, displayName: "Pay contact", contractorId: c.id }), vendor);
+  const grantId = (await myPortals(vendor.id)).grants[0].id;
+  const quote = await submitVendorWork(vendor.id, grantId, job.id, { kind: "QUOTE", amount: "60000", note: "" }, null);
+  const invoice = await submitVendorWork(vendor.id, grantId, job.id, { kind: "INVOICE", amount: "85000", note: "" }, null);
+  const today = new Date(Date.now() + 3_600_000).toISOString().slice(0, 10);
+
+  await assert.rejects(markInvoicePaid(co, invoice, { paidOn: today, amount: "", reference: "" }), /accepted invoice/);
+  await decideSubmission(co, quote, true, "");
+  await decideSubmission(co, invoice, true, "");
+  await assert.rejects(markInvoicePaid(co, quote, { paidOn: today, amount: "", reference: "" }), /accepted invoice/);
+  await assert.rejects(markInvoicePaid(officer, invoice, { paidOn: today, amount: "", reference: "" }), /permission/);
+  await assert.rejects(markInvoicePaid(co, invoice, { paidOn: "2999-01-01", amount: "", reference: "" }), /future/);
+  await assert.rejects(markInvoicePaid(co, invoice, { paidOn: today, amount: "90,000", reference: "" }), /more than/);
+  await markInvoicePaid(co, invoice, { paidOn: today, amount: "50,000", reference: "TRF-001" });
+  await assert.rejects(markInvoicePaid(co, invoice, { paidOn: today, amount: "", reference: "" }), /already marked paid/);
+
+  const seen = (await vendorPortal(vendor.id, grantId))!.submissions.find((s) => s.id === invoice)!;
+  assert.equal(seen.paidAmountKobo, 5_000_000n);
+  assert.equal(seen.paidReference, "TRF-001");
+  assert.equal(await withUser(vendor.id, (tx) => tx.notification.count({ where: { userId: vendor.id, kind: "portal.paid" } })), 1);
+  // The vendor cannot change a payment record, and cannot send one that claims to be paid.
+  const changed = await withUser(vendor.id, (tx) => tx.vendorSubmission.updateMany({ where: { id: invoice }, data: { paidAmountKobo: 8_500_000n } }));
+  assert.equal(changed.count, 0);
+  await assert.rejects(withUser(vendor.id, (tx) => tx.vendorSubmission.create({ data: { companyId: co.companyId, workOrderId: job.id, grantId, userId: vendor.id, kind: "INVOICE", amountKobo: 1n, paidOn: new Date(), paidAmountKobo: 1n, paidById: vendor.id } })));
+
+  await clearInvoicePayment(co, invoice);
+  const cleared = await withTenant(co.companyId, co.userId, (tx) => tx.vendorSubmission.findUniqueOrThrow({ where: { id: invoice } }));
+  assert.equal(cleared.paidOn, null);
+  await markInvoicePaid(co, invoice, { paidOn: today, amount: "", reference: "TRF-002" });
+  assert.equal((await withTenant(co.companyId, co.userId, (tx) => tx.vendorSubmission.findUniqueOrThrow({ where: { id: invoice } }))).paidAmountKobo, 8_500_000n, "blank amount means the full invoice");
 });

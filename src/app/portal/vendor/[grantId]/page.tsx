@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { vendorPortal } from "@/lib/services/portals";
-import { SUBMISSION_LABELS, SUBMISSION_STATUS_LABELS, type SubmissionKind, type SubmissionStatus } from "@/lib/portal-rules";
+import { SUBMISSION_LABELS, SUBMISSION_STATUS_LABELS, paymentLabel, type SubmissionKind, type SubmissionStatus } from "@/lib/portal-rules";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -25,6 +25,9 @@ export default async function VendorPortal({ params, searchParams }: { params: P
   const open = jobs.filter((j) => !DONE.includes(j.status));
   const done = jobs.filter((j) => DONE.includes(j.status));
   const waiting = submissions.filter((x) => x.status === "SUBMITTED").length;
+  const accepted = submissions.filter((x) => x.kind === "INVOICE" && x.status === "ACCEPTED");
+  const unpaid = accepted.reduce((t, x) => t + (x.amountKobo ?? 0n) - (x.paidAmountKobo ?? 0n), 0n);
+  const paid = accepted.reduce((t, x) => t + (x.paidAmountKobo ?? 0n), 0n);
   const row = (j: (typeof jobs)[number]) => (
     <li key={j.id}><Link className="job-row" href={`/portal/vendor/${grant.id}/jobs/${j.id}`}>
       <span><strong>{j.ref}</strong> · {j.title}<span className="small muted"> · {j.asset.name}{j.asset.city ? `, ${j.asset.city}` : ""}{j.targetDate ? ` · due ${formatDate(j.targetDate)}` : ""}</span>{j.safetyRisk ? <span className="pill bad" style={{ marginInlineStart: 6 }}>Safety risk</span> : null}</span>
@@ -47,6 +50,8 @@ export default async function VendorPortal({ params, searchParams }: { params: P
         <div className="kpi" role="listitem"><strong>{open.length}</strong><span>Open jobs</span></div>
         <div className="kpi" role="listitem"><strong>{done.length}</strong><span>Completed</span></div>
         <div className="kpi" role="listitem"><strong>{waiting}</strong><span>Waiting for the company</span></div>
+        <div className="kpi" role="listitem"><strong>{formatKobo(unpaid)}</strong><span>Accepted, not yet paid</span></div>
+        <div className="kpi" role="listitem"><strong>{formatKobo(paid)}</strong><span>Paid to you</span></div>
       </div>
       <section className="card stack"><h2>Open jobs</h2>
         {open.length ? <ShowMore limit={8} noun="more jobs" items={open.map(row)} /> : <p className="muted">No open jobs right now.</p>}
@@ -58,7 +63,7 @@ export default async function VendorPortal({ params, searchParams }: { params: P
             const j = jobs.find((y) => y.id === x.workOrderId);
             return (
               <li key={x.id}><div className="row between" style={{ width: "100%" }}>
-                <span>{SUBMISSION_LABELS[x.kind as SubmissionKind]}{x.amountKobo !== null ? ` · ${formatKobo(x.amountKobo)}` : ""}<span className="small muted"> · {j ? j.ref : "job"} · {formatDate(x.createdAt)}{x.decisionNote ? ` · ${x.decisionNote}` : ""}</span></span>
+                <span>{SUBMISSION_LABELS[x.kind as SubmissionKind]}{x.amountKobo !== null ? ` · ${formatKobo(x.amountKobo)}` : ""}<span className="small muted"> · {j ? j.ref : "job"} · {formatDate(x.createdAt)}{x.decisionNote ? ` · ${x.decisionNote}` : ""}</span>{paymentLabel(x) ? <span className="small"><br /><strong>{paymentLabel(x)}</strong>{x.paidOn ? ` · ${x.paidAmountKobo !== null ? formatKobo(x.paidAmountKobo) : ""} on ${formatDate(x.paidOn)}${x.paidReference ? ` · ref ${x.paidReference}` : ""}` : ""}</span> : null}</span>
                 <Pill status={x.status === "ACCEPTED" ? "ACTIVE" : x.status === "REJECTED" ? "SUSPENDED" : "OPEN"} label={SUBMISSION_STATUS_LABELS[x.status as SubmissionStatus]} />
               </div></li>
             );

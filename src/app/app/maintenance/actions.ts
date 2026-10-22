@@ -7,7 +7,7 @@ import {
   createContractor, createSchedule, generateDueWorkOrders, removeMaterial, reopenWorkOrder, reportWorkOrder, setContractorActive,
   setProgress, setScheduleActive, triageWorkOrder,
 } from "@/lib/services/maintenance";
-import { decideSubmission } from "@/lib/services/portals";
+import { clearInvoicePayment, decideSubmission, markInvoicePaid } from "@/lib/services/portals";
 
 const woPath = (id: string) => `/app/maintenance/${encodeURIComponent(id)}`;
 
@@ -188,5 +188,23 @@ export async function decideSubmissionAction(form: FormData) {
     const accept = str(form, "decision") === "accept";
     await decideSubmission(m, str(form, "id"), accept, str(form, "note"));
     return withNotice(back, accept ? "Accepted. The vendor has been told." : "Returned to the vendor with your note.") + "#vendor";
+  });
+}
+
+export async function markPaidAction(form: FormData) {
+  const back = woPath(str(form, "workOrderId"));
+  return act(back, async () => {
+    const m = await requireMember("maintenance.manage");
+    await markInvoicePaid(m, str(form, "id"), { paidOn: str(form, "paidOn"), amount: str(form, "amount"), reference: str(form, "reference") });
+    return withNotice(back, "Payment recorded. The vendor has been told.") + "#vendor";
+  });
+}
+
+export async function clearPaidAction(form: FormData) {
+  const back = woPath(str(form, "workOrderId"));
+  return act(back, async () => {
+    const m = await requireMember("maintenance.manage");
+    await clearInvoicePayment(m, str(form, "id"));
+    return withNotice(back, "Payment record cleared.") + "#vendor";
   });
 }

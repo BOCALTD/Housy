@@ -11,8 +11,9 @@ import { logActivity } from "../audit";
 import { validateUpload } from "../storage";
 import { hashToken, newToken } from "../tokens";
 import { can } from "../permissions";
+import type { StatementData } from "../statement-pdf";
 import {
-  MAX_GRANT_ASSETS, VENDOR_VISIBLE, acceptEffect, canMoveLead, checkSubmissionInput, parseNaira, rentPosition,
+  MAX_GRANT_ASSETS, parseNairaPayment, statementPeriod, statementTotals, VENDOR_VISIBLE, acceptEffect, canMoveLead, checkSubmissionInput, parseNaira, rentPosition,
   type LeadStatus, type SubmissionKind,
 } from "../portal-rules";
 import { assertCan, type Ctx } from "./context";
@@ -149,7 +150,7 @@ export async function submissionsFor(ctx: Ctx, workOrderId: string) {
   return withTenant(ctx.companyId, ctx.userId, (tx) =>
     tx.vendorSubmission.findMany({
       where: { companyId: ctx.companyId, workOrderId }, orderBy: { createdAt: "desc" },
-      select: { id: true, kind: true, amountKobo: true, note: true, docName: true, docMime: true, status: true, decidedAt: true, decisionNote: true, createdAt: true, grantId: true },
+      select: { id: true, kind: true, amountKobo: true, note: true, docName: true, docMime: true, status: true, decidedAt: true, decisionNote: true, createdAt: true, grantId: true, paidOn: true, paidAmountKobo: true, paidReference: true },
     }));
 }
 
@@ -179,6 +180,38 @@ export async function decideSubmission(ctx: Ctx, id: string, accept: boolean, no
         body: note || wo.title, link: `/portal/vendor/${s.grantId}/jobs/${wo.id}`,
       });
     }
+    return s.workOrderId;
+  });
+}
+
+/** Record that an accepted invoice was paid (in full or in part). The vendor is told. */
+export async function markInvoicePaid(ctx: Ctx, id: string, input: { paidOn: string; amount: string; reference: string }) {
+  assertCan(ctx, "maintenance.manage");
+  const reference = input.reference.trim().slice(0, 120);
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const s = await tx.vendorSubmission.findFirst({ where: { id, companyId: ctx.companyId } });
+    if (!s) throw new Error("Submission not found");
+    if (s.kind !== "INVOICE" || s.status !== "ACCEPTED") throw new Error("Only an accepted invoice can be marked paid");
+    if (s.paidOn) throw new Error("This invoice is already marked paid. Clear the payment first to correct it.");
+    const { paidOn, amountKobo } = parseNairaPayment(input.paidOn, input.amount, s.amountKobo ?? BigInt(0), new Date());
+    await tx.vendorSubmission.update({ where: { id }, data: { paidOn, paidAmountKobo: amountKobo, paidReference: reference, paidById: ctx.userId } });
+    const wo = await tx.workOrder.findFirst({ where: { id: s.workOrderId, companyId: ctx.companyId }, select: { id: true, ref: true } });
+    await tx.workOrderEvent.create({ data: { companyId: ctx.companyId, workOrderId: s.workOrderId, kind: "vendor.paid", note: `invoice paid${reference ? `, ref ${reference}` : ""}`, actorId: ctx.userId }, select: { id: true } });
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "VendorSubmission", entityId: id, action: "portal.invoice_paid", detail: { amountKobo: amountKobo.toString(), reference } });
+    await notify(tx, s.userId, { kind: "portal.paid", title: `${wo?.ref ?? "Job"}: your invoice was marked paid`, body: reference ? `Reference ${reference}` : "", link: `/portal/vendor/${s.grantId}/jobs/${s.workOrderId}` });
+    return s.workOrderId;
+  });
+}
+
+/** Undo a payment record entered by mistake. Kept in the activity log. */
+export async function clearInvoicePayment(ctx: Ctx, id: string) {
+  assertCan(ctx, "maintenance.manage");
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const s = await tx.vendorSubmission.findFirst({ where: { id, companyId: ctx.companyId } });
+    if (!s || !s.paidOn) throw new Error("This invoice is not marked paid");
+    await tx.vendorSubmission.update({ where: { id }, data: { paidOn: null, paidAmountKobo: null, paidReference: "", paidById: null } });
+    await tx.workOrderEvent.create({ data: { companyId: ctx.companyId, workOrderId: s.workOrderId, kind: "vendor.payment_cleared", note: "payment record removed", actorId: ctx.userId }, select: { id: true } });
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "VendorSubmission", entityId: id, action: "portal.invoice_payment_cleared", detail: { was: s.paidAmountKobo?.toString() ?? null, on: s.paidOn.toISOString().slice(0, 10) } });
     return s.workOrderId;
   });
 }
@@ -302,6 +335,74 @@ export async function ownerPortal(userId: string, grantId: string) {
   return result;
 }
 
+async function statementFor(companyId: string, companyName: string, ownerName: string, assetIds: string[], fromRaw: string | null, toRaw: string | null): Promise<StatementData> {
+  const { from, to } = statementPeriod(fromRaw, toRaw, new Date());
+  const f = new Date(`${from}T00:00:00Z`), t = new Date(`${to}T00:00:00Z`);
+  return withTenant(companyId, SYSTEM, async (tx) => {
+    const assets = await tx.asset.findMany({ where: { companyId, id: { in: assetIds } }, select: { id: true, ref: true, name: true, address: true, city: true, state: true }, orderBy: { name: "asc" } });
+    const ids = assets.map((a) => a.id);
+    const leases = await tx.lease.findMany({
+      where: { companyId, assetId: { in: ids }, startDate: { lte: t } }, orderBy: { startDate: "asc" },
+      select: { id: true, assetId: true, ref: true, occupantName: true, unit: true, status: true, charges: { select: { dueDate: true, amountKobo: true, adjustedKobo: true, paidKobo: true } } },
+    });
+    const receipts = await tx.receipt.findMany({
+      where: { companyId, leaseId: { in: leases.map((l) => l.id) }, paidOn: { gte: f, lte: t }, reversal: { is: null } }, orderBy: { paidOn: "asc" },
+      select: { leaseId: true, no: true, paidOn: true, amountKobo: true },
+    });
+    const jobs = await tx.workOrder.findMany({
+      where: { companyId, assetId: { in: ids }, completedOn: { gte: f, lte: t }, status: { not: "CANCELLED" } }, orderBy: { completedOn: "asc" },
+      select: { assetId: true, ref: true, title: true, completedOn: true, actualCostKobo: true },
+    });
+    const zero = BigInt(0);
+    const leaseRows = leases.map((l) => {
+      const owed = (c: (typeof l.charges)[number]) => c.amountKobo + c.adjustedKobo;
+      const inPeriod = l.charges.filter((c) => c.dueDate >= f && c.dueDate <= t);
+      const dueByEnd = l.charges.filter((c) => c.dueDate <= t);
+      const mine = receipts.filter((r) => r.leaseId === l.id);
+      return {
+        assetId: l.assetId, status: l.status, ref: l.ref, occupant: l.occupantName, unit: l.unit,
+        chargedKobo: inPeriod.reduce((s2, c) => s2 + owed(c), zero),
+        receivedKobo: mine.reduce((s2, r) => s2 + r.amountKobo, zero),
+        outstandingKobo: dueByEnd.reduce((s2, c) => s2 + (owed(c) > c.paidKobo ? owed(c) - c.paidKobo : zero), zero),
+        receipts: mine.map((r) => ({ no: r.no, paidOn: r.paidOn.toISOString().slice(0, 10), amountKobo: r.amountKobo })),
+      };
+    // A lease belongs on the statement if anything happened in the period or it is still running.
+    }).filter((l) => l.chargedKobo !== zero || l.receivedKobo !== zero || l.outstandingKobo !== zero || l.status === "ACTIVE");
+    const jobRows = jobs.map((j) => ({ assetId: j.assetId, ref: j.ref, title: j.title, completedOn: j.completedOn!.toISOString().slice(0, 10), costKobo: j.actualCostKobo }));
+    return {
+      companyName, ownerName, from, to, generatedAt: new Date(),
+      properties: assets.map((a) => ({
+        name: a.name, ref: a.ref, address: [a.address, a.city, a.state].filter(Boolean).join(", "),
+        leases: leaseRows.filter((l) => l.assetId === a.id).map(({ assetId: _a, status: _s, ...l }) => l),
+        jobs: jobRows.filter((j) => j.assetId === a.id).map(({ assetId: _a, ...j }) => j),
+      })),
+      totals: statementTotals(leaseRows, jobRows),
+    };
+  });
+}
+
+/** The owner's own statement, for the properties on their grant. */
+export async function ownerStatement(userId: string, grantId: string, from: string | null, to: string | null) {
+  const g = await holdGrant(userId, grantId, "OWNER");
+  if (!g) return null;
+  const assetIds = (await withUser(userId, (tx) => tx.portalGrantAsset.findMany({ where: { grantId: g.id }, select: { assetId: true } }))).map((a) => a.assetId);
+  return statementFor(g.companyId, g.companyName, g.displayName, assetIds, from, to);
+}
+
+/** The same statement, prepared by the company for one of its owners. */
+export async function ownerStatementForCompany(ctx: Ctx, grantId: string, from: string | null, to: string | null) {
+  assertCan(ctx, "portal.manage");
+  const found = await withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const g = await tx.portalGrant.findFirst({ where: { id: grantId, companyId: ctx.companyId, kind: "OWNER" }, select: { id: true, displayName: true } });
+    if (!g) return null;
+    const links = await tx.portalGrantAsset.findMany({ where: { grantId: g.id, companyId: ctx.companyId }, select: { assetId: true } });
+    const company = await tx.company.findUnique({ where: { id: ctx.companyId }, select: { name: true } });
+    return { g, ids: links.map((l) => l.assetId), name: company?.name ?? "" };
+  });
+  if (!found) return null;
+  return statementFor(ctx.companyId, found.name, found.g.displayName, found.ids, from, to);
+}
+
 /** The vendor portal: the contractor record, its jobs, the vendor's profile and what it has sent. */
 export async function vendorPortal(userId: string, grantId: string) {
   const g = await holdGrant(userId, grantId, "VENDOR");
@@ -309,7 +410,7 @@ export async function vendorPortal(userId: string, grantId: string) {
   const contractorId = g.contractorId;
   const [profile, submissions] = await Promise.all([
     withUser(userId, (tx) => tx.vendorProfile.findUnique({ where: { grantId: g.id }, select: { serviceAreas: true, qualifications: true, insuranceNote: true, docName: true, updatedAt: true } })),
-    withUser(userId, (tx) => tx.vendorSubmission.findMany({ where: { grantId: g.id, userId }, orderBy: { createdAt: "desc" }, select: { id: true, workOrderId: true, kind: true, amountKobo: true, status: true, createdAt: true, decisionNote: true } })),
+    withUser(userId, (tx) => tx.vendorSubmission.findMany({ where: { grantId: g.id, userId }, orderBy: { createdAt: "desc" }, select: { id: true, workOrderId: true, kind: true, amountKobo: true, status: true, createdAt: true, decisionNote: true, paidOn: true, paidAmountKobo: true, paidReference: true } })),
   ]);
   const data = await withTenant(g.companyId, SYSTEM, async (tx) => {
     const contractor = await tx.contractor.findFirst({ where: { id: contractorId, companyId: g.companyId }, select: { name: true, trade: true, active: true } });
@@ -336,7 +437,7 @@ export async function vendorJob(userId: string, grantId: string, workOrderId: st
   if (!job) return null;
   const submissions = await withUser(userId, (tx) => tx.vendorSubmission.findMany({
     where: { grantId: g.id, userId, workOrderId }, orderBy: { createdAt: "desc" },
-    select: { id: true, kind: true, amountKobo: true, note: true, docName: true, status: true, createdAt: true, decisionNote: true, decidedAt: true },
+    select: { id: true, kind: true, amountKobo: true, note: true, docName: true, status: true, createdAt: true, decisionNote: true, decidedAt: true, paidOn: true, paidAmountKobo: true, paidReference: true },
   }));
   return { grant: { id: g.id, companyName: g.companyName }, job, submissions };
 }

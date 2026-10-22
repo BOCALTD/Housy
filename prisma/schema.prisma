@@ -5335,6 +5335,10 @@ model VendorSubmission {
   decidedById String?   @map("decided_by_id")
   decidedAt   DateTime? @map("decided_at")
   decisionNote String   @default("") @map("decision_note")
+  paidOn         DateTime? @map("paid_on") @db.Date
+  paidAmountKobo BigInt?   @map("paid_amount_kobo")
+  paidReference  String    @default("") @map("paid_reference")
+  paidById       String?   @map("paid_by_id")
   createdAt   DateTime  @default(now()) @map("created_at")
 
   @@index([companyId, workOrderId])

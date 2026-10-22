@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { vendorJob } from "@/lib/services/portals";
-import { SUBMISSION_LABELS, SUBMISSION_STATUS_LABELS, submittableKinds, type SubmissionKind, type SubmissionStatus } from "@/lib/portal-rules";
+import { SUBMISSION_LABELS, SUBMISSION_STATUS_LABELS, paymentLabel, submittableKinds, type SubmissionKind, type SubmissionStatus } from "@/lib/portal-rules";
 import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -65,6 +65,7 @@ export default async function VendorJob({ params, searchParams }: { params: Prom
               {x.note ? <p className="small">{x.note}</p> : null}
               <div className="small muted">{formatDateTime(x.createdAt)}{x.docName ? <> · <a className="tap" href={`/portal/doc/${x.id}`}>{x.docName}</a></> : null}</div>
               {x.decisionNote ? <p className="small"><strong>{grant.companyName}:</strong> {x.decisionNote}</p> : null}
+              {paymentLabel(x) ? <p className="small"><strong>{paymentLabel(x)}</strong>{x.paidOn ? ` · ${x.paidAmountKobo !== null ? formatKobo(x.paidAmountKobo) : ""} on ${formatDate(x.paidOn)}${x.paidReference ? ` · ref ${x.paidReference}` : ""}` : ""}</p> : null}
             </div></li>
           ))} />
         )}

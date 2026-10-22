@@ -5,15 +5,17 @@ import { ownerPortal } from "@/lib/services/portals";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
-import { Pill, ShowMore, TableMore } from "@/components/ui";
+import { Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
+import { StatementForm } from "@/components/StatementForm";
 
 export const metadata = { title: "Owner portal", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 const OPEN_WO = ["REPORTED", "TRIAGED", "APPROVED", "ASSIGNED", "IN_PROGRESS", "AWAITING_PARTS", "INSPECTION_REQUIRED"];
 
-export default async function OwnerPortal({ params }: { params: Promise<{ grantId: string }> }) {
+export default async function OwnerPortal({ params, searchParams }: { params: Promise<{ grantId: string }>; searchParams?: Promise<SP> }) {
   const { grantId } = await params;
+  const s = await searchParams;
   const user = await requireUser();
   if (!/^[0-9a-f-]{36}$/.test(grantId)) notFound();
   const data = await ownerPortal(user.id, grantId);
@@ -38,6 +40,7 @@ export default async function OwnerPortal({ params }: { params: Promise<{ grantI
         <Link className="btn" href="/portal">All portals</Link>
       </div>
 
+      <Flash searchParams={{ error: sp(s, "error") }} />
       <div className="portal-kpis" role="list">
         <div className="kpi" role="listitem"><strong>{assets.length}</strong><span>Properties</span></div>
         <div className="kpi" role="listitem"><strong>{active.length}</strong><span>Active tenancies</span></div>
@@ -89,6 +92,11 @@ export default async function OwnerPortal({ params }: { params: Promise<{ grantI
             </div></li>
           ))} />
         )}
+      </section>
+
+      <section className="card stack" id="statement"><h2>Statements</h2>
+        <p className="small muted">Rent due and received, receipts, what is still outstanding and maintenance paid, for every property above, as a PDF you can keep or forward.</p>
+        <StatementForm action={`/portal/owner/${grant.id}/statement`} />
       </section>
 
       <section className="card stack"><h2>Approved reports</h2>

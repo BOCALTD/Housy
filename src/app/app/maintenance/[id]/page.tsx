@@ -8,11 +8,11 @@ import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/li
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import { submissionsFor } from "@/lib/services/portals";
-import { SUBMISSION_LABELS, SUBMISSION_STATUS_LABELS, type SubmissionKind, type SubmissionStatus } from "@/lib/portal-rules";
+import { SUBMISSION_LABELS, SUBMISSION_STATUS_LABELS, paymentLabel, type SubmissionKind, type SubmissionStatus } from "@/lib/portal-rules";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import {
   addMaterialAction, addPhotoAction, approveAction, assignAction, cancelAction, closeAction, completeAction, progressAction,
-  removeMaterialAction, reopenAction, triageAction, decideSubmissionAction,
+  removeMaterialAction, reopenAction, triageAction, decideSubmissionAction, markPaidAction, clearPaidAction,
 } from "../actions";
 
 export const metadata = { title: "Work order" };
@@ -267,6 +267,26 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
                     <button className="btn" name="decision" value="reject" type="submit">Not accepted</button>
                   </div>
                 </form>
+              ) : null}
+              {paymentLabel(v) ? (
+                <div className="stack" style={{ gap: 6 }}>
+                  <p className="small"><strong>{paymentLabel(v)}</strong>{v.paidOn ? ` · ${v.paidAmountKobo !== null ? formatKobo(v.paidAmountKobo) : ""} on ${formatDate(v.paidOn)}${v.paidReference ? ` · ref ${v.paidReference}` : ""}` : ""}</p>
+                  {!v.paidOn ? (
+                    <details className="inline"><summary>Record payment</summary>
+                      <form action={markPaidAction} className="stack" style={{ gap: 8 }}>
+                        {hidden}<input type="hidden" name="id" value={v.id} />
+                        <div className="fields">
+                          <Field label="Paid on"><input type="date" name="paidOn" required defaultValue={todayText} max={todayText} /></Field>
+                          <Field label="Amount paid" hint="Leave blank for the full invoice."><input name="amount" inputMode="decimal" placeholder={koboToInput(v.amountKobo)} /></Field>
+                        </div>
+                        <Field label="Payment reference" hint="Transfer or cheque reference, so the vendor can match it."><input name="reference" maxLength={120} /></Field>
+                        <div className="row"><button className="btn primary" type="submit">Mark paid</button></div>
+                      </form>
+                    </details>
+                  ) : (
+                    <form action={clearPaidAction}>{hidden}<input type="hidden" name="id" value={v.id} /><button className="btn" type="submit">Clear payment record</button></form>
+                  )}
+                </div>
               ) : null}
             </div></li>
           ))} />

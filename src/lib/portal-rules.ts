@@ -109,3 +109,54 @@ export function rentPosition(charges: Charge[], today: Date) {
   }
   return { dueKobo, paidKobo, overdueKobo, nextDue: next };
 }
+
+// ---------- Owner statements ----------
+
+export const STATEMENT_MAX_DAYS = 366;
+
+/** The statement period from the form, as whole days. Defaults to the last full calendar month. */
+export function statementPeriod(fromRaw: string | null | undefined, toRaw: string | null | undefined, today: Date): { from: string; to: string } {
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  const t = today.toISOString().slice(0, 10);
+  if (!fromRaw && !toRaw) {
+    const y = today.getUTCFullYear(), m = today.getUTCMonth();
+    const first = new Date(Date.UTC(y, m - 1, 1)), last = new Date(Date.UTC(y, m, 0));
+    return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) };
+  }
+  const from = fromRaw ?? "", to = toRaw || t;
+  if (!iso.test(from) || !iso.test(to) || Number.isNaN(Date.parse(from)) || Number.isNaN(Date.parse(to))) throw new Error("Choose a start and end date");
+  if (from > to) throw new Error("The start date must be on or before the end date");
+  if ((Date.parse(to) - Date.parse(from)) / 864e5 + 1 > STATEMENT_MAX_DAYS) throw new Error("A statement covers at most one year");
+  return { from, to };
+}
+
+export type StatementLease = { chargedKobo: bigint; receivedKobo: bigint; outstandingKobo: bigint };
+export type StatementJob = { costKobo: bigint | null };
+
+/** Totals for a statement. Net is rent received less maintenance paid in the period, before any management fees. */
+export function statementTotals(leases: StatementLease[], jobs: StatementJob[]) {
+  const sum = (xs: bigint[]) => xs.reduce((a, b) => a + b, BigInt(0));
+  const charged = sum(leases.map((l) => l.chargedKobo));
+  const received = sum(leases.map((l) => l.receivedKobo));
+  const outstanding = sum(leases.map((l) => l.outstandingKobo));
+  const maintenance = sum(jobs.map((j) => j.costKobo ?? BigInt(0)));
+  return { charged, received, outstanding, maintenance, net: received - maintenance };
+}
+
+/** Check a payment against an accepted invoice: a real date not in the future, and an amount up to the invoice. Blank amount means the full invoice. */
+export function parseNairaPayment(dateRaw: string, amountRaw: string, invoiceKobo: bigint, today: Date): { paidOn: Date; amountKobo: bigint } {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw) || Number.isNaN(Date.parse(dateRaw))) throw new Error("Enter the date it was paid");
+  const paidOn = new Date(`${dateRaw}T00:00:00Z`);
+  if (dateRaw > new Date(today.getTime() + 3_600_000).toISOString().slice(0, 10)) throw new Error("The payment date cannot be in the future");
+  const amountKobo = parseNaira(amountRaw) ?? invoiceKobo;
+  if (amountKobo <= BigInt(0)) throw new Error("Enter the amount paid");
+  if (amountKobo > invoiceKobo) throw new Error("The amount paid cannot be more than the accepted invoice");
+  return { paidOn, amountKobo };
+}
+
+/** How a vendor's invoice stands with the company. */
+export function paymentLabel(s: { kind: string; status: string; amountKobo: bigint | null; paidOn: Date | null; paidAmountKobo: bigint | null }): string | null {
+  if (s.kind !== "INVOICE" || s.status !== "ACCEPTED") return null;
+  if (!s.paidOn) return "Accepted, not yet paid";
+  return s.paidAmountKobo !== null && s.amountKobo !== null && s.paidAmountKobo < s.amountKobo ? "Part paid" : "Paid";
+}

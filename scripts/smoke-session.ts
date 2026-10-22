@@ -81,6 +81,7 @@ async function main() {
   const grants = await withUser(seeker.id, (tx) => tx.portalGrant.findMany({ where: { userId: seeker.id, status: "ACTIVE" }, select: { id: true, kind: true, companyId: true, contractorId: true } }));
   for (const g of grants) {
     paths.add(`/portal/${g.kind === "OWNER" ? "owner" : "vendor"}/${g.id}`);
+    if (g.kind === "OWNER") { paths.add(`/portal/owner/${g.id}/statement`); paths.add(`/portal/owner/${g.id}/statement?from=2026-01-01&to=2026-06-30`); paths.add(`/app/portals/statement/${g.id}`); }
     if (g.kind === "VENDOR" && g.contractorId) {
       const jobs = await withTenant(g.companyId, "system", (tx) => tx.workOrder.findMany({ where: { contractorId: g.contractorId, status: { in: ["ASSIGNED", "IN_PROGRESS"] } }, select: { id: true } }));
       for (const j of jobs) paths.add(`/portal/vendor/${g.id}/jobs/${j.id}`);

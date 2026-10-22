@@ -143,7 +143,7 @@ async function main() {
   const seekerToken = lines[2];
   const platformToken = lines[3];
   const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/portal") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
-  const all = lines.slice(4).filter((p) => !p.endsWith(".csv"));
+  const all = lines.slice(4).filter((p) => !p.endsWith(".csv") && !p.includes("/statement"));
   const seen = new Set<string>();
   const signedIn: string[] = [];
   for (const p of all) {

@@ -5,6 +5,7 @@ import { GRANT_STATUS_LABELS, PORTAL_LABELS, type GrantStatus, type PortalKind }
 import { formatDate } from "@/lib/dates";
 import { CardMore, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { CheckList } from "@/components/CheckList";
+import { StatementForm } from "@/components/StatementForm";
 import { InviteForm, ReissueForm } from "./InviteForm";
 import { assetsAction, revokeAction } from "./actions";
 
@@ -27,6 +28,9 @@ export default async function PortalsPage({ searchParams }: { searchParams?: Pro
         <div><strong>{g.displayName}</strong> <span className="pill disc">{PORTAL_LABELS[g.kind as PortalKind]}</span><div className="small muted">{g.email}{g.acceptedAt ? ` · joined ${formatDate(g.acceptedAt)}` : ` · invited ${formatDate(g.createdAt)}`}{g.status === "INVITED" && g.inviteExpiresAt ? (g.inviteExpiresAt < new Date() ? " · link expired" : ` · link works until ${formatDate(g.inviteExpiresAt)}`) : ""}</div></div>
         <Pill status={pill(g.status)} label={GRANT_STATUS_LABELS[g.status as GrantStatus]} />
       </div>
+      {g.kind === "OWNER" && g.status !== "REVOKED" ? (
+        <details className="inline"><summary>Owner statement (PDF)</summary><StatementForm action={`/app/portals/statement/${g.id}`} /></details>
+      ) : null}
       {g.kind === "OWNER" ? (
         <details className="inline"><summary>Sees {g.assets.length} {g.assets.length === 1 ? "property" : "properties"}</summary>
           {g.status !== "REVOKED" ? (

@@ -61,6 +61,9 @@ import { saveSearch, watchListing } from "./services/alerts";
 import { addComment, moderateReel, toggleLike, uploadReel } from "./services/reels";
 import { displayQueue, requestDisplay, reviewDisplay } from "./services/completed";
 import { decideKyc, submitAgentKyc, submitCompanyKyc } from "./services/kyc";
+import { confirmBooking, requestInspection } from "./services/inspection-bookings";
+import { endSession, startSafetySession } from "./services/safety";
+import { openCase } from "./services/trust-cases";
 import { withPlatformAdmin as asAdmin } from "./db";
 
 export const DEMO_PASSWORD = "demo-password-123";
@@ -552,6 +555,20 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   if (demoListing) await watchListing(seeker.userId, demoListing.publicRef);
   await submitRating(seeker.userId, { overall: 4 as never, ease: 4 as never, trust: 5 as never, support: "" as never, suggestion: "[DEMO] Show more photos on each property.", anonymous: false });
 
+
+  // Inspection bookings: one confirmed with the agent (with a finished safety session), one waiting for a time; and one Trust and Safety report.
+  if (demoListing) {
+    const soon = new Date(Date.now() + 3 * 864e5);
+    const local = (d: Date) => new Date(d.getTime() + 3_600_000).toISOString().slice(0, 16);
+    const confirmedRef = await requestInspection(seeker.userId, demoListing.publicRef, { name: "[DEMO] Seyi Seeker", phone: "08000000009", preferredAt: local(soon), message: "[DEMO] Can I see the boys' quarters too?" });
+    const booking = await withTenant(alpha.companyId, alpha.userId, (tx) => tx.inspectionBooking.findFirstOrThrow({ where: { ref: confirmedRef } }));
+    await confirmBooking(alpha, booking.id, { scheduledAt: local(soon), durationMinutes: "60", assignedUserId: alpha.userId, meetingPoint: "[DEMO] Estate gate, Palm Grove Estate" });
+    const safety = await startSafetySession(alpha.userId, confirmedRef, { expectedMinutes: 60, consent: true });
+    await endSession(alpha.userId, safety.id, "STOPPED");
+    const other = await withUser("demo-seed", (tx) => tx.listing.findFirst({ where: { status: "PUBLISHED", NOT: { id: demoListing.id }, companyId: alpha.companyId } }));
+    if (other) await requestInspection(seeker.userId, other.publicRef, { name: "[DEMO] Seyi Seeker", preferredAt: local(new Date(Date.now() + 5 * 864e5)) });
+    await openCase(seeker.userId, { category: "SUSPICIOUS_LISTING", targetKind: "LISTING", targetRef: demoListing.publicRef, description: "[DEMO] Someone sent me a WhatsApp message asking for a reservation fee for this property. Is that really the company?" }, []);
+  }
 
   // Identity and business checks, so trust badges show at every level. Labelled as demonstration data in what the reviewer recorded.
   const demoPdf = new Uint8Array(Buffer.from("%PDF-1.4\n% DEMONSTRATION DOCUMENT - NOT A REAL RECORD\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"));

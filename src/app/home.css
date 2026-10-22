@@ -257,3 +257,16 @@
 .card-wrap { position: relative; display: grid; }
 .card-wrap .compare-toggle { position: absolute; top: 10px; right: 10px; z-index: 2; background: rgba(255, 255, 255, .95); color: #1F2125; }
 .card-wrap .compare-toggle[aria-pressed="true"] { background: var(--primary); border-color: #F29F05; }
+
+/* Bookings and safety */
+.steps-line { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.steps-line li { padding: 6px 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13.5px; color: var(--muted); }
+.steps-line li.done { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.steps-line li.now { background: var(--primary); color: var(--primary-ink); border-color: #F29F05; font-weight: 700; }
+.safety-status { padding: 14px 16px; border-radius: 14px; border: 2px dashed var(--line); background: var(--surface-2); font-size: 15px; }
+.safety-status.on { border-style: solid; border-color: #2F7D4F; background: var(--ok-bg); color: var(--ok); }
+.btn.sos { min-height: 56px; font-size: 17px; font-weight: 800; color: #fff; background: #B3261E; border-color: #8E1410; }
+.btn.sos:hover { color: #fff; filter: brightness(1.08); }
+.day-group { display: grid; gap: 8px; }
+.day-group h3 { font-size: 15px; color: var(--muted); }
+.booking-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink); text-decoration: none; }

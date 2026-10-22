@@ -78,7 +78,8 @@ export type Action =
   | "billing.manage"
   | "import.manage"
   | "api.manage"
-  | "kyc.manage";
+  | "kyc.manage"
+  | "booking.manage";
 
 const MATRIX: Record<Action, Role[]> = {
   // Plans, invoices and advertising budgets: only the company administrator commits the company to spending money.
@@ -88,6 +89,7 @@ const MATRIX: Record<Action, Role[]> = {
   "import.manage": ["COMPANY_SUPER_ADMIN"],
   "api.manage": ["COMPANY_SUPER_ADMIN"],
   "kyc.manage": ["COMPANY_SUPER_ADMIN"],
+  "booking.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],
   "asset.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER", "VIEWER"],
   "asset.create": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "asset.update": ["COMPANY_SUPER_ADMIN", "MANAGER"],

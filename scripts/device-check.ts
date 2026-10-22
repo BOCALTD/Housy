@@ -34,12 +34,12 @@ async function shot(page: import("@playwright/test").Page, opts: Parameters<impo
 }
 
 // Pages that get a screenshot on the profiles that take them.
-const SHOT_PATTERNS = ["/", "/login", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id"];
+const SHOT_PATTERNS = ["/", "/login", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id"];
 
 interface Issue { kind: string; page: string; profile: string; detail: string; items: string[] }
 const issues: Issue[] = [];
 
-const pattern = (p: string) => p.replace(/\/[0-9a-f]{8}-[0-9a-f-]{27}/g, "/:id").replace(/\/(PROP|prop)-[A-Z0-9]+/g, "/:id");
+const pattern = (p: string) => p.replace(/\/[0-9a-f]{8}-[0-9a-f-]{27}/g, "/:id").replace(/\/(PROP|prop|INS|TS)-[A-Z0-9]+/g, "/:id");
 
 async function inspect(page: Page, touch: boolean) {
   return page.evaluate((isTouch) => {
@@ -148,7 +148,7 @@ async function main() {
   }
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
-  const publicPages = ["/", "/login", "/forgot", "/support", "/signup", "/join", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", ...(prop ? [`/${prop}`] : [])];
+  const publicPages = ["/", "/login", "/forgot", "/support", "/signup", "/join", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", ...(prop ? [`/${prop}`] : [])];
   const pages = [...publicPages.map((p) => ({ p, auth: false })), ...signedIn.map((p) => ({ p, auth: true }))];
   mkdirSync(`${OUT}/screens`, { recursive: true });
 

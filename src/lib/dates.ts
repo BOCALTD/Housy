@@ -44,3 +44,13 @@ export function formatDateTime(date: Date): string {
     day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
 }
+
+/** A date and time typed in a form (an <input type="datetime-local"> value, which has no zone) read as Lagos time (UTC+1, no daylight saving). */
+export function fromLagosLocal(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value.trim()) ? new Date(`${value.trim()}${value.trim().length === 16 ? ":00" : ""}+01:00`) : new Date(NaN);
+}
+
+/** The value for an <input type="datetime-local"> showing this moment in Lagos time. */
+export function toLagosLocal(d: Date): string {
+  return new Date(d.getTime() + 3_600_000).toISOString().slice(0, 16);
+}

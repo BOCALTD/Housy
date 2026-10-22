@@ -13,7 +13,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   const menu: [string, string, boolean][] = r ? [
     ["/app", "Dashboard", true], ["/app/assets", "Assets", true],
     ["/app/crm", "Clients", can(r, "crm.view")], ["/app/deals", "Deals", can(r, "crm.view")], ["/app/sales", "Sales", can(r, "crm.view")],
-    ["/app/correspondence", "Correspondence", true], ["/app/service-charges", "Service charges", can(r, "finance.view")],
+    ["/app/bookings", "Bookings", can(r, "booking.manage")], ["/app/correspondence", "Correspondence", true], ["/app/service-charges", "Service charges", can(r, "finance.view")],
     ["/app/inspections", "Inspections", true], ["/app/maintenance", "Maintenance", true], ["/app/inventory", "Inventory", true],
     ["/app/projects", "Projects", can(r, "project.view")], ["/app/valuations", "Valuations", can(r, "valuation.view")],
     ["/app/compliance", "Compliance", true], ["/app/reports", "Reports", can(r, "finance.view")], ["/app/files", "Files", true],

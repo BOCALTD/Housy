@@ -87,3 +87,14 @@ export async function watchAction(form: FormData) {
     await unwatchListing(u.id, ref); return withNotice(back, "You stopped watching this property.");
   });
 }
+
+export async function requestInspectionAction(form: FormData) {
+  const ref = str(form, "ref");
+  const back = `/properties/${encodeURIComponent(ref)}`;
+  return act(back, async () => {
+    const user = await requireUser();
+    const { requestInspection } = await import("@/lib/services/inspection-bookings");
+    const bookingRef = await requestInspection(user.id, ref, { name: str(form, "name"), phone: str(form, "phone"), preferredAt: str(form, "preferredAt"), alternativeAt: str(form, "alternativeAt") || undefined, message: str(form, "message") });
+    return withNotice(`/me/inspections/${bookingRef}`, "Inspection requested. The company will confirm a time; you will see it here and in your notifications.");
+  });
+}

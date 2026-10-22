@@ -20,7 +20,7 @@ import { getSession } from "@/lib/auth";
 import { isWatching } from "@/lib/services/alerts";
 import { recordView, viewerKeyFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
-import { enquiryAction, watchAction } from "./actions";
+import { enquiryAction, requestInspectionAction, watchAction } from "./actions";
 import { VerifyModal, type ProviderView } from "./VerifyModal";
 
 export const dynamic = "force-dynamic";
@@ -135,6 +135,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
         <div className="flash" style={{ background: "var(--surface-2)" }}>
           <strong>What has been checked:</strong> this listing was submitted by a registered company and reviewed by the platform
           before publication{listing.publishedAt ? ` on ${formatDate(listing.publishedAt)}` : ""}. Title and ownership have <strong>not</strong> been verified by the platform.
+          {" "}<Link href={`/trust?category=SUSPICIOUS_LISTING&targetKind=LISTING&targetRef=${listing.publicRef}`}>Report this listing</Link>.
           {providerView ? <> <VerifyModal provider={providerView} listingRef={listing.publicRef} autoOpen={autoOpen} /></> : null}
         </div>
       </article>
@@ -153,6 +154,21 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
           <form action={watchAction}><input type="hidden" name="ref" value={listing.publicRef} /><input type="hidden" name="on" value={watching ? "0" : "1"} />
             <button className="btn" type="submit" aria-pressed={watching}>{watching ? "Watching: stop" : "Watch this property"}</button></form>
         ) : null}
+        <details className="inline" open={false}>
+          <summary>Request an inspection</summary>
+          {session ? (
+            <form action={requestInspectionAction} className="stack">
+              <input type="hidden" name="ref" value={listing.publicRef} />
+              <label className="field">Your name<input name="name" required maxLength={120} defaultValue={session.user.name} autoComplete="name" /></label>
+              <label className="field">Phone (optional)<input name="phone" maxLength={30} inputMode="tel" autoComplete="tel" /><small>Shared only with the company for this inspection.</small></label>
+              <label className="field">Preferred date and time<input name="preferredAt" type="datetime-local" required /><small>Lagos time.</small></label>
+              <label className="field">Second choice (optional)<input name="alternativeAt" type="datetime-local" /></label>
+              <label className="field">Anything they should know (optional)<textarea name="message" rows={2} maxLength={1000} /></label>
+              <button className="btn primary" type="submit">Request inspection</button>
+              <p className="small muted">Never pay anything before you have inspected the property. You can turn on a safety session for the visit.</p>
+            </form>
+          ) : <p className="small"><Link href="/login">Sign in</Link> to request an inspection.</p>}
+        </details>
         <h2>Send an enquiry</h2>
         <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
         <form action={enquiryAction} className="stack">

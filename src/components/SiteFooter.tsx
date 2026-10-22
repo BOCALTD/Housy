@@ -5,7 +5,7 @@ import { LogoMark } from "./Logo";
 const COLS: { title: string; links: [string, string][] }[] = [
   { title: "Explore", links: [["/?purpose=SALE", "Buy property"], ["/?purpose=RENT", "Rent property"], ["/?purpose=LEASE", "Lease property"], ["/map", "Map search"], ["/reels", "Property reels"], ["/completed", "Recently completed"], ["/compare", "Compare properties"], ["/calculators", "Property calculators"]] },
   { title: "Professionals", links: [["/directory?kind=companies", "Companies"], ["/directory?kind=agents", "Agents"], ["/directory?kind=developers", "Developers"], ["/awards", "Top agents"], ["/signup", "Register a company"], ["/api/v1/openapi", "Developer API"]] },
-  { title: "Help", links: [["/how-it-works", "How it works"], ["/safety", "Safety and verification"], ["/faq", "Questions and answers"], ["/reviews", "Reviews"], ["/support", "Contact and support"]] },
+  { title: "Help", links: [["/how-it-works", "How it works"], ["/trust", "Trust and Safety Centre"], ["/safety", "Safety and verification"], ["/faq", "Questions and answers"], ["/reviews", "Reviews"], ["/support", "Contact and support"]] },
   { title: "Earn and share", links: [["/referrals", "Refer and earn"], ["/vacancies", "Report a vacancy"], ["/about", "About us"], ["/support", "Partner with us"]] },
 ];
 

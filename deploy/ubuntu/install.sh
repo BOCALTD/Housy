@@ -38,6 +38,8 @@ install -d -m 0750 -o root -g housy /etc/housy
 if [ ! -f /etc/housy/housy.env ]; then
   gen() { openssl rand -hex "$1"; }
   OWNER_PW=$(gen 16); APP_PW=$(gen 16); MFA=$(gen 24); CRON=$(gen 16); UNSUB=$(gen 16); SETUP=$(gen 16)
+  # Push notification keys (VAPID): a P-256 key pair, public and private halves as base64url.
+  read -r VAPID_PUB VAPID_PRIV < <(node -e 'const {generateKeyPairSync}=require("crypto");const {privateKey}=generateKeyPairSync("ec",{namedCurve:"prime256v1"});const j=privateKey.export({format:"jwk"});console.log(Buffer.concat([Buffer.from([4]),Buffer.from(j.x,"base64url"),Buffer.from(j.y,"base64url")]).toString("base64url")+" "+j.d)')
   su postgres -c "psql -v ON_ERROR_STOP=1" <<SQL
 CREATE ROLE estate_owner LOGIN PASSWORD '$OWNER_PW' CREATEROLE;
 CREATE DATABASE estate OWNER estate_owner;
@@ -48,6 +50,8 @@ SQL
       -e "s|CRON_SECRET=.*|CRON_SECRET=\"$CRON\"|" \
       -e "s|UNSUBSCRIBE_SECRET=.*|UNSUBSCRIBE_SECRET=\"$UNSUB\"|" \
       -e "s|SETUP_TOKEN=.*|SETUP_TOKEN=\"$SETUP\"|" \
+      -e "s|VAPID_PUBLIC_KEY=.*|VAPID_PUBLIC_KEY=\"$VAPID_PUB\"|" \
+      -e "s|VAPID_PRIVATE_KEY=.*|VAPID_PRIVATE_KEY=\"$VAPID_PRIV\"|" \
       -e "s|your-domain.example|$DOMAIN|" \
       "$HERE/housy.env.example" > /etc/housy/housy.env
   chown root:housy /etc/housy/housy.env; chmod 0640 /etc/housy/housy.env
@@ -66,7 +70,7 @@ ln -sf /etc/nginx/sites-available/housy /etc/nginx/sites-enabled/housy
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 systemctl daemon-reload
-systemctl enable housy-notifications.timer housy-billing.timer housy-backup.timer
+systemctl enable housy-notifications.timer housy-push.timer housy-billing.timer housy-backup.timer
 
 # Let the deploy user restart only this service (deploy.sh needs it)
 echo 'housy ALL=(root) NOPASSWD: /usr/bin/systemctl restart housy' > /etc/sudoers.d/housy

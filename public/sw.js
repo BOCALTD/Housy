@@ -2,7 +2,7 @@
  * Caches static assets and anonymous copies of public pages only, so the app opens and public pages
  * can be read without a connection. Signed-in areas (/app, /admin, /me, /portal, /api, messages, documents)
  * are never cached, and nothing is written while offline: forms always need the network. */
-const VERSION = "housy-v1";
+const VERSION = "housy-v2";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const OFFLINE = "/offline";
@@ -84,5 +84,31 @@ self.addEventListener("fetch", (event) => {
       }
       return (await cache.match(OFFLINE)) || new Response("You are offline.", { status: 503, headers: { "Content-Type": "text/plain" } });
     }
+  })());
+});
+
+/* Push notifications: show what the server sent, and open the right page when it is tapped. Only same-site pages are opened. */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { title: event.data ? event.data.text() : "" }; }
+  const title = (data.title || "New notification").slice(0, 120);
+  event.waitUntil(self.registration.showNotification(title, {
+    body: (data.body || "").slice(0, 240),
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag: data.tag || undefined,
+    data: { url: typeof data.url === "string" && data.url.startsWith("/") && !data.url.startsWith("//") ? data.url : "/me/notifications" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data && event.notification.data.url ? event.notification.data.url : "/me/notifications", self.location.origin).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const w of wins) {
+      if (new URL(w.url).origin === self.location.origin && "focus" in w) { await w.focus(); if ("navigate" in w) await w.navigate(target).catch(() => {}); return; }
+    }
+    await self.clients.openWindow(target);
   })());
 });

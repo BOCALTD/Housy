@@ -5368,3 +5368,35 @@ model CalendarFeed {
 
   @@map("calendar_feeds")
 }
+
+/// A browser or installed app that agreed to receive push notifications for this person.
+model PushSubscription {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  label         String    @default("")
+  failures      Int       @default(0)
+  lastSuccessAt DateTime? @map("last_success_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+/// Notifications waiting to be pushed to the person's devices. Written with the notification; sent by a job every minute.
+model PushOutbox {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  title     String
+  body      String    @default("")
+  link      String    @default("")
+  kind      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  sentAt    DateTime? @map("sent_at")
+  attempts  Int       @default(0)
+
+  @@index([sentAt, createdAt])
+  @@map("push_outbox")
+}

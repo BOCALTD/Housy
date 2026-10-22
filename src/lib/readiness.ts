@@ -1,3 +1,4 @@
+import { vapidFromEnv } from "./webpush";
 /**
  * Is this deployment ready for real customers? Looks only at which settings exist and whether they look sane. It never returns a
  * secret's value, and it never contacts any outside service, so a "ready" answer means "configured", not "proven to work".
@@ -41,6 +42,10 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
 
   add("email", "Email provider", has(env.RESEND_API_KEY) && has(env.EMAIL_FROM) ? "ok" : "fail",
     has(env.RESEND_API_KEY) && has(env.EMAIL_FROM) ? "Key and sender address set. Send one real test message before launch." : "RESEND_API_KEY and EMAIL_FROM are both needed. Without them no email is delivered, including password resets.", "provider");
+
+  const push = vapidFromEnv(env as NodeJS.ProcessEnv);
+  add("push", "Push notifications", push ? "ok" : "warn",
+    push ? "VAPID keys set. Turn notifications on for one phone and send a test from Notification settings." : "VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are not set, so phones get no push notifications (in-app notices and email still work). install.sh makes them; or run scripts/vapid-keys.ts.", "provider");
 
   const pk = env.PAYSTACK_SECRET_KEY ?? "";
   add("payments", "Payment provider", /^sk_live_/.test(pk) ? "ok" : /^sk_test_/.test(pk) ? "warn" : "warn",

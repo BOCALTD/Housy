@@ -1,0 +1,7 @@
+[Unit]
+Description=Housy push job (send waiting push notifications to people's devices)
+
+[Service]
+Type=oneshot
+User=housy
+ExecStart=/usr/local/bin/housy-job push

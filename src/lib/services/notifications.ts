@@ -13,11 +13,14 @@ export interface NoticeInput {
 
 /**
  * Leave an in-app notice for a person, and queue an email for it. Whether the email is really sent is decided later, when the queue
- * is processed: the person's settings, quiet hours, daily limit and the provider all come into it. Nothing goes to a phone.
+ * is processed: the person's settings, quiet hours, daily limit and the provider all come into it. It is also queued for push to
+ * the person's devices, if they turned that on.
  */
 export async function notify(tx: Tx, userId: string, n: NoticeInput) {
   const title = n.title.slice(0, 160), body = (n.body ?? "").slice(0, 600), link = n.link ?? "";
   await tx.notification.createMany({ data: [{ userId, kind: n.kind, title, body, link }] });
+  // Also push it to the person's phone or computer if they turned that on (sent by the push job). Promotions are never pushed.
+  if (categoryOf(n.kind) !== "PROMOTIONAL") await tx.pushOutbox.createMany({ data: [{ userId, kind: n.kind, title, body: body.slice(0, 300), link: link.slice(0, 500) }] });
   if (n.email === false) return;
   await enqueueEmail(tx, userId, { kind: n.kind, template: n.template, vars: { title, body, link, ...(n.vars ?? {}) }, ref: link || title, dedupeKey: n.dedupeKey });
 }

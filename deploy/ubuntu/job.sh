@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run a scheduled job in the app: housy-job notifications | billing. Uses the shared secret from the env file.
+# Run a scheduled job in the app: housy-job notifications | push | billing. Uses the shared secret from the env file.
 set -euo pipefail
 JOB=${1:?job name}
 set -a; . /etc/housy/housy.env; set +a

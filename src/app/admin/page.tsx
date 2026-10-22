@@ -145,13 +145,13 @@ export default async function AdminPage({ searchParams: searchP }: { searchParam
                 <h3>Provider portal access</h3>
                 <p className="small muted">People here see the requests sent to {p.shortName} once the provider is approved. Add only people the provider has confirmed in writing.</p>
                 {members.filter((m) => m.providerId === p.id).map((m) => (
-                  <form key={m.id} action={removeProviderMemberAction} className="row between wrap">
+                  <form key={m.id} action={removeProviderMemberAction} className="row between">
                     <input type="hidden" name="id" value={m.id} />
                     <span>{m.user?.name ?? "Unknown"} <span className="small muted">{m.user?.email}</span></span>
                     <button className="btn danger" type="submit">Remove</button>
                   </form>
                 ))}
-                <form action={addProviderMemberAction} className="row wrap">
+                <form action={addProviderMemberAction} className="row">
                   <input type="hidden" name="providerId" value={p.id} />
                   <input name="email" type="email" required placeholder="Their account email" aria-label={`Add a person to ${p.shortName}`} style={{ flex: "1 1 200px", minWidth: 0, maxWidth: "100%" }} />
                   <button className="btn" type="submit">Add person</button>

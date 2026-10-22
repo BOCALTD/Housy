@@ -3,7 +3,7 @@ import { requireMember } from "@/lib/auth";
 import { listGrants } from "@/lib/services/portals";
 import { GRANT_STATUS_LABELS, PORTAL_LABELS, type GrantStatus, type PortalKind } from "@/lib/portal-rules";
 import { formatDate } from "@/lib/dates";
-import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { CardMore, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { CheckList } from "@/components/CheckList";
 import { InviteForm, ReissueForm } from "./InviteForm";
 import { assetsAction, revokeAction } from "./actions";
@@ -23,7 +23,7 @@ export default async function PortalsPage({ searchParams }: { searchParams?: Pro
 
   const card = (g: (typeof grants)[number]) => (
     <li key={g.id} className="card stack portal-grant">
-      <div className="row between wrap">
+      <div className="row between">
         <div><strong>{g.displayName}</strong> <span className="pill disc">{PORTAL_LABELS[g.kind as PortalKind]}</span><div className="small muted">{g.email}{g.acceptedAt ? ` · joined ${formatDate(g.acceptedAt)}` : ` · invited ${formatDate(g.createdAt)}`}{g.status === "INVITED" && g.inviteExpiresAt ? (g.inviteExpiresAt < new Date() ? " · link expired" : ` · link works until ${formatDate(g.inviteExpiresAt)}`) : ""}</div></div>
         <Pill status={pill(g.status)} label={GRANT_STATUS_LABELS[g.status as GrantStatus]} />
       </div>
@@ -54,7 +54,7 @@ export default async function PortalsPage({ searchParams }: { searchParams?: Pro
         </div>
       )}
       {g.status !== "REVOKED" ? (
-        <div className="row wrap">
+        <div className="row">
           {g.status === "INVITED" ? <ReissueForm id={g.id} who={g.displayName} /> : null}
           <form action={revokeAction}><input type="hidden" name="id" value={g.id} /><button className="btn danger" type="submit">Remove access</button></form>
         </div>
@@ -80,9 +80,9 @@ export default async function PortalsPage({ searchParams }: { searchParams?: Pro
         </section>
       </div>
       <section className="stack"><h2>People with access ({live.length})</h2>
-        {live.length ? <ShowMore limit={8} noun="more people" items={live.map(card)} /> : <p className="muted">No one yet.</p>}
+        {live.length ? <CardMore limit={8} noun="more people" items={live.map(card)} /> : <p className="muted">No one yet.</p>}
       </section>
-      {removed.length ? <details className="card inline"><summary>Access removed ({removed.length})</summary><ShowMore limit={6} noun="more" items={removed.map(card)} /></details> : null}
+      {removed.length ? <details className="card inline"><summary>Access removed ({removed.length})</summary><CardMore limit={6} noun="more" items={removed.map(card)} /></details> : null}
     </div>
   );
 }

@@ -384,3 +384,15 @@ body.no-scroll { overflow: hidden; }
   .shell-group > summary::after { transition: transform .2s ease; }
 }
 .job-row { border-radius: 8px; padding-inline: 8px; margin-inline: -8px; }
+.card-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.card-list > li { min-width: 0; }
+.portal-kpis .kpi strong { white-space: nowrap; font-size: clamp(1.1rem, 1.6vw, 1.35rem); }
+/* Tables that become small cards on phones: the first cell is the title, the others show their column name. */
+@media (max-width: 640px) {
+  table.stack-table, table.stack-table tbody, table.stack-table tr, table.stack-table td { display: block; width: 100%; }
+  table.stack-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  table.stack-table tr { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  table.stack-table td { border: 0; padding: 4px 0; text-align: left; }
+  table.stack-table td[data-label] { position: relative; padding-left: min(9.5em, 42%); min-height: 1.6em; }
+  table.stack-table td[data-label]::before { content: attr(data-label); position: absolute; left: 0; top: 4px; width: min(9em, 40%); color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+}

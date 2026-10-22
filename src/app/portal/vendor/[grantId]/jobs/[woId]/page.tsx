@@ -30,7 +30,7 @@ export default async function VendorJob({ params, searchParams }: { params: Prom
         <div className="stack" style={{ gap: 4 }}>
           <p className="eyebrow">Vendor portal · {grant.companyName}</p>
           <h1>{job.ref}: {job.title}</h1>
-          <div className="row wrap"><Pill status="OPEN" label={humanize(job.status)} /><span className="pill disc">{humanize(job.priority)} priority</span>{job.safetyRisk ? <span className="pill bad">Safety risk</span> : null}</div>
+          <div className="row"><Pill status="OPEN" label={humanize(job.status)} /><span className="pill disc">{humanize(job.priority)} priority</span>{job.safetyRisk ? <span className="pill bad">Safety risk</span> : null}</div>
         </div>
         <Link className="btn" href={`/portal/vendor/${grant.id}`}>All jobs</Link>
       </div>
@@ -61,7 +61,7 @@ export default async function VendorJob({ params, searchParams }: { params: Prom
         {submissions.length === 0 ? <p className="muted">Nothing yet.</p> : (
           <ShowMore limit={5} noun="more" items={submissions.map((x) => (
             <li key={x.id}><div className="stack" style={{ gap: 4, width: "100%" }}>
-              <div className="row between wrap"><strong>{SUBMISSION_LABELS[x.kind as SubmissionKind]}{x.amountKobo !== null ? ` · ${formatKobo(x.amountKobo)}` : ""}</strong><Pill status={x.status === "ACCEPTED" ? "ACTIVE" : x.status === "REJECTED" ? "SUSPENDED" : "OPEN"} label={SUBMISSION_STATUS_LABELS[x.status as SubmissionStatus]} /></div>
+              <div className="row between"><strong>{SUBMISSION_LABELS[x.kind as SubmissionKind]}{x.amountKobo !== null ? ` · ${formatKobo(x.amountKobo)}` : ""}</strong><Pill status={x.status === "ACCEPTED" ? "ACTIVE" : x.status === "REJECTED" ? "SUSPENDED" : "OPEN"} label={SUBMISSION_STATUS_LABELS[x.status as SubmissionStatus]} /></div>
               {x.note ? <p className="small">{x.note}</p> : null}
               <div className="small muted">{formatDateTime(x.createdAt)}{x.docName ? <> · <a className="tap" href={`/portal/doc/${x.id}`}>{x.docName}</a></> : null}</div>
               {x.decisionNote ? <p className="small"><strong>{grant.companyName}:</strong> {x.decisionNote}</p> : null}

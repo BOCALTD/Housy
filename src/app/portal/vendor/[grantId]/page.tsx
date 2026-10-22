@@ -57,7 +57,7 @@ export default async function VendorPortal({ params, searchParams }: { params: P
           <ShowMore limit={6} noun="more" items={submissions.map((x) => {
             const j = jobs.find((y) => y.id === x.workOrderId);
             return (
-              <li key={x.id}><div className="row between wrap" style={{ width: "100%" }}>
+              <li key={x.id}><div className="row between" style={{ width: "100%" }}>
                 <span>{SUBMISSION_LABELS[x.kind as SubmissionKind]}{x.amountKobo !== null ? ` · ${formatKobo(x.amountKobo)}` : ""}<span className="small muted"> · {j ? j.ref : "job"} · {formatDate(x.createdAt)}{x.decisionNote ? ` · ${x.decisionNote}` : ""}</span></span>
                 <Pill status={x.status === "ACCEPTED" ? "ACTIVE" : x.status === "REJECTED" ? "SUSPENDED" : "OPEN"} label={SUBMISSION_STATUS_LABELS[x.status as SubmissionStatus]} />
               </div></li>

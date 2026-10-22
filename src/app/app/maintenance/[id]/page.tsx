@@ -255,14 +255,14 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
           <p className="small muted">Sent through the vendor portal. Accepting a quotation sets the estimated cost; accepting an invoice sets the actual cost.</p>
           <ShowMore noun="earlier submissions" limit={4} items={submissions.map((v) => (
             <li key={v.id}><div className="stack" style={{ gap: 6 }}>
-              <div className="row between wrap"><strong>{SUBMISSION_LABELS[v.kind as SubmissionKind]}{v.amountKobo !== null ? ` · ${formatKobo(v.amountKobo)}` : ""}</strong><Pill status={v.status === "ACCEPTED" ? "ACTIVE" : v.status === "REJECTED" ? "SUSPENDED" : "OPEN"} label={SUBMISSION_STATUS_LABELS[v.status as SubmissionStatus]} /></div>
+              <div className="row between"><strong>{SUBMISSION_LABELS[v.kind as SubmissionKind]}{v.amountKobo !== null ? ` · ${formatKobo(v.amountKobo)}` : ""}</strong><Pill status={v.status === "ACCEPTED" ? "ACTIVE" : v.status === "REJECTED" ? "SUSPENDED" : "OPEN"} label={SUBMISSION_STATUS_LABELS[v.status as SubmissionStatus]} /></div>
               {v.note ? <p className="small">{v.note}</p> : null}
               <div className="small muted">{formatDateTime(v.createdAt)}{v.docName ? <> · <a className="tap" href={`/portal/doc/${v.id}`}>{v.docName}</a></> : null}{v.decisionNote ? ` · ${v.decisionNote}` : ""}</div>
               {v.status === "SUBMITTED" ? (
                 <form action={decideSubmissionAction} className="stack" style={{ gap: 8 }}>
                   {hidden}<input type="hidden" name="id" value={v.id} />
                   <input name="note" placeholder="Note to the vendor (needed when not accepting)" aria-label="Note to the vendor" style={{ width: "100%", minWidth: 0 }} />
-                  <div className="row wrap">
+                  <div className="row">
                     <button className="btn primary" name="decision" value="accept" type="submit">Accept</button>
                     <button className="btn" name="decision" value="reject" type="submit">Not accepted</button>
                   </div>

@@ -37,7 +37,7 @@ export default async function AcceptPortal({ params, searchParams }: { params: P
       {!session ? (
         <div className="card stack">
           <p>Sign in or create an account with {inv.email} to accept.</p>
-          <div className="row wrap">
+          <div className="row">
             <Link className="btn primary" href={`/login?next=${encodeURIComponent(here)}`}>Sign in</Link>
             <Link className="btn" href={`/join?next=${encodeURIComponent(here)}`}>Create an account</Link>
           </div>

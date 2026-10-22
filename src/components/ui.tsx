@@ -64,17 +64,36 @@ export function ShowMore({ items, limit = 5, noun = "more" }: { items: React.Rea
   );
 }
 
+/** Cards in a column: the first few show, the rest fold behind "Show more". Each item should be an <li> styled as a card. */
+export function CardMore({ items, limit = 6, noun = "more" }: { items: React.ReactNode[]; limit?: number; noun?: string }) {
+  const head = items.slice(0, limit);
+  const rest = items.slice(limit);
+  return (
+    <>
+      <ul className="card-list">{head}</ul>
+      {rest.length > 0 ? (
+        <details className="inline">
+          <summary>Show {rest.length} {noun}</summary>
+          <ul className="card-list">{rest}</ul>
+        </details>
+      ) : null}
+    </>
+  );
+}
+
 /** A table that shows the first rows and folds the rest behind "Show more", with the same column headings. */
-export function TableMore({ head, rows, limit = 10, noun = "more rows" }: { head: React.ReactNode; rows: React.ReactNode[]; limit?: number; noun?: string }) {
+export function TableMore({ head, rows, limit = 10, noun = "more rows", stacked = false }: { head: React.ReactNode; rows: React.ReactNode[]; limit?: number; noun?: string; stacked?: boolean }) {
+  // stacked: on phones each row becomes a small card, with every cell labelled from its data-label.
+  const cls = stacked ? "stack-table" : undefined;
   const first = rows.slice(0, limit);
   const rest = rows.slice(limit);
   return (
     <>
-      <div className="table-wrap"><table><thead>{head}</thead><tbody>{first}</tbody></table></div>
+      <div className="table-wrap"><table className={cls}><thead>{head}</thead><tbody>{first}</tbody></table></div>
       {rest.length > 0 ? (
         <details className="inline">
           <summary>Show {rest.length} {noun}</summary>
-          <div className="table-wrap"><table><thead>{head}</thead><tbody>{rest}</tbody></table></div>
+          <div className="table-wrap"><table className={cls}><thead>{head}</thead><tbody>{rest}</tbody></table></div>
         </details>
       ) : null}
     </>

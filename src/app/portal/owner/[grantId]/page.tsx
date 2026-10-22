@@ -48,17 +48,17 @@ export default async function OwnerPortal({ params }: { params: Promise<{ grantI
       </div>
 
       <section className="card stack"><h2>Properties and listings</h2>
-        <TableMore limit={8} noun="more properties" head={<tr><th>Property</th><th>Listing</th><th className="r">Visits (30 days)</th><th className="r">Enquiries</th><th>Inspections</th></tr>} rows={assets.map((a) => {
+        <TableMore stacked limit={8} noun="more properties" head={<tr><th>Property</th><th>Listing</th><th className="r">Visits (30 days)</th><th className="r">Enquiries</th><th>Inspections</th></tr>} rows={assets.map((a) => {
           const l = a.listing;
           const b = l?.bookings ?? {};
           const done = b.COMPLETED ?? 0, upcoming = (b.REQUESTED ?? 0) + (b.CONFIRMED ?? 0) + (b.RESCHEDULED ?? 0) + (b.EN_ROUTE ?? 0) + (b.ARRIVED ?? 0);
           return (
             <tr key={a.id}>
               <td><strong>{a.name}</strong><div className="small muted">{a.ref}{a.city ? ` · ${a.city}` : ""}</div></td>
-              <td>{l ? <><Pill status={l.status} label={humanize(l.status)} />{l.status === "PUBLISHED" ? <div className="small"><Link className="tap" href={`/properties/${l.publicRef}`}>{formatKobo(l.priceKobo)}</Link></div> : <div className="small muted">{formatKobo(l.priceKobo)}</div>}</> : <span className="muted small">Not listed</span>}</td>
-              <td className="r">{l ? l.views30 : "—"}</td>
-              <td className="r">{l ? <>{l.enquiries30}<div className="small muted">{l.enquiriesAll} in all</div></> : "—"}</td>
-              <td>{l ? <span className="small">{done} done · {upcoming} upcoming{b.CANCELLED ? ` · ${b.CANCELLED} cancelled` : ""}</span> : "—"}</td>
+              <td data-label="Listing">{l ? <><Pill status={l.status} label={humanize(l.status)} />{l.status === "PUBLISHED" ? <div className="small"><Link className="tap" href={`/properties/${l.publicRef}`}>{formatKobo(l.priceKobo)}</Link></div> : <div className="small muted">{formatKobo(l.priceKobo)}</div>}</> : <span className="muted small">Not listed</span>}</td>
+              <td className="r" data-label="Visits (30 days)">{l ? l.views30 : "—"}</td>
+              <td className="r" data-label="Enquiries">{l ? <>{l.enquiries30}<div className="small muted">{l.enquiriesAll} in all</div></> : "—"}</td>
+              <td data-label="Inspections">{l ? <span className="small">{done} done · {upcoming} upcoming{b.CANCELLED ? ` · ${b.CANCELLED} cancelled` : ""}</span> : "—"}</td>
             </tr>
           );
         })} />
@@ -67,13 +67,13 @@ export default async function OwnerPortal({ params }: { params: Promise<{ grantI
 
       <section className="card stack"><h2>Tenancies and rent</h2>
         {leases.length === 0 ? <p className="muted">No tenancies recorded.</p> : (
-          <TableMore limit={8} noun="more tenancies" head={<tr><th>Tenancy</th><th>Term</th><th className="r">Rent</th><th className="r">Paid of due</th><th>Next due</th></tr>} rows={leases.map((l) => (
+          <TableMore stacked limit={8} noun="more tenancies" head={<tr><th>Tenancy</th><th>Term</th><th className="r">Rent</th><th className="r">Paid of due</th><th>Next due</th></tr>} rows={leases.map((l) => (
             <tr key={l.id}>
               <td><strong>{l.occupantName}</strong><div className="small muted">{nameOf.get(l.assetId)}{l.unit ? ` · ${l.unit}` : ""} · {l.ref}</div><Pill status={l.status} label={humanize(l.status)} /></td>
-              <td className="small">{formatDate(l.startDate)} to {formatDate(l.endDate)}</td>
-              <td className="r">{formatKobo(l.rentKobo)}<div className="small muted">{humanize(l.frequency)}</div></td>
-              <td className="r">{formatKobo(l.rent.paidKobo)}<div className="small muted">of {formatKobo(l.rent.dueKobo)}{l.rent.overdueKobo > 0n ? ` · ${formatKobo(l.rent.overdueKobo)} outstanding` : ""}</div></td>
-              <td className="small">{l.rent.nextDue ? formatDate(l.rent.nextDue) : "—"}</td>
+              <td className="small" data-label="Term">{formatDate(l.startDate)} to {formatDate(l.endDate)}</td>
+              <td className="r" data-label="Rent">{formatKobo(l.rentKobo)}<div className="small muted">{humanize(l.frequency)}</div></td>
+              <td className="r" data-label="Paid of due">{formatKobo(l.rent.paidKobo)}<div className="small muted">of {formatKobo(l.rent.dueKobo)}{l.rent.overdueKobo > 0n ? ` · ${formatKobo(l.rent.overdueKobo)} outstanding` : ""}</div></td>
+              <td className="small" data-label="Next due">{l.rent.nextDue ? formatDate(l.rent.nextDue) : "—"}</td>
             </tr>
           ))} />
         )}

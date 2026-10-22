@@ -240,7 +240,11 @@ async function main() {
             await page.evaluate((y) => window.scrollTo(0, y), t * vh);
             await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}__${t}.png` });
           }
-        } else if (wantShot) await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
+        } else if (wantShot) {
+          // The keyboard check scrolls the page; start the full-page picture from the top so sticky bars sit where a person sees them.
+          await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo(0, 0); });
+          await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
+        }
         // The side menu as a drawer: open it on phones and tablets and photograph it.
         if (prof.shots && touch && pattern(p) === "/app") {
           const opener = page.locator(".shell-open");

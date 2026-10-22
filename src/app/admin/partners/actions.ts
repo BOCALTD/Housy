@@ -10,7 +10,7 @@ export async function addPartnerAction(form: FormData) {
     if (str(form, "confirm") !== "yes") throw new Error("Confirm that an agreement with this partner exists");
     const file = form.get("logo");
     const logo = file instanceof File && file.size > 0 ? { type: file.type, bytes: new Uint8Array(await file.arrayBuffer()) } : null;
-    await addPartner(admin.id, { name: str(form, "name"), kind: str(form, "kind") as (typeof PARTNER_KINDS)[number], url: str(form, "url"), blurb: str(form, "blurb"), position: str(form, "position") || "0" }, logo);
+    await addPartner(admin.id, { name: str(form, "name"), kind: str(form, "kind") as (typeof PARTNER_KINDS)[number], url: str(form, "url"), blurb: str(form, "blurb"), position: Number.parseInt(str(form, "position") || "0", 10) || 0 }, logo);
     return withNotice("/admin/partners", "Partner added. It now shows on the home page.");
   });
 }

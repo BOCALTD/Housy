@@ -73,7 +73,7 @@ function view(kind: KycKind, rows: { code: string; status: string; fields: unkno
     const row = rows.find((x) => x.code === r.code) ?? null;
     let status: KycStatus | "NOT_SUBMITTED" = (row?.status as KycStatus) ?? "NOT_SUBMITTED";
     if (status === "VERIFIED" && row?.expiresAt && row.expiresAt.getTime() <= now.getTime()) status = "EXPIRED";
-    return { req: r, row, status, fields: (row?.fields ?? {}) as Record<string, string> };
+    return { req: r, row, status: status as KycStatus | "NOT_SUBMITTED", fields: (row?.fields ?? {}) as Record<string, string> };
   });
   const checks: Check[] = rows.filter((x) => x.status === "VERIFIED" && x.verifiedAt).map((x) => ({ code: x.code, verifiedAt: x.verifiedAt!, expiresAt: x.expiresAt }));
   return { items, trust: trustOf(kind, checks, now) };

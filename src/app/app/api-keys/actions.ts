@@ -13,7 +13,7 @@ export async function createApiKeyAction(_prev: NewKeyState, form: FormData): Pr
     const member = await requireMember("api.manage");
     const scopes = form.getAll("scope").map(String).filter((s) => (API_SCOPES as readonly string[]).includes(s)) as (typeof API_SCOPES)[number][];
     const name = str(form, "name");
-    const r = await createApiKey(member, { name, scopes, days: str(form, "days") });
+    const r = await createApiKey(member, { name, scopes, days: Number.parseInt(str(form, "days"), 10) || 0 });
     return { key: r.key, name };
   } catch (err) {
     return { error: messageFor(err) };

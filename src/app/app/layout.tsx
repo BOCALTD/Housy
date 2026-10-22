@@ -1,52 +1,73 @@
-import Link from "next/link";
 import { getMember, requireUser } from "@/lib/auth";
-import { can } from "@/lib/permissions";
-import { ROLE_LABELS } from "@/lib/permissions";
+import { can, ROLE_LABELS, type Role } from "@/lib/permissions";
 import { asCompany, pendingIncoming } from "@/lib/services/collab";
-import { MoreMenu } from "@/components/MoreMenu";
+import { SideShell, type SideGroup, type SideItem } from "@/components/SideShell";
+
+type Row = [href: string, label: string, icon: SideItem["icon"], show: boolean, badge?: number];
+
+function groupsFor(r: Role, incoming: number): SideGroup[] {
+  const g = (label: string, rows: Row[]): SideGroup => ({ label, items: rows.filter((x) => x[3]).map(([href, l, icon, , badge]) => ({ href, label: l, icon, badge })) });
+  return [
+    g("Overview", [
+      ["/app", "Dashboard", "grid", true],
+      ["/app/analytics", "Analytics", "chart", true],
+      ["/app/map", "Map", "map", true],
+      ["/app/assistant", "Assistant", "sparkle", can(r, "ai.use")],
+    ]),
+    g("Properties", [
+      ["/app/assets", "Assets", "building", true],
+      ["/app/inspections", "Inspections", "clipboard", true],
+      ["/app/maintenance", "Maintenance", "wrench", true],
+      ["/app/inventory", "Inventory", "box", true],
+      ["/app/compliance", "Compliance", "shield", true],
+      ["/app/projects", "Projects", "home", can(r, "project.view")],
+      ["/app/valuations", "Valuations", "chart", can(r, "valuation.view")],
+    ]),
+    g("Clients and sales", [
+      ["/app/crm", "Clients", "people", can(r, "crm.view")],
+      ["/app/deals", "Deals", "handshake", can(r, "crm.view")],
+      ["/app/sales", "Sales", "money", can(r, "crm.view")],
+      ["/app/commissions", "Commissions", "money", can(r, "crm.view")],
+      ["/app/bookings", "Inspection bookings", "calendar", can(r, "booking.manage")],
+      ["/app/collaborations", "Collaborations", "people", can(r, "collab.view"), incoming],
+      ["/app/reviews", "Reviews", "star", can(r, "crm.manage")],
+      ["/app/completed", "Completed deals", "door", can(r, "crm.manage")],
+    ]),
+    g("Money", [
+      ["/app/service-charges", "Service charges", "money", can(r, "finance.view")],
+      ["/app/reports", "Reports", "doc", can(r, "finance.view")],
+      ["/app/billing", "Billing", "money", can(r, "billing.view")],
+      ["/app/ads", "Advertising", "megaphone", can(r, "billing.view")],
+    ]),
+    g("Marketing", [
+      ["/app/promotions", "Promotions", "megaphone", can(r, "listing.manage")],
+      ["/app/profile", "Public profile", "person", can(r, "crm.view")],
+    ]),
+    g("Records", [
+      ["/app/correspondence", "Correspondence", "chat", true],
+      ["/app/files", "Files", "folder", true],
+      ["/app/completeness", "Record completeness", "clipboard", true],
+    ]),
+    g("Company", [
+      ["/app/portals", "Owner and vendor portals", "key", can(r, "portal.manage")],
+      ["/app/team", "Team", "people", can(r, "team.manage")],
+      ["/app/verification", "Verification", "shield", can(r, "kyc.manage")],
+      ["/app/import", "Bring in records", "folder", can(r, "import.manage")],
+      ["/app/api-keys", "API keys", "key", can(r, "api.manage")],
+      ["/app/settings", "Settings", "gear", can(r, "settings.manage")],
+      ["/app/switch", "Switch company", "building", true],
+    ]),
+  ];
+}
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   await requireUser();
   const member = await getMember();
-  const incoming = member && can(member.role, "collab.view") ? await pendingIncoming(asCompany(member)).catch(() => 0) : 0;
-  const r = member?.role;
-  const menu: [string, string, boolean][] = r ? [
-    ["/app", "Dashboard", true], ["/app/assets", "Assets", true],
-    ["/app/crm", "Clients", can(r, "crm.view")], ["/app/deals", "Deals", can(r, "crm.view")], ["/app/sales", "Sales", can(r, "crm.view")],
-    ["/app/bookings", "Bookings", can(r, "booking.manage")], ["/app/correspondence", "Correspondence", true], ["/app/service-charges", "Service charges", can(r, "finance.view")],
-    ["/app/inspections", "Inspections", true], ["/app/maintenance", "Maintenance", true], ["/app/inventory", "Inventory", true], ["/app/portals", "Portals", can(r, "portal.manage")],
-    ["/app/projects", "Projects", can(r, "project.view")], ["/app/valuations", "Valuations", can(r, "valuation.view")],
-    ["/app/compliance", "Compliance", true], ["/app/reports", "Reports", can(r, "finance.view")], ["/app/files", "Files", true],
-    ["/app/collaborations", `Collaborations${incoming > 0 ? ` (${incoming})` : ""}`, can(r, "collab.view")],
-    ["/app/reviews", "Reviews", can(r, "crm.manage")], ["/app/completed", "Completed deals", can(r, "crm.manage")],
-    ["/app/promotions", "Promotions", can(r, "listing.manage")], ["/app/profile", "Public profile", can(r, "crm.view")],
-    ["/app/analytics", "Analytics", true], ["/app/map", "Map", true], ["/app/assistant", "Assistant", can(r, "ai.use")],
-    ["/app/billing", "Billing", can(r, "billing.view")], ["/app/ads", "Advertising", can(r, "billing.view")],
-    ["/app/import", "Bring in records", can(r, "import.manage")], ["/app/api-keys", "API keys", can(r, "api.manage")], ["/app/team", "Team", can(r, "team.manage")],
-    ["/app/verification", "Verification", can(r, "kyc.manage")], ["/app/settings", "Settings", can(r, "settings.manage")], ["/app/switch", "Switch company", true],
-  ] : [];
-  const shown = menu.filter((m) => m[2]);
-  const head = shown.slice(0, 6);
-  const rest = shown.slice(6);
+  if (!member) return <div className="stack-lg">{children}</div>;
+  const incoming = can(member.role, "collab.view") ? await pendingIncoming(asCompany(member)).catch(() => 0) : 0;
   return (
-    <div className="stack-lg">
-      {member ? (
-        <div className="row between card workspace-bar" style={{ padding: "12px 16px" }}>
-          <div>
-            <strong>{member.companyName}</strong>
-            <span className="small muted"> · {member.userName}, {ROLE_LABELS[member.role]}</span>
-          </div>
-          <nav className="nav workspace-nav" aria-label="Workspace">
-            {head.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
-            {rest.length > 0 ? (
-              <MoreMenu label={`More (${rest.length})`}>
-                {rest.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
-              </MoreMenu>
-            ) : null}
-          </nav>
-        </div>
-      ) : null}
-      {children}
-    </div>
+    <SideShell label="Workspace" title={member.companyName} subtitle={`${member.userName} · ${ROLE_LABELS[member.role]}`} groups={groupsFor(member.role, incoming)}>
+      <div className="stack-lg">{children}</div>
+    </SideShell>
   );
 }

@@ -16,6 +16,7 @@ import { BackToTop } from "@/components/BackToTop";
 import { SiteFooter } from "@/components/SiteFooter";
 import { CompareBar } from "@/components/Compare";
 import { ServiceWorker } from "@/components/Pwa";
+import { HeaderNav } from "@/components/HeaderNav";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -61,7 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </span>
               {PLATFORM_NAME}
             </Link>
-            <nav className="nav" aria-label="Main">
+            <HeaderNav>
               <Link href="/">Find property</Link>
               <Link href="/directory">Agents and companies</Link>
               {session ? (
@@ -82,7 +83,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <Link href="/signup" className="btn primary small">Register a company</Link>
                 </>
               )}
-            </nav>
+            </HeaderNav>
           </div>
         </header>
         {rate ? (

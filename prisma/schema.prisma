@@ -4971,3 +4971,21 @@ model ImportRow {
   @@index([companyId, batchId, status])
   @@map("import_rows")
 }
+
+/// A key that lets another program read a company's records through the API. Only the hash of the key is stored.
+model ApiKey {
+  id          String    @id @default(uuid())
+  companyId   String    @map("company_id")
+  createdById String    @map("created_by_id")
+  name        String
+  prefix      String
+  tokenHash   String    @unique @map("token_hash")
+  scopes      String
+  expiresAt   DateTime? @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@map("api_keys")
+}

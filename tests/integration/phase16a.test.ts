@@ -88,7 +88,7 @@ test("every table that holds company records is walled off, for another company,
     const reads = policies.filter((p) => p.t === t.t && (p.cmd === "SELECT" || p.cmd === "ALL"));
     assert.ok(reads.length > 0, `${t.t}: nobody can read it, but it has no policy to say so`);
     if (!PUBLIC_BY_DESIGN.has(t.t)) {
-      for (const p of reads) assert.match(p.qual ?? "", /app_current_company|app_platform_admin|app_current_user|app_invite_token/, `${t.t}: a read policy that does not depend on who is asking: ${p.qual}`);
+      for (const p of reads) assert.match(p.qual ?? "", /app_current_company|app_platform_admin|app_current_user|app_invite_token|app_api_token/, `${t.t}: a read policy that does not depend on who is asking: ${p.qual}`);
     }
   }
 

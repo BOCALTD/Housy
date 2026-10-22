@@ -13,6 +13,7 @@ type Context = {
   companyId?: string;
   userId?: string;
   inviteTokenHash?: string;
+  apiTokenHash?: string;
   platformAdmin?: boolean;
 };
 
@@ -27,7 +28,8 @@ async function withContext<T>(ctx: Context, fn: (tx: Tx) => Promise<T>): Promise
       set_config('app.company_id', ${ctx.companyId ?? ""}, true) AS a,
       set_config('app.user_id', ${ctx.userId ?? ""}, true) AS b,
       set_config('app.invite_token_hash', ${ctx.inviteTokenHash ?? ""}, true) AS c,
-      set_config('app.platform_admin', ${ctx.platformAdmin ? "on" : ""}, true) AS d`;
+      set_config('app.platform_admin', ${ctx.platformAdmin ? "on" : ""}, true) AS d,
+      set_config('app.api_token_hash', ${ctx.apiTokenHash ?? ""}, true) AS e`;
     return fn(tx);
   });
 }
@@ -50,6 +52,11 @@ export function withUser<T>(userId: string, fn: (tx: Tx) => Promise<T>) {
 /** Reading an invitation by the token presented in the invite link. */
 export function withInviteToken<T>(inviteTokenHash: string, fn: (tx: Tx) => Promise<T>) {
   return withContext({ inviteTokenHash }, fn);
+}
+
+/** Finding an API key by the hash of the key a program presented. */
+export function withApiToken<T>(apiTokenHash: string, fn: (tx: Tx) => Promise<T>) {
+  return withContext({ apiTokenHash }, fn);
 }
 
 /** Platform administration. Callers must have verified user.isPlatformAdmin first. */

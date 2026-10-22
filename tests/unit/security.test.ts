@@ -111,7 +111,7 @@ test("permission invariants hold for every action", () => {
     if (can("VIEWER", r.action)) assert.match(r.action, /\.view$/, `viewer may do ${r.action}`); // viewers only look
     if (can("AGENT", r.action)) assert.ok(!/(approve|reverse|settle|reconcile|team|billing|settings|audit)/.test(r.action), `agent may ${r.action}`);
   }
-  for (const a of ["billing.manage", "ai.audit", "team.manage", "settings.manage"] as Action[]) {
+  for (const a of ["billing.manage", "ai.audit", "team.manage", "settings.manage", "api.manage"] as Action[]) {
     assert.deepEqual(ALL_ROLES.filter((r) => can(r, a)), ["COMPANY_SUPER_ADMIN"], a);
   }
   assert.equal(can("MANAGER" as Role, "nonexistent.action" as Action), false);
@@ -127,9 +127,12 @@ test("no route hands out data without checking who is asking", () => {
     "app/ads/click/[ref]/route.ts": "an advert click: the service decides whether to charge; the visitor always reaches the property",
     "app/api/webhooks/paystack/route.ts": "verified by the provider's signature",
     "app/reels/[id]/video/route.ts": "the service returns only clips the viewer may see",
+    "app/api/v1/listings/route.ts": "published listings only; read-only; rate limited",
+    "app/api/v1/listings/[ref]/route.ts": "one published listing; read-only; rate limited",
+    "app/api/v1/openapi/route.ts": "the public description of the API",
     "app/photos/[id]/route.ts": "pictures of published listings; the database returns nothing for any other listing",
   };
-  const AUTH = /getMember|getSession|requireUser|requireMember|requirePlatformAdmin|cronAuthorised|signature/;
+  const AUTH = /scope: "|getMember|getSession|requireUser|requireMember|requirePlatformAdmin|cronAuthorised|signature/;
   for (const f of files.filter((f) => f.endsWith("/route.ts"))) {
     const rel = f.slice(SRC.length + 1);
     if (rel === "app/api/health/route.ts") continue; // up/down only; details need the cron secret

@@ -601,10 +601,10 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await submitVendorWork(seeker.userId, vendorGrant.id, pipe.id, { kind: "QUOTE", amount: "85000", note: "[DEMO] Replace the burst section and two joints." }, null);
 
   // Flatmates: the demo seeker and two more demo people looking in Lagos, one match with a chat room and one request waiting.
-  const moveIn = new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10);
+  const fmMoveIn = new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10);
   const lifestyle = { smoking: "NON_SMOKER", smokeOk: "OUTSIDE_OK", schedule: "REGULAR", personality: "AMBIVERT", cleanliness: "TIDY", guests: "SOMETIMES", noise: "MODERATE", drinking: "SOCIAL", pets: "LIKE_PETS", workFromHome: "SOMETIMES", cooking: "OFTEN", inclusive: "FINE" };
   const fm = async (userId: string, name: string, o: Record<string, unknown>) => saveFlatmateProfile(userId, {
-    displayName: name, intent: "NEED_ROOM", country: "NG", city: "Lagos", areas: "Yaba, Surulere", budgetMin: "120000", budgetMax: "220000", moveInFrom: moveIn, stayMonths: "12",
+    displayName: name, intent: "NEED_ROOM", country: "NG", city: "Lagos", areas: "Yaba, Surulere", budgetMin: "120000", budgetMax: "220000", moveInFrom: fmMoveIn, stayMonths: "12",
     ageBand: "25-34", agePref: "ANY", gender: "UNSAID", genderPref: "ANY", showGender: false, answers: lifestyle, must: [], occupation: "", about: "[DEMO] Demonstration profile.", roomListingRef: "", adult: true, ...o,
   } as never);
   await fm(seeker.userId, "Seyi", { occupation: "Designer" });

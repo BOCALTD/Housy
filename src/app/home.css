@@ -174,8 +174,8 @@
 .prose { display: grid; gap: 14px; max-width: 78ch; }
 .prose h2 { margin-top: 10px; }
 .check-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.check-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; }
-.check-list li::before { content: "✓"; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--primary); color: var(--primary-ink); }
+.check-list li { position: relative; padding-left: 38px; min-height: 28px; overflow-wrap: anywhere; }
+.check-list li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--primary); color: var(--primary-ink); }
 .level-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .level-grid > div { display: grid; gap: 6px; align-content: start; padding: 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
 @media (max-width: 860px) { .level-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

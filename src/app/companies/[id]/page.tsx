@@ -6,6 +6,8 @@ import { tierOf } from "@/lib/services/tiers";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { BadgeRow, ReviewCard, ScoreLine } from "@/components/Reputation";
 import { GoldBadge } from "@/components/Promo";
+import { companyTrust } from "@/lib/services/kyc";
+import { TrustBadge } from "@/components/TrustBadge";
 import { reportReviewAction } from "../../reviews/actions";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +23,7 @@ export default async function CompanyPage({ params: paramsP, searchParams: searc
   const company = await publicCompany(params.id);
   if (!company) notFound();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
-  const [rep, list, session, tier] = await Promise.all([ensureReputation("COMPANY", company.companyId), publicReviews("COMPANY", company.companyId, page), getSession(), tierOf(company.companyId)]);
+  const [rep, list, session, tier, trust] = await Promise.all([ensureReputation("COMPANY", company.companyId), publicReviews("COMPANY", company.companyId, page), getSession(), tierOf(company.companyId), companyTrust(company.companyId)]);
   const here = `/companies/${company.companyId}`;
   return (
     <div className="stack-lg">
@@ -29,6 +31,7 @@ export default async function CompanyPage({ params: paramsP, searchParams: searc
         <p className="eyebrow">{company.kind === "DEVELOPER" ? "Developer" : "Company"}</p>
         <h1>{company.displayName} <GoldBadge tier={tier} /></h1>
         {company.tagline ? <p className="muted">{company.tagline}</p> : null}
+        <TrustBadge t={trust} full />
         <ScoreLine score={rep?.score ?? 0} count={rep?.reviewCount ?? 0} average={rep?.average ?? 0} />
         <BadgeRow badges={(rep?.badges as string[] | undefined) ?? []} />
         <p className="small muted">The Gold badge reflects a paid plan. Reputation and review badges are earned and cannot be bought.</p>

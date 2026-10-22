@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { companyTrust } from "@/lib/services/kyc";
+import { TrustBadge } from "@/components/TrustBadge";
+import { withPublic } from "@/lib/db";
 import { Carousel } from "@/components/Carousel";
 import { publicPhotosOf } from "@/lib/services/listing-photos";
 import { cookies, headers } from "next/headers";
@@ -35,6 +39,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   if (!isBot(ua)) await recordView(listing.id, viewerKeyFor((await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
   const session = await getSession();
   const photos = await publicPhotosOf(listing.id);
+  const [trust, company] = await Promise.all([companyTrust(listing.companyId), withPublic((tx) => tx.companyProfile.findFirst({ where: { companyId: listing.companyId, listed: true }, select: { displayName: true } }))]);
   const watching = session ? await isWatching(session.user.id, listing.id) : false;
   const provider = await getFeaturedProvider();
   const prefs = parsePrefs((await cookies()).get("pv_pref")?.value);
@@ -82,6 +87,11 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
       </article>
 
       <aside className="card stack">
+        <div className="stack" style={{ gap: 6 }}>
+          <p className="eyebrow">Listed by</p>
+          {company ? <Link className="tap" href={`/companies/${listing.companyId}`}><strong>{company.displayName}</strong></Link> : <strong>A registered company</strong>}
+          <TrustBadge t={trust} full />
+        </div>
         {session ? (
           <form action={watchAction}><input type="hidden" name="ref" value={listing.publicRef} /><input type="hidden" name="on" value={watching ? "0" : "1"} />
             <button className="btn" type="submit" aria-pressed={watching}>{watching ? "Watching: stop" : "Watch this property"}</button></form>

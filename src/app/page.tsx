@@ -1,25 +1,62 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { PromoSlides } from "@/components/PromoSlides";
 import { HeroRotator } from "@/components/HeroRotator";
+import { HomeHero } from "@/components/HomeHero";
 import { Carousel } from "@/components/Carousel";
+import { CountUp } from "@/components/CountUp";
+import { HowItWorks } from "@/components/HowItWorks";
+import { ListingCard } from "@/components/ListingCard";
+import { TrustBadge } from "@/components/TrustBadge";
+import { Icon } from "@/components/Icons";
+import { DoneCard } from "@/components/Done";
+import { SponsoredStrip } from "@/components/Sponsored";
+import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
-import { PURPOSES } from "@/lib/services/listings";
+import { humanize, PLATFORM_NAME } from "@/lib/labels";
+import { FAQS } from "@/lib/faq";
+import { countryName, visitorCountry } from "@/lib/countries";
 import { searchListingsRanked } from "@/lib/services/promotions";
 import { homeSections, KIND_LABEL, type Kind } from "@/lib/services/completed";
-import { DoneCard } from "@/components/Done";
-import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "@/components/Promo";
-import { humanize } from "@/lib/labels";
-import { PropPhoto, sp, type SP } from "@/components/ui";
-import { getSession } from "@/lib/auth";
-import { saveSearchAction } from "@/app/me/saved/actions";
-import { headers } from "next/headers";
+import { cityCounts, latestReviews, publicPartners, purposeCounts, siteCounts } from "@/lib/services/home";
+import { directory } from "@/lib/services/community";
+import { discover } from "@/lib/services/reels";
+import { trustMany } from "@/lib/services/kyc";
 import { sponsoredFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
-import { ModeSwitch } from "@/components/ModeSwitch";
-import { SponsoredStrip } from "@/components/Sponsored";
+import { getSession } from "@/lib/auth";
+import { saveSearchAction } from "@/app/me/saved/actions";
+import { sp, type SP } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+
+const HERO = [
+  { src: "/stock/hero-1.jpg", alt: "A modern two-storey house at dusk" },
+  { src: "/stock/hero-2.jpg", alt: "A white house with a swimming pool and palm trees" },
+  { src: "/stock/hero-3.jpg", alt: "A contemporary villa with a pool" },
+];
+const CATEGORIES = [
+  { href: "/?purpose=SALE", img: "/stock/buy.jpg", title: "Buy a home", sub: "Houses, duplexes and flats", purpose: "SALE" },
+  { href: "/?purpose=RENT", img: "/stock/rent.jpg", title: "Rent", sub: "Apartments and family homes", purpose: "RENT" },
+  { href: "/?purpose=LEASE", img: "/stock/commercial.jpg", title: "Lease", sub: "Offices and commercial space", purpose: "LEASE" },
+  { href: "/?q=land", img: "/stock/land.jpg", title: "Land", sub: "Plots and acreage", purpose: null },
+  { href: "/?q=warehouse", img: "/stock/warehouse.jpg", title: "Warehouses", sub: "Industrial and logistics", purpose: null },
+  { href: "/?q=shop", img: "/stock/shops.jpg", title: "Shops and offices", sub: "Retail and workspace", purpose: null },
+  { href: "/?q=short let", img: "/stock/shortlet.jpg", title: "Short let", sub: "Furnished stays", purpose: null },
+  { href: "/directory?kind=developers", img: "/stock/developments.jpg", title: "New developments", sub: "Estates and developers", purpose: null },
+] as const;
+const COUNT_ICONS = [Icon.building, Icon.person, Icon.home, Icon.handshake, Icon.pin];
+const initials = (s: string) => s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
+
+function SectionHead({ kicker, title, text, link }: { kicker: string; title: string; text?: string; link?: { href: string; label: string } }) {
+  return (
+    <div className="sec-head">
+      <div><p className="sec-kicker">{kicker}</p><h2>{title}</h2>{text ? <p>{text}</p> : null}</div>
+      {link ? <Link className="sec-link" href={link.href}>{link.label}</Link> : null}
+    </div>
+  );
+}
 
 export default async function HomePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
@@ -28,106 +65,256 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
     maxPrice: sp(searchParams, "maxPrice"), minBeds: sp(searchParams, "minBeds"),
   };
   const searching = Object.values(filters).some(Boolean);
-  const bot = isBot((await headers()).get("user-agent"));
-  const [listings, done, sponsored] = await Promise.all([searchListingsRanked(filters), homeSections(), sponsoredFor(searching ? "SEARCH_TOP" : "HOME_FEATURED", { filters, bot }).catch(() => [])]);
-  const session = searching ? await getSession() : null;
-  const promoted = searching ? [] : listings.filter((l) => l.promo);
-  const gridListings = searching ? listings : listings.filter((l) => !l.promo);
+  const h = await headers();
+  const bot = isBot(h.get("user-agent"));
+  const country = visitorCountry(h);
+  const [listings, sponsored] = await Promise.all([
+    searchListingsRanked(filters),
+    sponsoredFor(searching ? "SEARCH_TOP" : "HOME_FEATURED", { filters, bot }).catch(() => []),
+  ]);
+
+  const search = (
+    <form className="hx-search" role="search" aria-label="Search properties" action="/">
+      <fieldset className="hx-tabs">
+        <legend>What are you looking for?</legend>
+        {[["", "All"], ["SALE", "Buy"], ["RENT", "Rent"], ["LEASE", "Lease"]].map(([v, l]) => (
+          <label key={v}><input type="radio" name="purpose" value={v} defaultChecked={(filters.purpose ?? "") === v} />{l}</label>
+        ))}
+      </fieldset>
+      <div className="hx-fields">
+        <input name="city" defaultValue={filters.city ?? ""} placeholder="City, area or state" aria-label="Location" />
+        <input name="maxPrice" defaultValue={filters.maxPrice ?? ""} placeholder="Max price (₦)" inputMode="decimal" aria-label="Maximum price" />
+        <input name="minBeds" defaultValue={filters.minBeds ?? ""} placeholder="Min bedrooms" inputMode="numeric" aria-label="Minimum bedrooms" />
+        <button className="btn primary" type="submit">Search</button>
+      </div>
+    </form>
+  );
+  const hero = (
+    <HomeHero photos={HERO}>
+      <HeroRotator />
+      {search}
+      <div className="hx-links"><Link href="/find">Describe what you want in a sentence</Link><Link href="/map">See properties on a map</Link><Link href="/reels">Watch property reels</Link></div>
+    </HomeHero>
+  );
+
+  if (searching) {
+    const session = await getSession();
+    return (
+      <div className="stack-lg">
+        <ModeSwitch active="listings" />
+        {hero}
+        <SponsoredStrip items={sponsored} where="search" />
+        <section className="sec">
+          <div className="sec-head"><h2>{listings.length} {listings.length === 1 ? "property" : "properties"} found</h2><Link href="/" className="sec-link">Clear search</Link></div>
+          {session ? (
+            <details className="inline"><summary>Save this search and get alerts</summary>
+              <form action={saveSearchAction} className="stack">
+                <input type="hidden" name="back" value="/" />
+                {(["city", "purpose", "q", "maxPrice", "minBeds"] as const).map((k) => filters[k] ? <input key={k} type="hidden" name={k} value={filters[k]} /> : null)}
+                <label className="field">Name this search<input name="name" required maxLength={80} defaultValue={[filters.city, filters.purpose === "SALE" ? "Buy" : filters.purpose ? humanize(filters.purpose) : ""].filter(Boolean).join(" ") || "My search"} /></label>
+                <button className="btn" type="submit">Save search</button>
+              </form></details>
+          ) : <p className="small muted"><Link href="/login">Sign in</Link> to save this search and be told about new matches.</p>}
+          {listings.length === 0 ? <div className="card"><p className="muted">No published properties match that search. Try a wider area or a higher price.</p></div> : (
+            <div className="grid">{listings.map((l) => <ListingCard key={l.id} l={l} />)}</div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  const [counts, byPurpose, cities, reviews, partners, done, companies, agents, reels] = await Promise.all([
+    siteCounts(), purposeCounts(), cityCounts(country), latestReviews(9), publicPartners(), homeSections(),
+    directory({ kind: "companies" }).then((r) => r.rows.slice(0, 8)).catch(() => []),
+    directory({ kind: "agents" }).then((r) => r.rows.slice(0, 8)).catch(() => []),
+    discover({ tab: "trending" }).then((r) => r.rows.slice(0, 8)).catch(() => []),
+  ]);
+  const trusts = new Map([...(await trustMany("COMPANY", companies.map((c) => c.targetId))), ...(await trustMany("AGENT", agents.map((a) => a.targetId)))]);
+  const pros = [...companies, ...agents].sort((a, b) => (trusts.get(b.targetId)?.score ?? 0) - (trusts.get(a.targetId)?.score ?? 0)).slice(0, 10);
+  const promoted = listings.filter((l) => l.promo);
+  const featured = listings.filter((l) => !l.promo);
+  const slides = promoted.slice(0, 5).map((l) => ({
+    href: `/properties/${l.publicRef}`, title: l.title, place: `${l.city}, ${l.state}`, purpose: l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`,
+    name: l.promo!.campaignName, tagline: l.promo!.tagline, pct: l.promo!.pct, was: formatKobo(l.promo!.originalKobo) + (l.purpose !== "SALE" ? " / year" : ""),
+    now: formatKobo(l.promo!.promoKobo) + (l.purpose !== "SALE" ? " / year" : ""), save: formatKobo(l.promo!.originalKobo - l.promo!.promoKobo), ends: formatDate(l.promo!.endsOn), theme: l.promo!.theme, photo: l.coverPhotoId ? `/photos/${l.coverPhotoId}` : null,
+  }));
+  const THEME: Record<string, string> = { RED: "t-red", GOLD: "t-gold", GREEN: "t-green", PURPLE: "t-purple", BLUE: "t-blue" };
+  const countRows = [
+    { n: counts.companies, label: "Registered companies" }, { n: counts.agents, label: "Listed agents" }, { n: counts.listings, label: "Properties listed" },
+    { n: counts.completed, label: "Completed deals" }, { n: counts.cities, label: "Cities covered" },
+  ];
 
   return (
     <div className="stack-lg">
       <ModeSwitch active="listings" />
-      <section className="hero">
-        <span className="hero-orb a" aria-hidden="true" /><span className="hero-orb b" aria-hidden="true" /><span className="hero-orb c" aria-hidden="true" />
-        <HeroRotator />
-        <form className="search" role="search" aria-label="Search properties">
-          <input name="city" defaultValue={filters.city ?? ""} placeholder="City, area or state" aria-label="Location" />
-          <select name="purpose" defaultValue={filters.purpose ?? ""} aria-label="Purpose">
-            <option value="">Buy, rent or lease</option>
-            {PURPOSES.map((p) => <option key={p} value={p}>{p === "SALE" ? "Buy" : humanize(p)}</option>)}
-          </select>
-          <input name="maxPrice" defaultValue={filters.maxPrice ?? ""} placeholder="Max price (₦)" inputMode="decimal" aria-label="Maximum price" />
-          <input name="minBeds" defaultValue={filters.minBeds ?? ""} placeholder="Min bedrooms" inputMode="numeric" aria-label="Minimum bedrooms" />
-          <button className="btn primary" type="submit">Search</button>
-        </form>
-        <p className="small" style={{ margin: 0 }}><Link href="/find" style={{ color: "inherit", textDecoration: "underline" }}>Describe what you want in a sentence</Link> · <Link href="/map" style={{ color: "inherit", textDecoration: "underline" }}>See properties on a map</Link></p>
+      <div>
+        {hero}
+        <section className="counts" aria-label={`${PLATFORM_NAME} in numbers`}>
+          {countRows.map((c, i) => { const I = COUNT_ICONS[i]; return <div key={c.label} className="count"><span className="count-ico">{I()}</span><CountUp value={c.n} /><span>{c.label}</span></div>; })}
+        </section>
+      </div>
+
+      {slides.length ? (
+        <section className="sec" aria-label="Offers">
+          <SectionHead kicker="Hot offers" title="Promotions on now" text="Discounts set by the listing company, with the original price and the date the offer ends." />
+          <PromoSlides slides={slides} />
+          <Carousel label="Offers ending soon" few={promoted.length <= 3}>
+            {[...promoted].sort((a, b) => a.promo!.endsOn.getTime() - b.promo!.endsOn.getTime()).map((l) => (
+              <Link key={l.id} href={`/properties/${l.publicRef}`} className={`offer ${THEME[l.promo!.theme] ?? "t-red"}`}>
+                <div className="offer-img">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {l.coverPhotoId ? <img src={`/photos/${l.coverPhotoId}`} alt="" loading="lazy" decoding="async" /> : null}
+                  <span className="burst" aria-hidden="true">{l.promo!.pct}%<small>OFF</small></span>
+                </div>
+                <div className="offer-body">
+                  <span className="offer-tag">{l.promo!.campaignName}</span>
+                  <strong>{l.title}</strong>
+                  <span><s>{formatKobo(l.promo!.originalKobo)}</s> <b>{formatKobo(l.promo!.promoKobo)}</b></span>
+                  <span className="small muted">{l.city}, {l.state} · ends {formatDate(l.promo!.endsOn)}</span>
+                </div>
+              </Link>
+            ))}
+          </Carousel>
+        </section>
+      ) : (
+        <section className="partner-empty" aria-label="Promotions">
+          <div><p className="sec-kicker">Hot offers</p><strong>No promotions are running right now.</strong><p className="small muted">Companies can run a discount on any published listing; it appears here as a festive flyer with the saving and end date.</p></div>
+          <Link className="btn primary" href="/app/promotions">Run a promotion</Link>
+        </section>
+      )}
+      <SponsoredStrip items={sponsored} where="home" />
+
+      <section className="sec">
+        <SectionHead kicker="Browse" title="What are you looking for?" />
+        <div className="tiles">
+          {CATEGORIES.map((c) => (
+            <Link key={c.title} href={c.href} className="tile">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={c.img} alt="" loading="lazy" decoding="async" />
+              {c.purpose && byPurpose[c.purpose] ? <span className="tile-count">{byPurpose[c.purpose]} listed</span> : null}
+              <strong>{c.title}</strong><span>{c.sub}</span>
+            </Link>
+          ))}
+        </div>
       </section>
 
-      {promoted.length > 0 ? <PromoSlides slides={promoted.slice(0, 8).map((l) => ({
-        href: `/properties/${l.publicRef}`, title: l.title, place: `${l.city}, ${l.state}`, purpose: l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`,
-        name: l.promo!.campaignName, tagline: l.promo!.tagline, pct: l.promo!.pct, was: formatKobo(l.promo!.originalKobo) + (l.purpose !== "SALE" ? " / year" : ""),
-        now: formatKobo(l.promo!.promoKobo) + (l.purpose !== "SALE" ? " / year" : ""), save: formatKobo(l.promo!.originalKobo - l.promo!.promoKobo), ends: formatDate(l.promo!.endsOn), theme: l.promo!.theme, photo: l.coverPhotoId ? `/photos/${l.coverPhotoId}` : null,
-      }))} /> : null}
-      <SponsoredStrip items={sponsored} where={searching ? "search" : "home"} />
-
-      <section className="stack">
-        <div className="row between">
-          <h2>{searching ? `${listings.length} ${listings.length === 1 ? "property" : "properties"} found` : "Latest listings"}</h2>
-          {searching ? <Link href="/" className="small">Clear search</Link> : null}
-        </div>
-        {searching && session ? (
-          <details className="inline"><summary>Save this search and get alerts</summary>
-            <form action={saveSearchAction} className="stack">
-              <input type="hidden" name="back" value="/" />
-              {(["city", "purpose", "q", "maxPrice", "minBeds"] as const).map((k) => filters[k] ? <input key={k} type="hidden" name={k} value={filters[k]} /> : null)}
-              <label className="field">Name this search<input name="name" required maxLength={80} defaultValue={[filters.city, filters.purpose === "SALE" ? "Buy" : filters.purpose ? humanize(filters.purpose) : ""].filter(Boolean).join(" ") || "My search"} /></label>
-              <button className="btn" type="submit">Save search</button>
-            </form></details>
-        ) : searching ? <p className="small muted"><Link href="/login">Sign in</Link> to save this search and be told about new matches.</p> : null}
-        {listings.length === 0 ? (
-          <div className="card"><p className="muted">{searching ? "No published properties match that search. Try a wider area or a higher price." : "No properties have been published yet."}</p></div>
-        ) : (
-          searching ? (
-            <div className="grid">
-            {gridListings.map((l) => (
-              <Link key={l.id} href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
-                <div className="prop-img"><PropPhoto id={l.coverPhotoId} /></div>
-                <div className="prop-body">
-                  {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}
-                  <span className="promo-tags">
-                    <span className="pill brand">{l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`}</span>
-                    <PremiumTag tier={l.tier} /><GoldBadge tier={l.tier} />
-                  </span>
-                  <strong>{l.title}</strong>
-                  <PriceBlock priceKobo={l.priceKobo} promo={l.promo} suffix={l.purpose !== "SALE" ? " / year" : ""} />
-                  <span className="small muted">
-                    {[l.bedrooms != null ? `${l.bedrooms} bed` : null, l.bathrooms != null ? `${l.bathrooms} bath` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ")}
-                  </span>
-                </div>
-              </Link>
-            ))}
-            </div>
-          ) : (
-            <Carousel label="Latest listings" few={gridListings.length <= 3}>
-            {gridListings.map((l) => (
-              <Link key={l.id} href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
-                <div className="prop-img"><PropPhoto id={l.coverPhotoId} /></div>
-                <div className="prop-body">
-                  {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}
-                  <span className="promo-tags">
-                    <span className="pill brand">{l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`}</span>
-                    <PremiumTag tier={l.tier} /><GoldBadge tier={l.tier} />
-                  </span>
-                  <strong>{l.title}</strong>
-                  <PriceBlock priceKobo={l.priceKobo} promo={l.promo} suffix={l.purpose !== "SALE" ? " / year" : ""} />
-                  <span className="small muted">
-                    {[l.bedrooms != null ? `${l.bedrooms} bed` : null, l.bathrooms != null ? `${l.bathrooms} bath` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ")}
-                  </span>
-                </div>
-              </Link>
-            ))}
-            </Carousel>
-          )
+      <section className="sec">
+        <SectionHead kicker="Featured" title="Featured properties" text="From registered companies, reviewed before publication." link={{ href: "/map", label: "See them on a map" }} />
+        {featured.length === 0 && promoted.length === 0 ? <div className="card"><p className="muted">No properties have been published yet.</p></div> : (
+          <Carousel label="Featured properties" few={(featured.length || promoted.length) <= 3}>
+            {(featured.length ? featured : promoted).map((l) => <ListingCard key={l.id} l={l} />)}
+          </Carousel>
         )}
       </section>
+
+      <section className="sec">
+        <SectionHead kicker="Locations" title={`Explore cities in ${countryName(cities.country)}`} text={cities.country !== country ? `No listings in ${countryName(country)} yet, so here is ${countryName(cities.country)}.` : "Where properties are listed right now."} />
+        {cities.cities.length === 0 ? <div className="card"><p className="muted">Cities appear here as soon as properties are published.</p></div> : (
+          <div className="tiles">
+            {cities.cities.map((c, i) => (
+              <Link key={`${c.city}-${c.state}`} href={`/?city=${encodeURIComponent(c.city)}`} className="tile">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/stock/city-${(i % 6) + 1}.jpg`} alt="" loading="lazy" decoding="async" />
+                <span className="tile-count">{c.count} {c.count === 1 ? "property" : "properties"}</span>
+                <strong>{c.city}</strong><span>{c.state}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="sec">
+        <SectionHead kicker="How it works" title="Simple, checked and in one place" />
+        <HowItWorks />
+      </section>
+
+      <section className="sec">
+        <SectionHead kicker="Professionals" title="Companies and agents you can check" text="Trust levels come from identity and business checks done by people on our team." link={{ href: "/directory", label: "All companies and agents" }} />
+        {pros.length === 0 ? <div className="card"><p className="muted">Companies and agents appear here once they publish a public profile.</p></div> : (
+          <Carousel label="Companies and agents" few={pros.length <= 3}>
+            {pros.map((p) => (
+              <Link key={`${p.kind}-${p.targetId}`} href={p.kind === "AGENT" ? `/agents/${p.targetId}` : `/companies/${p.targetId}`} className="pro">
+                <div className="pro-top"><span className="avatar" aria-hidden="true">{initials(p.name)}</span><div><strong>{p.name}</strong><span className="small muted">{p.kind === "AGENT" ? `Agent${p.sub ? ` · ${p.sub}` : ""}` : p.sub}</span></div></div>
+                {trusts.get(p.targetId) ? <TrustBadge t={trusts.get(p.targetId)!} /> : null}
+                {p.blurb ? <span className="small muted">{p.blurb}</span> : null}
+              </Link>
+            ))}
+          </Carousel>
+        )}
+      </section>
+
+      <section className="sec">
+        <SectionHead kicker="Reels" title="See it before you visit" text="Short videos of homes and neighbourhoods from agents." link={{ href: "/reels", label: "Watch reels" }} />
+        {reels.length === 0 ? (
+          <div className="partner-empty"><div><strong>No reels yet.</strong><p className="small muted">Agents can post a short video of a property and link it to the listing.</p></div><Link className="btn" href="/reels/new">Post a reel</Link></div>
+        ) : (
+          <Carousel label="Property reels" few={reels.length <= 3}>
+            {reels.map((r) => (
+              <Link key={r.id} href={`/reels/${r.id}`} className="reel-tile" aria-label={`Watch: ${r.caption || "a property reel"} by ${r.authorName}`}>
+                <video src={`/reels/${r.id}/video#t=0.5`} preload="metadata" muted playsInline aria-hidden="true" tabIndex={-1} />
+                <span className="play" aria-hidden="true">{Icon.play()}</span>
+                <div><strong className="small">{r.caption || "Property reel"}</strong><span className="small">{r.authorName}{r.city ? ` · ${r.city}` : ""}</span></div>
+              </Link>
+            ))}
+          </Carousel>
+        )}
+      </section>
+
       {(Object.keys(KIND_LABEL) as Kind[]).some((k) => done[k].length) ? (
-        <section className="stack">
-          <div className="row between"><h2>Recently completed</h2><Link href="/completed" className="small">See all</Link></div>
-          {(Object.keys(KIND_LABEL) as Kind[]).filter((k) => done[k].length).map((k) => (
-            <div key={k} className="stack"><h3>{KIND_LABEL[k]}</h3><div className="grid">{done[k].map((c) => <DoneCard key={c.id} c={c} />)}</div><Link href={`/completed?kind=${k}`} className="small">More {KIND_LABEL[k].toLowerCase()}</Link></div>
-          ))}
+        <section className="sec">
+          <SectionHead kicker="Track record" title="Recently completed" text="Sales, lettings and leases recorded as completed by companies, with the company's confirmation." link={{ href: "/completed", label: "See all" }} />
+          <Carousel label="Recently completed" few>
+            {(Object.keys(KIND_LABEL) as Kind[]).flatMap((k) => done[k]).slice(0, 8).map((c) => <DoneCard key={c.id} c={c} />)}
+          </Carousel>
         </section>
       ) : null}
+
+      <section className="sec">
+        <SectionHead kicker="Reviews" title="What clients say" text="Every review is tied to a recorded inspection or deal, so only real clients can write one." link={{ href: "/reviews", label: "All reviews" }} />
+        {reviews.length === 0 ? <div className="card"><p className="muted">Reviews appear here after clients complete inspections and deals.</p></div> : (
+          <Carousel label="Client reviews" few={reviews.length <= 3}>
+            {reviews.map((r) => (
+              <figure key={r.id} className="rv">
+                <span className="stars" role="img" aria-label={`${r.overall} out of 5`}>{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= r.overall ? undefined : "off"} aria-hidden="true">★</span>)}</span>
+                <blockquote style={{ margin: 0 }}><q>{r.body}</q></blockquote>
+                <footer><span className="avatar" aria-hidden="true">{initials(r.reviewerName)}</span><figcaption><strong>{r.reviewerName}</strong><div className="small muted">About {r.about} · {formatDate(r.createdAt)}</div></figcaption></footer>
+              </figure>
+            ))}
+          </Carousel>
+        )}
+      </section>
+
+      <section className="sec" aria-label="Partners">
+        <SectionHead kicker="Partners" title="Working with" />
+        {partners.length === 0 ? (
+          <div className="partner-empty"><div><strong>Banks, law firms, surveyors and valuers: partner with us.</strong><p className="small muted">Partners are shown here only once an agreement is in place.</p></div><Link className="btn" href="/support">Talk to us</Link></div>
+        ) : (
+          <div className="partners">
+            <div className="partners-row">
+              {[0, 1].map((copy) => partners.map((p) => {
+                const inner = <>{/* eslint-disable-next-line @next/next/no-img-element */}{p.logoMime ? <img src={`/partners/${p.id}/logo`} alt={copy ? "" : p.name} /> : null}<span>{p.name}</span></>;
+                return p.url
+                  ? <a key={`${copy}-${p.id}`} className="partner" href={p.url} rel="noopener sponsored" target="_blank" data-copy={copy ? "" : undefined} aria-hidden={copy ? true : undefined} tabIndex={copy ? -1 : undefined}>{inner}</a>
+                  : <span key={`${copy}-${p.id}`} className="partner" data-copy={copy ? "" : undefined} aria-hidden={copy ? true : undefined}>{inner}</span>;
+              }))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="faq-wrap">
+        <div className="stack"><p className="sec-kicker">Questions</p><h2>Frequently asked questions</h2><p className="muted">The things people ask before they trust a property platform.</p><Link className="btn" href="/faq">All questions</Link></div>
+        <div className="faq">{FAQS.slice(0, 6).map((f) => <details key={f.q}><summary>{f.q}</summary><p>{f.a}</p></details>)}</div>
+      </section>
+
+      <section className="cta">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/stock/cta.jpg" alt="" loading="lazy" decoding="async" />
+        <p className="sec-kicker" style={{ color: "#FFD36B" }}>For companies and agents</p>
+        <h2>List your properties where buyers can check you</h2>
+        <p>Register your company, complete verification and publish listings with photos, offers and reels. Manage tenants, rent and deals in the same workspace.</p>
+        <div className="row"><Link className="btn primary" href="/signup">Register a company</Link><Link className="btn" href="/how-it-works">How it works</Link></div>
+      </section>
     </div>
   );
 }

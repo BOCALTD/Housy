@@ -10,14 +10,16 @@ import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import { Flash, ShowMore, sp, type SP } from "@/components/ui";
+import { companyTrust } from "@/lib/services/kyc";
+import { TrustBadge } from "@/components/TrustBadge";
 
 export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const member = await requireMember();
-  const [d, corr, filesOverdue, expiring, calendar, work] = await Promise.all([
-    dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60), complianceCalendar(member), workOverview(member),
+  const [d, corr, filesOverdue, expiring, calendar, work, trust] = await Promise.all([
+    dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60), complianceCalendar(member), workOverview(member), companyTrust(member.companyId),
   ]);
   const escalated = calendar.items.filter((i) => i.state === "ESCALATED").length;
   const overdueDeadlines = calendar.items.filter((i) => i.state === "OVERDUE").length;
@@ -31,6 +33,12 @@ export default async function DashboardPage({ searchParams: searchP }: { searchP
         {can(member.role, "asset.create") ? <Link className="btn primary" href="/app/assets/new">Register an asset</Link> : null}
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+      {trust.level < 2 ? (
+        <div className="card row between" role="note">
+          <span className="row"><TrustBadge t={trust} /> <span className="small">Verified companies get a badge on every listing and profile. {can(member.role, "kyc.manage") ? "Complete the checks to earn it." : "Ask your company administrator to complete the checks."}</span></span>
+          {can(member.role, "kyc.manage") ? <Link className="btn primary" href="/app/verification">Verify the company</Link> : null}
+        </div>
+      ) : null}
 
       <section className="stats" aria-label="Portfolio summary">
         <div className="stat"><b>{d.totalAssets}</b><span>Assets registered</span></div>

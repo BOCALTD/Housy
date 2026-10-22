@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./polish.css";
+import "./home.css";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
@@ -12,6 +13,7 @@ import { snoozeAction } from "./feedback/actions";
 import { logoutAction } from "./auth-actions";
 import { NavigationLoader } from "@/components/NavigationLoader";
 import { BackToTop } from "@/components/BackToTop";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -26,8 +28,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1F6B50" },
-    { media: "(prefers-color-scheme: dark)", color: "#0E1F1A" },
+    { media: "(prefers-color-scheme: light)", color: "#FBB017" },
+    { media: "(prefers-color-scheme: dark)", color: "#111214" },
   ],
 };
 
@@ -96,9 +98,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <main id="main" tabIndex={-1}>
           <div className="wrap">{children}</div>
         </main>
-        <footer className="wrap" style={{ padding: "16px 0 32px" }}>
-          <Link href="/support" className="btn ghost small">Help and support</Link>
-        </footer>
+        <SiteFooter />
       </body>
     </html>
   );

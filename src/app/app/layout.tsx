@@ -23,7 +23,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
     ["/app/analytics", "Analytics", true], ["/app/map", "Map", true], ["/app/assistant", "Assistant", can(r, "ai.use")],
     ["/app/billing", "Billing", can(r, "billing.view")], ["/app/ads", "Advertising", can(r, "billing.view")],
     ["/app/import", "Bring in records", can(r, "import.manage")], ["/app/api-keys", "API keys", can(r, "api.manage")], ["/app/team", "Team", can(r, "team.manage")],
-    ["/app/settings", "Settings", can(r, "settings.manage")], ["/app/switch", "Switch company", true],
+    ["/app/verification", "Verification", can(r, "kyc.manage")], ["/app/settings", "Settings", can(r, "settings.manage")], ["/app/switch", "Switch company", true],
   ] : [];
   const shown = menu.filter((m) => m[2]);
   const head = shown.slice(0, 6);

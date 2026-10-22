@@ -60,6 +60,8 @@ import { assignSubscription } from "./services/subscriptions";
 import { saveSearch, watchListing } from "./services/alerts";
 import { addComment, moderateReel, toggleLike, uploadReel } from "./services/reels";
 import { displayQueue, requestDisplay, reviewDisplay } from "./services/completed";
+import { decideKyc, submitAgentKyc, submitCompanyKyc } from "./services/kyc";
+import { withPlatformAdmin as asAdmin } from "./db";
 
 export const DEMO_PASSWORD = "demo-password-123";
 export const DEMO_USERS = [
@@ -123,7 +125,9 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     description: "Demonstration listing. Gated estate, boys' quarters, ample parking.",
   });
   await setListingStatus(alpha, duplex.id, "PENDING_REVIEW");
-  await addListingPhoto(alpha, duplex.id, { type: "image/png", bytes: readFileSync(join(process.cwd(), "prisma/demo-photos/duplex.png")) }, "Front view (demo picture)");
+  for (const [file, caption] of [["duplex", "Front view"], ["duplex-living", "Living room"], ["duplex-kitchen", "Kitchen"], ["duplex-room", "Dining and lounge"]]) {
+    await addListingPhoto(alpha, duplex.id, { type: "image/jpeg", bytes: readFileSync(join(process.cwd(), `prisma/demo-photos/${file}.jpg`)) }, `${caption} (demonstration photo)`);
+  }
 
   const shop = await createAsset(alpha, {
     name: "[DEMO] Ground-floor shop, Allen Avenue", assetClass: "COMMERCIAL", category: "Shop",
@@ -147,7 +151,9 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     description: "Demonstration listing.",
   });
   await setListingStatus(beta, warehouse.id, "PENDING_REVIEW");
-  await addListingPhoto(beta, warehouse.id, { type: "image/png", bytes: readFileSync(join(process.cwd(), "prisma/demo-photos/warehouse.png")) }, "Front view (demo picture)");
+  for (const [file, caption] of [["warehouse", "Loading area"], ["warehouse-inside", "Inside the warehouse"]]) {
+    await addListingPhoto(beta, warehouse.id, { type: "image/jpeg", bytes: readFileSync(join(process.cwd(), `prisma/demo-photos/${file}.jpg`)) }, `${caption} (demonstration photo)`);
+  }
 
   // Correspondence and files.
   const officerUser = await prisma.user.findUniqueOrThrow({ where: { email: "demo.officer@example.test" } });
@@ -521,6 +527,24 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await saveSearch(seeker.userId, { name: "[DEMO] Two-bed rental in Lekki", purpose: "RENT", city: "Lekki", q: "", maxPrice: "5,000,000", minBeds: "2" } as never);
   if (demoListing) await watchListing(seeker.userId, demoListing.publicRef);
   await submitRating(seeker.userId, { overall: 4 as never, ease: 4 as never, trust: 5 as never, support: "" as never, suggestion: "[DEMO] Show more photos on each property.", anonymous: false });
+
+
+  // Identity and business checks, so trust badges show at every level. Labelled as demonstration data in what the reviewer recorded.
+  const demoPdf = new Uint8Array(Buffer.from("%PDF-1.4\n% DEMONSTRATION DOCUMENT - NOT A REAL RECORD\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"));
+  const doc = (name: string) => ({ type: "application/pdf", bytes: demoPdf, name });
+  await submitCompanyKyc(alpha, "CAC_REGISTRATION", { legalName: "[DEMO] Alpha Estates Ltd", rcNumber: "RC 1000001", incorporatedOn: "2015-03-02" }, doc("demo-cac-certificate.pdf"));
+  await submitCompanyKyc(alpha, "DIRECTOR_ID", { directorName: "Ada Demo", idType: "NIN", idNumber: "10000000001" }, doc("demo-director-id.pdf"));
+  await submitCompanyKyc(alpha, "OFFICE_ADDRESS", { address: "Demo Close, Lekki Phase 1", city: "Lekki", state: "Lagos" }, doc("demo-utility-bill.pdf"));
+  await submitCompanyKyc(alpha, "COMPANY_CONTACT", { phone: "08000000001", email: "demo.alpha@example.test", website: "" }, null);
+  await submitCompanyKyc(beta, "COMPANY_CONTACT", { phone: "08000000002", email: "demo.beta@example.test", website: "" }, null);
+  await submitCompanyKyc(beta, "CAC_REGISTRATION", { legalName: "[DEMO] Beta Property Managers Ltd", rcNumber: "RC 1000002", incorporatedOn: "" }, doc("demo-cac.pdf"));
+  await submitAgentKyc(alpha.userId, alpha.companyId, "AGENT_ID", { fullName: "Ada Demo", idType: "NIN", idNumber: "10000000003" }, doc("demo-agent-id.pdf"));
+  await submitAgentKyc(alpha.userId, alpha.companyId, "AGENT_PHONE", { phone: "08000000003" }, null);
+  const pending = await asAdmin(adminId, (tx) => tx.kycItem.findMany({ select: { id: true, code: true, companyId: true } }));
+  for (const k of pending) {
+    if (k.companyId === beta.companyId && k.code === "CAC_REGISTRATION") continue; // left waiting, so the review queue has something in it
+    await decideKyc(adminId, k.id, { decision: "verify", note: "", evidence: "Demonstration data: no real check was made.", limitations: "Demonstration record." });
+  }
 
   return true;
 }

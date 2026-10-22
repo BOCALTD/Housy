@@ -6,6 +6,8 @@ import { BADGES, CATEGORIES, type BadgeKey } from "@/lib/reputation-rules";
 import { Field, Flash, ShowMore, sp, type SP } from "@/components/ui";
 import { awardsFor } from "@/lib/services/awards";
 import { PlaqueBadge } from "@/components/Awards";
+import { agentTrust } from "@/lib/services/kyc";
+import { TrustBadge } from "@/components/TrustBadge";
 import { BadgeRow, ReviewCard, ScoreLine } from "@/components/Reputation";
 import { reportReviewAction } from "../../reviews/actions";
 
@@ -22,7 +24,7 @@ export default async function AgentPage({ params: paramsP, searchParams: searchP
   const agent = await publicAgent(params.id);
   if (!agent) notFound();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
-  const [rep, list, session] = await Promise.all([ensureReputation("AGENT", agent.userId), publicReviews("AGENT", agent.userId, page), getSession()]);
+  const [rep, list, session, trust] = await Promise.all([ensureReputation("AGENT", agent.userId), publicReviews("AGENT", agent.userId, page), getSession(), agentTrust(agent.userId)]);
   const awards = (await awardsFor([agent.userId])).get(agent.userId) ?? [];
   const badges = (rep?.badges as string[] | undefined) ?? [];
   const comps = (rep?.components as Record<string, number> | undefined) ?? {};
@@ -32,6 +34,7 @@ export default async function AgentPage({ params: paramsP, searchParams: searchP
       <div className="card stack">
         <p className="eyebrow">Agent{agent.companyName ? ` at ${agent.companyName}` : ""}</p>
         <h1>{agent.displayName}</h1>
+        <TrustBadge t={trust} full />
         {agent.headline ? <p className="muted">{agent.headline}</p> : null}
         <ScoreLine score={rep?.score ?? 0} count={rep?.reviewCount ?? 0} average={rep?.average ?? 0} />
         <BadgeRow badges={badges} />

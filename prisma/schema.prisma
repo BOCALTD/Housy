@@ -577,6 +577,8 @@ model Listing {
   description String         @default("")
   city        String
   state       String
+  /// Two-letter country code (ISO 3166-1). The platform starts in Nigeria.
+  country     String         @default("NG")
   /// Approximate position only (rounded to about 1 km). The exact position of an asset is never published.
   lat         Float?
   lng         Float?
@@ -4988,4 +4990,69 @@ model ApiKey {
 
   @@index([companyId])
   @@map("api_keys")
+}
+
+/// A partner organisation shown on the public pages. Added only by platform administrators after a real agreement exists; never invented.
+model Partner {
+  id        String   @id @default(uuid())
+  name      String
+  kind      String
+  url       String   @default("")
+  blurb     String   @default("")
+  logoMime  String?  @map("logo_mime")
+  logoBytes Bytes?   @map("logo_bytes")
+  active    Boolean  @default(true)
+  position  Int      @default(0)
+  addedById String   @map("added_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("partners")
+}
+
+/// One identity or business check (KYC) for a company or an agent. ID numbers are stored only encrypted; documents are never public.
+model KycItem {
+  id            String    @id @default(uuid())
+  companyId     String    @map("company_id")
+  subjectKind   String    @map("subject_kind")
+  subjectKey    String    @map("subject_key")
+  subjectUserId String?   @map("subject_user_id")
+  code          String
+  status        String    @default("SUBMITTED")
+  fields        Json      @default("{}")
+  secretSealed  String?   @map("secret_sealed")
+  secretMasked  String    @default("") @map("secret_masked")
+  docMime       String?   @map("doc_mime")
+  docBytes      Bytes?    @map("doc_bytes")
+  docName       String    @default("") @map("doc_name")
+  submittedById String    @map("submitted_by_id")
+  submittedAt   DateTime  @default(now()) @map("submitted_at")
+  reviewedById  String?   @map("reviewed_by_id")
+  reviewedAt    DateTime? @map("reviewed_at")
+  reviewNote    String    @default("") @map("review_note")
+  scope         String    @default("")
+  evidence      String    @default("")
+  limitations   String    @default("")
+  verifiedAt    DateTime? @map("verified_at")
+  expiresAt     DateTime? @map("expires_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@unique([subjectKey, code])
+  @@index([companyId])
+  @@index([status, submittedAt])
+  @@map("kyc_items")
+}
+
+/// The public result of the checks: which checks passed, when, and until when. Anyone may read it; only reviewers change it.
+model TrustScore {
+  id            String   @id @default(uuid())
+  subjectKey    String   @unique @map("subject_key")
+  subjectKind   String   @map("subject_kind")
+  companyId     String   @map("company_id")
+  subjectUserId String?  @map("subject_user_id")
+  checks        Json     @default("[]")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([subjectUserId])
+  @@map("trust_scores")
 }

@@ -1,0 +1,25 @@
+import Link from "next/link";
+import { PropPhoto } from "./ui";
+import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "./Promo";
+import type { TierName } from "@/lib/tier-rules";
+
+type L = { id: string; publicRef: string; title: string; purpose: string; priceKobo: bigint; bedrooms: number | null; bathrooms: number | null; city: string; state: string; coverPhotoId: string | null; tier: TierName; promo: { campaignName: string; pct: number; theme: string; originalKobo: bigint; promoKobo: bigint } | null };
+
+/** One property card, used in carousels and result grids. */
+export function ListingCard({ l }: { l: L }) {
+  return (
+    <Link href={`/properties/${l.publicRef}`} className={`prop${l.promo ? " has-promo" : ""}`}>
+      <div className="prop-img"><PropPhoto id={l.coverPhotoId} /></div>
+      <div className="prop-body">
+        {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}
+        <span className="promo-tags">
+          <span className="pill brand">{l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`}</span>
+          <PremiumTag tier={l.tier} /><GoldBadge tier={l.tier} />
+        </span>
+        <strong>{l.title}</strong>
+        <PriceBlock priceKobo={l.priceKobo} promo={l.promo} suffix={l.purpose !== "SALE" ? " / year" : ""} />
+        <span className="small muted">{[l.bedrooms != null ? `${l.bedrooms} bed` : null, l.bathrooms != null ? `${l.bathrooms} bath` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ")}</span>
+      </div>
+    </Link>
+  );
+}

@@ -185,7 +185,7 @@ export function VerifyModal({ provider, listingRef, autoOpen }: { provider: Prov
               <div className="stack">
                 <p className="eyebrow">Request received</p>
                 <h2 id="verify-title">{provider.shortName} will be in touch.</h2>
-                <p className="mono" style={{ fontSize: 20, color: "var(--primary)" }}>{result.ref}</p>
+                <p className="mono" style={{ fontSize: 20, color: "var(--primary-text)" }}>{result.ref}</p>
                 <p className="muted">Keep this reference. The provider will contact you and explain the scope and any fee before anything starts.</p>
                 <p className="small">Track or withdraw your request at your private status page. Bookmark it, because it is only shown now.</p>
                 <div className="row">

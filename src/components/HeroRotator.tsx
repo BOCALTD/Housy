@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 
 const SLIDES = [
-  { title: <>Find property, then <em className="hl">verify it before you buy.</em></>, text: "Every listing here is submitted by a registered company and reviewed before it is published." },
-  { title: <>Homes, land and shops <em className="hl">across Nigeria.</em></>, text: "Search by city, price and bedrooms, or describe what you want in a sentence." },
-  { title: <>Selling or letting? <em className="hl">Reach serious buyers.</em></>, text: "Register your company, list your property, and manage tenants, deals and documents in one place." },
+  { title: <>Find your next home from <em className="hl">verified companies.</em></>, text: "Every listing comes from a registered company and is reviewed before it is published. Check a company's trust level before you call." },
+  { title: <>Homes, land, shops and warehouses, <em className="hl">city by city.</em></>, text: "Search by city, price and bedrooms, browse the map, watch property reels, or describe what you want in a sentence." },
+  { title: <>Selling or letting? <em className="hl">Reach serious buyers.</em></>, text: "Register your company, get verified, run offers, and manage tenants, rent, deals and documents in one workspace." },
 ];
 
 /** The home page headline as a slideshow: it changes by itself every few seconds (not at all for people who prefer less motion), and has dots to choose a slide. */
@@ -20,8 +20,8 @@ export function HeroRotator() {
   }, [calm, hold, i]);
   return (
     <div className="hero-rot" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)}>
-      <p className="eyebrow" style={{ color: "inherit", opacity: .85 }}>Property in Nigeria</p>
-      <h1 className="visually-hidden">Find property, then verify it before you buy</h1>
+      <p className="eyebrow">Buy · Rent · Lease · Invest</p>
+      <h1 className="visually-hidden">Find property from verified companies and agents</h1>
       <div className="hero-slides" aria-live={calm || hold ? "polite" : "off"}>
         {SLIDES.map((s, n) => (
           <div key={n} className={`hero-slide${n === i ? " on" : ""}`} aria-hidden={n === i ? undefined : true}>

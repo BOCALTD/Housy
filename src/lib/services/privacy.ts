@@ -39,6 +39,9 @@ export async function exportMyData(userId: string) {
     part(userId, "reels", (tx) => tx.reel.findMany({ where: { authorId: userId }, select: { id: true, caption: true, city: true, status: true, createdAt: true } })),
     part(userId, "referral_code", (tx) => tx.referralCode.findMany({ where: { userId } })),
     part(userId, "rewards", (tx) => tx.reward.findMany({ where: { userId } })),
+    part(userId, "flatmate_profile", (tx) => tx.flatmateProfile.findMany({ where: { userId } })),
+    part(userId, "flatmate_requests", (tx) => tx.flatmateRequest.findMany({ where: { OR: [{ fromUserId: userId }, { toUserId: userId }] }, select: { fromUserId: true, toUserId: true, score: true, note: true, status: true, createdAt: true, decidedAt: true } })),
+    part(userId, "push_devices", (tx) => tx.pushSubscription.findMany({ where: { userId }, select: { label: true, createdAt: true, lastSuccessAt: true } })),
   ]);
   await system((tx) => logActivity(tx, { companyId: null, actorId: userId, entityType: "user", entityId: userId, action: "privacy.export", detail: {} }));
   return {
@@ -77,6 +80,13 @@ export async function deleteMyAccount(userId: string, password: string, confirm:
   await step("saved searches", () => withUser(userId, (tx) => tx.savedSearch.deleteMany({ where: { userId } })));
   await step("watched properties", () => withUser(userId, (tx) => tx.watchedListing.deleteMany({ where: { userId } })));
   await step("follows", () => withUser(userId, (tx) => tx.follow.deleteMany({ where: { followerId: userId } })));
+  await step("flatmate profile", () => withUser(userId, async (tx) => {
+    await tx.flatmateRequest.updateMany({ where: { OR: [{ fromUserId: userId }, { toUserId: userId }], status: { in: ["PENDING", "ACCEPTED"] } }, data: { status: "ENDED", decidedAt: new Date() } });
+    await tx.flatmateHide.deleteMany({ where: { userId } });
+    await tx.flatmateProfile.deleteMany({ where: { userId } });
+  }));
+  await step("push devices", () => withUser(userId, (tx) => tx.pushSubscription.deleteMany({ where: { userId } })));
+  await step("calendar link", () => withUser(userId, (tx) => tx.calendarFeed.deleteMany({ where: { userId } })));
   await step("notifications", () => withUser(userId, (tx) => tx.notification.deleteMany({ where: { userId } })));
   await step("notification settings", () => withUser(userId, (tx) => tx.notificationPref.deleteMany({ where: { userId } })));
   await step("safety locations", () => withUser(userId, (tx) => tx.safetyPing.deleteMany({ where: { userId } })));

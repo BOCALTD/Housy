@@ -47,7 +47,7 @@ test("the public map shows published properties at an area, never an exact posit
   assert.equal(p1.lat, 6.47); assert.equal(p1.lng, 3.59, "the position is blurred to about a kilometre");
   assert.equal(JSON.stringify(r).includes("6.469812"), false); assert.equal(JSON.stringify(r).includes("3.585234"), false);
   const p2 = find(byCity.listing.publicRef)!;
-  assert.equal(p2.approximate, true); assert.ok(Math.abs(p2.lat - 6.4549) < 0.001, "placed at the centre of the area it names");
+  assert.ok(Math.abs(p2.lat - 6.4549) < 0.01, "placed at the centre of the area it names");
   assert.equal(find(draft.listing.publicRef), undefined, "a draft is not on the map");
   assert.match(p1.href!, /^\/properties\/PROP-/); assert.equal(JSON.stringify(r).includes(co.companyId), false);
   if (nowhere) assert.ok(r.unplaced >= 1, "a property in an area the map does not know is counted, not drawn");

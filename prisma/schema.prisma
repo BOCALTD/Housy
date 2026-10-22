@@ -3489,6 +3489,7 @@ model Conversation {
   lastMessageAt   DateTime             @default(now()) @map("last_message_at")
   members         ConversationMember[]
   messages        Message[]
+  flatmateRoom    FlatmateRoom?
 
   @@index([lastMessageAt])
   @@index([createdById, createdAt])
@@ -5404,45 +5405,63 @@ model PushOutbox {
 
 /// A person's flatmate profile. Seen only by other signed-in people who have an active profile themselves.
 model FlatmateProfile {
-  id             String   @id @default(uuid())
-  userId         String   @unique @map("user_id")
-  status         String   @default("ACTIVE")
-  displayName    String   @map("display_name")
-  mode           String
-  city           String
-  areas          String   @default("")
-  budgetMinKobo  BigInt   @map("budget_min_kobo")
-  budgetMaxKobo  BigInt   @map("budget_max_kobo")
-  moveInFrom     DateTime @map("move_in_from") @db.Date
-  stayMonths     Int?     @map("stay_months")
-  smoking        String
-  pets           String
-  schedule       String
-  tidiness       String
-  guests         String
-  household      String   @default("ANY")
-  iAm            String   @default("UNSAID") @map("i_am")
-  occupation     String   @default("")
-  about          String   @default("")
-  roomListingRef String   @default("") @map("room_listing_ref")
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  status           String   @default("ACTIVE")
+  displayName      String   @map("display_name")
+  intent           String
+  country          String   @default("NG")
+  city             String
+  areas            String   @default("")
+  budgetMinKobo    BigInt   @map("budget_min_kobo")
+  budgetMaxKobo    BigInt   @map("budget_max_kobo")
+  moveInFrom       DateTime @map("move_in_from") @db.Date
+  stayMonths       Int?     @map("stay_months")
+  ageBand          String   @map("age_band")
+  agePref          String   @default("ANY") @map("age_pref")
+  gender           String   @default("UNSAID")
+  genderPref       String   @default("ANY") @map("gender_pref")
+  showGender       Boolean  @default(false) @map("show_gender")
+  answers          Json
+  mustMatch        String   @default("") @map("must_match")
+  occupation       String   @default("")
+  about            String   @default("")
+  roomListingRef   String   @default("") @map("room_listing_ref")
   adultConfirmedAt DateTime @map("adult_confirmed_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
-  @@index([status, city])
+  @@index([status, country, city])
   @@map("flatmate_profiles")
 }
 
-/// "I am interested": when two people are interested in each other, they can message.
-model FlatmateInterest {
-  id         String   @id @default(uuid())
-  fromUserId String   @map("from_user_id")
-  toUserId   String   @map("to_user_id")
-  createdAt  DateTime @default(now()) @map("created_at")
+/// A request to match. When the other person accepts, the two are matched and taken into a chat room together.
+model FlatmateRequest {
+  id         String    @id @default(uuid())
+  fromUserId String    @map("from_user_id")
+  toUserId   String    @map("to_user_id")
+  score      Int
+  note       String    @default("")
+  status     String    @default("PENDING")
+  roomId     String?   @map("room_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  decidedAt  DateTime? @map("decided_at")
 
   @@unique([fromUserId, toUserId])
-  @@index([toUserId])
-  @@map("flatmate_interests")
+  @@index([toUserId, status])
+  @@map("flatmate_requests")
+}
+
+/// The chat room matched flatmates are taken into: a private conversation that matched people can be added to (up to six).
+model FlatmateRoom {
+  id             String       @id @default(uuid())
+  conversationId String       @unique @map("conversation_id")
+  createdById    String       @map("created_by_id")
+  status         String       @default("OPEN")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("flatmate_rooms")
 }
 
 /// People a person never wants to see in their matches.

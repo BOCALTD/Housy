@@ -275,7 +275,9 @@ export async function setAssetPosition(ctx: Ctx, assetId: string, input: { lat: 
       if (near && distanceKm(near, pos) > 120) throw new Error(`That position is far from ${asset.city || asset.state}. Check the latitude and longitude, or correct the city first.`);
     }
     await tx.asset.update({ where: { id: asset.id }, data: { lat: pos?.lat ?? null, lng: pos?.lng ?? null } });
-    const shown = pos ? publicPosition(pos.lat, pos.lng) : null;
+    // Without a position of its own, a listing sits at the centre of the area it names, so it still appears on the map.
+    const area = locate({ city: asset.city, state: asset.state });
+    const shown = pos ? publicPosition(pos.lat, pos.lng) : area ? publicPosition(area.lat, area.lng) : null;
     await tx.listing.updateMany({ where: { assetId: asset.id, companyId: ctx.companyId }, data: { lat: shown?.lat ?? null, lng: shown?.lng ?? null } });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "asset", entityId: asset.id, action: pos ? "asset.position_set" : "asset.position_cleared", detail: {} });
   });

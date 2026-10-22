@@ -158,14 +158,15 @@ test("search from a sentence finds only published listings, ranks them with reas
   assert.equal((await similarListings(draft.listing.publicRef)).length, 0, "nothing is offered for an unpublished listing");
 });
 
-test("a map position must be inside Nigeria and near the city, and the public copy is blurred", async () => {
+test("a map position must be real and near the city, and the public copy is blurred", async () => {
   const admin = await newPlatformAdmin();
   const co = await newCompany("pos");
   const viewer = await addMember(co, "VIEWER", "v");
   const { asset, listing } = await listed(admin, co, { city: "Lekki" });
   await assert.rejects(setAssetPosition(viewer, asset.id, { lat: "6.47", lng: "3.58" }), /permission/);
-  await assert.rejects(setAssetPosition(co, asset.id, { lat: "51.5", lng: "-0.12" }), /inside Nigeria/);
-  await assert.rejects(setAssetPosition(co, asset.id, { lat: "abc", lng: "3.5" }), /inside Nigeria/);
+  await assert.rejects(setAssetPosition(co, asset.id, { lat: "51.5", lng: "-0.12" }), /far from/, "London is far from Lekki");
+  await assert.rejects(setAssetPosition(co, asset.id, { lat: "abc", lng: "3.5" }), /real latitude/);
+  await assert.rejects(setAssetPosition(co, asset.id, { lat: "95", lng: "3.5" }), /real latitude/);
   await assert.rejects(setAssetPosition(co, asset.id, { lat: "12.0", lng: "8.5" }), /far from/);
   await setAssetPosition(co, asset.id, { lat: "6.469812", lng: "3.585234" });
   const a = await sys((tx) => tx.$queryRaw<{ lat: number; lng: number }[]>`SELECT lat, lng FROM assets WHERE id = ${asset.id}`).catch(() => null);
@@ -174,7 +175,7 @@ test("a map position must be inside Nigeria and near the city, and the public co
   assert.equal(l.lat, 6.47); assert.equal(l.lng, 3.59, "the listing carries only the blurred position");
   await setAssetPosition(co, asset.id, null);
   const cleared = await sys((tx) => tx.listing.findUniqueOrThrow({ where: { id: listing.id } }));
-  assert.equal(cleared.lat, null);
+  assert.equal(cleared.lat, 6.47, "back to the centre of Lekki, blurred");
   const other = await newCompany("pos2");
   await assert.rejects(setAssetPosition(other, asset.id, { lat: "6.47", lng: "3.58" }), /not found/i, "another company cannot move it");
 });

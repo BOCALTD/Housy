@@ -13,6 +13,15 @@ if [ $status -ne 0 ]; then
     const out = (i < 0 ? s.slice(-150) : s.slice(Math.max(0, i - 10), i + 150)).join("\n").slice(0, 60000);
     const failed = s.filter((l) => /^\s*not ok/.test(l)).map((l) => l.trim().slice(0, 200));
     if (failed.length > 1) console.log("::error title=" + process.argv[1] + " - all failed tests::" + failed.slice(0, 60).join("%0A").replace(/%(?![0-9A-F]{2})/g, "%25"));
+    // One annotation per failed test with its details, so every failure can be read, not only the first.
+    const enc = (t) => t.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+    let shown = 0;
+    s.forEach((l, k) => {
+      if (shown >= 12 || !/^\s*not ok/.test(l)) return;
+      const end = s.findIndex((x, j) => j > k && /^\s*\.\.\.\s*$/.test(x));
+      const block = s.slice(k, end > k ? Math.min(end + 1, k + 60) : k + 40).join("\n").slice(0, 6000);
+      if (block.includes("error:") || block.includes("expected")) { console.log("::error title=" + process.argv[1] + " - " + l.trim().slice(0, 90).replace(/[:,]/g, " ") + "::" + enc(block)); shown += 1; }
+    });
     console.log("::error title=" + process.argv[1] + "::" + out.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A"));
   ' "$title"
 fi

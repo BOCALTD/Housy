@@ -61,6 +61,9 @@ async function post(tx: Tx, a: Actor, conversationId: string, p: Post) {
   if (!me) throw new Error("Conversation not found");
   const others = members.filter((m) => m.userId !== a.userId);
   for (const o of others) if (await blockedBetween(tx, a.userId, o.userId)) throw new Error(BLOCKED);
+  // A flatmate chat room stops taking messages once it is closed.
+  const room = await tx.flatmateRoom.findUnique({ where: { conversationId }, select: { status: true } });
+  if (room && room.status !== "OPEN") throw new Error("This chat room is closed.");
   // A conversation that belongs to a collaboration lasts only as long as everyone in it still has access to a live workspace.
   const conv = await tx.conversation.findUnique({ where: { id: conversationId }, select: { collaborationId: true } });
   if (conv?.collaborationId) {
@@ -106,7 +109,7 @@ export async function startConversation(a: Actor, raw: z.input<typeof startSchem
       const profile = await tx.agentProfile.findFirst({ where: { userId: d.toUserId, listed: true, acceptsMessages: true } });
       allowed = !!profile;
     }
-    const existing = await tx.conversation.findFirst({ where: { collaborationId: d.collaborationId ?? null, AND: [{ members: { some: { userId: a.userId } } }, { members: { some: { userId: d.toUserId } } }] } });
+    const existing = await tx.conversation.findFirst({ where: { collaborationId: d.collaborationId ?? null, flatmateRoom: { is: null }, AND: [{ members: { some: { userId: a.userId } } }, { members: { some: { userId: d.toUserId } } }] } });
     if (existing) { await post(tx, a, existing.id, { kind: "TEXT", body: d.body }); return existing; }
     if (!allowed) throw new Error("This person is not taking messages from new people.");
     const { newConversationsPerDay } = await readSettings();

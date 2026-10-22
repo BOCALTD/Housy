@@ -3,6 +3,7 @@
  * Every demonstration record is labelled "[DEMO]" so it is never mistaken for real data
  * (master prompt Section 52).
  */
+import { acceptFlatmateRequest, myFlatmateActivity, saveFlatmateProfile, sendFlatmateRequest } from "./services/flatmates";
 import { acceptPortalInvite, inviteOwner, inviteVendor, saveVendorProfile, submitVendorWork } from "./services/portals";
 import { asCompany, asPerson, createInvitation, respondInvitation, shareNote } from "./services/collab";
 import { startConversation } from "./services/messaging";
@@ -598,6 +599,23 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   const vendorGrant = await withUser(seeker.userId, (tx) => tx.portalGrant.findFirstOrThrow({ where: { userId: seeker.userId, kind: "VENDOR" } }));
   await saveVendorProfile(seeker.userId, vendorGrant.id, { serviceAreas: "[DEMO] Lekki, Ajah, Victoria Island", qualifications: "[DEMO] Demonstration profile.", insuranceNote: "" }, null);
   await submitVendorWork(seeker.userId, vendorGrant.id, pipe.id, { kind: "QUOTE", amount: "85000", note: "[DEMO] Replace the burst section and two joints." }, null);
+
+  // Flatmates: the demo seeker and two more demo people looking in Lagos, one match with a chat room and one request waiting.
+  const moveIn = new Date(Date.now() + 21 * 864e5).toISOString().slice(0, 10);
+  const lifestyle = { smoking: "NON_SMOKER", smokeOk: "OUTSIDE_OK", schedule: "REGULAR", personality: "AMBIVERT", cleanliness: "TIDY", guests: "SOMETIMES", noise: "MODERATE", drinking: "SOCIAL", pets: "LIKE_PETS", workFromHome: "SOMETIMES", cooking: "OFTEN", inclusive: "FINE" };
+  const fm = async (userId: string, name: string, o: Record<string, unknown>) => saveFlatmateProfile(userId, {
+    displayName: name, intent: "NEED_ROOM", country: "NG", city: "Lagos", areas: "Yaba, Surulere", budgetMin: "120000", budgetMax: "220000", moveInFrom: moveIn, stayMonths: "12",
+    ageBand: "25-34", agePref: "ANY", gender: "UNSAID", genderPref: "ANY", showGender: false, answers: lifestyle, must: [], occupation: "", about: "[DEMO] Demonstration profile.", roomListingRef: "", adult: true, ...o,
+  } as never);
+  await fm(seeker.userId, "Seyi", { occupation: "Designer" });
+  const tola = await registerSeeker({ name: "[DEMO] Tola Flatmate", email: "demo.tola@example.test", password: DEMO_PASSWORD });
+  await fm(tola.userId, "Tola", { intent: "HAVE_ROOM", occupation: "Nurse", answers: { ...lifestyle, schedule: "EARLY_BIRD" } });
+  const kemi = await registerSeeker({ name: "[DEMO] Kemi Flatmate", email: "demo.kemi@example.test", password: DEMO_PASSWORD });
+  await fm(kemi.userId, "Kemi", { occupation: "Student", answers: { ...lifestyle, smoking: "OUTSIDE", personality: "EXTROVERT", schedule: "NIGHT_OWL", guests: "OFTEN" } });
+  await sendFlatmateRequest(tola.userId, seeker.userId, "[DEMO] Hi Seyi, I have a room in Yaba.");
+  const fr = (await myFlatmateActivity(seeker.userId)).incoming[0];
+  if (fr) await acceptFlatmateRequest(seeker.userId, fr.id);
+  await sendFlatmateRequest(kemi.userId, seeker.userId, "[DEMO] Hello! Looking for someone to share with from next month.");
 
   return true;
 }

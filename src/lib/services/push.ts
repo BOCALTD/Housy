@@ -43,6 +43,8 @@ export async function processPushQueue(sender: PushSender | null = null, now = n
     await tx.pushOutbox.deleteMany({ where: { OR: [{ createdAt: { lt: new Date(now.getTime() - KEEP_HOURS * 3600_000) } }, { sentAt: { not: null }, createdAt: { lt: new Date(now.getTime() - 3600_000) } }, { attempts: { gte: MAX_ATTEMPTS } }] } });
   });
   if (!send) return stats;
+  // Most people have no device: drop their messages in one statement, so the batch below is only real work.
+  stats.dropped += await withPlatformAdmin(SYSTEM, (tx) => tx.$executeRaw`DELETE FROM push_outbox o WHERE o.sent_at IS NULL AND NOT EXISTS (SELECT 1 FROM push_subscriptions s WHERE s.user_id = o.user_id)`);
   const due = await withPlatformAdmin(SYSTEM, (tx) => tx.pushOutbox.findMany({ where: { sentAt: null }, orderBy: { createdAt: "asc" }, take: BATCH }));
   if (due.length === 0) return stats;
   const devices = await withPlatformAdmin(SYSTEM, (tx) => tx.pushSubscription.findMany({ where: { userId: { in: [...new Set(due.map((d) => d.userId))] } } }));

@@ -49,7 +49,9 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Known-vulnerability check (fails on any critical issue in what ships)
-        run: npm audit --omit=dev --audit-level=critical
+        run: |
+          npm audit --omit=dev --json > audit.json || true
+          node -e "const a=require('./audit.json');let bad=0;for(const [n,v] of Object.entries(a.vulnerabilities||{})){const via=(v.via||[]).filter(x=>typeof x==='object').map(x=>x.title+' '+x.url+' range '+x.range);const line='audit '+n+' '+v.severity+' fix='+JSON.stringify(v.fixAvailable)+' '+via.slice(0,3).join(' | ');console.log((v.severity==='critical'?'::error::':'::warning::')+line);if(v.severity==='critical')bad++}process.exit(bad?1:0)"
 
       - name: Generate Prisma client
         run: npx prisma generate

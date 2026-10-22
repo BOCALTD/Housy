@@ -22,6 +22,7 @@ export default async function LeadStatusPage({ params: paramsP, searchParams: se
       <h1 className="mono">{lead.ref}</h1>
       <p className="muted">Sent to {lead.provider.name} on {formatDateTime(lead.createdAt)} for property {lead.listingRef}.</p>
       <div className="row"><span>Status</span><Pill status={lead.status} /></div>
+      {lead.providerNote ? <p className="small"><strong>{lead.provider.name}:</strong> {lead.providerNote}</p> : null}
       {lead.status !== "WITHDRAWN" && lead.status !== "DECLINED" ? (
         <ol className="timeline">
           {steps.map((s, i) => (

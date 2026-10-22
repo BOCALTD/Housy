@@ -3,6 +3,7 @@
  * Every demonstration record is labelled "[DEMO]" so it is never mistaken for real data
  * (master prompt Section 52).
  */
+import { acceptPortalInvite, inviteOwner, inviteVendor, saveVendorProfile, submitVendorWork } from "./services/portals";
 import { asCompany, asPerson, createInvitation, respondInvitation, shareNote } from "./services/collab";
 import { startConversation } from "./services/messaging";
 import { prisma, withTenant, withUser } from "./db";
@@ -586,6 +587,17 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     if (k.companyId === beta.companyId && k.code === "CAC_REGISTRATION") continue; // left waiting, so the review queue has something in it
     await decideKyc(adminId, k.id, { decision: "verify", note: "", evidence: "Demonstration data: no real check was made.", limitations: "Demonstration record." });
   }
+
+  // Portals: the demo seeker is also an owner who can see two of Alpha's properties, and the contact for Alpha's contractor,
+  // with a profile and a quotation waiting for the company to decide.
+  const seekerUser = { id: seeker.userId, email: "demo.seeker@example.test" };
+  const ownerToken = await inviteOwner(alpha, { email: seekerUser.email, displayName: "[DEMO] Seyi Owner", assetIds: [shop.id, duplex.id] });
+  await acceptPortalInvite(ownerToken, seekerUser);
+  const vendorToken = await inviteVendor(alpha, { email: seekerUser.email, displayName: "[DEMO] Sparky contact", contractorId: sparky.id });
+  await acceptPortalInvite(vendorToken, seekerUser);
+  const vendorGrant = await withUser(seeker.userId, (tx) => tx.portalGrant.findFirstOrThrow({ where: { userId: seeker.userId, kind: "VENDOR" } }));
+  await saveVendorProfile(seeker.userId, vendorGrant.id, { serviceAreas: "[DEMO] Lekki, Ajah, Victoria Island", qualifications: "[DEMO] Demonstration profile.", insuranceNote: "" }, null);
+  await submitVendorWork(seeker.userId, vendorGrant.id, pipe.id, { kind: "QUOTE", amount: "85000", note: "[DEMO] Replace the burst section and two joints." }, null);
 
   return true;
 }

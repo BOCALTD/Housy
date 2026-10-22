@@ -7,10 +7,12 @@ import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
+import { submissionsFor } from "@/lib/services/portals";
+import { SUBMISSION_LABELS, SUBMISSION_STATUS_LABELS, type SubmissionKind, type SubmissionStatus } from "@/lib/portal-rules";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import {
   addMaterialAction, addPhotoAction, approveAction, assignAction, cancelAction, closeAction, completeAction, progressAction,
-  removeMaterialAction, reopenAction, triageAction,
+  removeMaterialAction, reopenAction, triageAction, decideSubmissionAction,
 } from "../actions";
 
 export const metadata = { title: "Work order" };
@@ -38,6 +40,7 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
   const emergency = wo.priority === "EMERGENCY";
   const isWorker = can(member.role, "maintenance.work") && (wo.assigneeId === member.membershipId || can(member.role, "maintenance.manage"));
   const manage = can(member.role, "maintenance.manage") && !finished;
+  const submissions = can(member.role, "maintenance.manage") ? await submissionsFor(member, wo.id) : [];
   const canApprove = can(member.role, "maintenance.approve") && !finished && wo.requestedById !== member.userId;
   const before = photos.filter((p) => p.phase === "BEFORE");
   const after = photos.filter((p) => p.phase === "AFTER");
@@ -244,6 +247,28 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
         <details className="inline"><summary>Cancel this work order</summary>
           <form action={cancelAction} className="stack">{hidden}<Field label="Reason"><input name="reason" required /></Field><button className="btn danger" type="submit">Cancel work order</button></form>
         </details>
+      ) : null}
+
+      {submissions.length ? (
+        <section className="card stack" id="vendor" aria-labelledby="vendor-h">
+          <h2 id="vendor-h">From the vendor ({submissions.length})</h2>
+          <p className="small muted">Sent through the vendor portal. Accepting a quotation sets the estimated cost; accepting an invoice sets the actual cost.</p>
+          <ShowMore noun="earlier submissions" limit={4} items={submissions.map((v) => (
+            <li key={v.id}><div className="stack" style={{ gap: 6 }}>
+              <div className="row between wrap"><strong>{SUBMISSION_LABELS[v.kind as SubmissionKind]}{v.amountKobo !== null ? ` · ${formatKobo(v.amountKobo)}` : ""}</strong><Pill status={v.status === "ACCEPTED" ? "ACTIVE" : v.status === "REJECTED" ? "SUSPENDED" : "OPEN"} label={SUBMISSION_STATUS_LABELS[v.status as SubmissionStatus]} /></div>
+              {v.note ? <p className="small">{v.note}</p> : null}
+              <div className="small muted">{formatDateTime(v.createdAt)}{v.docName ? <> · <a className="tap" href={`/portal/doc/${v.id}`}>{v.docName}</a></> : null}{v.decisionNote ? ` · ${v.decisionNote}` : ""}</div>
+              {v.status === "SUBMITTED" ? (
+                <form action={decideSubmissionAction} className="row wrap">
+                  {hidden}<input type="hidden" name="id" value={v.id} />
+                  <input name="note" placeholder="Note to the vendor (needed when not accepting)" aria-label="Note to the vendor" style={{ flex: "1 1 220px" }} />
+                  <button className="btn primary" name="decision" value="accept" type="submit">Accept</button>
+                  <button className="btn" name="decision" value="reject" type="submit">Not accepted</button>
+                </form>
+              ) : null}
+            </div></li>
+          ))} />
+        </section>
       ) : null}
 
       <section className="card" aria-labelledby="hist-h">

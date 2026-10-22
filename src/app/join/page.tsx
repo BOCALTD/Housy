@@ -15,6 +15,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error") }} />
       <form action={joinAction} className="card stack">
+        <input type="hidden" name="next" value={sp(searchParams, "next") ?? ""} />
         <Field label="Your full name"><input name="name" id="name" required autoComplete="name" /></Field>
         <Field label="Email"><input name="email" id="email" type="email" required autoComplete="email" /></Field>
         <Field label="Password" hint="At least 10 characters."><input name="password" id="password" type="password" required minLength={10} autoComplete="new-password" /></Field>

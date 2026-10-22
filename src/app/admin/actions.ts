@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { act, str, withNotice } from "@/lib/forms";
 import { reviewListing } from "@/lib/services/listings";
 import { saveProvider } from "@/lib/services/verification";
+import { addProviderMember, removeProviderMember } from "@/lib/services/portals";
 
 const LEAD_STATUSES = ["SUBMITTED", "CONTACTED", "IN_PROGRESS", "CLOSED", "DECLINED"] as const;
 
@@ -48,5 +49,21 @@ export async function leadStatusAction(form: FormData) {
     if (lead.status === "WITHDRAWN") throw new Error("The requester withdrew this lead. It cannot be reopened.");
     await prisma.providerLead.update({ where: { id: lead.id }, data: { status: status as (typeof LEAD_STATUSES)[number] } });
     return withNotice("/admin", "Lead updated.") + "#leads";
+  });
+}
+
+export async function addProviderMemberAction(form: FormData) {
+  return act("/admin", async () => {
+    const admin = await requirePlatformAdmin();
+    await addProviderMember(admin.id, str(form, "providerId"), str(form, "email"));
+    return withNotice("/admin", "Person added to the provider portal.") + "#providers";
+  });
+}
+
+export async function removeProviderMemberAction(form: FormData) {
+  return act("/admin", async () => {
+    const admin = await requirePlatformAdmin();
+    await removeProviderMember(admin.id, str(form, "id"));
+    return withNotice("/admin", "Person removed from the provider portal.") + "#providers";
   });
 }

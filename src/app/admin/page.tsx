@@ -8,7 +8,8 @@ import { formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
 import { mfaStatus } from "@/lib/services/account";
-import { approveListingAction, leadStatusAction, rejectListingAction, saveProviderAction } from "./actions";
+import { addProviderMemberAction, approveListingAction, leadStatusAction, rejectListingAction, removeProviderMemberAction, saveProviderAction } from "./actions";
+import { providerMembers } from "@/lib/services/portals";
 
 export const metadata = { title: "Platform admin" };
 export const dynamic = "force-dynamic";
@@ -20,12 +21,13 @@ function pct(a: number, b: number) {
 export default async function AdminPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
-  const [mfa, queue, metrics, providers, leads] = await Promise.all([
+  const [mfa, queue, metrics, providers, leads, members] = await Promise.all([
     mfaStatus(admin.id),
     reviewQueue(admin.id),
     verificationMetrics(),
     prisma.serviceProvider.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.providerLead.findMany({ orderBy: { createdAt: "desc" }, take: 50, include: { provider: { select: { shortName: true } } } }),
+    providerMembers(admin.id),
   ]);
 
   return (
@@ -138,6 +140,24 @@ export default async function AdminPage({ searchParams: searchP }: { searchParam
               <label className="check"><input type="checkbox" name="featured" defaultChecked={p?.featured ?? false} /><span>Featured provider in the buyer modal</span></label>
               <div className="row"><button className="btn primary" type="submit">Save provider</button></div>
             </form>
+            {p ? (
+              <div className="stack" style={{ marginTop: 12 }}>
+                <h3>Provider portal access</h3>
+                <p className="small muted">People here see the requests sent to {p.shortName} once the provider is approved. Add only people the provider has confirmed in writing.</p>
+                {members.filter((m) => m.providerId === p.id).map((m) => (
+                  <form key={m.id} action={removeProviderMemberAction} className="row between wrap">
+                    <input type="hidden" name="id" value={m.id} />
+                    <span>{m.user?.name ?? "Unknown"} <span className="small muted">{m.user?.email}</span></span>
+                    <button className="btn danger" type="submit">Remove</button>
+                  </form>
+                ))}
+                <form action={addProviderMemberAction} className="row wrap">
+                  <input type="hidden" name="providerId" value={p.id} />
+                  <input name="email" type="email" required placeholder="Their account email" aria-label={`Add a person to ${p.shortName}`} style={{ flex: "1 1 220px" }} />
+                  <button className="btn" type="submit">Add person</button>
+                </form>
+              </div>
+            ) : null}
           </details>
         ))}
       </section>

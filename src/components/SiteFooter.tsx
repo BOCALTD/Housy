@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { LogoMark } from "./Logo";
+import { InstallButton } from "./Pwa";
 
 const COLS: { title: string; links: [string, string][] }[] = [
   { title: "Explore", links: [["/?purpose=SALE", "Buy property"], ["/?purpose=RENT", "Rent property"], ["/?purpose=LEASE", "Lease property"], ["/map", "Map search"], ["/reels", "Property reels"], ["/completed", "Recently completed"], ["/compare", "Compare properties"], ["/calculators", "Property calculators"]] },
@@ -18,6 +19,7 @@ export function SiteFooter() {
           <div className="foot-brand">
             <strong><LogoMark size={36} />{PLATFORM_NAME}</strong>
             <p>Find property from verified companies and agents, check before you pay, and manage property portfolios in one place.</p>
+            <InstallButton />
           </div>
           {COLS.map((c) => (
             <nav key={c.title} aria-label={c.title}>

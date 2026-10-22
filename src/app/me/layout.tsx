@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { asPerson, pendingIncoming } from "@/lib/services/collab";
+import { portalCount } from "@/lib/services/portals";
 
 export default async function MeLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const incoming = await pendingIncoming(asPerson(user.id)).catch(() => 0);
+  const [incoming, portals] = await Promise.all([pendingIncoming(asPerson(user.id)).catch(() => 0), portalCount(user.id).catch(() => 0)]);
   return (
     <div className="stack-lg">
       <div className="row between card workspace-bar" style={{ padding: "12px 16px" }}>
@@ -12,6 +13,7 @@ export default async function MeLayout({ children }: { children: React.ReactNode
         <nav className="nav nav-scroll" aria-label="My account">
           <Link href="/me">Overview</Link>
           <Link href="/me/collaborations">Collaborations{incoming > 0 ? ` (${incoming})` : ""}</Link>
+          {portals > 0 ? <Link href="/portal">Portals ({portals})</Link> : null}
           <Link href="/me/following">Following</Link>
           <Link href="/me/saved">Saved</Link>
           <Link href="/me/notifications">Notifications</Link>

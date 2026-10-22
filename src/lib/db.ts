@@ -54,6 +54,11 @@ export function withInviteToken<T>(inviteTokenHash: string, fn: (tx: Tx) => Prom
   return withContext({ inviteTokenHash }, fn);
 }
 
+/** Accepting an invitation as a signed-in user: the token finds the row, the user becomes its holder. */
+export function withInviteTokenAs<T>(inviteTokenHash: string, userId: string, fn: (tx: Tx) => Promise<T>) {
+  return withContext({ inviteTokenHash, userId }, fn);
+}
+
 /** Finding an API key by the hash of the key a program presented. */
 export function withApiToken<T>(apiTokenHash: string, fn: (tx: Tx) => Promise<T>) {
   return withContext({ apiTokenHash }, fn);

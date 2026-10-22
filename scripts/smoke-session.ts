@@ -76,6 +76,22 @@ async function main() {
     for (const r of await tx.reel.findMany({ where: { status: "PUBLISHED" }, select: { id: true }, take: 3 })) paths.add(`/reels/${r.id}`);
   });
 
+  // Portals: the demo seeker holds an owner and a vendor grant; for this test run, also make them a member of an approved provider.
+  paths.add("/portal"); paths.add("/portal/accept/not-a-real-token"); paths.add("/app/portals"); paths.add("/offline");
+  const grants = await withUser(seeker.id, (tx) => tx.portalGrant.findMany({ where: { userId: seeker.id, status: "ACTIVE" }, select: { id: true, kind: true, companyId: true, contractorId: true } }));
+  for (const g of grants) {
+    paths.add(`/portal/${g.kind === "OWNER" ? "owner" : "vendor"}/${g.id}`);
+    if (g.kind === "VENDOR" && g.contractorId) {
+      const jobs = await withTenant(g.companyId, "system", (tx) => tx.workOrder.findMany({ where: { contractorId: g.contractorId, status: { in: ["ASSIGNED", "IN_PROGRESS"] } }, select: { id: true } }));
+      for (const j of jobs) paths.add(`/portal/vendor/${g.id}/jobs/${j.id}`);
+    }
+  }
+  const provider = await prisma.serviceProvider.findFirst({ where: { status: "APPROVED" }, select: { id: true } });
+  if (provider) {
+    await withPlatformAdmin(platform.id, (tx) => tx.providerMember.upsert({ where: { providerId_userId: { providerId: provider.id, userId: seeker.id } }, create: { providerId: provider.id, userId: seeker.id, addedById: platform.id }, update: {} }));
+    paths.add(`/portal/provider/${provider.id}`); paths.add(`/portal/provider/${provider.id}?status=SUBMITTED`);
+  }
+
   console.log(token);
   console.log(officerToken);
   console.log(seekerToken);

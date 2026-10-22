@@ -273,3 +273,27 @@
 .ref-row { display: grid; grid-template-columns: minmax(0, 140px) minmax(0, 2fr) 90px 80px auto auto auto; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .ref-row code { align-self: center; overflow-wrap: anywhere; }
 @media (max-width: 860px) { .ref-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ref-row code { grid-column: 1 / -1; } }
+
+/* Portals (owner, vendor, provider) */
+.check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 4px 12px; max-height: 280px; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 10px; }
+.check-grid .check { min-height: 44px; align-items: center; }
+ul.plain { list-style: none; padding: 0; margin: 0; }
+.portal-grant { list-style: none; }
+.portal-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.portal-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 12px; }
+.portal-kpis .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.portal-kpis .kpi strong { display: block; font-size: 1.35rem; }
+.portal-kpis .kpi span { font-size: 0.85rem; color: var(--muted); }
+.portal-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
+.portal-tile { display: flex; flex-direction: column; gap: 6px; min-height: 44px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: inherit; text-decoration: none; min-width: 0; }
+@media (hover: hover) { .portal-tile:hover { border-color: var(--primary); } }
+.job-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; min-height: 44px; padding: 10px 0; color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
+.job-row > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.lead-card { list-style: none; }
+.lead-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+.lead-card dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.install-btn[hidden] { display: none; }
+.offline-page { max-width: 560px; margin-inline: auto; text-align: center; padding-block: 48px; }
+dl.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px; margin: 0; }
+dl.kv dt { font-size: 0.85rem; color: var(--muted); }
+dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }

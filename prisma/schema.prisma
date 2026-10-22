@@ -742,6 +742,7 @@ model ProviderLead {
   consentGivenAt        DateTime        @map("consent_given_at")
   status                LeadStatus      @default(SUBMITTED)
   withdrawnAt           DateTime?       @map("withdrawn_at")
+  providerNote          String          @default("") @map("provider_note")
   createdAt             DateTime        @default(now()) @map("created_at")
   updatedAt             DateTime        @updatedAt @map("updated_at")
   provider              ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
@@ -5263,4 +5264,93 @@ model AdminAccessGrant {
   @@index([companyId, createdAt])
   @@index([adminId, expiresAt])
   @@map("admin_access_grants")
+}
+
+/// Access a company gives an outside person to a portal (master prompt §39): an owner to chosen assets, or a vendor to its contractor record.
+model PortalGrant {
+  id              String    @id @default(uuid())
+  companyId       String    @map("company_id")
+  kind            String
+  email           String
+  displayName     String    @map("display_name")
+  userId          String?   @map("user_id")
+  contractorId    String?   @map("contractor_id")
+  inviteTokenHash String?   @unique @map("invite_token_hash")
+  inviteExpiresAt DateTime? @map("invite_expires_at")
+  status          String    @default("INVITED")
+  createdById     String    @map("created_by_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  revokedAt       DateTime? @map("revoked_at")
+
+  @@index([companyId, kind])
+  @@index([userId])
+  @@map("portal_grants")
+}
+
+/// The assets an owner may see through the owner portal.
+model PortalGrantAsset {
+  id        String @id @default(uuid())
+  grantId   String @map("grant_id")
+  companyId String @map("company_id")
+  assetId   String @map("asset_id")
+
+  @@unique([grantId, assetId])
+  @@index([companyId])
+  @@map("portal_grant_assets")
+}
+
+/// What a vendor keeps up to date about itself, and its compliance documents.
+model VendorProfile {
+  id             String   @id @default(uuid())
+  grantId        String   @unique @map("grant_id")
+  companyId      String   @map("company_id")
+  userId         String   @map("user_id")
+  serviceAreas   String   @default("") @map("service_areas")
+  qualifications String   @default("")
+  insuranceNote  String   @default("") @map("insurance_note")
+  docName        String   @default("") @map("doc_name")
+  docMime        String?  @map("doc_mime")
+  docBytes       Bytes?   @map("doc_bytes")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@map("vendor_profiles")
+}
+
+/// A vendor's quotation, invoice or completion report on a work order assigned to it. The company accepts or rejects it.
+model VendorSubmission {
+  id          String    @id @default(uuid())
+  companyId   String    @map("company_id")
+  workOrderId String    @map("work_order_id")
+  grantId     String    @map("grant_id")
+  userId      String    @map("user_id")
+  kind        String
+  amountKobo  BigInt?   @map("amount_kobo")
+  note        String    @default("")
+  docName     String    @default("") @map("doc_name")
+  docMime     String?   @map("doc_mime")
+  docBytes    Bytes?    @map("doc_bytes")
+  status      String    @default("SUBMITTED")
+  decidedById String?   @map("decided_by_id")
+  decidedAt   DateTime? @map("decided_at")
+  decisionNote String   @default("") @map("decision_note")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([companyId, workOrderId])
+  @@index([grantId])
+  @@map("vendor_submissions")
+}
+
+/// People who work for a verification or professional service provider (master prompt §9, §39), added by platform administrators.
+model ProviderMember {
+  id         String   @id @default(uuid())
+  providerId String   @map("provider_id")
+  userId     String   @map("user_id")
+  addedById  String   @map("added_by_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([providerId, userId])
+  @@index([userId])
+  @@map("provider_members")
 }

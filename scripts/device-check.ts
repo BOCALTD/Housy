@@ -34,7 +34,7 @@ async function shot(page: import("@playwright/test").Page, opts: Parameters<impo
 }
 
 // Pages that get a screenshot on the profiles that take them.
-const SHOT_PATTERNS = ["/", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id"];
+const SHOT_PATTERNS = ["/", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline"];
 
 interface Issue { kind: string; page: string; profile: string; detail: string; items: string[] }
 const issues: Issue[] = [];
@@ -136,7 +136,7 @@ async function main() {
   const token = lines[0];
   const seekerToken = lines[2];
   const platformToken = lines[3];
-  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
+  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/portal") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
   const all = lines.slice(4).filter((p) => !p.endsWith(".csv"));
   const seen = new Set<string>();
   const signedIn: string[] = [];
@@ -148,7 +148,7 @@ async function main() {
   }
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
-  const publicPages = ["/", "/login", "/forgot", "/support", "/signup", "/join", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", ...(prop ? [`/${prop}`] : [])];
+  const publicPages = ["/", "/login", "/forgot", "/support", "/signup", "/join", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", "/offline", ...(prop ? [`/${prop}`] : [])];
   const pages = [...publicPages.map((p) => ({ p, auth: false })), ...signedIn.map((p) => ({ p, auth: true }))];
   mkdirSync(`${OUT}/screens`, { recursive: true });
 

@@ -15,6 +15,7 @@ import { NavigationLoader } from "@/components/NavigationLoader";
 import { BackToTop } from "@/components/BackToTop";
 import { SiteFooter } from "@/components/SiteFooter";
 import { CompareBar } from "@/components/Compare";
+import { ServiceWorker } from "@/components/Pwa";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
   description: "Discover verified property and manage property portfolios in one place.",
   openGraph: { type: "website", siteName: PLATFORM_NAME, title: PLATFORM_NAME, description: "Discover verified property and manage property portfolios in one place." },
   twitter: { card: "summary_large_image", title: PLATFORM_NAME },
+  appleWebApp: { capable: true, title: PLATFORM_NAME, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
@@ -96,6 +98,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : null}
         <NavigationLoader />
         <BackToTop />
+        <ServiceWorker />
         <CompareBar />
         <main id="main" tabIndex={-1}>
           <div className="wrap">{children}</div>

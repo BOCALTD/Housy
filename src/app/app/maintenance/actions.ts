@@ -7,6 +7,7 @@ import {
   createContractor, createSchedule, generateDueWorkOrders, removeMaterial, reopenWorkOrder, reportWorkOrder, setContractorActive,
   setProgress, setScheduleActive, triageWorkOrder,
 } from "@/lib/services/maintenance";
+import { decideSubmission } from "@/lib/services/portals";
 
 const woPath = (id: string) => `/app/maintenance/${encodeURIComponent(id)}`;
 
@@ -177,5 +178,15 @@ export async function generateAction() {
     const member = await requireMember("maintenance.manage");
     const n = await generateDueWorkOrders(member);
     return withNotice("/app/maintenance", n ? `${n} work order${n === 1 ? "" : "s"} created from recurring jobs.` : "Nothing is due from the recurring jobs.");
+  });
+}
+
+export async function decideSubmissionAction(form: FormData) {
+  const back = woPath(str(form, "workOrderId"));
+  return act(back, async () => {
+    const m = await requireMember("maintenance.manage");
+    const accept = str(form, "decision") === "accept";
+    await decideSubmission(m, str(form, "id"), accept, str(form, "note"));
+    return withNotice(back, accept ? "Accepted. The vendor has been told." : "Returned to the vendor with your note.") + "#vendor";
   });
 }

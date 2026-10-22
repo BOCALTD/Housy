@@ -23,6 +23,18 @@ for spec in "/icon.svg:image/svg" "/apple-icon.png:image/png" "/opengraph-image:
   case "$ct" in "200 $type"*) ;; *) fail "$path did not return $type ($ct)";; esac
   [ -s /tmp/brand.bin ] || fail "$path is empty"
 done
+# The installable app: manifest, icons, service worker and the offline page
+curl -s http://localhost:3100/manifest.webmanifest | grep -q '"display":"standalone"' || fail "manifest is missing or not standalone"
+curl -s http://localhost:3100/ | grep -q 'rel="manifest"' || fail "home page has no manifest link"
+for icon in /icons/icon-192.png /icons/icon-512.png /icons/maskable-512.png; do
+  [ "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "http://localhost:3100$icon")" = "200 image/png" ] || fail "$icon is not served as a PNG"
+done
+sw=$(curl -s -D /tmp/sw.h http://localhost:3100/sw.js)
+echo "$sw" | grep -q 'credentials: "omit"' || fail "/sw.js is missing or does not fetch public pages anonymously"
+grep -qi '^content-type: application/javascript' /tmp/sw.h || fail "/sw.js is not served as JavaScript"
+grep -qi '^cache-control: no-cache' /tmp/sw.h || fail "/sw.js may be cached by the browser"
+echo "$sw" | grep -q 'app|admin|me|portal|api' || fail "/sw.js does not exclude signed-in areas"
+curl -s http://localhost:3100/offline | grep -q "You are offline" || fail "/offline does not render"
 curl -s http://localhost:3100/ | grep -q 'property="og:image"' || fail "home page has no og:image tag"
 curl -s http://localhost:3100/ | grep -q 'rel="icon"' || fail "home page has no icon link"
 REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)
@@ -56,13 +68,13 @@ open_page() {
 }
 for p in $PAGES; do
   case "$p" in
-    /me*|/directory*|/messages*|/referrals*|/rewards*|/vacancies*|/feedback*|/reviews*) open_page "seeker" "$SEEKER_TOKEN" "$p"; continue ;;
+    /me*|/portal*|/directory*|/messages*|/referrals*|/rewards*|/vacancies*|/feedback*|/reviews*) open_page "seeker" "$SEEKER_TOKEN" "$p"; continue ;;
     /admin*) open_page "platform administrator" "$PLATFORM_TOKEN" "$p"; continue ;;
   esac
   open_page "administrator" "$TOKEN" "$p"
   # The officer cannot open settings, team or new-asset pages, which are limited to managers, or the sales pages, which are for agents and managers.
   case "$p" in
-    /app/settings|/app/team|/app/import|/app/import/*|/app/verification|/app/api-keys|/app/bookings|/app/bookings/*|/app/safety/*|/app/assets/new|/app/crm|/app/crm/*|/app/deals|/app/deals/*|/app/sales|/app/sales/*|/app/commissions|/app/profile|/app/promotions|/app/reviews|/app/completed|/app/billing|/app/ads|/app/collaborations|/app/collaborations/*) ;;
+    /app/settings|/app/team|/app/import|/app/import/*|/app/verification|/app/api-keys|/app/portals|/app/bookings|/app/bookings/*|/app/safety/*|/app/assets/new|/app/crm|/app/crm/*|/app/deals|/app/deals/*|/app/sales|/app/sales/*|/app/commissions|/app/profile|/app/promotions|/app/reviews|/app/completed|/app/billing|/app/ads|/app/collaborations|/app/collaborations/*) ;;
     *) open_page "officer" "$OFFICER_TOKEN" "$p" ;;
   esac
 done

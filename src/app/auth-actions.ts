@@ -48,6 +48,8 @@ export async function joinAction(form: FormData) {
     const { userId } = await registerSeeker({ name: str(form, "name"), email: str(form, "email"), password: str(form, "password") });
     await captureReferral({ id: userId, name: str(form, "name"), email: str(form, "email").toLowerCase() }, "SEEKER", await takeReferral());
     await createSession(userId, null);
+    const next = safeLocalPath(str(form, "next"), "");
+    if (next) return next;
     return "/me?notice=" + encodeURIComponent("Your account is ready.");
   });
 }

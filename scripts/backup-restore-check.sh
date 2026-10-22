@@ -15,7 +15,9 @@ pg_dump -Fc -d "$SRC" -f "$DIR/backup.dump"
 t1=$(now)
 dropdb --if-exists "$DST"
 createdb "$DST"
-pg_restore --no-owner --no-privileges --exit-on-error -d "$DST" "$DIR/backup.dump"
+# A newer pg_restore than the server (as on CI runners) writes settings an older server does not know, such as
+# transaction_timeout (PostgreSQL 17+). Restore through psql and drop those lines, so client and server versions may differ.
+pg_restore --no-owner --no-privileges -f - "$DIR/backup.dump" | sed -e '/^SET transaction_timeout/d' | psql -X -q -v ON_ERROR_STOP=1 -d "$DST" > /dev/null
 t2=$(now)
 
 summary() {

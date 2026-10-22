@@ -18,7 +18,7 @@ export default function SafetyPage() {
         <div className="level-grid">
           {LEVELS.map((l) => <div key={l.level}><span className={`trust l${l.level}`}><i aria-hidden="true">{l.level === 3 ? "★" : l.level === 2 ? "✓" : l.level === 1 ? "•" : "–"}</i>{l.name}</span><p className="small">{l.text}</p></div>)}
         </div>
-        <p className="small muted">Each check adds points. A company needs its registration and a director&apos;s ID checked to be Verified, and its office address plus at least 80 points to be Highly trusted. An agent needs a government ID checked to be Verified, and an address plus 80 points to be Highly trusted. Plans and adverts cannot buy a trust level.</p>
+        <p className="small muted">Each check adds points. A company needs its registration and a director&apos;s ID checked (and at least 50 points) to be Verified, and its office address plus at least 80 points to be Highly trusted. An agent needs a government ID checked and at least 50 points to be Verified, and an address plus 80 points to be Highly trusted. Plans and adverts cannot buy a trust level.</p>
       </section>
       <section className="two">
         <div className="card stack">

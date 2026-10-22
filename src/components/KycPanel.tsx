@@ -14,7 +14,7 @@ export function KycPanel({ kind, view, action, docBase, extra }: { kind: KycKind
       <section className="card stack" aria-labelledby="trust-h">
         <div className="row between"><h2 id="trust-h">Your trust level</h2><span className={`trust l${t.level}`}><i aria-hidden="true">{t.level === 3 ? "★" : t.level === 2 ? "✓" : t.level === 1 ? "•" : "–"}</i>{t.levelName}</span></div>
         <div className="meter" role="img" aria-label={`${t.pct}% of checks passed`}><span style={{ width: `${t.pct}%` }} /></div>
-        <p className="small muted">{t.passed.length} of {t.total} checks passed ({t.pct}%). {kind === "COMPANY" ? "Registration and a director's ID are needed for Verified; add the office address and reach 80% for Highly trusted." : "Your ID is needed for Verified; add your address and reach 80% for Highly trusted."} Checks expire and need renewing.</p>
+        <p className="small muted">{t.passed.length} of {t.total} checks passed ({t.pct}%). {kind === "COMPANY" ? "Registration and a director's ID are needed for Verified; add the office address and reach 80% for Highly trusted." : "Your ID plus at least half the points are needed for Verified; add your address and reach 80% for Highly trusted."} Checks expire and need renewing.</p>
       </section>
       <ul className="kyc-list">
         {view.items.map(({ req, row, status, fields }) => {

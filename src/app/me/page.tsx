@@ -32,7 +32,7 @@ export default async function MePage({ searchParams: searchP }: { searchParams?:
             <li key={n.id}><div>{n.link ? <Link href={n.link}><strong>{n.title}</strong></Link> : <strong>{n.title}</strong>}{n.readAt ? "" : " ●"}<div className="small muted">{n.body} {formatDateTime(n.createdAt)}</div></div></li>
           ))} />
         )}
-        <p className="small"><Link href="/me/notifications">All notifications</Link> · <Link href="/me/reviews">My reviews</Link> · <Link href="/me/verification">Agent verification</Link> · <Link href="/me/inspections">My inspections</Link> · <Link href="/trust">Trust and Safety</Link></p>
+        <p className="small"><Link href="/me/notifications">All notifications</Link> · <Link href="/me/reviews">My reviews</Link> · <Link href="/me/verification">Agent verification</Link> · <Link href="/me/inspections">My inspections</Link> · <Link href="/trust">Trust and Safety</Link> · <Link href="/me/privacy">Your data and privacy</Link></p>
       </section>
     </div>
   );

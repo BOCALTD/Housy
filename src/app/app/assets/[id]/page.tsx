@@ -23,7 +23,8 @@ import {
   addListingPhotoAction, makeCoverPhotoAction, removeListingPhotoAction, saveListingAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
 } from "../actions";
 
-import { AMENITIES, CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, TITLE_DOCUMENTS, parseAmenities } from "@/lib/listing-rules";
+import { CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, parseAmenities } from "@/lib/listing-rules";
+import { activeOf, refData } from "@/lib/services/reference";
 
 export const metadata = { title: "Asset" };
 
@@ -48,6 +49,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
   const gaps = await assetCompleteness(member, asset.id);
   const listing = asset.listing;
   const listingPhotos = listing ? await listingPhotosFor(member, asset.id) : [];
+  const ref = await refData();
   const hidden = <input type="hidden" name="assetId" value={asset.id} />;
 
   return (
@@ -368,7 +370,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                   {listing?.status === "PUBLISHED" ? <p className="small muted">Saving changes takes the listing offline until it is reviewed again.</p> : null}
                   <Field label="Listing title"><input name="title" required defaultValue={listing?.title ?? asset.name} /></Field>
                   <div className="fields">
-                    <Field label="Type of property"><select name="propertyType" defaultValue={listing?.propertyType ?? "OTHER"}>{Object.entries(PROPERTY_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                    <Field label="Type of property"><select name="propertyType" defaultValue={listing?.propertyType ?? "OTHER"}>{activeOf(ref, "PROPERTY_TYPE").map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}</select></Field>
                     <Field label="Purpose"><select name="purpose" defaultValue={listing?.purpose ?? "SALE"}><EnumOptions values={PURPOSES} /></select></Field>
                   </div>
                   <div className="fields">
@@ -414,14 +416,14 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                         <Field label="Service charge per year (₦)"><input name="serviceCharge" inputMode="decimal" defaultValue={listing?.serviceChargeKobo != null ? koboToInput(listing.serviceChargeKobo) : ""} /></Field>
                       </div>
                       <Field label="Other fees" hint="For example agency 10%, legal 10%, caution as stated"><input name="feesNote" maxLength={500} defaultValue={listing?.feesNote ?? ""} /></Field>
-                      <Field label="Title document the company says it holds" hint="Shown as stated by your company. The platform does not verify title."><select name="titleDocument" defaultValue={listing?.titleDocument ?? "UNSPECIFIED"}>{Object.entries(TITLE_DOCUMENTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                      <Field label="Title document the company says it holds" hint="Shown as stated by your company. The platform does not verify title."><select name="titleDocument" defaultValue={listing?.titleDocument ?? "UNSPECIFIED"}>{activeOf(ref, "TITLE_DOCUMENT", listing?.country).map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}</select></Field>
                       <Field label="Video tour link" hint="A YouTube or Vimeo link (optional)"><input name="videoUrl" type="url" maxLength={300} placeholder="https://www.youtube.com/watch?v=..." defaultValue={listing?.videoUrl ?? ""} /></Field>
                     </div>
                   </details>
                   <details className="inline">
-                    <summary>Amenities ({listing ? parseAmenities(listing.amenities).length : 0} ticked)</summary>
+                    <summary>Amenities ({listing ? parseAmenities(listing.amenities, ref.AMENITY.map((x) => x.code)).length : 0} ticked)</summary>
                     <div className="amenity-grid">
-                      {Object.entries(AMENITIES).map(([k, v]) => <label key={k} className="check"><input type="checkbox" name="amenity" value={k} defaultChecked={listing ? parseAmenities(listing.amenities).includes(k as never) : false} /> {v}</label>)}
+                      {activeOf(ref, "AMENITY", listing?.country).map((x) => <label key={x.code} className="check"><input type="checkbox" name="amenity" value={x.code} defaultChecked={listing ? listing.amenities.split(",").includes(x.code) : false} /> {x.label}</label>)}
                     </div>
                   </details>
                   <div className="row"><button className="btn primary" type="submit">Save draft</button></div>

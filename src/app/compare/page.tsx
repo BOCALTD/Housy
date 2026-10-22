@@ -6,7 +6,8 @@ import { trustMany } from "@/lib/services/kyc";
 import { withPublic } from "@/lib/db";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
-import { AMENITIES, CONDITIONS, CONSTRUCTION, FURNISHING, PROPERTY_TYPES, TITLE_DOCUMENTS, isCode, parseAmenities, priceSuffix } from "@/lib/listing-rules";
+import { CONDITIONS, CONSTRUCTION, FURNISHING, isCode, parseAmenities, priceSuffix } from "@/lib/listing-rules";
+import { labelsOf, refData } from "@/lib/services/reference";
 import { TrustBadge } from "@/components/TrustBadge";
 import { RemoveFromCompare } from "@/components/Compare";
 import { PropPhoto, sp, type SP } from "@/components/ui";
@@ -29,7 +30,9 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
   const perSqm = (l: (typeof rows)[number]) => { const area = l.buildingSqm ?? l.landSqm; return area && (l.pricePeriod === "TOTAL" || l.pricePeriod === "YEAR") ? l.priceKobo / BigInt(area) : null; };
   const best = (vals: (bigint | null)[]) => { const v = vals.filter((x): x is bigint => x !== null); return v.length > 1 ? v.reduce((a, b) => (b < a ? b : a)) : null; };
   const bestSqm = best(rows.map(perSqm));
-  const allAmenities = [...new Set(rows.flatMap((r) => parseAmenities(r.amenities)))];
+  const ref = await refData();
+  const typeL = labelsOf(ref, "PROPERTY_TYPE"), titleL = labelsOf(ref, "TITLE_DOCUMENT"), amenL = labelsOf(ref, "AMENITY");
+  const allAmenities = [...new Set(rows.flatMap((r) => parseAmenities(r.amenities, Object.keys(amenL))))];
   const line = (name: string, f: (l: (typeof rows)[number]) => React.ReactNode) => <tr key={name}><th scope="row">{name}</th>{rows.map((l) => <td key={l.id}>{f(l)}</td>)}</tr>;
 
   return (
@@ -59,7 +62,7 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
               {line("Service charge per year", (l) => (l.serviceChargeKobo != null ? formatKobo(l.serviceChargeKobo) : "—"))}
               {line("Other fees", (l) => l.feesNote || "—")}
               {line("Location", (l) => `${l.city}, ${l.state}`)}
-              {line("Type", (l) => label(PROPERTY_TYPES, l.propertyType))}
+              {line("Type", (l) => label(typeL, l.propertyType))}
               {line("Purpose", (l) => (l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`))}
               {line("Bedrooms / bathrooms / toilets", (l) => [l.bedrooms, l.bathrooms, l.toilets].map((n) => (n ?? "–")).join(" / "))}
               {line("Building size", (l) => (l.buildingSqm != null ? `${l.buildingSqm.toLocaleString("en-NG")} m²` : "—"))}
@@ -70,9 +73,9 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
               {line("Serviced", (l) => (l.serviced ? "Yes" : "No"))}
               {line("Available from", (l) => (l.availableFrom ? formatDate(l.availableFrom) : "Now or not stated"))}
               {line("Minimum lease", (l) => (l.minLeaseMonths ? `${l.minLeaseMonths} months` : "—"))}
-              {line("Title document (as stated)", (l) => label(TITLE_DOCUMENTS, l.titleDocument, "Not stated"))}
+              {line("Title document (as stated)", (l) => label(titleL, l.titleDocument, "Not stated"))}
               {line("Listed by", (l) => <span className="stack" style={{ gap: 4 }}><span>{names.find((n) => n.companyId === l.companyId)?.displayName ?? "A registered company"}</span>{trust.get(l.companyId) ? <TrustBadge t={trust.get(l.companyId)!} /> : null}</span>)}
-              {allAmenities.map((a) => line(AMENITIES[a], (l) => (parseAmenities(l.amenities).includes(a) ? <span className="yes">✓ Yes</span> : <span className="muted">–</span>)))}
+              {allAmenities.map((a) => line(amenL[a], (l) => (l.amenities.split(",").includes(a) ? <span className="yes">✓ Yes</span> : <span className="muted">–</span>)))}
             </tbody>
           </table>
         </div>

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { AMENITIES, CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, SORTS, TITLE_DOCUMENTS, extraFilterCount, filtersToQuery, parseFilters, type Category } from "@/lib/listing-rules";
+import { CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, SORTS, extraFilterCount, filtersToQuery, parseFilters, type Category } from "@/lib/listing-rules";
 import { searchListingsPage } from "@/lib/services/listings";
 import { decorateListings } from "@/lib/services/promotions";
 import { verifiedCompanyIds } from "@/lib/services/kyc";
+import { activeOf, labelsOf, refData } from "@/lib/services/reference";
 import { saveSearchAction } from "@/app/me/saved/actions";
 import { ListingCard } from "./ListingCard";
 import { CompareToggle } from "./Compare";
@@ -19,7 +20,9 @@ const opts = (t: Record<string, string>, skip?: string) => Object.entries(t).fil
 export async function Browse({ searchParams, category, basePath }: { searchParams?: SP; category: Category | null; basePath: string }) {
   const get = (k: string) => { const v = searchParams?.[k]; return Array.isArray(v) ? v[0] : v; };
   const getAll = (k: string) => { const v = searchParams?.[k]; return Array.isArray(v) ? v : v ? [v] : []; };
-  const f = parseFilters(get, getAll);
+  const ref = await refData();
+  const f = parseFilters(get, getAll, { amenities: ref.AMENITY.map((x) => x.code), titleDocs: ref.TITLE_DOCUMENT.map((x) => x.code) });
+  const typeLabels = labelsOf(ref, "PROPERTY_TYPE");
   const companyIds = f.verifiedOnly ? await verifiedCompanyIds() : undefined;
   const page = await searchListingsPage(f, category?.rule ?? {}, companyIds);
   const rows = await decorateListings(page.rows, f.sort === "newest");
@@ -28,7 +31,8 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
   const sponsored = await sponsoredFor("SEARCH_TOP", { filters: { q: f.q, purpose: f.purpose, city: f.city, maxPrice: f.maxPrice, minBeds: f.minBeds?.toString() }, bot }).catch(() => []);
   const extra = extraFilterCount(f);
   const href = (change: Record<string, string | number | undefined>) => { const q = filtersToQuery(f, change); return q ? `${basePath}?${q}` : basePath; };
-  const typeChoices = category?.rule.types ?? (Object.keys(PROPERTY_TYPES) as (keyof typeof PROPERTY_TYPES)[]);
+  const activeTypes = activeOf(ref, "PROPERTY_TYPE").map((x) => x.code);
+  const typeChoices = (category?.rule.types ?? (Object.keys(PROPERTY_TYPES) as (keyof typeof PROPERTY_TYPES)[])).filter((t) => activeTypes.includes(t));
 
   return (
     <div className="stack-lg">
@@ -46,7 +50,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
           {category?.rule.purpose ? null : (
             <label className="field">Purpose<select name="purpose" defaultValue={f.purpose ?? ""}><option value="">Buy, rent or lease</option><option value="SALE">Buy</option><option value="RENT">Rent</option><option value="LEASE">Lease</option></select></label>
           )}
-          <label className="field">Type<select name="type" defaultValue={f.types[0] ?? ""}><option value="">Any type</option>{typeChoices.map((t) => <option key={t} value={t}>{PROPERTY_TYPES[t]}</option>)}</select></label>
+          <label className="field">Type<select name="type" defaultValue={f.types[0] ?? ""}><option value="">Any type</option>{typeChoices.map((t) => <option key={t} value={t}>{typeLabels[t] ?? PROPERTY_TYPES[t]}</option>)}</select></label>
           <label className="field">Max price (₦)<input name="maxPrice" inputMode="decimal" defaultValue={f.maxPrice ?? ""} /></label>
           <label className="field">Bedrooms<select name="minBeds" defaultValue={f.minBeds?.toString() ?? ""}><option value="">Any</option>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}+</option>)}</select></label>
           <button className="btn primary" type="submit">Search</button>
@@ -67,7 +71,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
               <label className="field">Available by<input name="availableBy" type="date" defaultValue={f.availableBy ?? ""} /></label>
             </div>
             <div className="fields">
-              <label className="field">Title document (as stated)<select name="titleDoc" defaultValue={f.titleDoc ?? ""}><option value="">Any</option>{opts(TITLE_DOCUMENTS, "UNSPECIFIED")}</select></label>
+              <label className="field">Title document (as stated)<select name="titleDoc" defaultValue={f.titleDoc ?? ""}><option value="">Any</option>{activeOf(ref, "TITLE_DOCUMENT").filter((x) => x.code !== "UNSPECIFIED").map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}</select></label>
               <label className="field">Estate or development<input name="estate" maxLength={80} defaultValue={f.estate ?? ""} /></label>
             </div>
             <div className="fields">
@@ -76,7 +80,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
               <label className="check"><input type="checkbox" name="negotiable" value="1" defaultChecked={!!f.negotiable} /> Price negotiable</label>
             </div>
             <fieldset className="field"><legend>Must have</legend>
-              <div className="amenity-grid">{Object.entries(AMENITIES).map(([k, v]) => <label key={k} className="check"><input type="checkbox" name="amenity" value={k} defaultChecked={f.amenities.includes(k as never)} /> {v}</label>)}</div>
+              <div className="amenity-grid">{activeOf(ref, "AMENITY").map((x) => <label key={x.code} className="check"><input type="checkbox" name="amenity" value={x.code} defaultChecked={(f.amenities as string[]).includes(x.code)} /> {x.label}</label>)}</div>
             </fieldset>
             <div className="row"><button className="btn primary" type="submit">Apply filters</button><Link className="btn" href={basePath}>Clear all</Link></div>
           </div>
@@ -106,7 +110,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
         ) : <p className="small muted"><Link href="/login">Sign in</Link> to save this search and be told about new matches.</p>}
         {rows.length === 0 ? (
           <div className="card stack"><p className="muted">No published properties match these filters yet.</p><p><Link href={basePath}>Clear the filters</Link> or <Link href="/browse">search everything</Link>.</p></div>
-        ) : <div className="grid">{rows.map((l) => <div key={l.id} className="card-wrap"><ListingCard l={l} /><CompareToggle refId={l.publicRef} compact /></div>)}</div>}
+        ) : <div className="grid">{rows.map((l) => <div key={l.id} className="card-wrap"><ListingCard l={l} typeLabels={typeLabels} /><CompareToggle refId={l.publicRef} compact /></div>)}</div>}
         <Pager page={f.page - 1} total={page.total} pageSize={SEARCH_PAGE} noun="properties" href={(p) => href({ page: p > 0 ? p + 1 : undefined })} />
       </section>
     </div>

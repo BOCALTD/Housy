@@ -67,6 +67,8 @@ export type Member = {
   companyId: string;
   companyName: string;
   role: Role;
+  /** Set when the platform has suspended the company: the workspace is closed until it is restored. */
+  companySuspended: boolean;
 };
 
 /** The signed-in user's active, non-suspended membership in their selected company. Cached per request. */
@@ -77,7 +79,7 @@ export const getMember = cache(async (): Promise<Member | null> => {
   const membership = await withTenant(companyId, user.id, (tx) =>
     tx.membership.findFirst({
       where: { companyId, userId: user.id, status: "ACTIVE" },
-      include: { company: { select: { name: true } } },
+      include: { company: { select: { name: true, suspendedAt: true } } },
     }),
   );
   if (!membership) return null;
@@ -89,6 +91,7 @@ export const getMember = cache(async (): Promise<Member | null> => {
     companyId,
     companyName: membership.company.name,
     role: membership.role as Role,
+    companySuspended: !!membership.company.suspendedAt,
   };
 });
 
@@ -98,6 +101,7 @@ export async function requireMember(action?: Action): Promise<Member> {
   if (!session) redirect("/login");
   const member = await getMember();
   if (!member) redirect("/app/switch");
+  if (member.companySuspended) redirect("/suspended");
   if (action && !can(member.role, action)) {
     throw new Error("You do not have permission to do that. Ask your company administrator.");
   }

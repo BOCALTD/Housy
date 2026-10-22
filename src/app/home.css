@@ -270,3 +270,6 @@
 .day-group { display: grid; gap: 8px; }
 .day-group h3 { font-size: 15px; color: var(--muted); }
 .booking-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+.ref-row { display: grid; grid-template-columns: minmax(0, 140px) minmax(0, 2fr) 90px 80px auto auto auto; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.ref-row code { align-self: center; overflow-wrap: anywhere; }
+@media (max-width: 860px) { .ref-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ref-row code { grid-column: 1 / -1; } }

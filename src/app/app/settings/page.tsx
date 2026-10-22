@@ -1,4 +1,6 @@
 import { requireMember } from "@/lib/auth";
+import { ACCESS_PURPOSES, accessLogForCompany } from "@/lib/services/governance";
+import { formatDateTime as fmtAccess } from "@/lib/dates";
 import { getSettings } from "@/lib/services/settings";
 import { listTeam } from "@/lib/services/companies";
 import { formatReference } from "@/lib/correspondence-rules";
@@ -11,6 +13,7 @@ export const metadata = { title: "Company settings" };
 export default async function SettingsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const member = await requireMember("settings.manage");
+  const accessLog = await accessLogForCompany(member);
   const [{ company, departments }, team] = await Promise.all([getSettings(member), listTeam(member)]);
   const year = todayInLagos().getUTCFullYear();
   const example = formatReference(company.refPrefix, departments[0]?.code ?? null, year, 7);
@@ -78,6 +81,11 @@ export default async function SettingsPage({ searchParams: searchP }: { searchPa
           </form>
         </section>
       </div>
+      <section className="card stack" id="access" aria-labelledby="access-h">
+        <h2 id="access-h">Platform access to your records</h2>
+        <p className="small muted">Platform administrators can open your company&apos;s records only after stating why, for one hour at a time. Each opening is listed here and your administrators are told.</p>
+        {accessLog.length === 0 ? <p className="muted">Never opened.</p> : <ul className="timeline">{accessLog.slice(0, 10).map((g) => <li key={g.id}><span>{fmtAccess(g.createdAt)} · {ACCESS_PURPOSES[g.purpose as keyof typeof ACCESS_PURPOSES]}{g.caseRef ? ` · ${g.caseRef}` : ""}<div className="small muted">{g.note}</div></span></li>)}</ul>}
+      </section>
     </div>
   );
 }

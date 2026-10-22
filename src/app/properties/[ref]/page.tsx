@@ -1,5 +1,6 @@
 import { CompareToggle } from "@/components/Compare";
-import { AMENITIES, CONDITIONS, CONSTRUCTION, FURNISHING, PROPERTY_TYPES, TITLE_DOCUMENTS, isCode, parseAmenities } from "@/lib/listing-rules";
+import { CONDITIONS, CONSTRUCTION, FURNISHING, isCode, parseAmenities } from "@/lib/listing-rules";
+import { labelsOf, refData } from "@/lib/services/reference";
 import Link from "next/link";
 import { priceSuffix } from "@/lib/listing-rules";
 import { companyTrust } from "@/lib/services/kyc";
@@ -47,6 +48,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   const calcHref = listing.purpose === "SALE"
     ? `/calculators?tab=purchase&price=${naira(listing.priceKobo)}`
     : `/calculators?tab=movein&yearlyRent=${naira(listing.pricePeriod === "MONTH" ? listing.priceKobo * 12n : listing.priceKobo)}${listing.serviceChargeKobo != null ? `&serviceCharge=${naira(listing.serviceChargeKobo)}` : ""}`;
+  const ref = await refData();
   const pics = photos.filter((p) => p.kind !== "FLOOR_PLAN");
   const plans = photos.filter((p) => p.kind === "FLOOR_PLAN");
   const [trust, company] = await Promise.all([companyTrust(listing.companyId), withPublic((tx) => tx.companyProfile.findFirst({ where: { companyId: listing.companyId, listed: true }, select: { displayName: true } }))]);
@@ -92,7 +94,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
         {(() => {
           const money = (k: bigint | null) => (k == null ? null : formatKobo(k));
           const rows: [string, string | null][] = [
-            ["Type", isCode(PROPERTY_TYPES, listing.propertyType) && listing.propertyType !== "OTHER" ? PROPERTY_TYPES[listing.propertyType] : null],
+            ["Type", listing.propertyType !== "OTHER" ? labelsOf(ref, "PROPERTY_TYPE")[listing.propertyType] ?? null : null],
             ["Price", `${formatKobo(listing.priceKobo)}${priceSuffix(listing.pricePeriod)}${listing.negotiable ? " (negotiable)" : ""}`],
             ["Caution deposit", money(listing.depositKobo)],
             ["Service charge", listing.serviceChargeKobo != null ? `${formatKobo(listing.serviceChargeKobo)} / year` : null],
@@ -109,14 +111,15 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
             ["Available from", listing.availableFrom ? formatDate(listing.availableFrom) : null],
             ["Minimum lease", listing.minLeaseMonths != null ? `${listing.minLeaseMonths} months` : null],
             ["Estate or development", listing.estateName || null],
-            ["Title document (as stated by the company, not verified)", listing.titleDocument !== "UNSPECIFIED" && isCode(TITLE_DOCUMENTS, listing.titleDocument) ? TITLE_DOCUMENTS[listing.titleDocument] : null],
+            ["Title document (as stated by the company, not verified)", listing.titleDocument !== "UNSPECIFIED" ? labelsOf(ref, "TITLE_DOCUMENT")[listing.titleDocument] ?? null : null],
           ];
-          const amenities = parseAmenities(listing.amenities);
+          const amenityLabels = labelsOf(ref, "AMENITY");
+          const amenities = parseAmenities(listing.amenities, Object.keys(amenityLabels));
           return (
             <section className="stack" aria-labelledby="details-h">
               <h2 id="details-h">Details</h2>
               <dl className="spec">{rows.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-              {amenities.length ? <><h3>Features</h3><ul className="chips">{amenities.map((a) => <li key={a}>{AMENITIES[a]}</li>)}</ul></> : null}
+              {amenities.length ? <><h3>Features</h3><ul className="chips">{amenities.map((a) => <li key={a}>{amenityLabels[a]}</li>)}</ul></> : null}
               {plans.length ? (
                 <details className="inline"><summary>Floor plans ({plans.length})</summary>
                   <div className="stack">{plans.map((ph, n) => (

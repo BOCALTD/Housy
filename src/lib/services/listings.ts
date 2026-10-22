@@ -9,9 +9,10 @@ import { parseNairaToKobo } from "../money";
 import { randomRef } from "../tokens";
 import { rateLimit } from "../ratelimit";
 import { assertCan, type Ctx } from "./context";
+import { refData } from "./reference";
 import type { Prisma } from "@prisma/client";
 import {
-  CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, TITLE_DOCUMENTS, defaultPeriod, isCode, joinAmenities,
+  CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, defaultPeriod, isCode, joinAmenities,
   type CategoryRule, type Filters, type PricePeriod,
 } from "../listing-rules";
 
@@ -43,7 +44,7 @@ const listingSchema = z.object({
   furnishing: code(FURNISHING, "UNSPECIFIED"), condition: code(CONDITIONS, "UNSPECIFIED"), constructionStatus: code(CONSTRUCTION, "COMPLETED"),
   serviced: z.union([z.boolean(), z.string()]).optional().transform((v) => v === true || v === "yes" || v === "on"),
   amenities: z.array(z.string()).optional().default([]),
-  titleDocument: code(TITLE_DOCUMENTS, "UNSPECIFIED"),
+  titleDocument: z.string().optional().default("UNSPECIFIED"),
   availableFrom: z.string().optional().transform((v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T00:00:00Z`) : null)),
   minLeaseMonths: optInt("minimum lease length in months", 1200),
   estateName: z.string().trim().max(120).optional().default(""),
@@ -51,7 +52,7 @@ const listingSchema = z.object({
     .refine((v) => v === "" || /^https:\/\/(www\.)?(youtube\.com|youtu\.be|vimeo\.com)\//.test(v), "The video must be a YouTube or Vimeo link starting with https://"),
 }).transform((d) => {
   const period = d.purpose === "SALE" ? "TOTAL" : d.pricePeriod && isCode(PRICE_PERIODS, d.pricePeriod) && d.pricePeriod !== "TOTAL" ? d.pricePeriod : defaultPeriod(d.purpose);
-  return { ...d, pricePeriod: period as PricePeriod, amenities: joinAmenities(d.amenities) };
+  return { ...d, pricePeriod: period as PricePeriod };
 }).refine((d) => d.minLeaseMonths === null || d.purpose !== "SALE", { message: "A minimum lease length only applies to rent or lease" });
 
 /**
@@ -60,7 +61,11 @@ const listingSchema = z.object({
  */
 export async function saveListingDraft(ctx: Ctx, assetId: string, input: z.input<typeof listingSchema>) {
   assertCan(ctx, "listing.manage");
-  const data = listingSchema.parse(input);
+  const parsed = listingSchema.parse(input);
+  // Amenities and title documents may include values the platform administrators added.
+  const ref = await refData();
+  const titleOk = ref.TITLE_DOCUMENT.some((x) => x.code === parsed.titleDocument);
+  const data = { ...parsed, amenities: joinAmenities(parsed.amenities, ref.AMENITY.map((x) => x.code)), titleDocument: titleOk ? parsed.titleDocument : "UNSPECIFIED" };
   await withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const asset = await tx.asset.findFirst({ where: { id: assetId, companyId: ctx.companyId }, include: { listing: true } });
     if (!asset) throw new Error("Asset not found");

@@ -45,11 +45,14 @@ export type Amenity = keyof typeof AMENITIES;
 
 export const isCode = <T extends Record<string, string>>(table: T, v: unknown): v is keyof T => typeof v === "string" && Object.prototype.hasOwnProperty.call(table, v);
 
-export function parseAmenities(stored: string): Amenity[] {
-  return stored.split(",").map((s) => s.trim()).filter((s): s is Amenity => isCode(AMENITIES, s));
+/** Amenity codes from a stored list. With `allowed`, codes the administrators added are kept too. */
+export function parseAmenities(stored: string, allowed?: Iterable<string>): Amenity[] {
+  const ok = allowed ? new Set(allowed) : null;
+  return stored.split(",").map((s) => s.trim()).filter((s): s is Amenity => (ok ? ok.has(s) : isCode(AMENITIES, s)));
 }
-export function joinAmenities(list: string[]): string {
-  return [...new Set(list.filter((s) => isCode(AMENITIES, s)))].sort().join(",");
+export function joinAmenities(list: string[], allowed?: Iterable<string>): string {
+  const ok = allowed ? new Set(allowed) : null;
+  return [...new Set(list.filter((s) => (ok ? ok.has(s) : isCode(AMENITIES, s))))].sort().join(",");
 }
 
 // ---------- Categories (the browse pages) ----------
@@ -87,10 +90,12 @@ const int = (v: string | undefined, max: number) => { const n = Number.parseInt(
 const text = (v: string | undefined, max: number) => { const t = (v ?? "").trim().slice(0, max); return t || undefined; };
 
 /** Read filters from a query string. Anything unknown or malformed is ignored rather than failing. */
-export function parseFilters(get: Get, getAll: (k: string) => string[] = (k) => (get(k) ? [get(k)!] : [])): Filters {
+export function parseFilters(get: Get, getAll: (k: string) => string[] = (k) => (get(k) ? [get(k)!] : []), allowed?: { amenities?: string[]; titleDocs?: string[] }): Filters {
+  const amenOk = allowed?.amenities ? new Set(allowed.amenities) : null;
+  const titleOk = allowed?.titleDocs ? new Set(allowed.titleDocs) : null;
   const purpose = get("purpose");
   const types = getAll("type").flatMap((t) => t.split(",")).filter((t): t is PropertyType => isCode(PROPERTY_TYPES, t));
-  const amenities = getAll("amenity").flatMap((t) => t.split(",")).filter((t): t is Amenity => isCode(AMENITIES, t));
+  const amenities = getAll("amenity").flatMap((t) => t.split(",")).filter((t): t is Amenity => (amenOk ? amenOk.has(t) : isCode(AMENITIES, t)));
   const sort = get("sort");
   const date = get("availableBy");
   return {
@@ -101,7 +106,7 @@ export function parseFilters(get: Get, getAll: (k: string) => string[] = (k) => 
     furnishing: isCode(FURNISHING, get("furnishing")) && get("furnishing") !== "UNSPECIFIED" ? (get("furnishing") as keyof typeof FURNISHING) : undefined,
     serviced: get("serviced") === "1" ? true : undefined, amenities: [...new Set(amenities)], minSize: int(get("minSize"), 10_000_000),
     construction: isCode(CONSTRUCTION, get("construction")) ? (get("construction") as keyof typeof CONSTRUCTION) : undefined,
-    titleDoc: isCode(TITLE_DOCUMENTS, get("titleDoc")) && get("titleDoc") !== "UNSPECIFIED" ? (get("titleDoc") as keyof typeof TITLE_DOCUMENTS) : undefined,
+    titleDoc: (titleOk ? titleOk.has(get("titleDoc") ?? "") : isCode(TITLE_DOCUMENTS, get("titleDoc"))) && get("titleDoc") !== "UNSPECIFIED" ? (get("titleDoc") as keyof typeof TITLE_DOCUMENTS) : undefined,
     estate: text(get("estate"), 80), availableBy: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
     verifiedOnly: get("verified") === "1" ? true : undefined, negotiable: get("negotiable") === "1" ? true : undefined,
     period: isCode(PRICE_PERIODS, get("period")) ? (get("period") as PricePeriod) : undefined,
@@ -129,9 +134,9 @@ export function filtersToQuery(f: Partial<Filters>, change: Record<string, strin
 }
 
 /** Key facts for a listing card or page, in the order people look for them. */
-export function keyFacts(l: { propertyType: string; bedrooms: number | null; bathrooms: number | null; toilets: number | null; buildingSqm: number | null; landSqm: number | null; furnishing: string }) {
+export function keyFacts(l: { propertyType: string; bedrooms: number | null; bathrooms: number | null; toilets: number | null; buildingSqm: number | null; landSqm: number | null; furnishing: string }, typeLabels?: Record<string, string>) {
   const out: string[] = [];
-  if (l.propertyType !== "OTHER" && isCode(PROPERTY_TYPES, l.propertyType)) out.push(PROPERTY_TYPES[l.propertyType]);
+  if (l.propertyType !== "OTHER" && isCode(PROPERTY_TYPES, l.propertyType)) out.push(typeLabels?.[l.propertyType] ?? PROPERTY_TYPES[l.propertyType]);
   if (l.bedrooms != null) out.push(`${l.bedrooms} bed`);
   if (l.bathrooms != null) out.push(`${l.bathrooms} bath`);
   if (l.toilets != null) out.push(`${l.toilets} toilet${l.toilets === 1 ? "" : "s"}`);

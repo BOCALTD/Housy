@@ -53,6 +53,9 @@ export async function authenticateApiKey(raw: string | null): Promise<ApiCaller 
   const hash = hashApiKey(raw);
   const row = await withApiToken(hash, (tx) => tx.apiKey.findFirst({ where: { tokenHash: hash } }));
   if (!row || keyUsable(row) !== "ok") return null;
+  // A suspended company's keys stop working until it is restored.
+  const company = await withTenant(row.companyId, row.createdById, (tx) => tx.company.findFirst({ where: { id: row.companyId }, select: { suspendedAt: true } }));
+  if (!company || company.suspendedAt) return null;
   // Record use at most about once a minute, so a busy program does not write on every request.
   if (!row.lastUsedAt || Date.now() - row.lastUsedAt.getTime() > 60_000) {
     await withTenant(row.companyId, row.createdById, (tx) => tx.apiKey.updateMany({ where: { id: row.id, companyId: row.companyId }, data: { lastUsedAt: new Date() } })).catch(() => undefined);

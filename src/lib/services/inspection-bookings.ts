@@ -181,7 +181,8 @@ export async function inspectionReminders(now = new Date()) {
       const when = formatDateTime(b.scheduledAt!);
       await notify(tx, b.requesterId, { kind: "inspection.reminder", title: `Reminder: inspection ${b.ref} on ${when}`, body: `${b.meetingPoint ? `Meet at: ${b.meetingPoint}. ` : ""}Inspect before you pay anything. You can turn on a safety session from the booking page.`, link: `/me/inspections/${b.ref}` });
       if (b.assignedUserId) await notify(tx, b.assignedUserId, { kind: "inspection.reminder", title: `Reminder: inspection ${b.ref} on ${when}`, body: b.requesterName, link: `/app/bookings/${b.id}` });
-      await tx.inspectionBooking.update({ where: { id: b.id }, data: { remindedAt: now } });
+      // Platform administrators may read bookings but not change them, so the mark is written as the company.
+      await withTenant(b.companyId, "system", (c) => c.inspectionBooking.updateMany({ where: { id: b.id, companyId: b.companyId }, data: { remindedAt: now } }));
       sent++;
     }
     return { reminded: sent };

@@ -47,7 +47,7 @@ const CATEGORIES = [
   { href: "/directory?kind=developers", img: "/stock/developments.jpg", title: "New developments", sub: "Estates and developers", purpose: null },
 ] as const;
 const COUNT_ICONS = [Icon.building, Icon.person, Icon.home, Icon.handshake, Icon.pin];
-const initials = (s: string) => s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
+const initials = (s: string) => s.replace(/\[[^\]]*\]/g, " ").split(/\s+/).filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 
 function SectionHead({ kicker, title, text, link }: { kicker: string; title: string; text?: string; link?: { href: string; label: string } }) {
   return (
@@ -275,7 +275,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
           <Carousel label="Client reviews" few={reviews.length <= 3}>
             {reviews.map((r) => (
               <figure key={r.id} className="rv">
-                <span className="stars" role="img" aria-label={`${r.overall} out of 5`}>{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= r.overall ? undefined : "off"} aria-hidden="true">★</span>)}</span>
+                <span className="rv-stars" role="img" aria-label={`${r.overall} out of 5`}>{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= r.overall ? undefined : "off"} aria-hidden="true">★</span>)}</span>
                 <blockquote style={{ margin: 0 }}><q>{r.body}</q></blockquote>
                 <footer><span className="avatar" aria-hidden="true">{initials(r.reviewerName)}</span><figcaption><strong>{r.reviewerName}</strong><div className="small muted">About {r.about} · {formatDate(r.createdAt)}</div></figcaption></footer>
               </figure>

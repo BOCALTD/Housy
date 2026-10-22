@@ -6,7 +6,7 @@ import { ShowMore } from "@/components/ui";
 export const metadata = { title: "Reviews" };
 export const dynamic = "force-dynamic";
 
-const initials = (s: string) => s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
+const initials = (s: string) => s.replace(/\[[^\]]*\]/g, " ").split(/\s+/).filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 
 export default async function ReviewsPage() {
   const reviews = await latestReviews(60);
@@ -25,7 +25,7 @@ export default async function ReviewsPage() {
         <ShowMore limit={12} noun="more reviews" items={reviews.map((r) => (
           <li key={r.id}>
             <figure className="rv" style={{ margin: 0 }}>
-              <span className="stars" role="img" aria-label={`${r.overall} out of 5`}>{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= r.overall ? undefined : "off"} aria-hidden="true">★</span>)}</span>
+              <span className="rv-stars" role="img" aria-label={`${r.overall} out of 5`}>{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= r.overall ? undefined : "off"} aria-hidden="true">★</span>)}</span>
               <blockquote style={{ margin: 0 }}><q>{r.body}</q></blockquote>
               <footer><span className="avatar" aria-hidden="true">{initials(r.reviewerName)}</span><figcaption><strong>{r.reviewerName}</strong><div className="small muted">About {r.agentUserId ? <Link href={`/agents/${r.agentUserId}`}>{r.about}</Link> : <Link href={`/companies/${r.companyId}`}>{r.about}</Link>} · {formatDate(r.createdAt)}</div></figcaption></footer>
             </figure>

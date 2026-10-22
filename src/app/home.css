@@ -8,7 +8,7 @@
 .hx-bg img { object-fit: cover; opacity: 0; transition: opacity 1.4s ease; }
 .hx-bg img.on { opacity: 1; }
 .hx::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(17, 18, 20, .25) 0%, rgba(17, 18, 20, .35) 40%, rgba(17, 18, 20, .86) 100%), linear-gradient(90deg, rgba(17, 18, 20, .55), transparent 70%); }
-.hx-inner { display: grid; gap: 18px; padding: clamp(22px, 4.5vw, 52px); }
+.hx-inner { display: grid; gap: 18px; padding: clamp(22px, 4.5vw, 52px); padding-bottom: clamp(76px, 10vw, 100px); }
 .hx .eyebrow { color: #FFD36B; }
 .hx .hero-title { color: #fff; text-shadow: 0 2px 18px rgba(0, 0, 0, .35); }
 .hx .hero-text { color: rgba(255, 255, 255, .92); }
@@ -30,9 +30,11 @@
 @media (max-width: 860px) { .hx-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .hx-fields input[name="city"] { grid-column: 1 / -1; } .hx-fields .btn { grid-column: 1 / -1; } }
 
 /* ---------- Section headings ---------- */
-.sec { display: grid; gap: 16px; }
+.sec { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.sec > *, .stack-lg > * { min-width: 0; }
 .sec-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 20px; }
-.sec-head h2 { font-size: clamp(22px, 3vw, 30px); letter-spacing: -.01em; }
+.sec-head > div { min-width: 0; flex: 1 1 220px; }
+.sec-head h2 { font-size: clamp(22px, 3vw, 30px); letter-spacing: -.01em; overflow-wrap: anywhere; }
 .sec-head p { color: var(--muted); max-width: 62ch; margin-top: 4px; }
 .sec-kicker { font: 700 12.5px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--primary-text); display: flex; align-items: center; gap: 8px; }
 .sec-kicker::before { content: ""; width: 22px; height: 3px; border-radius: 3px; background: var(--primary); }
@@ -45,7 +47,7 @@
 .count-ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-text); margin-bottom: 6px; }
 .count-ico svg { width: 20px; height: 20px; }
 .count b { font: 700 clamp(24px, 3vw, 32px)/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
-.count span { color: var(--muted); font-size: 14px; }
+.count > span:last-child { color: var(--muted); font-size: 14px; }
 @media (max-width: 980px) { .counts { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: -40px; } }
 @media (max-width: 560px) { .counts { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 8px; } .counts .count:last-child { grid-column: 1 / -1; } }
 
@@ -83,8 +85,8 @@
 
 /* Reviews */
 .rv { display: grid; gap: 10px; align-content: start; padding: 20px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); }
-.stars { display: inline-flex; gap: 2px; color: #F29F05; font-size: 18px; letter-spacing: 1px; }
-.stars .off { color: color-mix(in srgb, var(--ink) 20%, transparent); }
+.rv-stars { display: inline-flex; gap: 2px; color: #F29F05; font-size: 18px; letter-spacing: 1px; }
+.rv-stars .off { color: color-mix(in srgb, var(--ink) 20%, transparent); }
 .rv q { quotes: "“" "”"; font-size: 15.5px; line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 .rv footer { display: flex; align-items: center; gap: 10px; margin-top: auto; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: var(--primary-ink); background: var(--grad-primary); flex: 0 0 auto; }
@@ -143,7 +145,7 @@
 
 /* Trust badge */
 .trust { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border-radius: 999px; font-weight: 700; font-size: 13px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); white-space: nowrap; }
-.trust i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; color: #fff; background: #8A9099; }
+.trust i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; color: #fff; background: #8A9099; }
 .trust.l1 i { background: #8A6A3A; } .trust.l2 i { background: #2F7D4F; } .trust.l3 i { background: linear-gradient(135deg, #FBB017, #E08600); color: #1A1A1A; }
 .trust.l3 { border-color: #F29F05; background: var(--primary-soft); }
 

@@ -1,0 +1,42 @@
+name: Stock photos
+
+# Downloads candidate demonstration photographs (Unsplash licence: free to use, no permission needed) onto the
+# stock-photos branch, so they can be reviewed and the chosen ones resized into public/stock. Run by hand.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/stock-photos.yml"]
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download
+        run: |
+          mkdir -p /tmp/stock
+          for id in \
+            1568605114967-8130f3a36994 1570129477492-45c003edd2be 1600596542815-ffad4c1539a9 1564013799919-ab600027ffc6 \
+            1512917774080-9991f1c4c750 1600585154340-be6161a56a0c 1613490493576-7fde63acd811 1580587771525-78b9dba3b914 \
+            1576941089067-2de3c901e126 1605276374104-dee2a0ed3cd6 1600047509807-ba8f99d2cdde 1583608205776-bfd35f0d9f83 \
+            1598228723793-52759bba239c 1449844908441-8829872d2607 1523217582562-09d0def993a6 1494526585095-c41746248156 \
+            1518780664697-55e3ad937233 1600607687939-ce8a6c25118c 1502672260266-1c1ef2d93688 1522708323590-d24dbb6b0267 \
+            1560448204-e02f11c3d0e2 1556909114-f6e7ad7d3136 1484154218962-a197022b5858 1486406146926-c627a92ad1ab \
+            1497366216548-37526070297c 1586528116311-ad8dd3c8310d 1553413077-190dd305871c 1541888946425-d81bb19240f5 \
+            1500382017468-9049fed747ef 1477959858617-67f85cf4f1df 1449824913935-59a10b8d2000 1600566753190-17f0baa2a6c3 \
+            1600573472550-8090b5e0745e 1605146769289-440113cc3d00 1592595896551-12b371d546d5 1574362848149-11496d93a7c7 \
+            1582407947304-fd86f028f716 1460317442991-0ec209397118 1545324418-cc1a3fa10c00 1565402170291-8491f14678db ; do
+            curl -fsSL --max-time 60 "https://images.unsplash.com/photo-${id}?w=1600&q=72&fm=jpg&fit=crop" -o "/tmp/stock/${id}.jpg" || echo "missing ${id}"
+          done
+          ls -la /tmp/stock
+      - name: Publish to the stock-photos branch
+        run: |
+          git config user.name "ci"; git config user.email "ci@example.invalid"
+          git checkout --orphan stock-photos
+          git rm -rf -q --cached . > /dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp /tmp/stock/*.jpg .
+          git add -A && git commit -q -m "Candidate stock photos" && git push -q -f origin stock-photos

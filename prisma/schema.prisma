@@ -5400,3 +5400,57 @@ model PushOutbox {
   @@index([sentAt, createdAt])
   @@map("push_outbox")
 }
+
+/// A person's flatmate profile. Seen only by other signed-in people who have an active profile themselves.
+model FlatmateProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  status         String   @default("ACTIVE")
+  displayName    String   @map("display_name")
+  mode           String
+  city           String
+  areas          String   @default("")
+  budgetMinKobo  BigInt   @map("budget_min_kobo")
+  budgetMaxKobo  BigInt   @map("budget_max_kobo")
+  moveInFrom     DateTime @map("move_in_from") @db.Date
+  stayMonths     Int?     @map("stay_months")
+  smoking        String
+  pets           String
+  schedule       String
+  tidiness       String
+  guests         String
+  household      String   @default("ANY")
+  iAm            String   @default("UNSAID") @map("i_am")
+  occupation     String   @default("")
+  about          String   @default("")
+  roomListingRef String   @default("") @map("room_listing_ref")
+  adultConfirmedAt DateTime @map("adult_confirmed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([status, city])
+  @@map("flatmate_profiles")
+}
+
+/// "I am interested": when two people are interested in each other, they can message.
+model FlatmateInterest {
+  id         String   @id @default(uuid())
+  fromUserId String   @map("from_user_id")
+  toUserId   String   @map("to_user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId])
+  @@map("flatmate_interests")
+}
+
+/// People a person never wants to see in their matches.
+model FlatmateHide {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  hiddenUserId String   @map("hidden_user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, hiddenUserId])
+  @@map("flatmate_hides")
+}

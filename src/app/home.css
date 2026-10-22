@@ -275,7 +275,7 @@
 @media (max-width: 860px) { .ref-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ref-row code { grid-column: 1 / -1; } }
 
 /* Portals (owner, vendor, provider) */
-.check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 4px 12px; max-height: 280px; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 10px; }
+.check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 4px 12px; }
 .check-grid .check { min-height: 44px; align-items: center; }
 ul.plain { list-style: none; padding: 0; margin: 0; }
 .portal-grant { list-style: none; }

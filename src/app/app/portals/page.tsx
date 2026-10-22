@@ -4,6 +4,7 @@ import { listGrants } from "@/lib/services/portals";
 import { GRANT_STATUS_LABELS, PORTAL_LABELS, type GrantStatus, type PortalKind } from "@/lib/portal-rules";
 import { formatDate } from "@/lib/dates";
 import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { CheckList } from "@/components/CheckList";
 import { InviteForm, ReissueForm } from "./InviteForm";
 import { assetsAction, revokeAction } from "./actions";
 
@@ -31,10 +32,10 @@ export default async function PortalsPage({ searchParams }: { searchParams?: Pro
           {g.status !== "REVOKED" ? (
             <form action={assetsAction} className="stack">
               <input type="hidden" name="id" value={g.id} />
-              <div className="check-grid">{assets.map((a) => <label key={a.id} className="check"><input type="checkbox" name="assetId" value={a.id} defaultChecked={g.assets.some((x) => x.id === a.id)} /> <span>{a.name} <span className="small muted">{a.ref}</span></span></label>)}</div>
+              <CheckList name="assetId" noun="more properties" checked={g.assets.map((x) => x.id)} items={assets.map((a) => ({ id: a.id, label: a.name, hint: a.ref }))} />
               <div className="row"><button className="btn" type="submit">Save properties</button></div>
             </form>
-          ) : <ul className="plain">{g.assets.map((a) => <li key={a.id}>{a.label}</li>)}</ul>}
+          ) : <ShowMore limit={6} noun="more properties" items={g.assets.map((a) => <li key={a.id}>{a.label}</li>)} />}
         </details>
       ) : (
         <div className="stack" style={{ gap: 4 }}>

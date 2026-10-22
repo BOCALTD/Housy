@@ -5,6 +5,7 @@ import { providerLeads } from "@/lib/services/portals";
 import { LEAD_STATUS_LABELS, leadNext, type LeadStatus } from "@/lib/portal-rules";
 import { formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
+import { MoreMenu } from "@/components/MoreMenu";
 import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { providerLeadAction } from "../../actions";
 
@@ -35,9 +36,12 @@ export default async function ProviderPortal({ params, searchParams }: { params:
         <Link className="btn" href="/portal">All portals</Link>
       </div>
       <Flash searchParams={{ error: sp(s, "error"), notice: sp(s, "notice") }} />
-      <nav className="nav nav-scroll" aria-label="Filter requests">
+      <nav className="nav workspace-nav" aria-label="Filter requests">
         <Link className="tap" href={`/portal/provider/${provider.id}`} aria-current={!status ? "page" : undefined}>All ({total})</Link>
-        {FILTERS.map((f) => <Link key={f} className="tap" href={`/portal/provider/${provider.id}?status=${f}`} aria-current={status === f ? "page" : undefined}>{LEAD_STATUS_LABELS[f]} ({counts[f] ?? 0})</Link>)}
+        {FILTERS.slice(0, 3).map((f) => <Link key={f} className="tap" href={`/portal/provider/${provider.id}?status=${f}`} aria-current={status === f ? "page" : undefined}>{LEAD_STATUS_LABELS[f]} ({counts[f] ?? 0})</Link>)}
+        <MoreMenu label="More">
+          {FILTERS.slice(3).map((f) => <Link key={f} href={`/portal/provider/${provider.id}?status=${f}`} aria-current={status === f ? "page" : undefined}>{LEAD_STATUS_LABELS[f]} ({counts[f] ?? 0})</Link>)}
+        </MoreMenu>
       </nav>
       {leads.length === 0 ? <section className="card"><p className="muted">No requests{status ? " with this status" : " yet"}.</p></section> : (
         <ShowMore limit={10} noun="more requests" items={leads.map((l) => {

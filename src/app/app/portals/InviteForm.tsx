@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { CheckList } from "@/components/CheckList";
 import { inviteAction, reissueAction, type InviteState } from "./actions";
 
 function LinkBox({ state, done }: { state: InviteState; done: string }) {
@@ -37,7 +38,7 @@ export function InviteForm({ kind, assets, contractors }: { kind: "OWNER" | "VEN
       {kind === "OWNER" ? (
         <fieldset className="field"><legend>Properties they may see</legend>
           {assets.length === 0 ? <p className="small muted">Add an asset first.</p> : (
-            <div className="check-grid">{assets.map((a) => <label key={a.id} className="check"><input type="checkbox" name="assetId" value={a.id} /> <span>{a.name} <span className="small muted">{a.ref}</span></span></label>)}</div>
+            <CheckList name="assetId" noun="more properties" items={assets.map((a) => ({ id: a.id, label: a.name, hint: a.ref }))} />
           )}
         </fieldset>
       ) : null}

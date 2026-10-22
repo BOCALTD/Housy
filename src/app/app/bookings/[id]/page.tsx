@@ -42,6 +42,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
             {b.message ? <li>“{b.message}”</li> : null}
             {b.scheduledAt ? <li><strong>Confirmed for {formatDateTime(b.scheduledAt)}</strong> ({b.durationMinutes} minutes) with {b.team.find((t) => t.userId === b.assignedUserId)?.name ?? "—"}{b.meetingPoint ? ` · meet at ${b.meetingPoint}` : ""}</li> : null}
           </ul>
+          {b.scheduledAt && b.status !== "CANCELLED" && b.status !== "COMPLETED" ? <p><a className="btn" href={`/app/bookings/${b.id}/calendar`}>Add to calendar</a></p> : null}
           <BookingTimeline status={b.status} events={b.events} />
           {steps.length ? (
             <div className="stack">

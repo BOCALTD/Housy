@@ -5358,3 +5358,13 @@ model ProviderMember {
   @@index([userId])
   @@map("provider_members")
 }
+
+/// A private calendar feed link: a calendar app subscribes to it to see the person's inspections. Only the hash of the link's secret is kept.
+model CalendarFeed {
+  id         String    @id @default(uuid())
+  userId     String    @unique @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("calendar_feeds")
+}

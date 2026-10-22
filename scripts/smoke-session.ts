@@ -50,7 +50,10 @@ async function main() {
     for (const x of await tx.deal.findMany({ select: { id: true } })) { paths.add(`/app/deals/${x.id}`); paths.add(`/app/deals/${x.id}/file`); }
     for (const c of await tx.collaboration.findMany({ select: { id: true, kind: true } })) { paths.add(`/app/collaborations/${c.id}`); if (c.kind === "SEEKER_AGENT") paths.add(`/me/collaborations/${c.id}`); }
     for (const r of await tx.receipt.findMany({ select: { id: true } })) paths.add(`/app/receipts/${r.id}`);
-    for (const b of await tx.inspectionBooking.findMany({ select: { id: true } })) paths.add(`/app/bookings/${b.id}`);
+    for (const b of await tx.inspectionBooking.findMany({ select: { id: true, scheduledAt: true, status: true } })) {
+      paths.add(`/app/bookings/${b.id}`);
+      if (b.scheduledAt && b.status !== "REQUESTED") paths.add(`/app/bookings/${b.id}/calendar`);
+    }
     for (const x of await tx.safetySession.findMany({ where: { companyId }, select: { id: true } })) paths.add(`/app/safety/${x.id}`);
   });
 
@@ -60,7 +63,10 @@ async function main() {
 
   await withUser(seeker.id, async (tx) => {
     for (const v of await tx.vacancyReport.findMany({ select: { id: true } })) paths.add(`/vacancies/${v.id}`);
-    for (const b of await tx.inspectionBooking.findMany({ where: { requesterId: seeker.id }, select: { ref: true } })) paths.add(`/me/inspections/${b.ref}`);
+    for (const b of await tx.inspectionBooking.findMany({ where: { requesterId: seeker.id }, select: { ref: true, scheduledAt: true, status: true } })) {
+      paths.add(`/me/inspections/${b.ref}`);
+      if (b.scheduledAt && b.status !== "REQUESTED") paths.add(`/me/inspections/${b.ref}/calendar`);
+    }
   });
   await withPlatformAdmin(platform.id, async (tx) => {
     for (const c of await tx.trustCase.findMany({ select: { ref: true } })) paths.add(`/admin/cases/${c.ref}`);

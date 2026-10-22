@@ -4,6 +4,8 @@ import { companyBookings } from "@/lib/services/inspection-bookings";
 import { BOOKING_LABEL, isOpen, type BookingStatus } from "@/lib/booking-rules";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { CalendarFeed } from "@/components/CalendarFeed";
+import { feedStatus } from "@/lib/services/calendar";
 
 export const metadata = { title: "Inspection bookings" };
 export const dynamic = "force-dynamic";
@@ -14,6 +16,7 @@ export default async function BookingsPage({ searchParams }: { searchParams?: Pr
   const s = await searchParams;
   const member = await requireMember("booking.manage");
   const rows = await companyBookings(member);
+  const feed = await feedStatus(member.userId);
   const waiting = rows.filter((r) => r.status === "REQUESTED");
   const upcoming = rows.filter((r) => isOpen(r.status as BookingStatus) && r.status !== "REQUESTED" && r.scheduledAt);
   const done = rows.filter((r) => !isOpen(r.status as BookingStatus));
@@ -41,6 +44,7 @@ export default async function BookingsPage({ searchParams }: { searchParams?: Pr
         {days.length > 14 ? <p className="small muted">Showing the next 14 days with inspections.</p> : null}
       </section>
       {done.length ? <details className="card inline"><summary>Completed and cancelled in the last 30 days ({done.length})</summary><ShowMore limit={8} noun="more" items={done.map((r) => <li key={r.id}>{row(r)}</li>)} /></details> : null}
+      <section className="card stack" id="calendar"><h2>Inspections you are meeting, in your calendar</h2><CalendarFeed since={feed ? formatDate(feed.createdAt) : null} /></section>
     </div>
   );
 }

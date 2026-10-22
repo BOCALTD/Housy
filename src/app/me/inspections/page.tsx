@@ -4,6 +4,9 @@ import { myBookings } from "@/lib/services/inspection-bookings";
 import { BOOKING_LABEL, isOpen, type BookingStatus } from "@/lib/booking-rules";
 import { formatDateTime } from "@/lib/dates";
 import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { CalendarFeed } from "@/components/CalendarFeed";
+import { feedStatus } from "@/lib/services/calendar";
+import { formatDate } from "@/lib/dates";
 
 export const metadata = { title: "My inspections" };
 export const dynamic = "force-dynamic";
@@ -11,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function MyInspections({ searchParams }: { searchParams?: Promise<SP> }) {
   const s = await searchParams;
   const user = await requireUser();
+  const feed = await feedStatus(user.id);
   const rows = await myBookings(user.id);
   const open = rows.filter((r) => isOpen(r.status as BookingStatus)), past = rows.filter((r) => !isOpen(r.status as BookingStatus));
   const item = (r: (typeof rows)[number]) => (
@@ -25,6 +29,7 @@ export default async function MyInspections({ searchParams }: { searchParams?: P
       <Flash searchParams={{ error: sp(s, "error"), notice: sp(s, "notice") }} />
       <section className="card stack"><h2>Coming up</h2>{open.length ? <ShowMore limit={6} noun="more" items={open.map(item)} /> : <p className="muted">Nothing booked. <Link href="/browse">Find a property</Link>.</p>}</section>
       {past.length ? <details className="card inline"><summary>Past and cancelled ({past.length})</summary><ShowMore limit={6} noun="more" items={past.map(item)} /></details> : null}
+      <section className="card stack" id="calendar"><h2>In your calendar</h2><CalendarFeed since={feed ? formatDate(feed.createdAt) : null} /></section>
     </div>
   );
 }

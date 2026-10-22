@@ -10,7 +10,7 @@ const MAX_PAGES = 30;
 const REFRESH_MS = 30 * 60 * 1000;
 
 const PUBLIC = /^\/(?:$|browse|properties|faq|how-it-works|about|safety$|reviews|calculators|compare|trust$|agents|companies|directory|completed|awards|reels|map|support)(?:\/|$)/;
-const NEVER = /^\/(?:app|admin|me|portal|api|kyc|messages|invite|login|join|signup|setup|forgot|reset|unsubscribe|billing|r|safety\/|trust\/|verification|collaborations|feedback|rewards|referrals|ads)(?:\/|$)/;
+const NEVER = /^\/(?:app|admin|me|portal|api|calendar|kyc|messages|invite|login|join|signup|setup|forgot|reset|unsubscribe|billing|r|safety\/|trust\/|verification|collaborations|feedback|rewards|referrals|ads)(?:\/|$)/;
 const STATIC_PATH = /^\/(?:_next\/static\/|icons\/|stock\/|icon\.svg$|apple-icon\.png$)/;
 
 self.addEventListener("install", (event) => {

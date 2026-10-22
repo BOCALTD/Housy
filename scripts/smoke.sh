@@ -35,6 +35,7 @@ grep -qi '^content-type: application/javascript' /tmp/sw.h || fail "/sw.js is no
 grep -qi '^cache-control: no-cache' /tmp/sw.h || fail "/sw.js may be cached by the browser"
 echo "$sw" | grep -q 'app|admin|me|portal|api' || fail "/sw.js does not exclude signed-in areas"
 curl -s http://localhost:3100/offline | grep -q "You are offline" || fail "/offline does not render"
+[ "$(code /calendar/not-a-real-token-at-all-xxxx.ics)" = "404" ] || fail "an unknown calendar link did not return 404"
 curl -s http://localhost:3100/ | grep -q 'property="og:image"' || fail "home page has no og:image tag"
 curl -s http://localhost:3100/ | grep -q 'rel="icon"' || fail "home page has no icon link"
 REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)

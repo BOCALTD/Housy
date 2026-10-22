@@ -130,6 +130,7 @@ test("no route hands out data without checking who is asking", () => {
     "app/api/v1/listings/route.ts": "published listings only; read-only; rate limited",
     "app/api/v1/listings/[ref]/route.ts": "one published listing; read-only; rate limited",
     "app/api/v1/openapi/route.ts": "the public description of the API",
+    "app/calendar/[token]/route.ts": "a private calendar feed: the secret in the link is the key (stored as a hash, replaceable, rate limited)",
     "app/partners/[id]/logo/route.ts": "logos of active partners only; the database hides the rest",
     "app/photos/[id]/route.ts": "pictures of published listings; the database returns nothing for any other listing",
   };

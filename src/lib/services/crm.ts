@@ -710,7 +710,8 @@ export async function crmOverview(ctx: Ctx) {
       tx.lead.groupBy({ by: ["status"], where: scopeLead, _count: { _all: true } }),
       tx.client.count({ where: { companyId: ctx.companyId, archivedAt: null, ...clientVisibleWhere(ctx, owners) } }),
       tx.clientActivity.count({ where: { companyId: ctx.companyId, kind: "FOLLOW_UP", doneAt: null, dueOn: { lte: today }, assigneeId: ctx.membershipId } }),
-      can(ctx.role, "enquiry.view") ? tx.enquiry.count({ where: { companyId: ctx.companyId, id: { notIn: (await tx.lead.findMany({ where: { companyId: ctx.companyId, sourceEnquiryId: { not: null } }, select: { sourceEnquiryId: true } })).map((l) => l.sourceEnquiryId!) } } }) : Promise.resolve(0),
+      // Enquiries not yet turned into a lead, counted in the database rather than by loading every converted id.
+      can(ctx.role, "enquiry.view") ? tx.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM enquiries e WHERE e.company_id = ${ctx.companyId} AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.source_enquiry_id = e.id)`.then((r) => Number(r[0]?.n ?? 0)) : Promise.resolve(0),
       tx.lead.count({ where: { ...scopeLead, status: "CONVERTED" } }),
     ]);
     const n = (s: string) => byStatus.find((b) => b.status === s)?._count._all ?? 0;
@@ -722,7 +723,7 @@ export async function pendingEnquiries(ctx: Ctx) {
   assertCan(ctx, "crm.manage");
   assertCan(ctx, "enquiry.view");
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
-    const done = (await tx.lead.findMany({ where: { companyId: ctx.companyId, sourceEnquiryId: { not: null } }, select: { sourceEnquiryId: true } })).map((l) => l.sourceEnquiryId!);
-    return tx.enquiry.findMany({ where: { companyId: ctx.companyId, id: { notIn: done } }, orderBy: { createdAt: "desc" }, take: 50, include: { listing: { select: { title: true, publicRef: true } } } });
+    const open = await tx.$queryRaw<{ id: string }[]>`SELECT e.id FROM enquiries e WHERE e.company_id = ${ctx.companyId} AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.source_enquiry_id = e.id) ORDER BY e.created_at DESC LIMIT 50`;
+    return tx.enquiry.findMany({ where: { companyId: ctx.companyId, id: { in: open.map((o) => o.id) } }, orderBy: { createdAt: "desc" }, include: { listing: { select: { title: true, publicRef: true } } } });
   });
 }

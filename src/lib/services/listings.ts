@@ -131,7 +131,7 @@ export async function setListingStatus(ctx: Ctx, assetId: string, to: "PENDING_R
 
 export async function reviewQueue(adminUserId: string) {
   return withPlatformAdmin(adminUserId, async (tx) => {
-    const listings = await tx.listing.findMany({ where: { status: "PENDING_REVIEW" }, orderBy: { updatedAt: "asc" } });
+    const listings = await tx.listing.findMany({ where: { status: "PENDING_REVIEW" }, orderBy: { updatedAt: "asc" }, take: 200 });
     const companies = await tx.company.findMany({
       where: { id: { in: listings.map((l) => l.companyId) } }, select: { id: true, name: true },
     });

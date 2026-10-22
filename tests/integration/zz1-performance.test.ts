@@ -18,6 +18,12 @@ import { portfolioMapPoints, publicMapPoints } from "../../src/lib/services/maps
 import { readStoredFile } from "../../src/lib/storage";
 import { parseDateOnly } from "../../src/lib/dates";
 import { newCompany } from "./helpers";
+import { categoryCounts, searchListingsPage } from "../../src/lib/services/listings";
+import { CATEGORIES, parseFilters } from "../../src/lib/listing-rules";
+import { cityCounts, siteCounts } from "../../src/lib/services/home";
+import { acceptPortalInvite, inviteOwner, myPortals, ownerPortal, ownerStatement } from "../../src/lib/services/portals";
+import { renderStatement } from "../../src/lib/statement-pdf";
+import { registerSeeker } from "../../src/lib/services/community";
 
 after(() => prisma.$disconnect());
 
@@ -110,6 +116,31 @@ test("a company's pages stay quick with thousands of assets and tens of thousand
   assert.equal(opts.length, 1000);
   const pts = await timed("portfolio map", 2500, () => portfolioMapPoints(co));
   assert.ok(pts.points.length > 0);
+});
+
+test("the browse pages, home figures and category counts stay quick", async () => {
+  const f = (q: Record<string, string>) => parseFilters((k) => q[k] ?? null);
+  const page1 = await timed("browse page 1 (24 results and the total)", 1200, () => searchListingsPage(f({})));
+  assert.equal(page1.rows.length, 24);
+  await timed("browse a page far down", 1500, () => searchListingsPage(f({ page: "300" })));
+  await timed("browse rent in Lekki, 2+ beds, cheapest first", 1500, () => searchListingsPage(f({ purpose: "RENT", city: "Lekki", minBeds: "2", sort: "price_asc" })));
+  await timed("counts for all ten categories", 2500, () => categoryCounts(CATEGORIES.map((c) => ({ slug: c.slug, rule: c.rule }))));
+  await timed("home page counts", 1500, () => siteCounts());
+  await timed("home page cities", 1500, () => cityCounts("NG"));
+});
+
+test("an owner with fifty properties: the portal and a year's statement stay quick", async () => {
+  const assets = await withTenant(co.companyId, co.userId, (tx) => tx.lease.findMany({ where: { companyId: co.companyId }, select: { assetId: true }, distinct: ["assetId"], take: 50 }));
+  const email = `perf-owner-${randomUUID().slice(0, 8)}@example.test`;
+  const owner = await registerSeeker({ name: "Perf Owner", email, password: "integration-test-pw" });
+  await acceptPortalInvite(await inviteOwner(co, { email, displayName: "Perf Owner", assetIds: assets.map((a) => a.assetId) }), { id: owner.userId, email });
+  const grantId = (await myPortals(owner.userId)).grants[0].id;
+  const view = await timed("owner portal, 50 properties", 3000, () => ownerPortal(owner.userId, grantId));
+  assert.equal(view!.assets.length, assets.length);
+  const st = await timed("owner statement, a year, 50 properties", 3000, () => ownerStatement(owner.userId, grantId, "2025-01-01", "2025-12-31"));
+  const pdf = await timed("statement PDF", 1500, async () => renderStatement(st!));
+  assert.ok(pdf.byteLength > 1000);
+  console.log(`PERF name=statement-pdf bytes=${pdf.byteLength}`);
 });
 
 test("media-heavy pages: thirty one-megabyte photographs read back in reasonable time, one after another and together", async () => {

@@ -111,7 +111,7 @@ export async function companyBooking(ctx: Ctx, id: string) {
 
 const confirmSchema = z.object({
   scheduledAt: z.string().transform((v) => fromLagosLocal(v)),
-  durationMinutes: z.coerce.number().int().refine((n) => (DURATIONS as readonly number[]).includes(n), "Choose how long the inspection takes"),
+  durationMinutes: z.union([z.string(), z.number()]).transform((v) => Number(v)).refine((n) => (DURATIONS as readonly number[]).includes(n), "Choose how long the inspection takes"),
   assignedUserId: z.string().min(1, "Choose who will meet them"),
   meetingPoint: z.string().trim().max(300).default(""),
   note: z.string().trim().max(500).default(""),

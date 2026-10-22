@@ -242,7 +242,7 @@ async function main() {
           }
         } else if (wantShot) {
           // The keyboard check scrolls the page; start the full-page picture from the top so sticky bars sit where a person sees them.
-          await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo(0, 0); });
+          await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo({ top: 0, behavior: "instant" }); });
           await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
         }
         // The side menu as a drawer: open it on phones and tablets and photograph it.

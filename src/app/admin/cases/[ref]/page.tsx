@@ -20,7 +20,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
   return (
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
-        <p className="eyebrow"><Link href="/admin/cases">Cases</Link> · {c.ref}</p>
+        <p className="eyebrow"><Link className="tap" href="/admin/cases">Cases</Link> · {c.ref}</p>
         <h1>{CASE_CATEGORIES[c.category as keyof typeof CASE_CATEGORIES] ?? c.category}</h1>
         <p><Pill status={c.severity === "CRITICAL" || c.severity === "HIGH" ? "SUSPENDED" : "PENDING"} label={c.severity.toLowerCase()} /> <span className="small muted">{CASE_STATUS_LABEL[c.status as CaseStatus]} · due {formatDateTime(c.dueAt)}{overdue({ status: c.status as CaseStatus, dueAt: c.dueAt }) ? " (overdue)" : ""} · reported {formatDateTime(c.createdAt)} by {c.reporter?.name ?? "a user"}</span></p>
       </div>

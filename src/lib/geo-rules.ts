@@ -71,8 +71,39 @@ export function findPlace(text: string): Place | undefined {
 
 export type Position = { lat: number; lng: number; approximate: boolean };
 
+/** A real position anywhere in the world (the marketplace is not limited to Nigeria). 0,0 is treated as "not set". */
 export function validPosition(lat: unknown, lng: unknown): lat is number {
-  return typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng) && lat >= NIGERIA.latMin && lat <= NIGERIA.latMax && lng >= NIGERIA.lngMin && lng <= NIGERIA.lngMax;
+  return typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng) && lat >= -85 && lat <= 85 && lng >= -180 && lng <= 180 && !(lat === 0 && lng === 0);
+}
+
+/** Map bounds as south, west, north, east. */
+export type Bounds = { s: number; w: number; n: number; e: number };
+
+export function parseBounds(raw: string | null): Bounds | null {
+  const parts = (raw ?? "").split(",").map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
+  const [s, w, n, e] = parts;
+  const b = { s: Math.max(-85, s), w: Math.max(-180, w), n: Math.min(85, n), e: Math.min(180, e) };
+  return b.s < b.n && b.w < b.e ? b : null;
+}
+
+export function inBounds(p: { lat: number; lng: number }, b: Bounds): boolean {
+  return p.lat >= b.s && p.lat <= b.n && p.lng >= b.w && p.lng <= b.e;
+}
+
+/** Grid size for grouping markers at a web-map zoom level: about four groups across one map tile. */
+export function clusterCell(zoom: number): number {
+  return 360 / 2 ** Math.max(0, Math.min(20, Math.round(zoom))) / 4;
+}
+
+/** Short price for a map pin: 2500000 naira → "2.5m". */
+export function shortMoney(kobo: bigint): string {
+  const n = Number(kobo / 100n);
+  const f = (v: number, unit: string) => `${v >= 100 ? Math.round(v) : Math.round(v * 10) / 10}${unit}`;
+  if (n >= 1e9) return f(n / 1e9, "bn");
+  if (n >= 1e6) return f(n / 1e6, "m");
+  if (n >= 1e3) return f(n / 1e3, "k");
+  return String(n);
 }
 
 /** Where to draw something: its own position when it has one, otherwise the centre of the area it names. */

@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma, withPlatformAdmin, withUser, withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
-import { parseDateOnly } from "../dates";
+import { parseDateOnly, endOfLagosDay } from "../dates";
 import { parseNairaToKobo } from "../money";
 import { ENTITLEMENT_KEYS, accessFor, explainState, nextChange, subscriptionState, type Access, type EntitlementKey, type SubscriptionState } from "../subscription-rules";
 
@@ -134,7 +134,7 @@ export async function setPlanEntitlements(adminId: string, planId: string, entri
   });
 }
 
-const endOfDay = (dateOnly: string) => new Date(parseDateOnly(dateOnly).getTime() + 864e5 - 1);
+const endOfDay = (dateOnly: string) => endOfLagosDay(dateOnly);
 
 export interface AssignInput { planId: string; periodEnd: string; trial?: boolean; note?: string; email?: string; companyId?: string }
 

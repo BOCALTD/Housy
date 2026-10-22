@@ -24,6 +24,7 @@ import { cityCounts, siteCounts } from "../../src/lib/services/home";
 import { acceptPortalInvite, inviteOwner, myPortals, ownerPortal, ownerStatement } from "../../src/lib/services/portals";
 import { renderStatement } from "../../src/lib/statement-pdf";
 import { registerSeeker } from "../../src/lib/services/community";
+import { mapView } from "../../src/lib/services/street-map";
 
 after(() => prisma.$disconnect());
 
@@ -37,11 +38,12 @@ async function seed(companyId: string, userId: string) {
       SELECT 'pf-a-' || g, $1, 'PF-' || g, 'Perf asset ' || g, 'RESIDENTIAL'::"AssetClass", 'Flat', (${CITIES})[1 + g % 8], (${STATES})[1 + g % 8],
         6.4 + (g % 100) / 100.0, 3.3 + (g % 70) / 100.0, (ARRAY['ACTIVE','VACANT','OCCUPIED','UNDER_RENOVATION'])[1 + g % 4]::"AssetStatus", 'OWNER', $2, now() - (g || ' seconds')::interval, now()
       FROM generate_series(1, ${ASSETS}) g`, companyId, userId);
-    await tx.$executeRawUnsafe(`INSERT INTO listings (id, company_id, asset_id, public_ref, title, purpose, price_period, price_kobo, bedrooms, bathrooms, city, state, status, published_at, created_at, updated_at)
+    await tx.$executeRawUnsafe(`INSERT INTO listings (id, company_id, asset_id, public_ref, title, purpose, price_period, price_kobo, bedrooms, bathrooms, city, state, status, published_at, created_at, updated_at, lat, lng)
       SELECT 'pf-l-' || g, $1, 'pf-a-' || g, 'PFL-' || g,
         (ARRAY['Bright','Modern','Spacious','Cosy'])[1 + g % 4] || ' ' || (1 + g % 5) || ' bedroom flat in ' || (${CITIES})[1 + g % 8],
         (CASE WHEN g % 3 = 0 THEN 'SALE' ELSE 'RENT' END)::"ListingPurpose", (CASE WHEN g % 3 = 0 THEN 'TOTAL' ELSE 'YEAR' END), ((1000000 + (g % 900) * 100000)::bigint) * 100, 1 + g % 5, 1 + g % 4,
-        (${CITIES})[1 + g % 8], (${STATES})[1 + g % 8], (CASE WHEN g % 10 < 7 THEN 'PUBLISHED' ELSE 'DRAFT' END)::"ListingStatus", now() - (g || ' minutes')::interval, now(), now()
+        (${CITIES})[1 + g % 8], (${STATES})[1 + g % 8], (CASE WHEN g % 10 < 7 THEN 'PUBLISHED' ELSE 'DRAFT' END)::"ListingStatus", now() - (g || ' minutes')::interval, now(), now(),
+        round((6.4 + (g % 100) / 100.0)::numeric, 2)::float8, round((3.3 + (g % 70) / 100.0)::numeric, 2)::float8
       FROM generate_series(1, ${ASSETS}) g`, companyId);
     await tx.$executeRawUnsafe(`INSERT INTO leases (id, company_id, asset_id, ref, occupant_name, start_date, end_date, rent_kobo, frequency, deposit_kobo, status, created_by_id, created_at)
       SELECT 'pf-le-' || g, $1, 'pf-a-' || g, 'PF-L-' || g, 'Tenant ' || g, date '2025-01-01', date '2026-12-31', 15000000, 'MONTHLY'::"RentFrequency", 0, 'ACTIVE'::"LeaseStatus", $2, now()
@@ -127,6 +129,9 @@ test("the browse pages, home figures and category counts stay quick", async () =
   await timed("counts for all ten categories", 2500, () => categoryCounts(CATEGORIES.map((c) => ({ slug: c.slug, rule: c.rule }))));
   await timed("home page counts", 1500, () => siteCounts());
   await timed("home page cities", 1500, () => cityCounts("NG"));
+  const country = await timed("street map, all of Nigeria (grouped)", 1500, () => mapView({ s: 3.5, w: 2.5, n: 14.5, e: 15 }, 6, {}));
+  assert.ok(country.markers.length > 0 && country.markers.length < 2000);
+  await timed("street map, one city zoomed in", 1500, () => mapView({ s: 6.40, w: 3.35, n: 6.50, e: 3.55 }, 14, { purpose: "RENT" }));
 });
 
 test("an owner with fifty properties: the portal and a year's statement stay quick", async () => {

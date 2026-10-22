@@ -1,3 +1,7 @@
+import { StreetMap } from "@/components/StreetMap";
+import { countryView, visitorCountry } from "@/lib/countries";
+import { locate } from "@/lib/geo-rules";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -41,6 +45,8 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
   const result = await getAsset(member, params.id);
   if (!result) notFound();
   const { asset, history, actorNames } = result;
+  const area = locate({ city: asset.city, state: asset.state });
+  const pickStart = area ? { lat: area.lat, lng: area.lng, zoom: 13 } : countryView(visitorCountry(await headers()));
   const team = can(member.role, "task.create") ? (await listTeam(member)).members.filter((m) => m.status === "ACTIVE") : [];
   const today = todayInLagos();
   const condition = await conditionHistory(member, asset.id);
@@ -461,13 +467,20 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
             <section className="card">
               <h2>Map position</h2>
               <p className="small muted">{asset.lat !== null ? `Set to ${asset.lat.toFixed(4)}, ${asset.lng?.toFixed(4)}. Public listings show only an area about 1 km wide.` : `Not set: the map places this property at the centre of ${asset.city || asset.state || "its area"}.`}</p>
-              <details className="inline"><summary>{asset.lat !== null ? "Change position" : "Set position"}</summary>
+              <details className="inline"><summary>{asset.lat !== null ? "Change position" : "Set position on the map"}</summary>
                 <form action={setPositionAction} className="stack">
                   {hidden}
-                  <Field label="Latitude" hint="For example 6.4698"><input name="lat" required inputMode="decimal" defaultValue={asset.lat ?? ""} /></Field>
-                  <Field label="Longitude" hint="For example 3.5852"><input name="lng" required inputMode="decimal" defaultValue={asset.lng ?? ""} /></Field>
-                  <button className="btn" type="submit">Save position</button>
+                  <StreetMap mode="pick" start={pickStart} value={asset.lat !== null && asset.lng !== null ? { lat: asset.lat, lng: asset.lng } : null} label="Choose where the property is" />
+                  <button className="btn primary" type="submit">Save position</button>
                 </form>
+                <details className="inline"><summary>Type the coordinates instead</summary>
+                  <form action={setPositionAction} className="stack">
+                    {hidden}
+                    <Field label="Latitude" hint="For example 6.4698"><input name="lat" required inputMode="decimal" defaultValue={asset.lat ?? ""} /></Field>
+                    <Field label="Longitude" hint="For example 3.5852"><input name="lng" required inputMode="decimal" defaultValue={asset.lng ?? ""} /></Field>
+                    <button className="btn" type="submit">Save position</button>
+                  </form>
+                </details>
                 {asset.lat !== null ? <form action={setPositionAction}>{hidden}<input type="hidden" name="clear" value="1" /><input type="hidden" name="lat" value="" /><input type="hidden" name="lng" value="" /><button className="btn small" type="submit">Clear position</button></form> : null}
               </details>
             </section>

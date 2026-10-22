@@ -7,6 +7,7 @@ const good = {
   REQUIRE_ADMIN_MFA: "true", SETUP_TOKEN: "s".repeat(30), NEXT_PUBLIC_APP_URL: "https://housy.example.ng", NEXT_PUBLIC_PLATFORM_NAME: "Housy",
   RESEND_API_KEY: "re_x", EMAIL_FROM: "Housy <no-reply@housy.ng>", PAYSTACK_SECRET_KEY: "sk_live_abc", CRON_SECRET: "c".repeat(30), UNSUBSCRIBE_SECRET: "u".repeat(30), SUPPORT_EMAIL: "help@housy.ng",
   VAPID_PUBLIC_KEY: "B".repeat(87), VAPID_PRIVATE_KEY: "p".repeat(43),
+  NEXT_PUBLIC_MAP_TILES: "https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=abc",
 };
 const by = (env: Record<string, string | undefined>) => Object.fromEntries(readinessChecks(env).map((c) => [c.id, c]));
 

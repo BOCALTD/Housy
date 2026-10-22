@@ -145,6 +145,7 @@ export async function setPositionAction(form: FormData) {
   return act(assetPath(id), async () => {
     const member = await requireMember("asset.update");
     const clear = form.get("clear") === "1";
+    if (!clear && !str(form, "lat") && !str(form, "lng")) throw new Error("Tap the map where the property is, then save.");
     await setAssetPosition(member, id, clear ? null : { lat: str(form, "lat"), lng: str(form, "lng") });
     return withNotice(assetPath(id), clear ? "Map position cleared." : "Map position saved.");
   });

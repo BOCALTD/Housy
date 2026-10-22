@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma, withPlatformAdmin, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
-import { formatDate, parseDateOnly, todayInLagos } from "../dates";
+import { formatDate, parseDateOnly, todayInLagos, endOfLagosDay } from "../dates";
 import { formatKobo } from "../money";
 import { validateUpload } from "../storage";
 import { randomRef } from "../tokens";
@@ -370,7 +370,7 @@ export async function addParticipant(a: Actor, id: string, userId: string, perms
     if (!member) throw new Error("Choose an active agent, manager or administrator of your company");
     const data = {
       canComment: perms.canComment ?? true, canTasks: perms.canTasks ?? true, canShare: perms.canShare ?? true, canDocuments: perms.canDocuments ?? true,
-      expiresAt: perms.expiresOn ? new Date(parseDateOnly(perms.expiresOn).getTime() + 864e5 - 1) : null,
+      expiresAt: perms.expiresOn ? endOfLagosDay(perms.expiresOn) : null,
     };
     if (data.expiresAt && data.expiresAt.getTime() <= Date.now()) throw new Error("Choose an access end date in the future");
     const p = await tx.collabParticipant.upsert({
@@ -391,7 +391,7 @@ export async function updateParticipant(a: Actor, participantId: string, perms: 
     const c = await loadSettled(tx, a, p.collaborationId);
     if (!speaksFor(a, c, p.side as Side)) throw new Error("Only a manager or administrator of that side can change access");
     if (p.revokedAt) throw new Error("Access was revoked. Add the person again to restore it");
-    const expiresAt = perms.expiresOn === undefined ? undefined : perms.expiresOn ? new Date(parseDateOnly(perms.expiresOn).getTime() + 864e5 - 1) : null;
+    const expiresAt = perms.expiresOn === undefined ? undefined : perms.expiresOn ? endOfLagosDay(perms.expiresOn) : null;
     if (expiresAt && expiresAt.getTime() <= Date.now()) throw new Error("Choose an access end date in the future");
     await tx.collabParticipant.update({ where: { id: p.id }, data: { canComment: perms.canComment ?? p.canComment, canTasks: perms.canTasks ?? p.canTasks, canShare: perms.canShare ?? p.canShare, canDocuments: perms.canDocuments ?? p.canDocuments, ...(expiresAt === undefined ? {} : { expiresAt }) } });
     await event(tx, c.id, a.userId, "participant_changed", `Access changed for ${p.name}`);

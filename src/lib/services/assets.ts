@@ -264,7 +264,7 @@ export async function setAssetPosition(ctx: Ctx, assetId: string, input: { lat: 
   let pos: { lat: number; lng: number } | null = null;
   if (input && (input.lat.trim() || input.lng.trim())) {
     const lat = Number(input.lat.trim()), lng = Number(input.lng.trim());
-    if (!validPosition(lat, lng)) throw new Error("Enter a latitude and longitude inside Nigeria, for example 6.4698 and 3.5852");
+    if (!validPosition(lat, lng)) throw new Error("Enter a real latitude and longitude, for example 6.4698 and 3.5852, or pick the spot on the map");
     pos = { lat, lng };
   }
   await withTenant(ctx.companyId, ctx.userId, async (tx) => {

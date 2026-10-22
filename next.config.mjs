@@ -1,10 +1,18 @@
 /** @type {import('next').NextConfig} */
 // The only outside services the pages use are Google Fonts and, when the user saves a file to Google Drive, Google sign-in and Drive.
+// Street map tiles: OpenStreetMap by default; set NEXT_PUBLIC_MAP_TILES to a provider's template (MapTiler, Stadia, Carto...) for production traffic.
+const tiles = process.env.NEXT_PUBLIC_MAP_TILES || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const tileHost = (() => {
+  try {
+    const u = new URL(tiles.replace(/\{s\}/g, "a").replace(/\{[a-z]+\}/g, "0"));
+    return tiles.includes("{s}") ? `${u.protocol}//*.${u.host.split(".").slice(1).join(".")}` : u.origin;
+  } catch { return "https://tile.openstreetmap.org"; }
+})();
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://accounts.google.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
-  "img-src 'self' data: blob:",
+  `img-src 'self' data: blob: ${tileHost}`,
   "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https://www.googleapis.com https://accounts.google.com",
   "frame-src https://accounts.google.com",

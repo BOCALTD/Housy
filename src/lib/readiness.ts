@@ -47,6 +47,10 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
   add("push", "Push notifications", push ? "ok" : "warn",
     push ? "VAPID keys set. Turn notifications on for one phone and send a test from Notification settings." : "VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are not set, so phones get no push notifications (in-app notices and email still work). install.sh makes them; or run scripts/vapid-keys.ts.", "provider");
 
+  const tiles = env.NEXT_PUBLIC_MAP_TILES ?? "";
+  add("map", "Street map tiles", /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? "ok" : "warn",
+    /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? "A tile provider is set." : "Using OpenStreetMap's public tiles, which are fine for testing and light use only. Set NEXT_PUBLIC_MAP_TILES (and NEXT_PUBLIC_MAP_ATTRIBUTION) to a provider such as MapTiler or Stadia Maps before real traffic, then rebuild.", "provider");
+
   const pk = env.PAYSTACK_SECRET_KEY ?? "";
   add("payments", "Payment provider", /^sk_live_/.test(pk) ? "ok" : /^sk_test_/.test(pk) ? "warn" : "warn",
     /^sk_live_/.test(pk) ? "A live key is set. Prove it with one small real payment." : /^sk_test_/.test(pk) ? "A TEST key is set: no real money moves." : "No key: payments stay manual (bank transfer recorded by hand).", "provider");

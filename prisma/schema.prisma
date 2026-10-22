@@ -624,6 +624,7 @@ model Listing {
   @@index([status, city])
   @@index([status, propertyType])
   @@index([publishedAt(sort: Desc)])
+  @@index([status, lat, lng])
   @@map("listings")
 }
 

@@ -37,6 +37,9 @@ echo "$sw" | grep -q 'app|admin|me|portal|api' || fail "/sw.js does not exclude 
 curl -s http://localhost:3100/offline | grep -q "You are offline" || fail "/offline does not render"
 [ "$(code /calendar/not-a-real-token-at-all-xxxx.ics)" = "404" ] || fail "an unknown calendar link did not return 404"
 [ "$(code /api/cron/push)" = "401" ] || fail "/api/cron/push answered without the job secret"
+curl -s "http://localhost:3100/api/map/listings?bbox=3.5,2.5,14.5,15&zoom=6" | grep -q '"markers"' || fail "the map data endpoint did not answer"
+[ "$(code '/api/map/listings?bbox=nonsense')" = "400" ] || fail "the map data endpoint accepted a bad area"
+curl -s -H "cf-ipcountry: GB" http://localhost:3100/map | grep -q "United Kingdom" || fail "the map did not open on the visitor's country"
 curl -s http://localhost:3100/ | grep -q 'property="og:image"' || fail "home page has no og:image tag"
 curl -s http://localhost:3100/ | grep -q 'rel="icon"' || fail "home page has no icon link"
 REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)

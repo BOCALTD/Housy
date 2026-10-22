@@ -74,7 +74,7 @@ test("places, positions, clusters and the privacy blur behave", () => {
   assert.deepEqual(locate({ city: "Lekki", state: "Lagos" }), { lat: 6.4698, lng: 3.5852, approximate: true });
   assert.deepEqual(locate({ lat: 6.5, lng: 3.4 }), { lat: 6.5, lng: 3.4, approximate: false });
   assert.equal(locate({ city: "Nowhere", state: "Nowhere" }), null);
-  assert.equal(validPosition(51, 0), false); assert.equal(validPosition(6.5, 3.4), true); assert.equal(validPosition(NaN, 3), false);
+  assert.equal(validPosition(95, 0), false); assert.equal(validPosition(0, 0), false); assert.equal(validPosition(51.5, -0.12), true); assert.equal(validPosition(6.5, 3.4), true); assert.equal(validPosition(NaN, 3), false);
   assert.deepEqual(publicPosition(6.456789, 3.424321), { lat: 6.46, lng: 3.42 });
   assert.ok(Math.abs(distanceKm({ lat: 6.4549, lng: 3.4246 }, { lat: 6.4698, lng: 3.5852 }) - 17.9) < 1.5);
   const pts = [{ id: "a", lat: 6.45, lng: 3.42, label: "a" }, { id: "b", lat: 6.46, lng: 3.43, label: "b" }, { id: "c", lat: 9.07, lng: 7.4, label: "c" }];

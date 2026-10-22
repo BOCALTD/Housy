@@ -54,3 +54,8 @@ export function fromLagosLocal(value: string): Date {
 export function toLagosLocal(d: Date): string {
   return new Date(d.getTime() + 3_600_000).toISOString().slice(0, 16);
 }
+
+/** The last moment of a calendar day in Lagos (UTC+1, no daylight saving). "Valid until 3 May" means until midnight in Lagos, not in London. */
+export function endOfLagosDay(dateOnly: string): Date {
+  return new Date(parseDateOnly(dateOnly).getTime() + 864e5 - 1 - 3_600_000);
+}

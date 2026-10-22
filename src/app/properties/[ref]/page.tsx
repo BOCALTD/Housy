@@ -1,3 +1,4 @@
+import { StreetMap } from "@/components/StreetMap";
 import { CompareToggle } from "@/components/Compare";
 import { CONDITIONS, CONSTRUCTION, FURNISHING, isCode, parseAmenities } from "@/lib/listing-rules";
 import { labelsOf, refData } from "@/lib/services/reference";
@@ -135,6 +136,13 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
             </section>
           );
         })()}
+        {listing.lat !== null && listing.lng !== null ? (
+          <section className="stack" aria-labelledby="where-h">
+            <h2 id="where-h">Where it is</h2>
+            <StreetMap mode="area" centre={{ lat: listing.lat, lng: listing.lng }} label={`Area around ${listing.title}`} />
+            <p className="small muted">The shaded circle shows the area, about a kilometre wide. The company gives the exact address when you arrange an inspection. <Link href={`/map?lat=${listing.lat}&lng=${listing.lng}&z=14`}>See nearby properties on the map</Link>.</p>
+          </section>
+        ) : null}
         <div className="flash" style={{ background: "var(--surface-2)" }}>
           <strong>What has been checked:</strong> this listing was submitted by a registered company and reviewed by the platform
           before publication{listing.publishedAt ? ` on ${formatDate(listing.publishedAt)}` : ""}. Title and ownership have <strong>not</strong> been verified by the platform.

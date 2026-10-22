@@ -26,7 +26,7 @@ test("API keys: made once, stored as a fingerprint, limited to one company, revo
   const stored = await withTenant(a.companyId, a.userId, (tx) => tx.apiKey.findFirstOrThrow({ where: { id } }));
   assert.notEqual(stored.tokenHash, key);
   assert.equal(stored.tokenHash, hashApiKey(key));
-  assert.ok(!JSON.stringify(stored).includes(key.split("_")[2]), "the secret part is never stored");
+  assert.ok(!JSON.stringify(stored).includes(key.slice(13)), "the secret part is never stored"); // after "hsy_XXXXXXXX_"
 
   // Another company cannot see the key, and a guessed key is refused.
   assert.equal((await listApiKeys(b)).length, 0);

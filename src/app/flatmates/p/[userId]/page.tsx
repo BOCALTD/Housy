@@ -54,7 +54,14 @@ export default async function FlatmateProfileView({ params, searchParams }: { pa
       </div>
       <section className="card stack">
         <h2>How they live</h2>
-        <dl className="kv">{p.lifestyle.map((x) => <div key={x.key}><dt>{x.question}</dt><dd>{x.answer}</dd></div>)}</dl>
+        {/* The first answers show; the rest fold, so the page stays short on phones. */}
+        <dl className="kv">{p.lifestyle.slice(0, 5).map((x) => <div key={x.key}><dt>{x.question}</dt><dd>{x.answer}</dd></div>)}</dl>
+        {p.lifestyle.length > 5 ? (
+          <details className="inline">
+            <summary>Show {p.lifestyle.length - 5} more answers</summary>
+            <dl className="kv">{p.lifestyle.slice(5).map((x) => <div key={x.key}><dt>{x.question}</dt><dd>{x.answer}</dd></div>)}</dl>
+          </details>
+        ) : null}
       </section>
       <section className="card stack" id="request">
         {!r || r.status === "WITHDRAWN" || (r.status === "DECLINED" && !r.mine) ? (

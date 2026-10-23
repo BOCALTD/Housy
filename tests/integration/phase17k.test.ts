@@ -48,7 +48,7 @@ test("profiles are private, matches respect city and preferences, and score how 
   assert.equal(bisiRow.match.band.label, "Perfectly matched");
   const chidiRow = m.rows.find((r) => r.profile.userId === chidi)!;
   assert.ok(chidiRow.match.score < bisiRow.match.score && chidiRow.match.bad.includes("Smoking clash"));
-  assert.ok(!JSON.stringify(m.rows).includes("inclusive"), "the inclusiveness answer is never shown to others");
+  assert.ok(!JSON.stringify(m.rows, (_k, v) => (typeof v === "bigint" ? v.toString() : v)).includes("inclusive"), "the inclusiveness answer is never shown to others");
   assert.equal((await myMatches(chidi)).rows.some((r) => r.profile.userId === womenOnly), false, "a women-only household is not shown to a man");
 });
 

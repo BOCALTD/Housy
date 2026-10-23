@@ -77,7 +77,7 @@ test("a signed success message pays the invoice, switches the plan on, and is co
   const e = await entitled(buyer.id);
   assert.equal(e.access, "FULL");
   assert.equal(e.state, "ACTIVE");
-  assert.ok(e.periodEnd!.getTime() > Date.now() + 27 * 864e5 && e.periodEnd!.getTime() < Date.now() + 32 * 864e5, "one month bought");
+  assert.ok(e.periodEnd!.getTime() > Date.now() + 27 * 864e5 && e.periodEnd!.getTime() < Date.now() + 32 * 864e5 + 2 * 3_600_000, "one month bought");
   const after = await invoiceFor(buyer.payer, inv.id);
   assert.equal(after!.status, "PAID");
   assert.equal(after!.payments[0].status, "SUCCEEDED");

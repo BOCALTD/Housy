@@ -500,8 +500,10 @@ export async function campaignReport(who: Who, ref: string, now: Date = new Date
     baseViews: await tx.listingViewKey.count({ where: { listingId: c.listingId, day: { gte: baseFrom, lte: baseTo }, via: "ORGANIC" } }),
   }));
   // Enquiries belong to the listing's company, so they are counted inside that company's own context; only counts leave it.
-  const periodEnd = new Date(Math.min(now.getTime(), c.endsOn.getTime() + 864e5));
-  const enquiries = started ? await withTenant(c.listing.companyId, "system", (tx) => tx.enquiry.groupBy({ by: ["adCampaignId"], where: { listingId: c.listingId, createdAt: { gte: c.startsOn, lt: periodEnd } }, _count: true })) : [];
+  // Campaign dates are Lagos days (stored as UTC midnight of that date); Lagos is an hour ahead, so each day starts an hour earlier.
+  const lagosStart = new Date(c.startsOn.getTime() - 3_600_000);
+  const periodEnd = new Date(Math.min(now.getTime() + 1, c.endsOn.getTime() + 864e5 - 3_600_000));
+  const enquiries = started ? await withTenant(c.listing.companyId, "system", (tx) => tx.enquiry.groupBy({ by: ["adCampaignId"], where: { listingId: c.listingId, createdAt: { gte: lagosStart, lt: periodEnd } }, _count: true })) : [];
   const sum = (via: string) => views.filter((x) => x.via === via).reduce((n, x) => n + x._count, 0);
   const paidEnq = enquiries.filter((e) => e.adCampaignId === c.id).reduce((n, e) => n + e._count, 0);
   const otherAdEnq = enquiries.filter((e) => e.adCampaignId && e.adCampaignId !== c.id).reduce((n, e) => n + e._count, 0);

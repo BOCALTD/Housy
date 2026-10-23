@@ -74,8 +74,8 @@ export async function myFlatmateProfile(userId: string) {
 }
 
 export async function saveFlatmateProfile(userId: string, input: z.input<typeof profileSchema>) {
+  if (!input.adult) throw new Error("Flatmate matching is for adults (18 or over)");
   const d = profileSchema.parse(input);
-  if (!d.adult) throw new Error("Flatmate matching is for adults (18 or over)");
   const problems = checkAnswers(d.answers, d.must);
   if (problems.length) throw new Error(problems.slice(0, 3).join(". "));
   if (d.genderPref === "SAME" && d.gender === "UNSAID") throw new Error("To share only with your own gender, say which gender you are");

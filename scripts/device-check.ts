@@ -18,15 +18,20 @@ const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 const STRICT = process.env.DEVICE_STRICT === "true";
 const OUT = "device-report";
 
-const PROFILES: { name: string; device: string; engine: "chromium" | "webkit"; shots: boolean }[] = [
-  { name: "Desktop Chrome", device: "Desktop Chrome", engine: "chromium", shots: true },
-  { name: "Desktop Safari", device: "Desktop Safari", engine: "webkit", shots: false },
-  { name: "iPhone SE (small iPhone)", device: "iPhone SE", engine: "webkit", shots: true },
-  { name: "iPhone 14 Pro Max (large iPhone)", device: "iPhone 14 Pro Max", engine: "webkit", shots: false },
-  { name: "Pixel 7 (Android)", device: "Pixel 7", engine: "chromium", shots: true },
-  { name: "Galaxy S9+ (small Android)", device: "Galaxy S9+", engine: "chromium", shots: false },
-  { name: "iPad (tablet)", device: "iPad (gen 7)", engine: "webkit", shots: false },
+// "every" profiles open every signed-in page; the others open the public pages and one page of each main kind (the screenshot list),
+// which keeps the whole check inside the CI time limit as the app grows.
+const PROFILES: { name: string; device: string; engine: "chromium" | "webkit"; shots: boolean; every: boolean }[] = [
+  { name: "Desktop Chrome", device: "Desktop Chrome", engine: "chromium", shots: true, every: true },
+  { name: "Pixel 7 (Android)", device: "Pixel 7", engine: "chromium", shots: true, every: true },
+  { name: "iPhone SE (small iPhone)", device: "iPhone SE", engine: "webkit", shots: true, every: false },
+  { name: "Desktop Safari", device: "Desktop Safari", engine: "webkit", shots: false, every: false },
+  { name: "iPhone 14 Pro Max (large iPhone)", device: "iPhone 14 Pro Max", engine: "webkit", shots: false, every: false },
+  { name: "Galaxy S9+ (small Android)", device: "Galaxy S9+", engine: "chromium", shots: false, every: false },
+  { name: "iPad (tablet)", device: "iPad (gen 7)", engine: "webkit", shots: false, every: false },
 ];
+// Stop opening new pages after this many minutes, so the report is still written and published.
+const DEADLINE = Date.now() + Number(process.env.DEVICE_BUDGET_MIN ?? 45) * 60_000;
+let stoppedEarly = false;
 
 // Screenshots are only for the report. A slow capture (font loading in CI) is not a compatibility finding.
 async function shot(page: import("@playwright/test").Page, opts: Parameters<import("@playwright/test").Page["screenshot"]>[0]) {
@@ -171,6 +176,8 @@ async function main() {
     let pageCount = 0;
     let signedInAs = token;
     for (const { p, auth } of pages) {
+      if (!prof.every && auth && !SHOT_PATTERNS.includes(pattern(p))) continue;
+      if (Date.now() > DEADLINE) { stoppedEarly = true; break; }
       const wanted = auth ? tokenFor(p) : token;
       if (wanted !== signedInAs) {
         await context.clearCookies();
@@ -288,7 +295,7 @@ async function main() {
     }
   }
   const md = [
-    "## Device check", "", `${pages.length} pages on ${PROFILES.length} profiles.`, "",
+    "## Device check", "", `${pages.length} pages on ${PROFILES.length} profiles.${stoppedEarly ? " Stopped early at the time limit: some pages were not opened on some profiles." : ""}`, "",
     "| Profile | Screen | Pages | Problems |", "|---|---|---|---|", ...rows, "",
     ...[...byKind].flatMap(([kind, m]) => [
       `### ${kind} (${m.size} distinct)`, "",

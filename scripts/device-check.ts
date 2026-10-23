@@ -142,7 +142,7 @@ async function main() {
   const token = lines[0];
   const seekerToken = lines[2];
   const platformToken = lines[3];
-  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/portal") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
+  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/flatmates") || p.startsWith("/portal") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
   const all = lines.slice(4).filter((p) => !p.endsWith(".csv") && !p.includes("/statement") && !p.endsWith("/calendar"));
   const seen = new Set<string>();
   const signedIn: string[] = [];
@@ -159,8 +159,9 @@ async function main() {
   mkdirSync(`${OUT}/screens`, { recursive: true });
 
   const browsers: Record<string, Browser> = { chromium: await chromium.launch(), webkit: await webkit.launch() };
-  const rows: string[] = [];
-  for (const prof of PROFILES) {
+  const rows: string[] = new Array(PROFILES.length).fill("");
+  // Profiles run three at a time: one after another the check outgrew the CI time limit.
+  const runProfile = async (prof: (typeof PROFILES)[number], index: number) => {
     const d = devices[prof.device];
     const context = await browsers[prof.engine].newContext({ ...d, reducedMotion: "reduce" });
     // tsx adds a __name helper to functions it compiles; the browser page does not have it.
@@ -182,9 +183,11 @@ async function main() {
       page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
       const add = (kind: string, detail: string, items: string[] = []) => issues.push({ kind, page: p, profile: prof.name, detail, items });
       try {
-        const res = await page.goto(`${BASE}${p}`, { waitUntil: "networkidle", timeout: 30000 });
+        const res = await page.goto(`${BASE}${p}`, { waitUntil: "load", timeout: 30000 });
+        // Map tiles keep the network busy; wait a short while for quiet rather than the full page timeout.
+        await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => undefined);
         if (!res || res.status() >= 400) add("http", `status ${res?.status()}`);
-        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") || p.startsWith("/reels") || p.startsWith("/awards") || p.startsWith("/completed") || p.startsWith("/admin") || p.startsWith("/portal")) {
+        if (!auth || p.startsWith("/app") || p.startsWith("/me") || p.startsWith("/directory") || p.startsWith("/flatmates") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") || p.startsWith("/reels") || p.startsWith("/awards") || p.startsWith("/completed") || p.startsWith("/admin") || p.startsWith("/portal")) {
           const r = await inspect(page, touch);
           if (!/width=device-width/.test(r.viewport)) add("viewport", `viewport meta is "${r.viewport}"`);
           if (r.overflow > 1) add("sideways-scroll", `page is ${r.overflow}px wider than the screen`, r.wide);
@@ -262,9 +265,13 @@ async function main() {
       await page.close();
       pageCount += 1;
     }
-    rows.push(`| ${prof.name} | ${d.viewport.width}x${d.viewport.height} | ${pageCount} | ${issues.filter((i) => i.profile === prof.name).length} |`);
+    rows[index] = `| ${prof.name} | ${d.viewport.width}x${d.viewport.height} | ${pageCount} | ${issues.filter((i) => i.profile === prof.name).length} |`;
     await context.close();
-  }
+  };
+  let next = 0;
+  await Promise.all(Array.from({ length: Number(process.env.DEVICE_PARALLEL ?? 3) }, async () => {
+    while (next < PROFILES.length) { const k = next; next += 1; await runProfile(PROFILES[k], k); }
+  }));
   await Promise.all(Object.values(browsers).map((b) => b.close()));
 
   // Group by kind, then by the element that has the problem, with the pages and profiles it appears on.

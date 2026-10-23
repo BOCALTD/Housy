@@ -224,7 +224,7 @@ async function main() {
                 const inner = el instanceof HTMLInputElement && ["date", "time", "datetime-local", "month", "week"].includes(el.type);
                 const marked = inner || (parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== "none") || (s.boxShadow !== "none" && s.boxShadow !== "");
                 const what = el instanceof HTMLInputElement ? ` type=${el.type} name=${el.name}` : "";
-                return { tag: el.tagName.toLowerCase() + what, text: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), marked, first: el.classList.contains("skip-link") };
+                return { tag: el.tagName.toLowerCase() + what, text: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), marked, first: el.classList.contains("skip-link") || !!el.closest('[aria-modal="true"]') };
               }));
             }
             if (!stops[0]?.first) add("keyboard-first-stop", `the first Tab stop is "${stops[0]?.text}", not the skip link`);
@@ -260,8 +260,9 @@ async function main() {
           const opener = page.locator(".shell-open");
           if (await opener.isVisible()) {
             await opener.click();
-            await page.waitForTimeout(400);
-            if (!(await page.locator(".shell-side").isVisible())) add("drawer", "the side menu did not open");
+            // Several devices run at once, so give the drawer's slide-in time before deciding it did not open.
+            const opened = await page.locator(".shell-side").waitFor({ state: "visible", timeout: 3000 }).then(() => true, () => false);
+            if (!opened) add("drawer", "the side menu did not open");
             await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__app_drawer.png` });
             await page.keyboard.press("Escape");
           }

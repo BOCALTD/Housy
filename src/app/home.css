@@ -406,7 +406,12 @@ body.no-scroll { overflow: hidden; }
 .street-map-pick { height: 360px; cursor: crosshair; }
 .street-map:focus-visible, .leaflet-marker-icon:focus-visible, .leaflet-container a:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 75%, transparent); outline-offset: 2px; }
 .leaflet-container { font: inherit; }
-.leaflet-touch .leaflet-bar a, .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; font-size: 22px; }
+/* Leaflet's own stylesheet loads after this one, so these rules are written to win on specificity. */
+.street-map.leaflet-container .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; font-size: 22px; }
+@media (pointer: coarse) {
+  .street-map.leaflet-container .leaflet-control-attribution a { display: inline-block; padding-block: 14px; margin-block: -14px; }
+  .street-map.leaflet-container .leaflet-control-attribution { padding-block: 14px; }
+}
 .leaflet-container .leaflet-control-attribution { font-size: 12px; }
 .leaflet-popup-content { margin: 12px; }
 .map-price, .map-group, .map-dot, .map-pick { background: transparent; border: 0; }

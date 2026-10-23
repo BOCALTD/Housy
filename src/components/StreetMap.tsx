@@ -39,6 +39,8 @@ function makeMap(L: typeof Leaflet, el: HTMLElement, view: View, label: string) 
   const map = L.map(el, { zoomAnimation: !calm, fadeAnimation: !calm, markerZoomAnimation: !calm, worldCopyJump: true, minZoom: 2, maxZoom: 19 });
   L.tileLayer(TILES, { attribution: ATTRIBUTION, maxZoom: 19, subdomains: "abc", crossOrigin: true }).addTo(map);
   map.setView([view.lat, view.lng], view.zoom);
+  // Keep the required map-data credit; the library's own link is optional and only adds another small tap target.
+  map.attributionControl.setPrefix(false);
   el.setAttribute("aria-label", label);
   el.setAttribute("role", "region");
   return map;

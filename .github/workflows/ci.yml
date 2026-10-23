@@ -66,7 +66,7 @@ jobs:
         run: scripts/ci-run.sh "Migration drift" npm run db:check-drift
 
       - name: Row-level security tests (as the app role)
-        run: npm run test:rls
+        run: scripts/ci-run.sh "Row-level security tests" npm run test:rls
 
       - name: Type check
         run: scripts/ci-run.sh "Type check" npx tsc --noEmit

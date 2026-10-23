@@ -1394,7 +1394,7 @@ SELECT pg_temp.expect((SELECT count(*) FROM ad_campaigns) = 0, 'another company 
 SELECT set_config('app.company_id', '', true);
 SELECT set_config('app.user_id', '', true);
 
--- 38. Phase 15: the assistant's audit trail is the platform's and cannot be changed; suggestions are a company's own; positions must be inside Nigeria.
+-- 38. Phase 15: the assistant's audit trail is the platform's and cannot be changed; suggestions are a company's own; positions must be a real latitude and longitude (anywhere in the world).
 SELECT set_config('app.company_id', '', true);
 SELECT set_config('app.user_id', 'padmin', true);
 SELECT set_config('app.platform_admin', 'on', true);
@@ -1406,9 +1406,9 @@ SELECT set_config('app.company_id', 'co-b', true);
 INSERT INTO ai_suggestions (id, company_id, kind, subject_type, subject_id, payload, source, created_by_id) VALUES ('sg-b', 'co-b', 'DOCUMENT_CATEGORY', 'document', 'd2', '{}', 'RULES', 'u2');
 SELECT set_config('app.company_id', 'co-a', true);
 DO $$ BEGIN
-  UPDATE assets SET lat = 51.5, lng = -0.1 WHERE id = 'as-a';
-  RAISE EXCEPTION 'FAIL: a position outside Nigeria was stored';
-EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a position must be inside Nigeria'; END $$;
+  UPDATE assets SET lat = 95, lng = -0.1 WHERE id = 'as-a';
+  RAISE EXCEPTION 'FAIL: an impossible latitude was stored';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a position must be a real latitude and longitude'; END $$;
 DO $$ BEGIN
   UPDATE assets SET lat = 6.4 WHERE id = 'as-a';
   RAISE EXCEPTION 'FAIL: half a position was stored';

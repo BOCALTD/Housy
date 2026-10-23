@@ -409,8 +409,8 @@ body.no-scroll { overflow: hidden; }
 /* Leaflet's own stylesheet loads after this one, so these rules are written to win on specificity. */
 .street-map.leaflet-container .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; font-size: 22px; }
 @media (pointer: coarse) {
-  .street-map.leaflet-container .leaflet-control-attribution a { display: inline-block; padding-block: 14px; margin-block: -14px; }
-  .street-map.leaflet-container .leaflet-control-attribution { padding-block: 14px; }
+  .street-map.leaflet-container .leaflet-control-attribution a { display: inline-block; padding-block: 16px; margin-block: -16px; }
+  .street-map.leaflet-container .leaflet-control-attribution { padding-block: 16px; }
 }
 .leaflet-container .leaflet-control-attribution { font-size: 12px; }
 .leaflet-popup-content { margin: 12px; }

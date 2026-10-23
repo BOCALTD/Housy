@@ -53,7 +53,7 @@ export default async function MatchesPage({ searchParams }: { searchParams?: Pro
               {m.match.dealbreaker ? <p className="small fm-bad">{m.match.dealbreaker}</p> : null}
               <ul className="fm-reasons">
                 {m.match.good.slice(0, 3).map((g) => <li key={g} className="fm-good">{g}</li>)}
-                {m.match.bad.slice(0, 2).map((b) => <li key={b} className="fm-bad">{b}</li>)}
+                {[...m.match.bad, ...m.match.mixed].slice(0, 2).map((b) => <li key={b} className={m.match.bad.includes(b) ? "fm-bad" : "fm-mixed"}>{b}</li>)}
               </ul>
               <div className="row" style={{ marginTop: "auto" }}>
                 <Link className="btn primary" href={`/flatmates/p/${m.profile.userId}`}>{m.request?.status === "ACCEPTED" ? "Matched: open" : m.request?.status === "PENDING" ? (m.request.mine ? "Request sent" : "They asked you: answer") : "View and request"}</Link>

@@ -176,7 +176,7 @@ export function excluded(a: Profile, b: Profile): string | null {
 
 export const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
-export type Match = { score: number; band: (typeof BANDS)[number]; dealbreaker: string | null; good: string[]; bad: string[] };
+export type Match = { score: number; band: (typeof BANDS)[number]; dealbreaker: string | null; good: string[]; bad: string[]; mixed: string[] };
 
 /** The match between two people, from 0 to 100, with the reasons. */
 export function match(a: Profile, b: Profile): Match {
@@ -199,7 +199,10 @@ export function match(a: Profile, b: Profile): Match {
   };
   const good = ps.filter((p) => p.similarity >= 0.9 && p.weight >= 1).sort((x, y) => y.weight - x.weight).map((p) => say(p, true)).filter((x): x is string => !!x).slice(0, 4);
   const bad = ps.filter((p) => p.similarity <= 0.4).sort((x, y) => y.weight - x.weight).map((p) => say(p, false)).filter((x): x is string => !!x).slice(0, 3);
-  return { score, band: band(score), dealbreaker: clash ? (clash.key === "inclusive" ? "A must-match answer differs" : `Must-match: ${say(clash, false)}`) : null, good, bad };
+  // One step apart is not a clash, but worth a conversation before moving in.
+  const TOPIC: Record<string, string> = { schedule: "sleep hours", personality: "how much company you like", cleanliness: "tidiness", guests: "guests", noise: "noise", drinking: "drinking", pets: "pets", workFromHome: "time at home", cooking: "cooking", smoking: "smoking", budget: "budget", moveIn: "move-in date", age: "age" };
+  const mixed = ps.filter((p) => p.similarity > 0.4 && p.similarity < 0.9 && p.weight >= 1 && TOPIC[p.key]).sort((x, y) => y.weight - x.weight).map((p) => `A little different on ${TOPIC[p.key]}`).slice(0, 3);
+  return { mixed, score, band: band(score), dealbreaker: clash ? (clash.key === "inclusive" ? "A must-match answer differs" : `Must-match: ${say(clash, false)}`) : null, good, bad };
 }
 
 /** Check a profile form. Returns problems, empty when fine. */

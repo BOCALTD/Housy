@@ -485,6 +485,7 @@ body.no-scroll { overflow: hidden; }
 .fm-reasons li::before { position: absolute; left: 0; top: 0; font-weight: 800; }
 .fm-good::before { content: "✓"; color: #2f9e44; }
 .fm-bad::before { content: "!"; color: #c2410c; }
+.fm-mixed::before { content: "~"; color: #b45309; }
 p.fm-bad { color: #c2410c; font-weight: 600; }
 .fm-profile-head { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 .fm-roombar { border-color: color-mix(in srgb, var(--primary) 55%, var(--line)); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }

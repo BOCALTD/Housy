@@ -39,7 +39,7 @@ export default async function FlatmateProfileView({ params, searchParams }: { pa
           <h2>Why this score</h2>
           {m.dealbreaker ? <p className="fm-bad">{m.dealbreaker}</p> : null}
           {m.good.length ? <><h3 className="small-h">Where you agree</h3><ul className="fm-reasons">{m.good.map((g) => <li key={g} className="fm-good">{g}</li>)}</ul></> : null}
-          {m.bad.length ? <><h3 className="small-h">Worth talking about</h3><ul className="fm-reasons">{m.bad.map((b) => <li key={b} className="fm-bad">{b}</li>)}</ul></> : <p className="small muted">No clear clashes.</p>}
+          {m.bad.length || m.mixed.length ? <><h3 className="small-h">Worth talking about</h3><ul className="fm-reasons">{m.bad.map((b) => <li key={b} className="fm-bad">{b}</li>)}{m.mixed.map((b) => <li key={b} className="fm-mixed">{b}</li>)}</ul></> : <p className="small muted">No clear clashes.</p>}
         </section>
         <section className="card stack">
           <h2>Their plans</h2>

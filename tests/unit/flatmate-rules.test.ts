@@ -34,6 +34,7 @@ test("smoking, late nights, introvert and extrovert, tidiness: each clash lowers
   assert.ok(smoker.score < 90 && smoker.bad.includes("Smoking clash"));
   const nightOwl = match(base, other({ answers: { schedule: "NIGHT_OWL" } }));
   assert.ok(nightOwl.score < 100 && nightOwl.bad.length === 0, "one step apart is not a clash");
+  assert.ok(nightOwl.mixed.includes("A little different on sleep hours"), "but it is worth a conversation");
   const early = match({ ...base, answers: { ...base.answers, schedule: "EARLY_BIRD" } }, other({ answers: { schedule: "NIGHT_OWL" } }));
   assert.ok(early.bad.includes("Different sleep hours (early riser and late nighter)"));
   const extro = match(base, other({ answers: { personality: "EXTROVERT" } }));

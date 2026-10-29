@@ -16,16 +16,17 @@ export function PlanCompare({ audience, plans, buy, currentPlanId }: { audience:
   const features = FEATURES[audience];
   const top = plans[plans.length - 1]?.id;
   return (
-    <div className="plans">
+    // One row of plans: side by side on wide screens, swiped through on narrow ones, never one plan stranded on a row of its own.
+    <div className="plans" style={{ "--n": plans.length } as React.CSSProperties} role="list" aria-label="Plans">
       {plans.map((p) => {
         const free = p.priceKobo === 0n || p.billingPeriod === "NONE";
         const priced = !!p.priceKobo && p.priceKobo > 0n && p.billingPeriod !== "NONE";
         return (
-          <article key={p.id} className={`plan${p.id === top && plans.length > 1 ? " plan-top" : ""}${p.id === currentPlanId ? " plan-current" : ""}`} aria-labelledby={`plan-${p.id}`}>
+          <article role="listitem" key={p.id} className={`plan${p.id === top && plans.length > 1 ? " plan-top" : ""}${p.id === currentPlanId ? " plan-current" : ""}`} aria-labelledby={`plan-${p.id}`}>
             {p.id === top && plans.length > 1 ? <span className="plan-flag">Everything included</span> : null}
             {p.id === currentPlanId ? <span className="plan-flag plan-flag-current">Your plan</span> : null}
             <h3 id={`plan-${p.id}`}>{p.name}</h3>
-            <p className="plan-price">{free ? <strong>Free</strong> : priced ? <><strong>{formatKobo(p.priceKobo!)}</strong> <span>{per(p)}</span></> : <strong className="plan-ask">Price on request</strong>}</p>
+            <p className="plan-price">{free ? <><strong>₦0</strong> <span>always free</span></> : priced ? <><strong>{formatKobo(p.priceKobo!)}</strong> <span>{per(p)}</span></> : <strong className="plan-ask">Price on request</strong>}</p>
             <ul className="plan-features">
               {features.map((f) => {
                 const has = includes(p, f);

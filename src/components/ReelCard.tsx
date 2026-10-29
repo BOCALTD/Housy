@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { ReelCard as Card } from "@/lib/services/reels";
 import { formatDate } from "@/lib/dates";
 import { Field, Pill } from "@/components/ui";
-import ShareReel from "@/components/ShareReel";
+import ShareButton from "@/components/ShareButton";
+import { shareText } from "@/lib/share-rules";
+import { PLATFORM_NAME } from "@/lib/labels";
 import ReelPlayer from "@/components/ReelPlayer";
 import { likeAction, reportAction, saveAction } from "@/app/reels/actions";
 
@@ -24,7 +26,9 @@ export function ReelView({ r, back, signedIn, detail = false }: { r: Card; back:
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           <form action={likeAction}><input type="hidden" name="id" value={r.id} /><input type="hidden" name="back" value={back} /><button className="btn small" type="submit" aria-pressed={r.liked}>{r.liked ? "Liked" : "Like"} ({r.likes})</button></form>
           <form action={saveAction}><input type="hidden" name="id" value={r.id} /><input type="hidden" name="back" value={back} /><button className="btn small" type="submit" aria-pressed={r.saved}>{r.saved ? "Saved" : "Save"}</button></form>
-          <ShareReel id={r.id} count={r.shares} signedIn={signedIn} />
+          <ShareButton kind="reel" small path={`/reels/${r.id}`} reelId={r.id} count={r.shares} signedIn={signedIn} video={`/reels/${r.id}/video`}
+            title={r.caption || r.listingTitle || "Property reel"}
+            text={shareText("reel", { title: r.caption || r.listingTitle || `A property reel by ${r.authorName}`, place: r.city, by: r.companyName ? `${r.authorName}, ${r.companyName}` : r.authorName }, PLATFORM_NAME)} />
           {detail ? <span className="small muted">{r.comments} comments</span> : <Link className="btn small" href={`/reels/${r.id}`}>Comments ({r.comments})</Link>}
           {!r.mine && signedIn ? (
             <details className="inline"><summary>Report</summary>

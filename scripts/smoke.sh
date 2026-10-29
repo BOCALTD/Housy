@@ -45,6 +45,17 @@ curl -s http://localhost:3100/ | grep -q 'rel="icon"' || fail "home page has no 
 REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)
 [ -n "$REF" ] || fail "no property link on the home page"
 curl -s "http://localhost:3100/$REF" | grep -q "Verify this property" || fail "$REF has no verification link"
+# Sharing: the page has a share button, a preview picture of its own, and a guest is invited to sign up; a shared link returns to it.
+page=$(curl -s "http://localhost:3100/$REF?shared=1")
+echo "$page" | grep -q 'share-btn' || fail "$REF has no share button"
+echo "$page" | grep -q "Someone shared this property with you" || fail "$REF does not greet a visitor who opened a shared link"
+echo "$page" | grep -q "property=\"og:image\" content=\"[^\"]*/$REF/opengraph-image" || fail "$REF has no preview picture of its own"
+ct=$(curl -s -o /tmp/share.png -w '%{http_code} %{content_type}' "http://localhost:3100/$REF/opengraph-image")
+case "$ct" in "200 image/png"*) ;; *) fail "the preview picture for $REF did not render ($ct)";; esac
+loc=$(curl -s -o /dev/null -w '%{redirect_url}' "http://localhost:3100/r/ABCDEFGH?to=%2F$(echo "$REF" | sed 's|/|%2F|')")
+case "$loc" in *"/$REF?shared=1") ;; *) fail "a shared link did not lead back to $REF ($loc)";; esac
+loc=$(curl -s -o /dev/null -w '%{redirect_url}' "http://localhost:3100/r/ABCDEFGH?to=%2F%2Fevil.example")
+case "$loc" in *"/join") ;; *) fail "a shared link could lead off the site ($loc)";; esac
 [ "$(code /app)" = "307" ] || fail "/app returned $(code /app) for a signed-out visitor (expected 307)"
 
 # Signed-in pages: sign in as the demo administrator and the demo officer, and open every page against real data.

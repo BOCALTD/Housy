@@ -39,7 +39,7 @@ async function shot(page: import("@playwright/test").Page, opts: Parameters<impo
 }
 
 // Pages that get a screenshot on the profiles that take them.
-const SHOT_PATTERNS = ["/", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline", "/map", "/app/map", "/me", "/admin", "/app/crm", "/app/deals", "/app/projects/:id", "/app/valuations/:id", "/app/team", "/app/settings", "/app/reports", "/app/analytics", "/app/files", "/app/correspondence", "/flatmates", "/flatmates/profile", "/flatmates/matches", "/flatmates/requests", "/flatmates/p/:id", "/messages/:id"];
+const SHOT_PATTERNS = ["/properties/:id?shared=1", "/", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline", "/map", "/app/map", "/me", "/admin", "/app/crm", "/app/deals", "/app/projects/:id", "/app/valuations/:id", "/app/team", "/app/settings", "/app/reports", "/app/analytics", "/app/files", "/app/correspondence", "/flatmates", "/flatmates/profile", "/flatmates/matches", "/flatmates/requests", "/flatmates/p/:id", "/messages/:id"];
 
 interface Issue { kind: string; page: string; profile: string; detail: string; items: string[] }
 const issues: Issue[] = [];
@@ -160,7 +160,9 @@ async function main() {
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
   const publicPages = ["/", "/login", "/forgot", "/support", "/signup", "/join", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", "/offline", ...(prop ? [`/${prop}`] : [])];
-  const pages = [...publicPages.map((p) => ({ p, auth: false })), ...signedIn.map((p) => ({ p, auth: true }))];
+  // A visitor with no account who opened a shared property: the sign-up invitation and the locked photos.
+  const guestPages = prop ? [`/${prop}?shared=1`] : [];
+  const pages = [...publicPages.map((p) => ({ p, auth: false, guest: false })), ...guestPages.map((p) => ({ p, auth: false, guest: true })), ...signedIn.map((p) => ({ p, auth: true, guest: false }))];
   mkdirSync(`${OUT}/screens`, { recursive: true });
 
   const browsers: Record<string, Browser> = { chromium: await chromium.launch(), webkit: await webkit.launch() };
@@ -175,13 +177,13 @@ async function main() {
     const touch = !!d.hasTouch;
     let pageCount = 0;
     let signedInAs = token;
-    for (const { p, auth } of pages) {
+    for (const { p, auth, guest } of pages) {
       if (!prof.every && auth && !SHOT_PATTERNS.includes(pattern(p))) continue;
       if (Date.now() > DEADLINE) { stoppedEarly = true; break; }
-      const wanted = auth ? tokenFor(p) : token;
+      const wanted = guest ? "" : auth ? tokenFor(p) : token;
       if (wanted !== signedInAs) {
         await context.clearCookies();
-        await context.addCookies([{ name: "sid", value: wanted, domain: "localhost", path: "/" }]);
+        if (wanted) await context.addCookies([{ name: "sid", value: wanted, domain: "localhost", path: "/" }]);
         signedInAs = wanted;
       }
       const page = await context.newPage();
@@ -254,6 +256,27 @@ async function main() {
           // The keyboard check scrolls the page; start the full-page picture from the top so sticky bars sit where a person sees them.
           await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo({ top: 0, behavior: "instant" }); });
           await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
+        }
+        // The share sheet: it opens, fits the screen, and every choice in it is big enough to tap.
+        if (prof.shots && guest) {
+          const btn = page.locator(".share-btn").first();
+          if (await btn.isVisible()) {
+            await btn.click();
+            const sheet = page.locator("dialog.share-sheet[open]");
+            const opened = await sheet.waitFor({ state: "visible", timeout: 5000 }).then(() => true, () => false);
+            if (!opened) add("share-sheet", "the share sheet did not open");
+            else {
+              const small = await sheet.evaluate((d: Element, isTouch: boolean) => Array.from(d.querySelectorAll<HTMLElement>("a, button, summary, input")).filter((el) => {
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && isTouch && r.height < 43.5;
+              }).map((el) => `${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 30)}"`), touch);
+              if (small.length) add("small-touch-target", `${small.length} control(s) in the share sheet under 44px`, small);
+              const wide = await sheet.evaluate((d: Element) => d.getBoundingClientRect().right - window.innerWidth);
+              if (wide > 1) add("sideways-scroll", `the share sheet is ${Math.round(wide)}px wider than the screen`);
+              await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__share_sheet.png` });
+              await page.keyboard.press("Escape");
+            }
+          } else add("share-sheet", "no share button on a shared property");
         }
         // The side menu as a drawer: open it on phones and tablets and photograph it.
         if (prof.shots && touch && pattern(p) === "/app") {

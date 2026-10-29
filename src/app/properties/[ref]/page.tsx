@@ -24,13 +24,26 @@ import { recordView, viewerKeyFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
 import { enquiryAction, requestInspectionAction, watchAction } from "./actions";
 import { VerifyModal, type ProviderView } from "./VerifyModal";
+import ShareButton from "@/components/ShareButton";
+import { LockedPhotos, SignupNudge } from "@/components/SignupNudge";
+import { GUEST_PHOTOS, shareText } from "@/lib/share-rules";
+import { PLATFORM_NAME } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params: paramsP }: { params: Promise<{ ref: string }> }) {
   const params = await paramsP;
   const l = await getPublicListing(params.ref);
-  return { title: l ? l.title : "Property not available" };
+  if (!l) return { title: "Property not available" };
+  // What a link preview shows on WhatsApp, Facebook, X and LinkedIn; the picture comes from opengraph-image.tsx beside this page.
+  const facts = [`${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}`, l.bedrooms != null ? `${l.bedrooms} bed` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ");
+  const description = `${facts}. ${l.description ? l.description.slice(0, 160) : `See the photos and details on ${PLATFORM_NAME}.`}`;
+  return {
+    title: l.title, description,
+    alternates: { canonical: `/properties/${l.publicRef}` },
+    openGraph: { type: "website", siteName: PLATFORM_NAME, title: `${l.title} · ${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}`, description, url: `/properties/${l.publicRef}` },
+    twitter: { card: "summary_large_image", title: l.title, description },
+  };
 }
 
 export default async function PropertyPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ ref: string }>; searchParams?: Promise<SP> }) {
@@ -50,7 +63,13 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
     ? `/calculators?tab=purchase&price=${naira(listing.priceKobo)}`
     : `/calculators?tab=movein&yearlyRent=${naira(listing.pricePeriod === "MONTH" ? listing.priceKobo * 12n : listing.priceKobo)}${listing.serviceChargeKobo != null ? `&serviceCharge=${naira(listing.serviceChargeKobo)}` : ""}`;
   const ref = await refData();
-  const pics = photos.filter((p) => p.kind !== "FLOOR_PLAN");
+  const allPics = photos.filter((p) => p.kind !== "FLOOR_PLAN");
+  // Visitors who are not signed in see the first few photos; the rest, the floor plans and the video tour are behind a free sign-up.
+  const guest = !session;
+  const pics = guest ? allPics.slice(0, GUEST_PHOTOS) : allPics;
+  const hiddenPics = allPics.length - pics.length;
+  const here = `/properties/${listing.publicRef}`;
+  const shared = sp(searchParams, "shared") === "1";
   const plans = photos.filter((p) => p.kind === "FLOOR_PLAN");
   const [trust, company] = await Promise.all([companyTrust(listing.companyId), withPublic((tx) => tx.companyProfile.findFirst({ where: { companyId: listing.companyId, listed: true }, select: { displayName: true } }))]);
   const watching = session ? await isWatching(session.user.id, listing.id) : false;
@@ -75,6 +94,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
                 {ph.caption ? <figcaption className="small muted">{ph.caption}</figcaption> : null}
               </figure>
             ))}
+            {hiddenPics > 0 ? <LockedPhotos path={here} more={hiddenPics} preview={`/photos/${allPics[GUEST_PHOTOS].id}`} /> : null}
           </Carousel>
         ) : <div className="prop-img" style={{ borderRadius: 10 }}><HouseIcon /></div>}
         {extras.promo ? <div className="promo-tags"><PromoRibbon name={extras.promo.campaignName} pct={extras.promo.pct} theme={extras.promo.theme} /><PromoEnds endsOn={extras.promo.endsOn} /></div> : null}
@@ -91,6 +111,13 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
           {[listing.bedrooms != null ? `${listing.bedrooms} bedrooms` : null, listing.bathrooms != null ? `${listing.bathrooms} bathrooms` : null,
             `${listing.city}, ${listing.state}`].filter(Boolean).join(" · ")}
         </p>
+        {guest ? (
+          <SignupNudge path={here} shared={shared} what="this property" perks={[
+            hiddenPics > 0 ? `All ${allPics.length} photos${plans.length ? ", the floor plans" : ""}${listing.videoUrl ? " and the video tour" : ""}` : plans.length || listing.videoUrl ? `The ${[plans.length ? "floor plans" : "", listing.videoUrl ? "video tour" : ""].filter(Boolean).join(" and ")}` : "Every detail, in one place",
+            "Save it and get alerts for similar homes",
+            "Book an inspection and message the company safely",
+          ]} />
+        ) : null}
         {listing.description ? <p style={{ whiteSpace: "pre-line", maxWidth: "65ch" }}>{listing.description}</p> : null}
         {(() => {
           const money = (k: bigint | null) => (k == null ? null : formatKobo(k));
@@ -121,7 +148,10 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
               <h2 id="details-h">Details</h2>
               <dl className="spec">{rows.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
               {amenities.length ? <><h3>Features</h3><ul className="chips">{amenities.map((a) => <li key={a}>{amenityLabels[a]}</li>)}</ul></> : null}
-              {plans.length ? (
+              {guest && (plans.length || listing.videoUrl) ? (
+                <p className="small"><Link href={`/join?next=${encodeURIComponent(here)}`}>Sign up free</Link> to see the {[plans.length ? `floor plans (${plans.length})` : "", listing.videoUrl ? "video tour" : ""].filter(Boolean).join(" and ")}.</p>
+              ) : null}
+              {plans.length > 0 && !guest ? (
                 <details className="inline"><summary>Floor plans ({plans.length})</summary>
                   <div className="stack">{plans.map((ph, n) => (
                     <figure key={ph.id} className="shot" style={{ margin: 0 }}>
@@ -132,7 +162,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
                   ))}</div>
                 </details>
               ) : null}
-              {listing.videoUrl ? <p><a className="btn" href={listing.videoUrl} target="_blank" rel="noopener noreferrer">Watch the video tour (opens YouTube or Vimeo)</a></p> : null}
+              {listing.videoUrl && !guest ? <p><a className="btn" href={listing.videoUrl} target="_blank" rel="noopener noreferrer">Watch the video tour (opens YouTube or Vimeo)</a></p> : null}
             </section>
           );
         })()}
@@ -153,6 +183,15 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
 
       <aside className="card stack">
         <div className="row">
+          <ShareButton kind="property" path={here} signedIn={!guest} title={listing.title}
+            photos={pics.map((ph) => `/photos/${ph.id}`)}
+            text={shareText("property", {
+              title: listing.title,
+              price: `${formatKobo(listing.priceKobo)}${priceSuffix(listing.pricePeriod)}`,
+              place: `${listing.city}, ${listing.state}`,
+              details: [listing.bedrooms != null ? `${listing.bedrooms} bedrooms` : "", listing.bathrooms != null ? `${listing.bathrooms} bathrooms` : "", listing.purpose === "SALE" ? "For sale" : `For ${listing.purpose.toLowerCase()}`],
+              by: company?.displayName,
+            }, PLATFORM_NAME)} />
           <CompareToggle refId={listing.publicRef} />
           <Link className="btn" href={calcHref}>{listing.purpose === "SALE" ? "Work out buying costs" : "Work out move-in costs"}</Link>
         </div>

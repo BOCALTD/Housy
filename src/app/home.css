@@ -503,3 +503,58 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
   .fm-card, .fm-opt { transition: border-color .18s ease, transform .2s ease, box-shadow .2s ease; }
   .fm-card:hover { transform: translateY(-3px); box-shadow: 0 16px 30px -20px rgba(17, 24, 39, .45); }
 }
+
+/* ---------- Sharing a property, reel, agent or company ---------- */
+.share-btn { display: inline-flex; align-items: center; gap: 8px; }
+.share-btn svg { flex: none; }
+.share-sheet { padding: 0; border: 1px solid color-mix(in srgb, #FBB017 35%, var(--line)); border-radius: 20px; background: var(--surface); color: var(--ink); width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .55); }
+.share-sheet::backdrop { background: var(--scrim); }
+.share-inner { padding: 22px 20px 18px; overflow: auto; position: relative; }
+.share-inner::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: linear-gradient(90deg, #F29F05, #FFD36B, #FBB017); }
+.share-head h2 { font-size: 1.3rem; margin: 0; }
+.share-close { width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 22px; line-height: 1; justify-content: center; }
+.share-preview { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+.share-preview img, .share-preview-mark { width: 96px; height: 72px; object-fit: cover; border-radius: 10px; display: grid; place-items: center; background: #1F2125; color: #FBB017; }
+.share-preview p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.share-primary { display: grid; gap: 8px; }
+.share-primary .btn { width: 100%; justify-content: center; }
+.share-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.share-net { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600; font-size: .95rem; }
+.share-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; background: #9AA3B2; }
+.share-whatsapp .share-dot { background: #25D366; }
+.share-facebook .share-dot { background: #1877F2; }
+.share-x .share-dot { background: #111; }
+.share-linkedin .share-dot { background: #0A66C2; }
+.share-telegram .share-dot { background: #229ED9; }
+.share-email .share-dot { background: #FBB017; }
+.share-sms .share-dot { background: #6B7280; }
+.share-copy input { font-size: 16px; }
+.share-downloads { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+@media (hover: hover) {
+  .share-net:hover { border-color: #FBB017; background: color-mix(in srgb, #FBB017 10%, var(--surface)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .share-sheet[open] { animation: share-up .28s cubic-bezier(.2, .9, .3, 1.2); }
+  .share-net { transition: border-color .15s, background-color .15s, transform .15s; }
+  @media (hover: hover) { .share-net:hover { transform: translateY(-1px); } }
+}
+@keyframes share-up { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (max-width: 560px) {
+  .share-sheet { margin: auto auto 0; width: 100vw; max-width: 100vw; border-radius: 20px 20px 0 0; }
+}
+
+/* An invitation to sign up, shown to visitors who are not signed in (and greeting people who opened a shared link). */
+.nudge { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start; padding: 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, #FBB017 45%, var(--line)); background: linear-gradient(135deg, color-mix(in srgb, #FBB017 14%, var(--surface)), var(--surface) 70%); }
+.nudge-mark { width: 44px; height: 44px; border-radius: 12px; background: #FBB017; color: #1F2125; display: grid; place-items: center; }
+.nudge-h { font-size: 1.15rem; margin: 0; overflow-wrap: anywhere; }
+.nudge-perks { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.nudge-perks li { position: relative; padding-left: 22px; font-size: .95rem; }
+.nudge-perks li::before { content: "✓"; position: absolute; left: 0; color: #2f9e44; font-weight: 800; }
+@media (max-width: 420px) { .nudge { grid-template-columns: 1fr; } }
+
+/* The last slide of a guest's photo carousel: a blurred picture with the count of photos behind sign-up. */
+.shot-locked { position: relative; overflow: hidden; border-radius: 12px; }
+.shot-locked img { filter: blur(14px) brightness(.7); transform: scale(1.08); }
+.shot-locked .locked-over { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; color: #fff; padding: 16px; }
+.shot-locked .locked-over strong { font-size: 1.6rem; font-family: var(--font-display); }
+.shot-locked:not(:has(img)) { aspect-ratio: 16 / 10; background: #1F2125; }

@@ -321,3 +321,14 @@ What code and documents can do is done; the launch itself needs your accounts an
 - Sending a request to a match is limited to 20 a day. When the other person accepts (or has already sent a request back), both are taken into a private flatmate chat room built on the existing messages, with blocking, reporting and contact masking. Either person can add another matched flatmate to the room (up to 6 people) or leave it; a room with fewer than two people closes.
 - Profiles can be paused or deleted at any time, and the data is included in the privacy export and deletion.
 - The demo data gives the demo seeker a flatmate profile, one accepted match with a chat room, and one request waiting.
+
+## Sharing properties, reels, agents and companies
+
+- Every property, reel, agent profile and company profile has a **Share** button. It opens a share sheet with:
+  - on phones, the phone's own share screen with the photos (or the reel's video) attached as well as the words and link, which is how they reach Instagram, WhatsApp Status, Stories and any other app;
+  - one-tap links for WhatsApp, Facebook, X, LinkedIn, Telegram, email and text message, with the words filled in;
+  - copy link, copy the words and link together, and download the photos.
+- The shared words carry the key facts (title, price, place, bedrooms, who listed it, or an agent's rating) and invite people to sign up free to see more.
+- Link previews: each of these pages has its own preview picture (`opengraph-image`), with the property's first photo, price and place, or the agent's or company's name and rating, plus the platform name. WhatsApp, Facebook, X, LinkedIn and Telegram show it when the link is pasted.
+- Back to the app: a signed-in person's link goes through `/r/CODE?to=/properties/…`, which remembers their invite code (so anyone who joins through it counts as their referral) and opens the page. Only property, reel, agent and company pages can be targets; anything else goes to sign-up.
+- Visitors who are not signed in see the first 3 photos (the rest show as a blurred "+N more photos" slide), the newest 3 reviews on profiles, and an invitation to sign up free. Someone who opened a shared link is greeted with "Someone shared this with you". After signing up or in they return to the same page.

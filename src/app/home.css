@@ -519,8 +519,8 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .share-primary { display: grid; gap: 8px; }
 .share-primary .btn { width: 100%; justify-content: center; }
 .share-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-.share-net { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600; font-size: .95rem; }
-.share-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; background: #9AA3B2; }
+.share-sheet .share-net { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600; font-size: .95rem; }
+.share-sheet .share-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; background: #9AA3B2; }
 .share-whatsapp .share-dot { background: #25D366; }
 .share-facebook .share-dot { background: #1877F2; }
 .share-x .share-dot { background: #111; }
@@ -531,7 +531,7 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .share-copy input { font-size: 16px; }
 .share-downloads { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 @media (hover: hover) {
-  .share-net:hover { border-color: #FBB017; background: color-mix(in srgb, #FBB017 10%, var(--surface)); }
+  .share-sheet .share-net:hover { border-color: #FBB017; background: color-mix(in srgb, #FBB017 10%, var(--surface)); }
 }
 @media (prefers-reduced-motion: no-preference) {
   .share-sheet[open] { animation: share-up .28s cubic-bezier(.2, .9, .3, 1.2); }

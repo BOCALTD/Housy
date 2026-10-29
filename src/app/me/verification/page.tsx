@@ -4,6 +4,7 @@ import { agentKyc } from "@/lib/services/kyc";
 import { myCompanies } from "@/lib/services/companies";
 import { Flash, sp, type SP } from "@/components/ui";
 import { KycPanel } from "@/components/KycPanel";
+import { identityProviders } from "@/lib/identity-providers";
 import { submitAgentKycAction } from "./actions";
 
 export const metadata = { title: "Agent verification" };
@@ -23,7 +24,7 @@ export default async function AgentVerificationPage({ searchParams: searchP }: {
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       {current ? (
-        <KycPanel kind="AGENT" view={await agentKyc(user.id)} action={submitAgentKycAction} docBase="/kyc/doc" extra={<input type="hidden" name="companyId" value={current.companyId} />} />
+        <KycPanel autoReady={identityProviders().length > 0} kind="AGENT" view={await agentKyc(user.id)} action={submitAgentKycAction} docBase="/kyc/doc" extra={<input type="hidden" name="companyId" value={current.companyId} />} />
       ) : (
         <div className="card stack"><p>Agent checks are for people who work for a registered company. Ask your company to invite you, or <Link href="/signup">register your company</Link>.</p></div>
       )}

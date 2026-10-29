@@ -2,7 +2,8 @@
 
 import { requirePlatformAdmin } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
-import { decideKyc } from "@/lib/services/kyc";
+import { autoCheckKyc, decideKyc } from "@/lib/services/kyc";
+import { AUTO_OUTCOME_LABEL } from "@/lib/kyc-auto-rules";
 
 const DECISIONS = ["verify", "needs_info", "reject", "revoke", "start"] as const;
 
@@ -22,5 +23,14 @@ export async function revealKycAction(form: FormData) {
   return act("/admin/kyc", async () => {
     await requirePlatformAdmin();
     return `/admin/kyc?reveal=${encodeURIComponent(str(form, "id"))}#k-${encodeURIComponent(str(form, "id"))}`;
+  });
+}
+
+/** Try the automatic check again, for example after a provider was down or its keys were added. */
+export async function rerunAutoKycAction(form: FormData) {
+  return act("/admin/kyc", async () => {
+    await requirePlatformAdmin();
+    const outcome = await autoCheckKyc(str(form, "id"));
+    return withNotice("/admin/kyc", `Automatic check: ${AUTO_OUTCOME_LABEL[outcome].toLowerCase()}.`);
   });
 }

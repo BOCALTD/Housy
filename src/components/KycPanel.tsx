@@ -2,12 +2,13 @@ import { formatDate } from "@/lib/dates";
 import { STATUS_LABEL, type KycKind } from "@/lib/kyc-rules";
 import type { agentKyc } from "@/lib/services/kyc";
 import { Pill } from "./ui";
+import { AUTO_CODES } from "@/lib/kyc-auto-rules";
 
 type View = Awaited<ReturnType<typeof agentKyc>>;
 const PILL: Record<string, string> = { VERIFIED: "ACTIVE", SUBMITTED: "PENDING", UNDER_REVIEW: "PENDING", NEEDS_INFO: "OPEN", REJECTED: "SUSPENDED", EXPIRED: "SUSPENDED", REVOKED: "SUSPENDED", NOT_SUBMITTED: "DRAFT" };
 
 /** Each check with its state, what the reviewer said, and a folded form to submit or resubmit it. */
-export function KycPanel({ kind, view, action, docBase, extra }: { kind: KycKind; view: View; action: (f: FormData) => Promise<void>; docBase: string; extra?: React.ReactNode }) {
+export function KycPanel({ kind, view, action, docBase, extra, autoReady = false }: { kind: KycKind; view: View; action: (f: FormData) => Promise<void>; docBase: string; extra?: React.ReactNode; autoReady?: boolean }) {
   const t = view.trust;
   return (
     <div className="stack-lg">
@@ -25,7 +26,10 @@ export function KycPanel({ kind, view, action, docBase, extra }: { kind: KycKind
                 <div><strong>{req.title}</strong><div className="small muted">{req.why} Counts for {req.weight} points{req.core ? " · required for Verified" : ""}.</div></div>
                 <Pill status={PILL[status]} label={STATUS_LABEL[status]} />
               </div>
-              {row && status === "VERIFIED" ? <p className="small">{row.scope} on {formatDate(row.verifiedAt!)}{row.expiresAt ? `, valid until ${formatDate(row.expiresAt)}` : ""}.</p> : null}
+              {row && status === "VERIFIED" ? <p className="small">{row.scope} on {formatDate(row.verifiedAt!)}{row.expiresAt ? `, valid until ${formatDate(row.expiresAt)}` : ""}.{row.autoOutcome === "MATCH" ? <span className="pill auto-pill">Confirmed automatically</span> : null}</p> : null}
+              {row && (status === "SUBMITTED" || status === "UNDER_REVIEW") && ["NO_MATCH", "NOT_FOUND", "UNAVAILABLE"].includes(row.autoOutcome) ? (
+                <p className="small flash" role="note">{row.autoOutcome === "UNAVAILABLE" ? "The automatic check could not be completed just now," : "These details could not be confirmed automatically against the official record,"} so a person on our team will check them by hand.{row.autoOutcome !== "UNAVAILABLE" ? " If something was mistyped, send it again." : ""}</p>
+              ) : null}
               {row && (status === "NEEDS_INFO" || status === "REJECTED" || status === "REVOKED") && row.reviewNote ? <p className="flash error" role="note">Reviewer: {row.reviewNote}</p> : null}
               {row && (status === "SUBMITTED" || status === "UNDER_REVIEW") ? <p className="small muted">Sent on {formatDate(row.submittedAt)}. Our team usually reviews within two working days.</p> : null}
               {row ? (
@@ -57,6 +61,9 @@ export function KycPanel({ kind, view, action, docBase, extra }: { kind: KycKind
                     </label>
                   ) : null}
                   <label className="check"><input type="checkbox" name="confirm" value="yes" required /> The information and document are genuine and I am allowed to share them for verification.</label>
+                  {autoReady && AUTO_CODES.includes(req.code) ? (
+                    <label className="check"><input type="checkbox" name="auto" value="yes" /> Check these details automatically against the official record ({req.code === "CAC_REGISTRATION" ? "CAC" : req.code === "TAX_ID" ? "FIRS" : "NIMC, INEC or FRSC"}) through our licensed verification partner, so it can be verified in seconds. If it cannot be confirmed that way, our team checks it by hand.{req.code.endsWith("_ID") ? " Works for NIN, voter's cards and driver's licences; passports are always checked by hand." : ""}</label>
+                  ) : null}
                   <button className="btn primary" type="submit">Send for review</button>
                 </form>
               </details>

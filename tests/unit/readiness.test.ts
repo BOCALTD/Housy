@@ -8,6 +8,7 @@ const good = {
   RESEND_API_KEY: "re_x", EMAIL_FROM: "Housy <no-reply@housy.ng>", PAYSTACK_SECRET_KEY: "sk_live_abc", CRON_SECRET: "c".repeat(30), UNSUBSCRIBE_SECRET: "u".repeat(30), SUPPORT_EMAIL: "help@housy.ng",
   VAPID_PUBLIC_KEY: "B".repeat(87), VAPID_PRIVATE_KEY: "p".repeat(43),
   NEXT_PUBLIC_MAP_TILES: "https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=abc",
+  DOJAH_APP_ID: "app", DOJAH_SECRET_KEY: "sk_live_x",
 };
 const by = (env: Record<string, string | undefined>) => Object.fromEntries(readinessChecks(env).map((c) => [c.id, c]));
 
@@ -51,4 +52,12 @@ test("when required, an administrator without two-step sign-in is held back; oth
   assert.equal(adminMfaMissing({ REQUIRE_ADMIN_MFA: "true" }, { mfaEnabledAt: new Date() }), false);
   assert.equal(adminMfaMissing({}, { mfaEnabledAt: null }), false);
   assert.equal(adminMfaMissing({ REQUIRE_ADMIN_MFA: "TRUE" }, { mfaEnabledAt: null }), false, "only the exact word true turns it on, and the readiness page then shows it as not set");
+});
+
+test("automatic identity checks: off means every check is by hand; a sandbox key is flagged", () => {
+  assert.equal(by({ ...good, DOJAH_APP_ID: undefined, DOJAH_SECRET_KEY: undefined }).kyc.level, "warn");
+  assert.match(by({ ...good, DOJAH_APP_ID: undefined }).kyc.detail, /reviewed by hand/);
+  const sb = by({ ...good, DOJAH_BASE_URL: "https://sandbox.dojah.io" }).kyc;
+  assert.equal(sb.level, "warn"); assert.match(sb.detail, /SANDBOX/);
+  assert.equal(by(good).kyc.level, "ok");
 });

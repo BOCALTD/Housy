@@ -332,3 +332,15 @@ What code and documents can do is done; the launch itself needs your accounts an
 - Link previews: each of these pages has its own preview picture (`opengraph-image`), with the property's first photo, price and place, or the agent's or company's name and rating, plus the platform name. WhatsApp, Facebook, X, LinkedIn and Telegram show it when the link is pasted.
 - Back to the app: a signed-in person's link goes through `/r/CODE?to=/properties/…`, which remembers their invite code (so anyone who joins through it counts as their referral) and opens the page. Only property, reel, agent and company pages can be targets; anything else goes to sign-up.
 - Visitors who are not signed in see the first 3 photos (the rest show as a blurred "+N more photos" slide), the newest 3 reviews on profiles, and an invitation to sign up free. Someone who opened a shared link is greeted with "Someone shared this with you". After signing up or in they return to the same page.
+
+## Automatic identity checks, with people as the fallback
+
+- When a company or agent sends an ID, CAC registration or TIN check, they can tick **"Check these details automatically against the official record"** (never ticked for them).
+- With that agreement, the check is compared at once with the official record through a licensed provider:
+  - **NIN** (NIMC), **voter's card** (INEC) and **driver's licence** (FRSC) for a director's or agent's ID: the surname and at least one other name must match the record, in any order, ignoring titles and one slip in a long name;
+  - **CAC registration**: the registered name must match (ignoring "Limited", "Nig." and punctuation) and the company must be active;
+  - **TIN**: looked up with the company's RC number and must match.
+- A match is **verified straight away** (recorded as checked automatically, with the provider's reference; the reviewer shows as "system"). The person is told.
+- Anything else goes to the **verification team** under Platform admin → Identity and business checks, with the reason: details did not match (the record's name is shown masked), no record found, the provider was unavailable, a passport (no provider checks passports), or no agreement. The team decides by hand as before, can try the automatic check again after an outage, and can revoke any automatic verification.
+- Address, photo, phone and professional licence checks are always done by a person.
+- Providers: **Dojah** (`DOJAH_APP_ID`, `DOJAH_SECRET_KEY`: NIN, CAC, TIN) and **Youverify** (`YOUVERIFY_TOKEN`: NIN, voter's card, driver's licence). Set either or both; `KYC_PROVIDERS` sets the order. If one is down, the next is tried, then a person. Only the names and company details needed for the comparison are read; photos, dates of birth and phone numbers in the provider's reply are not stored. The launch checklist shows whether automatic checks are on, and warns about sandbox keys.

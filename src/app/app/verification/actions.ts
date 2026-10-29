@@ -15,7 +15,7 @@ export async function submitCompanyKycAction(form: FormData) {
     const input = Object.fromEntries(req.fields.map((f) => [f.key, str(form, f.key)]));
     const file = form.get("doc");
     const doc = file instanceof File && file.size > 0 ? { type: file.type, bytes: new Uint8Array(await file.arrayBuffer()), name: file.name } : null;
-    await submitCompanyKyc(member, code, input, doc);
-    return withNotice("/app/verification", `${req.title} sent for review.`);
+    await submitCompanyKyc(member, code, input, doc, { autoConsent: str(form, "auto") === "yes" });
+    return withNotice("/app/verification", `${req.title} sent. ${str(form, "auto") === "yes" ? "It is being checked automatically; if that cannot confirm it, our team will check it by hand." : "Our team will review it."}`);
   });
 }

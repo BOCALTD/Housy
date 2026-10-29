@@ -6,12 +6,14 @@ import { openSecret, sealSecret } from "../totp";
 import { checkSubmission, expiryFor, requirement, requirementsFor, trustOf, type Check, type KycKind, type KycStatus } from "../kyc-rules";
 import { assertCan, type Ctx } from "./context";
 import { notify } from "./notifications";
+import { cacNumber, companiesMatch, digitsOf, lookupFor, LOOKUP_LABEL, maskName, nameFieldOf, namesMatch, type AutoOutcome } from "../kyc-auto-rules";
+import { identityProviders, ProviderUnavailable, type Found } from "../identity-providers";
 
 const DOC_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 type Doc = { type: string; bytes: Uint8Array; name: string } | null;
 
 const keyOf = (kind: KycKind, id: string) => `${kind}:${id}`;
-const itemSelect = { id: true, code: true, status: true, fields: true, secretMasked: true, docMime: true, docName: true, submittedAt: true, reviewedAt: true, reviewNote: true, scope: true, verifiedAt: true, expiresAt: true } as const;
+const itemSelect = { id: true, code: true, status: true, fields: true, secretMasked: true, docMime: true, docName: true, submittedAt: true, reviewedAt: true, reviewNote: true, scope: true, verifiedAt: true, expiresAt: true, reviewedById: true, autoConsent: true, autoOutcome: true, autoNote: true, autoProvider: true, autoAt: true } as const;
 
 function checkDoc(code: string, doc: Doc, resubmitting: boolean) {
   const r = requirement(code)!;
@@ -21,7 +23,7 @@ function checkDoc(code: string, doc: Doc, resubmitting: boolean) {
   validateUpload(doc.type, doc.bytes);
 }
 
-async function upsertItem(tx: Tx, base: { companyId: string; subjectKind: KycKind; subjectKey: string; subjectUserId: string | null; code: string; userId: string }, input: Record<string, string>, doc: Doc) {
+async function upsertItem(tx: Tx, base: { companyId: string; subjectKind: KycKind; subjectKey: string; subjectUserId: string | null; code: string; userId: string }, input: Record<string, string>, doc: Doc, autoConsent: boolean) {
   const r = requirement(base.code);
   if (!r || r.kind !== base.subjectKind) throw new Error("Unknown check");
   const existing = await tx.kycItem.findFirst({ where: { subjectKey: base.subjectKey, code: base.code } });
@@ -36,6 +38,8 @@ async function upsertItem(tx: Tx, base: { companyId: string; subjectKind: KycKin
   const data = {
     status: "SUBMITTED", fields: s.values as Prisma.InputJsonValue, submittedById: base.userId, submittedAt: new Date(),
     reviewedById: null, reviewedAt: null, reviewNote: "", scope: "", evidence: "", limitations: "", verifiedAt: null, expiresAt: null,
+    // Each submission starts a fresh automatic attempt, and only if the person asked for one this time.
+    autoConsent, autoOutcome: "NONE", autoProvider: "", autoReference: "", autoNote: "", autoAt: null,
     ...(s.secret ? { secretSealed: sealSecret(s.secret), secretMasked: s.masked } : {}),
     ...(doc ? { docMime: doc.type, docBytes: Buffer.from(doc.bytes), docName: doc.name.slice(0, 200) } : {}),
   };
@@ -47,28 +51,123 @@ async function upsertItem(tx: Tx, base: { companyId: string; subjectKind: KycKin
 }
 
 /** A company submits one of its checks. Only the company's top administrator may, because it includes a director's ID. */
-export async function submitCompanyKyc(ctx: Ctx, code: string, input: Record<string, string>, doc: Doc) {
+export async function submitCompanyKyc(ctx: Ctx, code: string, input: Record<string, string>, doc: Doc, opts: { autoConsent?: boolean } = {}) {
   assertCan(ctx, "kyc.manage");
-  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
-    const id = await upsertItem(tx, { companyId: ctx.companyId, subjectKind: "COMPANY", subjectKey: keyOf("COMPANY", ctx.companyId), subjectUserId: null, code, userId: ctx.userId }, input, doc);
-    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "kyc", entityId: id, action: "kyc.submitted", detail: { code } });
+  const id = await withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const id = await upsertItem(tx, { companyId: ctx.companyId, subjectKind: "COMPANY", subjectKey: keyOf("COMPANY", ctx.companyId), subjectUserId: null, code, userId: ctx.userId }, input, doc, !!opts.autoConsent);
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "kyc", entityId: id, action: "kyc.submitted", detail: { code, automatic: !!opts.autoConsent } });
     return id;
   });
+  await autoCheckKyc(id).catch((e) => console.error("automatic KYC check failed", e));
+  return id;
 }
 
 /** An agent submits one of their own checks. Their employer cannot read these; only the agent and the reviewers can. */
-export async function submitAgentKyc(userId: string, companyId: string, code: string, input: Record<string, string>, doc: Doc) {
-  return withUser(userId, async (tx) => {
+export async function submitAgentKyc(userId: string, companyId: string, code: string, input: Record<string, string>, doc: Doc, opts: { autoConsent?: boolean } = {}) {
+  const id = await withUser(userId, async (tx) => {
     const m = await tx.membership.findFirst({ where: { userId, companyId, status: "ACTIVE" } });
     if (!m) throw new Error("Agent checks are for people who work for a registered company");
-    const id = await upsertItem(tx, { companyId, subjectKind: "AGENT", subjectKey: keyOf("AGENT", userId), subjectUserId: userId, code, userId }, input, doc);
+    const id = await upsertItem(tx, { companyId, subjectKind: "AGENT", subjectKey: keyOf("AGENT", userId), subjectUserId: userId, code, userId }, input, doc, !!opts.autoConsent);
     // Personal record: logged without a company, so the employer does not see it in its own trail.
-    await logActivity(tx, { companyId: null, actorId: userId, entityType: "kyc", entityId: id, action: "kyc.submitted", detail: { code, agent: true } });
+    await logActivity(tx, { companyId: null, actorId: userId, entityType: "kyc", entityId: id, action: "kyc.submitted", detail: { code, agent: true, automatic: !!opts.autoConsent } });
     return id;
+  });
+  await autoCheckKyc(id).catch((e) => console.error("automatic KYC check failed", e));
+  return id;
+}
+
+// ---------- Automatic checks ----------
+
+/** The automatic checker acts as "system": it is recorded as the reviewer of checks it confirms. */
+export const KYC_SYSTEM = "system";
+const sys = <T>(fn: (tx: Tx) => Promise<T>) => withPlatformAdmin(KYC_SYSTEM, fn);
+
+/**
+ * Compare a submitted check with the official record through the configured providers. A confirmed match is verified at once;
+ * a mismatch, a missing record or a provider that cannot answer leaves the check waiting for a person, with a note saying why.
+ * Nothing is sent to a provider unless the person ticked the box asking for an automatic check.
+ */
+export async function autoCheckKyc(id: string): Promise<AutoOutcome> {
+  const item = await sys((tx) => tx.kycItem.findFirst({ where: { id } }));
+  if (!item || !["SUBMITTED", "UNDER_REVIEW"].includes(item.status)) return "NONE";
+  const req = requirement(item.code);
+  const fields = (item.fields ?? {}) as Record<string, string>;
+  const lookup = lookupFor(item.code, fields);
+  const save = async (outcome: AutoOutcome, note: string, provider = "", reference = "") => {
+    await sys(async (tx) => {
+      const fresh = await tx.kycItem.findFirst({ where: { id }, select: { status: true } });
+      if (!fresh || !["SUBMITTED", "UNDER_REVIEW"].includes(fresh.status)) return;
+      await tx.kycItem.update({ where: { id }, data: { autoOutcome: outcome, autoNote: note.slice(0, 500), autoProvider: provider.slice(0, 40), autoReference: reference.slice(0, 120), autoAt: new Date() } });
+      if (outcome === "NO_MATCH" || outcome === "NOT_FOUND" || outcome === "UNAVAILABLE") {
+        await notify(tx, item.subjectKind === "AGENT" ? item.subjectUserId! : item.submittedById, {
+          kind: "security.kyc", title: `${req?.title ?? "A check"}: our team will check it by hand`,
+          body: outcome === "UNAVAILABLE" ? "The automatic check could not be completed just now, so a person on our team will review it." : "The details could not be confirmed automatically against the official record, so a person on our team will review them. If something was mistyped, you can send it again.",
+          link: item.subjectKind === "AGENT" ? "/me/verification" : "/app/verification",
+        });
+      }
+    });
+    return outcome;
+  };
+  if (!lookup) return save("NOT_SUPPORTED", "This check is reviewed by a person.");
+  if (!item.autoConsent) return save("NO_CONSENT", "");
+  const providers = identityProviders().filter((p) => p.supports(lookup));
+  if (!providers.length) return save("NOT_SUPPORTED", `No automatic provider is set up for the ${LOOKUP_LABEL[lookup]}.`);
+
+  // What to look up, and what the record must agree with.
+  let number = "", companyType: string | undefined, expectTin = "";
+  if (lookup === "CAC" || lookup === "TIN") {
+    const rc = lookup === "CAC" ? fields.rcNumber : ((await sys((tx) => tx.kycItem.findFirst({ where: { subjectKey: item.subjectKey, code: "CAC_REGISTRATION" }, select: { fields: true } })))?.fields as Record<string, string> | undefined)?.rcNumber;
+    const parsed = cacNumber(rc ?? "");
+    if (!parsed) return save("NOT_SUPPORTED", lookup === "TIN" ? "Add the CAC registration first, so the tax record can be found." : "The RC or BN number is not in a form the register recognises.");
+    number = parsed.number; companyType = parsed.type; expectTin = digitsOf(fields.tin ?? "");
+  } else {
+    if (!item.secretSealed) return save("NOT_SUPPORTED", "No ID number on file.");
+    number = openSecret(item.secretSealed).replace(/\s/g, "");
+  }
+
+  const problems: string[] = [];
+  for (const p of providers) {
+    let found: Found;
+    try { found = await p.lookup(lookup, { number, companyType }); }
+    catch (e) { problems.push(`${p.name}: ${e instanceof ProviderUnavailable ? e.message : "unexpected error"}`); continue; }
+    if (!found.found) return save("NOT_FOUND", `${p.name} found no ${LOOKUP_LABEL[lookup]} for this number.`, p.name, found.reference);
+    let ok = false, detail = "";
+    if (lookup === "CAC" || lookup === "TIN") {
+      const c = found.company!;
+      const nameOk = companiesMatch(lookup === "CAC" ? fields.legalName ?? "" : c.name, c.name);
+      const active = !c.status || (/active/i.test(c.status) && !/inactive/i.test(c.status));
+      if (lookup === "CAC") { ok = nameOk && active; detail = !nameOk ? `registered name differs (${maskName(c.name)})` : !active ? `registry status is ${c.status}` : `registered name and number match${c.status ? `, status ${c.status}` : ""}`; }
+      else { const tin = digitsOf(c.taxId ?? ""); ok = !!tin && !!expectTin && (tin === expectTin || (expectTin.length >= 8 && tin.startsWith(expectTin)) || (tin.length >= 8 && expectTin.startsWith(tin))); detail = ok ? "TIN matches the tax register" : "TIN differs from the tax register"; }
+    } else {
+      const typed = fields[nameFieldOf(item.code)] ?? "";
+      const m = namesMatch(typed, found.person ?? {});
+      ok = m.match; detail = m.match ? m.detail : `${m.detail} (record: ${maskName([found.person?.first, found.person?.middle, found.person?.last].filter(Boolean).join(" "))})`;
+    }
+    if (!ok) return save("NO_MATCH", `${p.name}: ${detail}.`, p.name, found.reference);
+    await verifyAutomatically(id, p.name, found.reference, `${p.name} ${LOOKUP_LABEL[lookup]} lookup${found.reference ? ` (ref ${found.reference})` : ""}: ${detail}.`);
+    return "MATCH";
+  }
+  return save("UNAVAILABLE", problems.join("; ") || "No provider answered.");
+}
+
+async function verifyAutomatically(id: string, provider: string, reference: string, evidence: string) {
+  await sys(async (tx) => {
+    const r = await tx.kycItem.findFirst({ where: { id } });
+    if (!r || !["SUBMITTED", "UNDER_REVIEW"].includes(r.status)) return;
+    const req = requirement(r.code)!;
+    const now = new Date();
+    await tx.kycItem.update({ where: { id }, data: {
+      status: "VERIFIED", reviewedById: KYC_SYSTEM, reviewedAt: now, verifiedAt: now, expiresAt: expiryFor(r.code, now), scope: req.scope,
+      evidence: evidence.slice(0, 1000), limitations: "Confirmed automatically against the official record. The uploaded document was not inspected by a person.",
+      reviewNote: "", autoOutcome: "MATCH", autoProvider: provider.slice(0, 40), autoReference: reference.slice(0, 120), autoNote: evidence.slice(0, 500), autoAt: now,
+    } });
+    await refreshTrust(tx, r.subjectKey);
+    await logActivity(tx, { companyId: r.companyId, actorId: null, entityType: "kyc", entityId: id, action: "kyc.verify_automatic", detail: { code: r.code, provider } });
+    await notify(tx, r.subjectKind === "AGENT" ? r.subjectUserId! : r.submittedById, { kind: "security.kyc", title: `${req.title} is verified`, body: "Confirmed automatically against the official record.", link: r.subjectKind === "AGENT" ? "/me/verification" : "/app/verification" });
   });
 }
 
-function view(kind: KycKind, rows: { code: string; status: string; fields: unknown; secretMasked: string; docName: string; docMime: string | null; submittedAt: Date; reviewedAt: Date | null; reviewNote: string; scope: string; verifiedAt: Date | null; expiresAt: Date | null; id: string }[], now = new Date()) {
+function view(kind: KycKind, rows: { code: string; status: string; fields: unknown; secretMasked: string; docName: string; docMime: string | null; submittedAt: Date; reviewedAt: Date | null; reviewNote: string; scope: string; verifiedAt: Date | null; expiresAt: Date | null; id: string; reviewedById: string | null; autoConsent: boolean; autoOutcome: string; autoNote: string; autoProvider: string; autoAt: Date | null }[], now = new Date()) {
   const items = requirementsFor(kind).map((r) => {
     const row = rows.find((x) => x.code === r.code) ?? null;
     let status: KycStatus | "NOT_SUBMITTED" = (row?.status as KycStatus) ?? "NOT_SUBMITTED";

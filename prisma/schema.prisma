@@ -5070,11 +5070,18 @@ model KycItem {
   limitations   String    @default("")
   verifiedAt    DateTime? @map("verified_at")
   expiresAt     DateTime? @map("expires_at")
+  autoConsent   Boolean   @default(false) @map("auto_consent")
+  autoOutcome   String    @default("NONE") @map("auto_outcome")
+  autoProvider  String    @default("") @map("auto_provider")
+  autoReference String    @default("") @map("auto_reference")
+  autoNote      String    @default("") @map("auto_note")
+  autoAt        DateTime? @map("auto_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   @@unique([subjectKey, code])
   @@index([companyId])
   @@index([status, submittedAt])
+  @@index([autoOutcome])
   @@map("kyc_items")
 }
 

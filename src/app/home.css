@@ -558,3 +558,4 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .shot-locked .locked-over { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; color: #fff; padding: 16px; }
 .shot-locked .locked-over strong { font-size: 1.6rem; font-family: var(--font-display); }
 .shot-locked:not(:has(img)) { aspect-ratio: 16 / 10; background: #1F2125; }
+.auto-pill { margin-left: 8px; background: color-mix(in srgb, #FBB017 18%, var(--surface)); border: 1px solid color-mix(in srgb, #FBB017 55%, var(--line)); color: #6b4a00; font-size: 12px; }

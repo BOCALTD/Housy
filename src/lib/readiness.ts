@@ -1,3 +1,4 @@
+import { identityProviders } from "./identity-providers";
 import { vapidFromEnv } from "./webpush";
 /**
  * Is this deployment ready for real customers? Looks only at which settings exist and whether they look sane. It never returns a
@@ -50,6 +51,11 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
   const tiles = env.NEXT_PUBLIC_MAP_TILES ?? "";
   add("map", "Street map tiles", /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? "ok" : "warn",
     /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? "A tile provider is set." : "Using OpenStreetMap's public tiles, which are fine for testing and light use only. Set NEXT_PUBLIC_MAP_TILES (and NEXT_PUBLIC_MAP_ATTRIBUTION) to a provider such as MapTiler or Stadia Maps before real traffic, then rebuild.", "provider");
+
+  const kyc = identityProviders(env);
+  const sandbox = /sandbox/.test(`${env.DOJAH_BASE_URL ?? ""} ${env.YOUVERIFY_BASE_URL ?? ""}`);
+  add("kyc", "Automatic identity checks", kyc.length && !sandbox ? "ok" : "warn",
+    kyc.length ? `${kyc.map((p) => p.name).join(", then ")}${sandbox ? " (SANDBOX: test records only)" : ""}. Checks people agree to are confirmed against NIMC, CAC and FIRS records; anything not confirmed goes to the verification team. Verify one real NIN and one real RC number before launch.` : "No provider keys (DOJAH_APP_ID and DOJAH_SECRET_KEY, or YOUVERIFY_TOKEN), so every identity and business check is reviewed by hand.", "provider");
 
   const pk = env.PAYSTACK_SECRET_KEY ?? "";
   add("payments", "Payment provider", /^sk_live_/.test(pk) ? "ok" : /^sk_test_/.test(pk) ? "warn" : "warn",

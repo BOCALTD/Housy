@@ -4,7 +4,9 @@ import { kycQueue, revealKycSecret } from "@/lib/services/kyc";
 import { requirement, STATUS_LABEL, type KycStatus } from "@/lib/kyc-rules";
 import { formatDateTime } from "@/lib/dates";
 import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
-import { decideKycAction, revealKycAction } from "./actions";
+import { decideKycAction, revealKycAction, rerunAutoKycAction } from "./actions";
+import { AUTO_OUTCOME_LABEL, type AutoOutcome } from "@/lib/kyc-auto-rules";
+import { identityProviders } from "@/lib/identity-providers";
 
 export const metadata = { title: "Identity and business checks" };
 export const dynamic = "force-dynamic";
@@ -19,6 +21,7 @@ export default async function KycAdmin({ searchParams: searchP }: { searchParams
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
         <h1>Identity and business checks</h1>
+        <p className="muted">{identityProviders().length ? `Automatic checks are on (${identityProviders().map((p) => p.name).join(", then ")}). ID, registration and tax checks the person agreed to have checked automatically are confirmed against the official record; only those that could not be confirmed wait here.` : "Automatic checks are off: no identity provider keys are set. Every check waits here for a person."}</p>
         <p className="muted">Verify a check only after you have confirmed it against an independent source (for example the CAC public search, the original document, or a call to the number). Record what you relied on: it is kept with the check. You cannot review a check you submitted. Viewing a document or a full ID number is recorded.</p>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
@@ -36,7 +39,9 @@ export default async function KycAdmin({ searchParams: searchP }: { searchParams
                   {w.secretMasked ? <><dt>ID number</dt><dd>{revealId === w.id && revealed ? <code>{revealed}</code> : w.secretMasked}</dd></> : null}
                   {w.docName ? <><dt>Document</dt><dd><a href={`/kyc/doc/${w.id}`} target="_blank" rel="noopener">{w.docName}</a></dd></> : null}
                   <dt>Sent</dt><dd>{formatDateTime(w.submittedAt)}</dd>
+                  <dt>Automatic check</dt><dd>{AUTO_OUTCOME_LABEL[w.autoOutcome as AutoOutcome] ?? w.autoOutcome}{w.autoNote ? `: ${w.autoNote}` : ""}{w.autoAt ? ` (${formatDateTime(w.autoAt)})` : ""}</dd>
                 </dl>
+                {w.autoConsent && ["UNAVAILABLE", "NOT_SUPPORTED"].includes(w.autoOutcome) && identityProviders().length ? <form action={rerunAutoKycAction}><input type="hidden" name="id" value={w.id} /><button className="btn small" type="submit">Try the automatic check again</button></form> : null}
                 {w.secretMasked && revealId !== w.id ? <form action={revealKycAction}><input type="hidden" name="id" value={w.id} /><button className="btn small" type="submit">Show full ID number</button></form> : null}
                 <details className="inline"><summary>Decide</summary>
                   <form action={decideKycAction} className="stack">
@@ -61,7 +66,7 @@ export default async function KycAdmin({ searchParams: searchP }: { searchParams
           <ShowMore limit={5} noun="more decisions" items={q.recent.map((r) => (
             <li key={r.id} className="card stack">
               <div className="row between"><span><strong>{requirement(r.code)?.title}</strong> · {r.who}</span><Pill status={r.status === "VERIFIED" ? "ACTIVE" : "SUSPENDED"} label={STATUS_LABEL[r.status as KycStatus]} /></div>
-              <p className="small muted">{r.reviewedAt ? formatDateTime(r.reviewedAt) : ""}{r.scope ? ` · ${r.scope}` : ""}{r.reviewNote ? ` · ${r.reviewNote}` : ""}</p>
+              <p className="small muted">{r.reviewedAt ? formatDateTime(r.reviewedAt) : ""}{r.reviewedById === "system" ? " · confirmed automatically" : ""}{r.scope ? ` · ${r.scope}` : ""}{r.reviewNote ? ` · ${r.reviewNote}` : ""}{r.reviewedById === "system" && r.autoNote ? ` · ${r.autoNote}` : ""}</p>
               {r.status === "VERIFIED" ? (
                 <details className="inline"><summary>Revoke</summary>
                   <form action={decideKycAction} className="stack"><input type="hidden" name="id" value={r.id} /><input type="hidden" name="decision" value="revoke" />

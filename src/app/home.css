@@ -663,3 +663,4 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .plan-flag-current { left: auto; right: 16px; background: #1F2125; color: #FBB017; }
 @media (hover: hover) { .plan:hover { border-color: color-mix(in srgb, #FBB017 60%, var(--line)); } }
 @media (prefers-reduced-motion: no-preference) { .plan { transition: border-color .2s, transform .2s, box-shadow .2s; } @media (hover: hover) { .plan:hover { transform: translateY(-3px); } } }
+@media (min-width: 1180px) { .plans:has(> .plan:only-child) { grid-template-columns: minmax(0, 400px); } }

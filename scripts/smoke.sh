@@ -14,6 +14,9 @@ curl -s http://localhost:3100/ | grep -q "DEMO" || fail "home page does not list
 [ "$(code /login)" = "200" ] || fail "/login returned $(code /login)"
 [ "$(code /signup)" = "200" ] || fail "/signup returned $(code /signup)"
 [ "$(code /join)" = "200" ] || fail "/join returned $(code /join)"
+curl -s http://localhost:3100/pricing | grep -q "Everything included" || fail "/pricing does not compare the plans"
+curl -s http://localhost:3100/join | grep -q 'name="passwordConfirm"' || fail "/join does not ask for the password twice"
+curl -s http://localhost:3100/login | grep -q 'Show password' || fail "/login has no show-password button"
 [ "$(code /directory)" = "200" ] || fail "/directory returned $(code /directory) for a signed-out visitor"
 [ "$(code /me)" = "307" ] || fail "/me returned $(code /me) for a signed-out visitor (expected 307)"
 # Brand images: tab icon, home-screen icon, and the picture shown when a link is shared

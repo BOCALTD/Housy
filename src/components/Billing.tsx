@@ -1,24 +1,24 @@
 import Link from "next/link";
-import { buyablePlans, myInvoices, readBankInstructions, type Payer } from "@/lib/services/billing";
+import { allPlans, buyablePlans, myInvoices, readBankInstructions, type Payer } from "@/lib/services/billing";
+import { PlanCompare } from "@/components/PlanCompare";
 import { companySubscription, mySubscription } from "@/lib/services/subscriptions";
 import { configuredProvider } from "@/lib/payment-providers";
-import { ENTITLEMENT_LABELS } from "@/lib/subscription-rules";
-import { PERIOD_MONTHS, type Period } from "@/lib/billing-rules";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { Pill, ShowMore } from "@/components/ui";
-import { cancelPlanAction, payInvoiceAction, payPlanAction } from "@/app/billing/actions";
+import { cancelPlanAction, payInvoiceAction } from "@/app/billing/actions";
 
 const stateTone = (s: string) => (s === "ACTIVE" || s === "TRIAL" ? "ACTIVE" : s === "GRACE" || s === "READ_ONLY" ? "PENDING" : "SUSPENDED");
 const invTone = (s: string) => (s === "PAID" ? "ACTIVE" : s === "OPEN" ? "PENDING" : "SUSPENDED");
 
 /** The plan a person or company holds, what they can buy, and what they have been billed. Shared by the personal and company pages. */
 export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" | "app" }) {
-  const [plan, plans, invoices] = await Promise.all([
+  const [plan, plans, invoices, all] = await Promise.all([
     payer.companyId ? companySubscription(payer.companyId, payer.userId) : mySubscription(payer.userId),
     buyablePlans(payer),
     myInvoices(payer),
+    allPlans(payer.companyId ? ["COMPANY"] : ["SEEKER", "AGENT"]),
   ]);
   const online = !!configuredProvider();
   const bank = online ? "" : await readBankInstructions();
@@ -60,20 +60,15 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
       <section className="stack">
         <h2>Plans</h2>
         {!online ? <div className="card"><p className="small muted">Online payment is not connected yet. Choose a plan to get an invoice, then pay by bank transfer and the platform administrator will confirm it.{bank ? "" : " Ask the platform administrator for the account details."}</p></div> : null}
-        {plans.length === 0 ? <div className="card"><p className="muted">No plans are open for purchase right now.</p></div> : (
-          <div className="grid">
-            {plans.map((p) => (
-              <div key={p.id} className="card stack">
-                <h3>{p.name}</h3>
-                <p><strong>{formatKobo(p.priceKobo!)}</strong> <span className="small muted">for {PERIOD_MONTHS[p.billingPeriod as Period]} {PERIOD_MONTHS[p.billingPeriod as Period] === 1 ? "month" : "months"}</span></p>
-                {p.entitlements.length ? <ul className="small">{p.entitlements.map((e) => <li key={e.id}>{(ENTITLEMENT_LABELS as Record<string, string>)[e.key] ?? humanize(e.key)}{e.limit !== null ? ` (up to ${e.limit})` : ""}</li>)}</ul> : null}
-                {plan.sub && plan.sub.planId !== p.id ? <p className="small muted">Choosing this plan starts a new period today. Time left on your current plan is not carried over.</p> : null}
-                <form action={payPlanAction}><input type="hidden" name="from" value={from} /><input type="hidden" name="planId" value={p.id} />
-                  <button className="btn primary" type="submit">{plan.sub?.planId === p.id ? "Renew" : "Choose"} this plan</button></form>
-              </div>
-            ))}
-          </div>
+        {payer.companyId ? <PlanCompare audience="COMPANY" plans={all.filter((x) => x.audience === "COMPANY")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} /> : (
+          <>
+            <h3>For people looking for property</h3>
+            <PlanCompare audience="SEEKER" plans={all.filter((x) => x.audience === "SEEKER")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} />
+            <h3>For agents</h3>
+            <PlanCompare audience="AGENT" plans={all.filter((x) => x.audience === "AGENT")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} />
+          </>
         )}
+        {plan.sub && plans.some((x) => x.id !== plan.sub!.planId) ? <p className="small muted">Choosing a different plan starts a new period today. Time left on your current plan is not carried over.</p> : null}
       </section>
 
       <section className="stack">

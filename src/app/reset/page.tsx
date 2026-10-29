@@ -1,5 +1,6 @@
+import { NewPassword } from "@/components/PasswordInput";
 import Link from "next/link";
-import { Field, Flash, sp, type SP } from "@/components/ui";
+import { Flash, sp, type SP } from "@/components/ui";
 import { resetLinkIsValid } from "@/lib/services/account";
 import { resetAction } from "./actions";
 
@@ -17,7 +18,8 @@ export default async function ResetPage({ searchParams: searchP }: { searchParam
       {ok ? (
         <form action={resetAction} className="card stack">
           <input type="hidden" name="t" value={token} />
-          <Field label="New password" hint="At least 10 characters. You will be signed out on every device."><input name="password" id="password" type="password" required minLength={10} autoComplete="new-password" /></Field>
+          <NewPassword label="New password" />
+          <p className="small muted">You will be signed out on every device.</p>
           <button className="btn primary" type="submit">Save the new password</button>
         </form>
       ) : (

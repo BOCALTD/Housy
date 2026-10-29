@@ -78,6 +78,11 @@ export async function buyablePlans(p: Payer) {
   return system((tx) => tx.subscriptionPlan.findMany({ where: { active: true, audience: { in: [...audiences] }, priceKobo: { gt: 0 }, billingPeriod: { not: "NONE" } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { entitlements: true } }));
 }
 
+/** Every plan that is switched on, free ones and ones without a price yet included, for the side-by-side comparison. */
+export async function allPlans(audiences: ("COMPANY" | "SEEKER" | "AGENT")[]) {
+  return system((tx) => tx.subscriptionPlan.findMany({ where: { active: true, audience: { in: audiences } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { entitlements: true } }));
+}
+
 /** An invoice for one period of a plan. Asking again for the same plan returns the invoice already open; asking for another plan replaces it. */
 export async function createSubscriptionInvoice(p: Payer, planId: string, deps?: Deps) {
   assertMayPay(p);

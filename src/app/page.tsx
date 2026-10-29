@@ -3,7 +3,6 @@ import { priceSuffix } from "@/lib/listing-rules";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PromoSlides } from "@/components/PromoSlides";
-import { HeroRotator } from "@/components/HeroRotator";
 import { HomeHero } from "@/components/HomeHero";
 import { Carousel } from "@/components/Carousel";
 import { CountUp } from "@/components/CountUp";
@@ -96,9 +95,12 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
   );
   const hero = (
     <HomeHero photos={HERO}>
-      <HeroRotator />
       {search}
-      <div className="hx-links"><Link href="/find">Describe what you want in a sentence</Link><Link href="/map">See properties on a map</Link><Link href="/reels">Watch property reels</Link></div>
+      <nav className="hx-actions" aria-label="Other ways to search">
+        <Link className="hx-action" href="/find"><span className="hx-action-ico">{Icon.sparkle()}</span><span><strong>Describe it</strong><small>Type what you want in a sentence</small></span></Link>
+        <Link className="hx-action" href="/map"><span className="hx-action-ico">{Icon.map()}</span><span><strong>Street map</strong><small>See properties around you</small></span></Link>
+        <Link className="hx-action" href="/reels"><span className="hx-action-ico">{Icon.play()}</span><span><strong>Property reels</strong><small>Short videos of homes</small></span></Link>
+      </nav>
     </HomeHero>
   );
 
@@ -129,9 +131,9 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
       <ModeSwitch active="listings" />
       <div>
         {hero}
-        <section className="counts" aria-label={`${PLATFORM_NAME} in numbers`}>
-          {countRows.map((c, i) => { const I = COUNT_ICONS[i]; return <div key={c.label} className="count"><span className="count-ico">{I()}</span><CountUp value={c.n} /><span>{c.label}</span></div>; })}
-        </section>
+        {countRows.some((c) => c.n > 0) ? <section className="counts" aria-label={`${PLATFORM_NAME} in numbers`}>
+          {countRows.map((c, i) => { if (c.n <= 0) return null; const I = COUNT_ICONS[i]; return <div key={c.label} className="count"><span className="count-ico">{I()}</span><CountUp value={c.n} /><span>{c.label}</span></div>; })}
+        </section> : null}
       </div>
 
       {slides.length ? (
@@ -156,12 +158,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
             ))}
           </Carousel>
         </section>
-      ) : (
-        <section className="partner-empty" aria-label="Promotions">
-          <div><p className="sec-kicker">Hot offers</p><strong>No promotions are running right now.</strong><p className="small muted">Companies can run a discount on any published listing; it appears here as a festive flyer with the saving and end date.</p></div>
-          <Link className="btn primary" href="/app/promotions">Run a promotion</Link>
-        </section>
-      )}
+      ) : null}
       <SponsoredStrip items={sponsored} where="home" />
 
       <section className="sec">
@@ -178,18 +175,20 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
         </div>
       </section>
 
+      {/* Each section shows only when it has something in it; an empty platform shows no empty boxes. */}
+      {featured.length || promoted.length ? (
       <section className="sec">
         <SectionHead kicker="Featured" title="Featured properties" text="From registered companies, reviewed before publication." link={{ href: "/map", label: "See them on a map" }} />
-        {featured.length === 0 && promoted.length === 0 ? <div className="card"><p className="muted">No properties have been published yet.</p></div> : (
-          <Carousel label="Featured properties" few={(featured.length || promoted.length) <= 3}>
-            {(featured.length ? featured : promoted).map((l) => <ListingCard key={l.id} l={l} />)}
-          </Carousel>
-        )}
+        <Carousel label="Featured properties" few={(featured.length || promoted.length) <= 3}>
+          {(featured.length ? featured : promoted).map((l) => <ListingCard key={l.id} l={l} />)}
+        </Carousel>
       </section>
+      ) : null}
 
+      {cities.cities.length ? (
       <section className="sec">
         <SectionHead kicker="Locations" title={`Explore cities in ${countryName(cities.country)}`} text={cities.country !== country ? `No listings in ${countryName(country)} yet, so here is ${countryName(cities.country)}.` : "Where properties are listed right now."} />
-        {cities.cities.length === 0 ? <div className="card"><p className="muted">Cities appear here as soon as properties are published.</p></div> : (
+        {(
           <div className="tiles">
             {cities.cities.map((c, i) => (
               <Link key={`${c.city}-${c.state}`} href={`/?city=${encodeURIComponent(c.city)}`} className="tile">
@@ -202,15 +201,17 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
           </div>
         )}
       </section>
+      ) : null}
 
       <section className="sec">
         <SectionHead kicker="How it works" title="Simple, checked and in one place" />
         <HowItWorks />
       </section>
 
+      {pros.length ? (
       <section className="sec">
         <SectionHead kicker="Professionals" title="Companies and agents you can check" text="Trust levels come from identity and business checks done by people on our team." link={{ href: "/directory", label: "All companies and agents" }} />
-        {pros.length === 0 ? <div className="card"><p className="muted">Companies and agents appear here once they publish a public profile.</p></div> : (
+        {(
           <Carousel label="Companies and agents" few={pros.length <= 3}>
             {pros.map((p) => (
               <Link key={`${p.kind}-${p.targetId}`} href={p.kind === "AGENT" ? `/agents/${p.targetId}` : `/companies/${p.targetId}`} className="pro">
@@ -222,12 +223,12 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
           </Carousel>
         )}
       </section>
+      ) : null}
 
+      {reels.length ? (
       <section className="sec">
         <SectionHead kicker="Reels" title="See it before you visit" text="Short videos of homes and neighbourhoods from agents." link={{ href: "/reels", label: "Watch reels" }} />
-        {reels.length === 0 ? (
-          <div className="partner-empty"><div><strong>No reels yet.</strong><p className="small muted">Agents can post a short video of a property and link it to the listing.</p></div><Link className="btn" href="/reels/new">Post a reel</Link></div>
-        ) : (
+        {(
           <Carousel label="Property reels" few={reels.length <= 3}>
             {reels.map((r) => (
               <Link key={r.id} href={`/reels/${r.id}`} className="reel-tile" aria-label={`Watch: ${r.caption || "a property reel"} by ${r.authorName}`}>
@@ -239,6 +240,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
           </Carousel>
         )}
       </section>
+      ) : null}
 
       {(Object.keys(KIND_LABEL) as Kind[]).some((k) => done[k].length) ? (
         <section className="sec">
@@ -249,9 +251,10 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
         </section>
       ) : null}
 
+      {reviews.length ? (
       <section className="sec">
         <SectionHead kicker="Reviews" title="What clients say" text="Every review is tied to a recorded inspection or deal, so only real clients can write one." link={{ href: "/reviews", label: "All reviews" }} />
-        {reviews.length === 0 ? <div className="card"><p className="muted">Reviews appear here after clients complete inspections and deals.</p></div> : (
+        {(
           <Carousel label="Client reviews" few={reviews.length <= 3}>
             {reviews.map((r) => (
               <figure key={r.id} className="rv">
@@ -263,12 +266,12 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
           </Carousel>
         )}
       </section>
+      ) : null}
 
+      {partners.length ? (
       <section className="sec" aria-label="Partners">
         <SectionHead kicker="Partners" title="Working with" />
-        {partners.length === 0 ? (
-          <div className="partner-empty"><div><strong>Banks, law firms, surveyors and valuers: partner with us.</strong><p className="small muted">Partners are shown here only once an agreement is in place.</p></div><Link className="btn" href="/support">Talk to us</Link></div>
-        ) : (
+        {(
           <div className="partners">
             <div className="partners-row">
               {[0, 1].map((copy) => partners.map((p) => {
@@ -281,6 +284,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
           </div>
         )}
       </section>
+      ) : null}
 
       <section className="faq-wrap">
         <div className="stack"><p className="sec-kicker">Questions</p><h2>Frequently asked questions</h2><p className="muted">The things people ask before they trust a property platform.</p><Link className="btn" href="/faq">All questions</Link></div>

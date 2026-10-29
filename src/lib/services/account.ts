@@ -1,3 +1,4 @@
+import { guardKey } from "./login-guard";
 import { z } from "zod";
 import { prisma } from "../db";
 import { hashPassword, verifyPassword } from "../auth-hash";
@@ -47,7 +48,9 @@ export async function resetPassword(token: string, newPassword: string): Promise
     if (!r || r.usedAt || r.expiresAt < new Date()) throw new Error("This link is invalid or has expired. Ask for a new one.");
     const claimed = await tx.passwordReset.updateMany({ where: { id: r.id, usedAt: null }, data: { usedAt: new Date() } });
     if (claimed.count !== 1) throw new Error("This link is invalid or has expired. Ask for a new one.");
-    await tx.user.update({ where: { id: r.userId }, data: { passwordHash: hash } });
+    const owner = await tx.user.update({ where: { id: r.userId }, data: { passwordHash: hash } });
+    // The email link proves the owner, so a temporary sign-in lock ends here; a closed account stays closed.
+    await tx.loginGuard.deleteMany({ where: { key: guardKey(owner.email), bannedAt: null } });
     await tx.session.deleteMany({ where: { userId: r.userId } });
     await tx.passwordReset.updateMany({ where: { userId: r.userId, usedAt: null }, data: { usedAt: new Date() } });
     await enqueueEmail(tx, r.userId, { kind: "security.password_changed", template: "security_notice", vars: { title: "Your password was changed", body: "Your password was reset and you were signed out everywhere." }, ref: "reset" });

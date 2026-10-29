@@ -6,10 +6,13 @@ export function Pill({ status, label }: { status: string; label?: string }) {
 }
 
 /** Shows ?error= and ?notice= messages set by server actions. */
-export function Flash({ searchParams }: { searchParams?: { error?: string; notice?: string } }) {
-  if (searchParams?.error) return <div className="flash error" role="alert">{searchParams.error}</div>;
-  if (searchParams?.notice) return <div className="flash notice" role="status">{searchParams.notice}</div>;
-  return null;
+/**
+ * Messages from a form (?error=, ?notice=, ?warning=) appear as toasts, shown by UrlToasts in the root layout on every page.
+ * This keeps a plain copy for anyone browsing without JavaScript.
+ */
+export function Flash({ searchParams }: { searchParams?: { error?: string; notice?: string; warning?: string } }) {
+  const m = searchParams?.error ? ["error", searchParams.error] : searchParams?.warning ? ["warning", searchParams.warning] : searchParams?.notice ? ["notice", searchParams.notice] : null;
+  return m ? <noscript><div className={`flash ${m[0]}`}>{m[1]}</div></noscript> : null;
 }
 
 /** The cover picture of a property, or the house outline when it has none. */

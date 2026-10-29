@@ -16,6 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { label: "Trust and safety", items: [
       { href: "/admin/cases", label: "Trust and Safety cases", icon: "shield" },
       { href: "/admin/kyc", label: "Identity and business checks", icon: "key" },
+      { href: "/admin/sign-in-locks", label: "Sign-in locks", icon: "lock" },
       { href: "/admin/moderation", label: "Message reports", icon: "chat" },
       { href: "/admin/reviews", label: "Review moderation", icon: "star" },
       { href: "/admin/reels", label: "Reel moderation", icon: "play" },

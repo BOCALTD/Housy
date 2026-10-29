@@ -935,6 +935,22 @@ model FileMovement {
 
 // ---------- Shared rate limiting (works across serverless instances) ----------
 
+/// Sign-in locks after wrong passwords, keyed by a hash of the email address. See src/lib/login-lock-rules.ts.
+model LoginGuard {
+  key          String    @id
+  userId       String?   @map("user_id")
+  failed       Int       @default(0)
+  rounds       Int       @default(0)
+  lockedUntil  DateTime? @map("locked_until")
+  bannedAt     DateTime? @map("banned_at")
+  lastFailedAt DateTime? @map("last_failed_at")
+  updatedAt    DateTime  @default(now()) @map("updated_at")
+
+  @@index([userId])
+  @@index([lockedUntil])
+  @@map("login_guards")
+}
+
 model RateLimit {
   key         String   @id
   windowStart DateTime @map("window_start")

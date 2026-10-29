@@ -12,6 +12,8 @@ import { can } from "@/lib/permissions";
 import { Flash, ShowMore, sp, type SP } from "@/components/ui";
 import { companyTrust } from "@/lib/services/kyc";
 import { TrustBadge } from "@/components/TrustBadge";
+import { myPromoEntries } from "@/lib/services/promotions";
+import { todayInLagos } from "@/lib/dates";
 
 export const metadata = { title: "Dashboard" };
 
@@ -21,6 +23,11 @@ export default async function DashboardPage({ searchParams: searchP }: { searchP
   const [d, corr, filesOverdue, expiring, calendar, work, trust] = await Promise.all([
     dashboard(member), correspondenceSummary(member), overdueFileCount(member), expiringDocuments(member, 60), complianceCalendar(member), workOverview(member), companyTrust(member.companyId),
   ]);
+  // Promotions: only people who manage listings see them, here on the dashboard rather than on the public home page.
+  const promos = can(member.role, "listing.manage") ? await myPromoEntries(member).catch(() => []) : null;
+  const today = todayInLagos();
+  const livePromos = (promos ?? []).filter((e) => e.status === "APPROVED" && e.campaign.active && e.campaign.startsOn <= today && e.campaign.endsOn >= today);
+  const waitingPromos = (promos ?? []).filter((e) => e.status === "REQUESTED").length;
   const escalated = calendar.items.filter((i) => i.state === "ESCALATED").length;
   const overdueDeadlines = calendar.items.filter((i) => i.state === "OVERDUE").length;
   const dueSoon = calendar.items.filter((i) => i.state === "DUE_SOON").length;
@@ -37,6 +44,22 @@ export default async function DashboardPage({ searchParams: searchP }: { searchP
         <div className="card row between" role="note">
           <span className="row"><TrustBadge t={trust} /> <span className="small">Verified companies get a badge on every listing and profile. {can(member.role, "kyc.manage") ? "Complete the checks to earn it." : "Ask your company administrator to complete the checks."}</span></span>
           {can(member.role, "kyc.manage") ? <Link className="btn primary" href="/app/verification">Verify the company</Link> : null}
+        </div>
+      ) : null}
+
+      {promos ? (
+        <div className={`card promo-status${livePromos.length ? " on" : ""}`}>
+          <div className="promo-status-text">
+            <p className="eyebrow">Promotions</p>
+            {livePromos.length ? (
+              <><strong>{livePromos.length} {livePromos.length === 1 ? "property is" : "properties are"} on promotion</strong>
+                <span className="small muted">{livePromos.slice(0, 3).map((e) => `${e.listing?.title ?? "A listing"} (${e.campaign.name}, ends ${formatDate(e.campaign.endsOn)})`).join(" · ")}{livePromos.length > 3 ? ` and ${livePromos.length - 3} more` : ""}</span></>
+            ) : (
+              <><strong>No promotion running</strong>
+                <span className="small muted">{waitingPromos ? `${waitingPromos} request${waitingPromos === 1 ? " is" : "s are"} waiting for approval. ` : ""}A promotion shows your listing on the home page with the saving and end date.</span></>
+            )}
+          </div>
+          <Link className={`btn${livePromos.length ? "" : " primary"}`} href="/app/promotions">{livePromos.length ? "Manage promotions" : "Run a promotion"}</Link>
         </div>
       ) : null}
 

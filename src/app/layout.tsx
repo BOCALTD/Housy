@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { AppToaster, UrlToasts } from "@/components/Toasts";
 import "./globals.css";
 import "./polish.css";
 import "./home.css";
@@ -54,6 +56,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <a className="skip-link" href="#main">Skip to main content</a>
+        <AppToaster />
+        <Suspense fallback={null}><UrlToasts /></Suspense>
         <header className="top">
           <div className="wrap">
             <Link href="/" className="brand">

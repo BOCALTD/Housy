@@ -51,3 +51,9 @@ function isNextRedirect(err: unknown): boolean {
   const digest = (err as { digest?: unknown } | null)?.digest;
   return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
 }
+
+/** Return to a page with a warning toast (something worked, but needs attention). */
+export function withWarning(path: string, warning: string) {
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}warning=${encodeURIComponent(warning)}`;
+}

@@ -1,3 +1,4 @@
+import { NewPassword } from "@/components/PasswordInput";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -45,9 +46,7 @@ export default async function InvitePage({ params: paramsP, searchParams: search
           {!hasAccount ? (
             <>
               <Field label="Your full name"><input name="name" id="name" required autoComplete="name" /></Field>
-              <Field label="Choose a password" hint="At least 10 characters.">
-                <input name="password" id="password" type="password" required minLength={10} autoComplete="new-password" />
-              </Field>
+              <NewPassword label="Choose a password" />
             </>
           ) : null}
           <button className="btn primary" type="submit">Accept invitation</button>

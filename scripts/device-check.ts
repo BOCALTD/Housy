@@ -259,6 +259,10 @@ async function main() {
         }
         // The share sheet: it opens, fits the screen, and every choice in it is big enough to tap.
         if (prof.shots && guest) {
+          // A first-time visitor is shown the property verification notice after a moment; close it, as a person would.
+          await page.waitForTimeout(1500);
+          const notice = page.locator('[aria-modal="true"] .close').first();
+          if (await notice.isVisible()) { await notice.click(); await notice.waitFor({ state: "hidden", timeout: 3000 }).catch(() => undefined); }
           const btn = page.locator(".share-btn").first();
           if (await btn.isVisible()) {
             await btn.click();

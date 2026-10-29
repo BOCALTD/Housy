@@ -6,7 +6,7 @@
  */
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { prisma, withPlatformAdmin } from "../../src/lib/db";
+import { prisma, withPlatformAdmin, withUser } from "../../src/lib/db";
 import { agentKyc, autoCheckKyc, companyTrust, decideKyc, submitAgentKyc, submitCompanyKyc } from "../../src/lib/services/kyc";
 import { ProviderUnavailable, setIdentityProvidersForTests, type IdentityProvider } from "../../src/lib/identity-providers";
 import { PDF_BYTES, addMember, newCompany, newPlatformAdmin } from "./helpers";
@@ -57,7 +57,7 @@ test("an agent's NIN that matches the record is verified at once; a mismatch wai
   assert.ok(r.expiresAt && r.expiresAt > new Date());
   const view = await agentKyc(agent.userId);
   assert.equal(view.items.find((i) => i.req.code === "AGENT_ID")!.status, "VERIFIED");
-  const note = await prisma.notification.findFirst({ where: { userId: agent.userId, kind: "security.kyc" }, orderBy: { createdAt: "desc" } });
+  const note = await withUser(agent.userId, (tx) => tx.notification.findFirst({ where: { userId: agent.userId, kind: "security.kyc" }, orderBy: { createdAt: "desc" } }));
   assert.match(note?.title ?? "", /Government ID is verified/);
   // A reviewer can still revoke an automatic verification.
   await decideKyc(admin.id, ok, { decision: "revoke", note: "Reported by the agency" });
@@ -71,7 +71,7 @@ test("an agent's NIN that matches the record is verified at once; a mismatch wai
   assert.match(r.autoNote, /surname differs from the record \(record: A\*A G\*\*\*E O\*I\)/);
   assert.ok(!r.autoNote.includes("GRACE"), "the reviewer note does not copy the full record");
   // The person is told it will be checked by hand, and the team can still verify it.
-  assert.ok(await prisma.notification.findFirst({ where: { userId: other.userId, title: { contains: "check it by hand" } } }));
+  assert.ok(await withUser(other.userId, (tx) => tx.notification.findFirst({ where: { userId: other.userId, title: { contains: "check it by hand" } } })));
   await decideKyc(admin.id, bad, { decision: "verify", note: "", evidence: "Name change: marriage certificate seen" });
   assert.equal((await item(admin.id, bad)).reviewedById, admin.id);
 

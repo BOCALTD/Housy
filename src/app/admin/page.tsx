@@ -2,11 +2,12 @@ import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { reviewQueue } from "@/lib/services/listings";
+import { listingRiskFlags } from "@/lib/services/listing-risk";
 import { verificationMetrics } from "@/lib/services/verification";
 import { formatKobo } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
-import { EnumOptions, Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { mfaStatus } from "@/lib/services/account";
 import { addProviderMemberAction, approveListingAction, leadStatusAction, rejectListingAction, removeProviderMemberAction, saveProviderAction } from "./actions";
 import { providerMembers } from "@/lib/services/portals";
@@ -29,6 +30,7 @@ export default async function AdminPage({ searchParams: searchP }: { searchParam
     prisma.providerLead.findMany({ orderBy: { createdAt: "desc" }, take: 50, include: { provider: { select: { shortName: true } } } }),
     providerMembers(admin.id),
   ]);
+  const flags = await listingRiskFlags(admin.id, queue).catch(() => new Map<string, { code: string; level: "high" | "medium"; text: string }[]>());
 
   return (
     <div className="stack-lg">
@@ -43,26 +45,35 @@ export default async function AdminPage({ searchParams: searchP }: { searchParam
       <section className="card">
         <h2>Listings awaiting review ({queue.length})</h2>
         {queue.length === 0 ? <p className="muted">No listings are waiting for review.</p> : (
-          <div className="stack">
-            {queue.map((l) => (
-              <div key={l.id} className="stack" style={{ gap: 8, borderBottom: "1px solid var(--line)", paddingBottom: 14 }}>
-                <div className="row between">
-                  <div>
-                    <strong>{l.title}</strong> <span className="mono small muted">{l.publicRef}</span>
-                    <div className="small muted">{l.companyName} · {humanize(l.purpose)} · {formatKobo(l.priceKobo)} · {l.city}, {l.state}</div>
+          <>
+            <p className="small muted">Flags are prompts to look closer, worked out from the listing, its photos and similar listings. They decide nothing: you approve or return every listing.</p>
+            <ShowMore noun="more listings" limit={6} items={[...queue].sort((a, b) => (flags.get(b.id)?.length ?? 0) - (flags.get(a.id)?.length ?? 0)).map((l) => {
+              const f = flags.get(l.id) ?? [];
+              return (
+                <li key={l.id}>
+                  <div className="stack" style={{ gap: 8, width: "100%" }}>
+                    <div>
+                      <strong>{l.title}</strong> <span className="mono small muted">{l.publicRef}</span>
+                      <div className="small muted">{l.companyName} · {humanize(l.purpose)} · {formatKobo(l.priceKobo)} · {l.city}, {l.state}</div>
+                    </div>
+                    {f.length ? (
+                      <ul className="risk-flags" aria-label="Things to check">
+                        {f.map((x) => <li key={x.code} className={`risk-${x.level}`}><span className={`pill ${x.level === "high" ? "bad" : "warn"}`}>{x.level === "high" ? "Check first" : "Check"}</span> {x.text}</li>)}
+                      </ul>
+                    ) : <span className="small muted">Nothing unusual found.</span>}
+                    {l.description ? <details className="inline"><summary>Description</summary><p className="small" style={{ maxWidth: "70ch" }}>{l.description}</p></details> : null}
+                    <form action={approveListingAction} className="row">
+                      <input type="hidden" name="listingId" value={l.id} />
+                      <input name="note" placeholder="Review note (required to return)" aria-label="Review note"
+                             style={{ flex: "1 1 240px", border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)" }} />
+                      <button className="btn" formAction={rejectListingAction} type="submit">Return to company</button>
+                      <button className="btn primary" type="submit">Approve and publish</button>
+                    </form>
                   </div>
-                </div>
-                {l.description ? <p className="small" style={{ maxWidth: "70ch" }}>{l.description}</p> : null}
-                <form action={approveListingAction} className="row">
-                  <input type="hidden" name="listingId" value={l.id} />
-                  <input name="note" placeholder="Review note (required to reject)" aria-label="Review note"
-                         style={{ flex: "1 1 240px", border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)" }} />
-                  <button className="btn" formAction={rejectListingAction} type="submit">Return to company</button>
-                  <button className="btn primary" type="submit">Approve and publish</button>
-                </form>
-              </div>
-            ))}
-          </div>
+                </li>
+              );
+            })} />
+          </>
         )}
       </section>
 

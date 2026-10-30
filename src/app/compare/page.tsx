@@ -11,6 +11,8 @@ import { labelsOf, refData } from "@/lib/services/reference";
 import { TrustBadge } from "@/components/TrustBadge";
 import { RemoveFromCompare } from "@/components/Compare";
 import { PropPhoto, sp, type SP } from "@/components/ui";
+import { compareNotes } from "@/lib/compare-notes";
+import { marketOverview } from "@/lib/services/market";
 
 export const metadata = { title: "Compare properties" };
 export const dynamic = "force-dynamic";
@@ -33,6 +35,13 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
   const ref = await refData();
   const typeL = labelsOf(ref, "PROPERTY_TYPE"), titleL = labelsOf(ref, "TITLE_DOCUMENT"), amenL = labelsOf(ref, "AMENITY");
   const allAmenities = [...new Set(rows.flatMap((r) => parseAmenities(r.amenities, Object.keys(amenL))))];
+  const market = rows.length > 1 ? await marketOverview().catch(() => null) : null;
+  const shortName = (t: string) => (t.length > 40 ? `${t.slice(0, 38).trimEnd()}…` : t);
+  const notes = compareNotes(rows.map((l) => ({
+    ref: l.publicRef, name: `“${shortName(l.title)}”`, purpose: l.purpose, pricePeriod: l.pricePeriod, priceKobo: l.promo?.promoKobo ?? l.priceKobo, serviceChargeKobo: l.serviceChargeKobo,
+    bedrooms: l.bedrooms, buildingSqm: l.buildingSqm, landSqm: l.landSqm, city: l.city, propertyType: l.propertyType, titleDocument: l.titleDocument,
+    furnishing: l.furnishing, serviced: l.serviced, amenities: parseAmenities(l.amenities, Object.keys(amenL)), verifiedCompany: (trust.get(l.companyId)?.level ?? 0) >= 2,
+  })), market?.cities ?? [], (c) => amenL[c] ?? c);
   const line = (name: string, f: (l: (typeof rows)[number]) => React.ReactNode) => <tr key={name}><th scope="row">{name}</th>{rows.map((l) => <td key={l.id}>{f(l)}</td>)}</tr>;
 
   return (
@@ -44,6 +53,15 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
       {rows.length === 0 ? (
         <div className="card stack"><p>Nothing to compare yet. Open properties and press “+ Compare”, or start from <Link href="/browse">search</Link>.</p></div>
       ) : (
+        <>
+        {notes.length ? (
+          <section className="card stack compare-notes" aria-labelledby="diff-h">
+            <h2 id="diff-h">What is different</h2>
+            <ul>{notes.slice(0, 4).map((n) => <li key={n}>{n}</li>)}</ul>
+            {notes.length > 4 ? <details className="inline"><summary>{notes.length - 4} more differences</summary><ul>{notes.slice(4).map((n) => <li key={n}>{n}</li>)}</ul></details> : null}
+            <p className="small muted">Worked out from what each listing states and from asking prices of similar homes on the platform. It is not advice on which to choose.</p>
+          </section>
+        ) : null}
         <div className="table-wrap compare-wrap">
           <table className="compare">
             <thead>
@@ -79,6 +97,7 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
             </tbody>
           </table>
         </div>
+        </>
       )}
       <p className="small"><Link href="/calculators">Work out the full cost with the calculators</Link></p>
     </div>

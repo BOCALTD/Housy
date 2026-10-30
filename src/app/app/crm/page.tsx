@@ -1,17 +1,17 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { crmOverview, myFollowUps, pendingEnquiries } from "@/lib/services/crm";
+import { crmOverview, myFollowUps, pendingEnquiries, quietLeads } from "@/lib/services/crm";
 import { can } from "@/lib/permissions";
 import { formatDate } from "@/lib/dates";
 import { Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
-import { completeFollowUpAction, makeLeadFromEnquiryAction } from "./actions";
+import { completeFollowUpAction, makeLeadFromEnquiryAction, planFollowUpAction } from "./actions";
 
 export const metadata = { title: "Clients and leads" };
 
 export default async function CrmPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const member = await requireMember("crm.view");
-  const [o, followUps, enquiries] = await Promise.all([crmOverview(member), myFollowUps(member, 7), can(member.role, "enquiry.view") && can(member.role, "crm.manage") ? pendingEnquiries(member) : Promise.resolve([])]);
+  const [o, followUps, quiet, enquiries] = await Promise.all([crmOverview(member), myFollowUps(member, 7), quietLeads(member).catch(() => []), can(member.role, "enquiry.view") && can(member.role, "crm.manage") ? pendingEnquiries(member) : Promise.resolve([])]);
   return (
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
@@ -41,6 +41,30 @@ export default async function CrmPage({ searchParams: searchP }: { searchParams?
             </div></li>))} />
         )}
       </section>
+      {quiet.length > 0 ? (
+        <section className="card stack" aria-labelledby="quiet-h">
+          <h2 id="quiet-h">Gone quiet ({quiet.length})</h2>
+          <p className="small muted">Open leads with no call, email, meeting or WhatsApp logged for a while and no follow-up planned. A suggestion from your records; plan a follow-up or close the lead.</p>
+          <ShowMore noun="more leads" limit={5} items={quiet.map((q) => (
+            <li key={q.lead.id}><div className="stack" style={{ width: "100%", gap: 6 }}>
+              <div className="row between">
+                <div><Link href={`/app/crm/clients/${q.client.id}`}><strong>{q.client.name}</strong></Link><div className="small muted">{q.lead.ref} {q.lead.title}{q.mine ? "" : " · a teammate's lead"}</div></div>
+                <span className={`pill ${q.level === "high" ? "bad" : "warn"}`}>{q.days} days</span>
+              </div>
+              <span className="small">{q.reason}</span>
+              {can(member.role, "crm.manage") ? (
+                <details className="inline"><summary>Plan a follow-up</summary>
+                  <form action={planFollowUpAction} className="row">
+                    <input type="hidden" name="clientId" value={q.client.id} /><input type="hidden" name="leadId" value={q.lead.id} />
+                    <input name="subject" required minLength={2} maxLength={200} defaultValue={`Follow up: ${q.lead.title}`.slice(0, 200)} aria-label="Subject" style={{ flex: "1 1 220px" }} />
+                    <input type="date" name="dueOn" required aria-label="Due on" />
+                    <button className="btn primary" type="submit">Plan it</button>
+                  </form>
+                </details>
+              ) : null}
+            </div></li>))} />
+        </section>
+      ) : null}
       {enquiries.length > 0 ? (
         <section className="card">
           <h2>Website enquiries not yet followed up</h2>

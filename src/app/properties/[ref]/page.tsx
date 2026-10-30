@@ -1,3 +1,4 @@
+import { EnquiryHelper } from "@/components/EnquiryHelper";
 import { LocationInsights } from "@/components/LocationInsights";
 import { CompareToggle } from "@/components/Compare";
 import { CONDITIONS, CONSTRUCTION, FURNISHING, isCode, parseAmenities } from "@/lib/listing-rules";
@@ -226,6 +227,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
           {adRef ? <input type="hidden" name="ad" value={adRef} /> : null}
           <Field label="Your name"><input name="name" id="enqName" required autoComplete="name" /></Field>
           <Field label="Phone or email"><input name="contact" id="enqContact" required /></Field>
+          <EnquiryHelper refId={listing.publicRef} title={listing.title} purpose={listing.purpose as "SALE" | "RENT" | "LEASE"} />
           <Field label="Message"><textarea name="message" id="enqMessage" rows={4} required defaultValue={`I am interested in ${listing.publicRef}. Is it still available?`} /></Field>
           <p className="small muted">Your details go only to the company that listed this property.</p>
           <button className="btn primary" type="submit">Send enquiry</button>

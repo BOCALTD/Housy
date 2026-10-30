@@ -646,10 +646,13 @@ model ListingPhoto {
   position  Int      @default(0)
   /// PHOTO or FLOOR_PLAN.
   kind      String   @default("PHOTO")
+  /// SHA-256 of the photo, set by the database (listing_photo_hash trigger), to spot a photo another company already uses.
+  contentHash String? @map("content_hash")
   createdAt DateTime @default(now()) @map("created_at")
   listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
 
   @@index([listingId, position])
+  @@index([contentHash])
   @@map("listing_photos")
 }
 

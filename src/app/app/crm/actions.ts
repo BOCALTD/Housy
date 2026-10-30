@@ -216,3 +216,12 @@ export async function placementAction(form: FormData) {
     return withNotice("/app/crm/setup", "Saved.");
   });
 }
+
+/** Plan a follow-up from the "gone quiet" suggestions, and stay on the overview. */
+export async function planFollowUpAction(form: FormData) {
+  return act("/app/crm", async () => {
+    const member = await requireMember("crm.manage");
+    await addClientActivity(member, str(form, "clientId"), { kind: "FOLLOW_UP", subject: str(form, "subject"), body: "", leadId: optStr(form, "leadId"), dueOn: optStr(form, "dueOn") });
+    return withNotice("/app/crm", "Follow-up planned.");
+  });
+}

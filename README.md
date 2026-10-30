@@ -381,3 +381,12 @@ What code and documents can do is done; the launch itself needs your accounts an
 - **Sending** (`/api/field/sync`, `/api/field/photo`, `/api/field/submit`): each send carries the device's own id, so a retry after a dropped connection is applied once (`field_syncs`). The sign-in, role and assignment are checked when the work arrives, not when it was downloaded; same-origin requests only.
 - **Conflicts**: the device sends the copy it downloaded with its own. Changes made only on the device apply, changes made only in the office stay, and where both changed the same answer differently the office's stays and the inspector chooses (`src/lib/field-merge.ts`). An inspection the office has closed is never changed.
 - **Not offline**: payments, identity checks, bookings and anything else that needs a live check. The service worker caches only the anonymous `/field` page; no signed-in page or API response is cached.
+
+## Assistance added to close the master prompt §37 gaps
+
+All of these are worked out by rules from the platform's own records, work with no AI service connected, and decide nothing on anyone's behalf.
+
+- **Listing checks for reviewers** (`/admin`, listings awaiting review): an asking price far from similar homes, contact details or "WhatsApp me" in the text, money asked before an inspection, a photo another company already uses (`listing_photos.content_hash`, set by the database), a description copied word for word, a company that joined in the last 14 days, and bursts of listings. Flagged listings are shown first; the reviewer still approves or returns each one.
+- **What is different** (`/compare`): plain sentences on the cheapest yearly cost (rent plus service charge) or price, best value per m², each home against the typical asking figure for its bedrooms in its city, missing title documents, verified companies, furnishing and amenities only one has.
+- **Help me write this** (property enquiry form): the visitor ticks what to ask (availability, inspection, the full fee breakdown, title document, payment plan, who owns it) and a message is written for them to edit. Nothing is ticked to start with.
+- **Gone quiet** (`/app/crm`): open leads with no call, email, meeting or WhatsApp logged (not contacted a day after arriving, 14 days on an open lead, 7 when the client wants to move now) and no follow-up planned, with a one-step "Plan a follow-up".

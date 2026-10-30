@@ -11,6 +11,7 @@ import {
 } from "../crm-rules";
 import { can } from "../permissions";
 import { assertCan, type Ctx } from "./context";
+import { CONTACT_KINDS, quietReason } from "../follow-up-rules";
 
 // Clients, leads, follow-ups and property requirements (master prompt Phase 8). Every record has an owner. Managers see
 // everything; an agent sees what they own, and a team lead also sees what their team owns. A confidential client is seen
@@ -725,5 +726,31 @@ export async function pendingEnquiries(ctx: Ctx) {
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const open = await tx.$queryRaw<{ id: string }[]>`SELECT e.id FROM enquiries e WHERE e.company_id = ${ctx.companyId} AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.source_enquiry_id = e.id) ORDER BY e.created_at DESC LIMIT 50`;
     return tx.enquiry.findMany({ where: { companyId: ctx.companyId, id: { in: open.map((o) => o.id) } }, orderBy: { createdAt: "desc" }, include: { listing: { select: { title: true, publicRef: true } } } });
+  });
+}
+
+// ---------- Suggested follow-ups ----------
+
+/** Open leads the member can see that have gone quiet (follow-up-rules.ts), most urgent first. Suggestions only. */
+export async function quietLeads(ctx: Ctx, now = new Date()) {
+  assertCan(ctx, "crm.view");
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const owners = await visibleOwners(tx, ctx);
+    const leads = await tx.lead.findMany({
+      where: { companyId: ctx.companyId, status: { in: ["NEW", "CONTACTED", "QUALIFIED"] }, ...(owners === null ? {} : { ownerId: { in: owners } }), client: { is: { archivedAt: null, ...clientVisibleWhere(ctx, owners) } } },
+      select: { id: true, ref: true, title: true, status: true, timeline: true, createdAt: true, ownerId: true, client: { select: { id: true, ref: true, name: true } } },
+      orderBy: { createdAt: "desc" }, take: 300,
+    });
+    if (!leads.length) return [];
+    const clientIds = [...new Set(leads.map((l) => l.client.id))];
+    const [contacts, open] = await Promise.all([
+      tx.clientActivity.groupBy({ by: ["leadId"], where: { companyId: ctx.companyId, leadId: { in: leads.map((l) => l.id) }, kind: { in: [...CONTACT_KINDS] } }, _max: { occurredAt: true } }),
+      tx.clientActivity.findMany({ where: { companyId: ctx.companyId, clientId: { in: clientIds }, kind: "FOLLOW_UP", doneAt: null }, select: { clientId: true, leadId: true } }),
+    ]);
+    const last = new Map(contacts.map((c) => [c.leadId, c._max.occurredAt]));
+    return leads.flatMap((l) => {
+      const q = quietReason({ status: l.status, timeline: l.timeline, createdAt: l.createdAt, lastContactAt: last.get(l.id) ?? null, openFollowUp: open.some((o) => o.leadId === l.id || (o.leadId === null && o.clientId === l.client.id)) }, now);
+      return q ? [{ ...q, lead: { id: l.id, ref: l.ref, title: l.title, status: l.status }, client: l.client, mine: l.ownerId === ctx.membershipId }] : [];
+    }).sort((a, b) => (a.level === b.level ? b.days - a.days : a.level === "high" ? -1 : 1));
   });
 }

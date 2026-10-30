@@ -46,8 +46,7 @@ test("a record made offline applies once, merges with office changes and asks ab
   const clientId = randomUUID();
   const send = { clientId, inspectionId: ins.id, base, mine, findings: [{ clientId: randomUUID(), title: "Blocked gutter", severity: "MEDIUM", safetyRisk: false }] };
   const r = await syncFieldRecord(officer, send);
-  assert.equal(r.outcome, "conflicts");
-  if (r.outcome === "closed") throw new Error("unexpected");
+  if (r.outcome !== "conflicts") throw new Error(`expected conflicts, got ${r.outcome}`);
   assert.deepEqual(r.conflicts.map((c) => c.key), [`item:${roof}`]);
   assert.equal(r.conflicts[0].office, "Needs attention: Leaves");
   const findingId = Object.values(r.findings)[0];

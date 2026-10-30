@@ -166,7 +166,7 @@ export function FieldKit() {
       } catch { setStorageError("This browser is not letting the field kit store anything (private browsing, or storage turned off). Open it in a normal window to work offline."); }
       if (alive) setReady(true);
     })();
-    const on = () => { setOnline(true); void kvGet<string>("last-user").then((u) => u && sync(u, true)); };
+    const on = () => { setOnline(true); void kvGet<string>("last-user").then((u) => { if (u) void sync(u, true); }); };
     const off = () => setOnline(false);
     window.addEventListener("online", on); window.addEventListener("offline", off);
     return () => { alive = false; window.removeEventListener("online", on); window.removeEventListener("offline", off); };

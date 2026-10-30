@@ -30,7 +30,7 @@ test("city figures need enough listings from enough companies, and time on the m
     return { asset, listing: l };
   }
 
-  const mine = [];
+  const mine: Awaited<ReturnType<typeof home>>[] = [];
   for (const p of ["60,000,000", "70,000,000", "80,000,000", "90,000,000", "100,000,000"]) mine.push(await home(a, p));
   forgetMarketOverview();
   let o = await marketOverview();

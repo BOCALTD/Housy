@@ -205,7 +205,7 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
             <div className="rf-info">
               <div className="rf-who">
                 <Link className="rf-name" href={`/agents/${r.authorId}`}><strong>{r.authorName}</strong></Link>
-                {r.companyName ? <span>· {r.companyName}</span> : null}
+                {r.companyName ? <span className="rf-co">{r.companyName}</span> : null}
               </div>
               {r.caption ? <Caption text={r.caption} /> : null}
               <div className="rf-meta">
@@ -220,8 +220,8 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
       })}
 
       <div className="rf-top">
-        <button type="button" className="rf-mute" onClick={() => setMuted((m) => !m)} aria-pressed={!muted} aria-label={muted ? "Turn sound on" : "Turn sound off"}><Sound off={muted} /></button>
-        {canPost ? <Link className="rf-post" href="/reels/new" aria-label="Post a reel">+</Link> : null}
+        <button type="button" className="rf-mute rf-top-left" onClick={() => setMuted((m) => !m)} aria-pressed={!muted} aria-label={muted ? "Turn sound on" : "Turn sound off"}><Sound off={muted} /></button>
+        {canPost ? <Link className="rf-post rf-top-right" href="/reels/new" aria-label="Post a reel">+</Link> : null}
       </div>
 
       {sheet ? <SheetView sheet={sheet} signedIn={signedIn} onClose={() => setSheet(null)} onCommented={(id) => patch(id, { comments: (rows.find((x) => x.id === id)?.comments ?? 0) + 1 })} onSignIn={(verb, id) => setSheet({ kind: "signin", verb, reelId: id })} /> : null}

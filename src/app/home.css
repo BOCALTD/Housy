@@ -911,3 +911,22 @@ body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none
 .rf-c-form input { font-size: 16px; }
 .rf-tabs a, .rf-head .mode-switch a { padding-block: 0; margin-block: 0; }
 .rf-who .rf-name { display: inline-flex; align-items: center; min-height: 44px; color: #fff; text-decoration: none; }
+/* Reels header: sound on the left, post on the right, the two tabs between; the rail sits low and tightens on short screens. */
+.rf-head { padding-inline: 64px; }
+.rf-head .rf-tabs { width: calc(100% + 104px); margin-inline: -52px; padding-inline: 4px; }
+.rf-top { position: static; display: contents; }
+.rf-top-left, .rf-top-right { position: fixed; top: calc(var(--rf-top) + 10px); z-index: 7; }
+.rf-top-left { left: 12px; }
+.rf-top-right { right: 12px; }
+.rf-who { flex-direction: column; align-items: flex-start; gap: 0; }
+.rf-co { font-size: 13px; color: rgba(255, 255, 255, .82); margin-top: -8px; }
+.rf-rail { bottom: calc(16px + env(safe-area-inset-bottom)); gap: 6px; }
+.rf-info { bottom: calc(18px + env(safe-area-inset-bottom)); }
+@media (max-width: 380px) { .rf-head .mode-switch { gap: 10px; } .rf-head .mode-switch a { font-size: 15px; } }
+@media (max-height: 700px) {
+  .rf-rail { gap: 0; }
+  .rf-act { min-height: 48px; padding: 2px 0; }
+  .rf-act svg { width: 24px; height: 24px; }
+  .rf-avatar { width: 42px; height: 42px; font-size: 14px; }
+  .rf-avatar-wrap { margin-bottom: 14px; }
+}

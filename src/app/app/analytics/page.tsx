@@ -131,7 +131,7 @@ function ForecastPanel({ f }: { f: Forecast }) {
         </div>
       ) : <p className="muted">No rent is scheduled on active leases for the next 12 months.</p>}
       <p className="small muted">From your rent schedules only. The likely figure applies the share of rent you collected on charges due between a month and a year ago; it is a guide, not a promise. Rent at risk is a year&apos;s rent on leases that end within 12 months with no renewal offered or agreed.</p>
-      <div className="row"><Link className="btn" href="/app/leases">Leases</Link><Link className="btn" href="/app/receipts">Receipts</Link></div>
+      <div className="row"><Link className="btn" href="/app/reports">Rent reports</Link><Link className="btn" href="/app/reports/accounting">Accounting export</Link></div>
     </section>
   );
 }

@@ -39,3 +39,33 @@ Each of these has a test; none needed a code change.
 6. **Rate limits are per address and per visitor**, held in the database. They stop casual abuse. They are not a defence against a distributed attack; put the site behind the host's firewall or a CDN with bot protection. (Low until launch)
 7. **No dependency audit in the build, and no committed lockfile**, so which versions are installed can change from one build to the next. Finding 8 is what that gap hides. Run `npm audit`, commit `package-lock.json`, and add an audit step. (Unknown, but demonstrated once)
 8. **No external review.** See above.
+
+# Launch audit, 30 October 2026
+
+Method: a sweep of every route, every server action, the database's row-level security (checked against a database built from all migrations), uploads, redirects, outbound requests, secrets in the repository, headers, cookies, rate limits, webhooks and the newest features (accounts by type, reels and music, offline field kit, suggestions, accounting export, loader and welcome slides). CI then ran the full unit, integration, smoke and device checks (over 200 pages on 7 devices). Still no external penetration test.
+
+## Fixed in this audit
+| # | Finding | Severity | Fix |
+|---|---|---|---|
+| 10 | **Redirect after an action could leave the site.** Seven actions took a `back` field from the form and redirected to it unchecked. Next.js already refuses server actions from other sites, so only a person editing their own form could trigger it, but the rule was not enforced in one place. | Low | `act()` now sends people only to paths on this site or to the payment provider's checkout (`safeTarget` in `src/lib/forms.ts`). |
+| 11 | **No robots.txt or sitemap.** Search engines could index private pages such as `/app` and `/admin` login screens, and could not find public listings efficiently. | Medium (launch) | `robots.ts` keeps private areas, one-off links and API out of search; `sitemap.ts` lists the public pages, published properties, listed agents and companies, reels and market pages. Smoke test checks both. |
+| 12 | **The lockfile was never saved.** The CI step that keeps `package-lock.json` ran after the device-screenshot step had emptied the working folder, so nothing was kept (open item 7). | Medium | The lockfile is saved straight after install; commit it from the CI artifact so every build installs the same versions. |
+| 13 | **A map test could fail by chance** when a random position fell on the blurring grid. Not a product defect. | Test | The test position is placed off the grid. |
+| 14 | **Inline loader script.** The opening loader first used an inline script, which the project's own rule forbids (no injected HTML). | Low | Moved to `public/boot.js`; it only switches classes on `<html>`. |
+
+## Checked and found sound
+- Every route answers only after checking who is asking, or is on the reviewed public list with its reason (static test). Every server action checks the person through `requireUser`, `requireMember`, `requirePlatformAdmin`, `currentActor`, or a one-time token.
+- Row-level security is on for every table that holds company, person or social records. Seven social tables (agent and company profiles, conversations and members, flatmate profiles and requests, blocks) have it on but not *forced*; that only matters for the table owner, and the app connects as `estate_app`, which is not the owner and cannot bypass it. Tables without it hold sign-in machinery (users, sessions, resets, recovery codes, sign-in locks, rate limits) or platform data (service providers and their leads, the verification-prompt counter, the nearby-places cache) and are reached only through server code.
+- The app's database role cannot change or delete the audit trail or financial records (append-only grants).
+- Uploads: content-checked and size-capped everywhere (documents, photos, KYC, evidence, vacancy photos, collaboration files, reels, music); SVG and HTML are never accepted.
+- Outbound requests go only to fixed providers (payments, email, identity checks, AI, maps); push endpoints are limited to the browser vendors' push services, so the server cannot be pointed at internal addresses.
+- Webhooks are verified by HMAC signature; scheduled jobs by a secret compared in constant time; nginx overwrites `X-Forwarded-For`, so rate limits cannot be dodged by forging it.
+- No secrets in the repository; `.env` files are ignored.
+- New features: offline field sync accepts same-origin requests only and re-checks the inspector on arrival; suggestions history is readable only by its owner (row-level security) and can be cleared or turned off; reels actions answer "sign in" to visitors; music tracks require a recorded licence and only the platform administrator can add them.
+
+## Still open before launch (owner's actions)
+1. Set the production secrets and keys (see `/admin/launch`): `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_PLATFORM_NAME`, `MFA_ENCRYPTION_KEY`, `REQUIRE_ADMIN_MFA=true`, `CRON_SECRET`, `UNSUBSCRIBE_SECRET`, Resend, Paystack (live), MapTiler, Dojah or Youverify.
+2. Do not run `db:seed:demo` on the live database; replace the demo music with licensed tracks.
+3. Commit `package-lock.json` from the CI artifact.
+4. Commission an external penetration test once the site runs on its real domain.
+5. Put the site behind a CDN or firewall with bot protection for distributed attacks.

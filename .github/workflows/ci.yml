@@ -48,6 +48,13 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Save the resolved lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: |
+            package-lock.json
+
       - name: Known-vulnerability check (fails on any critical issue in what ships)
         run: |
           npm audit --omit=dev --json > audit.json || true
@@ -124,12 +131,4 @@ jobs:
           cp -r /tmp/device-report/* .
           git add -A && git commit -q -m "Device screenshots for ${GITHUB_SHA}"
           git push -q -f origin device-shots
-
-      - name: Save the resolved lockfile
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-lock
-          path: |
-            package-lock.json
 

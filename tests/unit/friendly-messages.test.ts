@@ -12,3 +12,12 @@ test("form checks without their own message read as plain English", () => {
   assert.equal(friendlyMessage({ code: "invalid_value" }), "Choose one of the options");
   assert.equal(friendlyMessage({ code: "custom" }), undefined, "a check's own message is kept");
 });
+
+import { safeLocalPath } from "../../src/lib/security";
+test("actions only ever send people to this site or the payment checkout", () => {
+  // forms.ts imports zod and Prisma, so its rule is checked through the same local-path rule it uses.
+  assert.equal(safeLocalPath("/app/crm?x=1", "/"), "/app/crm?x=1");
+  assert.equal(safeLocalPath("//evil.example/x", "/"), "/");
+  assert.equal(safeLocalPath("/\\\\evil.example", "/"), "/");
+  assert.equal(safeLocalPath("https://evil.example", "/"), "/");
+});

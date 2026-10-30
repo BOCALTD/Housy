@@ -52,7 +52,8 @@ test("radius search finds what is within the distance, nearest first, and nothin
 
 test("nearby places come from one cached lookup per area; a failure is reported, and only the blurred position is sent", async () => {
   const { listed } = await setup("nearby");
-  const { listing } = await listed("Nearby plot", 0, 0);
+  // Placed off the blurring grid on purpose, so the exact position can never coincide with a cell centre by chance.
+  const { listing } = await listed("Nearby plot", 0.00037, 0.00041);
   const sent: string[] = [];
   let answer: "ok" | "fail" = "ok";
   setNearbyFetchForTests((async (_url: string, init?: RequestInit) => {

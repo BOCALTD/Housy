@@ -18,3 +18,13 @@ export function koboToPlain(kobo: bigint): string {
   const abs = negative ? -kobo : kobo;
   return `${negative ? "-" : ""}${abs / 100n}.${(abs % 100n).toString().padStart(2, "0")}`;
 }
+
+/**
+ * Like toCsv, but cells in the named columns that are plain numbers (for example "-1500.00") are written as they are, so an
+ * accounting package reads a negative amount as a number. Anything else in those columns is still guarded.
+ */
+export function toCsvWithAmounts(header: string[], rows: (string | number | bigint | null | undefined)[][], amountColumns: string[]): string {
+  const idx = new Set(amountColumns.map((c) => header.indexOf(c)).filter((i) => i >= 0));
+  const cell = (v: string | number | bigint | null | undefined, i: number) => (idx.has(i) && typeof v === "string" && /^-?\d+(?:\.\d{1,2})?$/.test(v) ? v : csvCell(v));
+  return [header.map(csvCell).join(","), ...rows.map((r) => r.map(cell).join(","))].join("\r\n") + "\r\n";
+}

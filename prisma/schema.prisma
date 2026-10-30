@@ -71,6 +71,8 @@ model Company {
   escalationDays   Int     @default(7) @map("escalation_days")
   /// The industry template the company started from, or empty. See src/lib/industry-templates.ts.
   industryTemplate String    @default("") @map("industry_template")
+  /// The company's own account codes for the accounting export (accounting-rules.ts ACCOUNTS keys to codes).
+  accountingCodes  Json      @default("{}") @map("accounting_codes")
   /// Set by a platform administrator: the workspace is closed and the company's listings and profiles are hidden until restored.
   suspendedAt      DateTime? @map("suspended_at")
   suspendedReason  String    @default("") @map("suspended_reason")

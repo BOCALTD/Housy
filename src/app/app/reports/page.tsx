@@ -38,6 +38,7 @@ export default async function ReportsPage({ searchParams: searchP }: { searchPar
       <div className="stack" style={{ gap: 6 }}>
         <h1>Rent reports</h1>
         <p className="muted">Billed is rent falling due in the period. Collected is money received in the period on receipts that have not been reversed. Arrears are what is overdue today after grace periods.</p>
+        <p className="row"><Link className="btn" href="/app/reports/accounting">Accounting export</Link></p>
       </div>
       <Flash searchParams={{ error: problem ?? sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <form className="row" role="search" aria-label="Report period">

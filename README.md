@@ -390,3 +390,9 @@ All of these are worked out by rules from the platform's own records, work with 
 - **What is different** (`/compare`): plain sentences on the cheapest yearly cost (rent plus service charge) or price, best value per m², each home against the typical asking figure for its bedrooms in its city, missing title documents, verified companies, furnishing and amenities only one has.
 - **Help me write this** (property enquiry form): the visitor ticks what to ask (availability, inspection, the full fee breakdown, title document, payment plan, who owns it) and a message is written for them to edit. Nothing is ticked to start with.
 - **Gone quiet** (`/app/crm`): open leads with no call, email, meeting or WhatsApp logged (not contacted a day after arriving, 14 days on an open lead, 7 when the client wants to move now) and no follow-up planned, with a one-step "Plan a follow-up".
+
+## Accounting export
+
+- **`/app/reports/accounting`** (finance roles): a period's rent billed, approved adjustments, receipts and reversals, deposits, and service charge billed, collected and spent, as balanced double-entry journals. Download with debit and credit columns or one signed amount column (`/app/reports/journal.csv`), for QuickBooks, Sage, Xero, Zoho Books or a spreadsheet.
+- Rent on properties the company only manages goes to "Rent held for property owners", never to income; service charge moves the tenants' fund (master prompt §13.1). The company administrator sets its own account codes; the defaults are shown. Every download is logged.
+- The platform does not claim to be the books of account (§13.3): the export is for posting and reconciling in the company's accounting package.

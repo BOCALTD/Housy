@@ -779,3 +779,4 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .enq-qs legend { padding: 0; margin-bottom: 4px; font-weight: 600; }
 .enq-q { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; cursor: pointer; }
 .enq-q input { width: 20px; height: 20px; flex-shrink: 0; }
+.codes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 14px; }

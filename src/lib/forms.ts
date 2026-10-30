@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
+import "./zod-messages";
 import { Prisma } from "@prisma/client";
 
 export function str(form: FormData, name: string): string {

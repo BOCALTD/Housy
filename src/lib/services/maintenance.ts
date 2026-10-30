@@ -388,7 +388,7 @@ const scheduleSchema = z.object({
   nextDueOn: z.string().transform((v) => parseDateOnly(v)),
   leadDays: z.string().trim().optional().transform((v, ctx): number => {
     if (!v) return 14;
-    if (!/^\d{1,3}$/.test(v) || Number(v) > 365) { ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Lead time must be between 0 and 365 days" }); return z.NEVER; }
+    if (!/^\d{1,3}$/.test(v) || Number(v) > 365) { ctx.addIssue({ code: "custom", message: "Lead time must be between 0 and 365 days" }); return z.NEVER; }
     return Number(v);
   }),
   contractorId: z.string().optional().transform((v) => v || null),

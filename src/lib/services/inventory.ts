@@ -25,7 +25,7 @@ const optionalMoney = z.string().trim().optional().transform((v) => (v ? parseNa
 const optionalInt = (label: string) =>
   z.string().trim().optional().transform((v, c): number | null => {
     if (!v) return null;
-    if (!/^\d{1,7}$/.test(v)) { c.addIssue({ code: z.ZodIssueCode.custom, message: `${label} must be a whole number` }); return z.NEVER; }
+    if (!/^\d{1,7}$/.test(v)) { c.addIssue({ code: "custom", message: `${label} must be a whole number` }); return z.NEVER; }
     return Number(v);
   });
 

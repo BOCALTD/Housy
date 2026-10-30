@@ -29,7 +29,7 @@ const optNum = (min: number, max: number) => z.string().trim().optional().transf
   return n;
 });
 const reportSchema = z.object({
-  propertyType: z.enum(PROPERTY_TYPES, { errorMap: () => ({ message: "Choose the kind of property" }) }),
+  propertyType: z.enum(PROPERTY_TYPES, { error: "Choose the kind of property" }),
   purpose: z.enum(PURPOSES).default("UNKNOWN"),
   bedrooms: z.string().trim().optional().transform((v, ctx) => {
     if (!v) return null;

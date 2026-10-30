@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { runtimeDatabaseUrl } from "./db-url";
+import "./zod-messages";
 
 // One Prisma client per process. In development, reuse it across hot reloads.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };

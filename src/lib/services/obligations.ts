@@ -32,7 +32,7 @@ const obligationSchema = z.object({
   recurrenceMonths: z.string().trim().optional().transform((v, ctx): number | null => {
     if (!v) return null;
     if (!/^\d+$/.test(v) || Number(v) < 1 || Number(v) > 120) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Repeat every a whole number of months between 1 and 120, or leave blank" });
+      ctx.addIssue({ code: "custom", message: "Repeat every a whole number of months between 1 and 120, or leave blank" });
       return z.NEVER;
     }
     return Number(v);

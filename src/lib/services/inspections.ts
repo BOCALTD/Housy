@@ -50,11 +50,11 @@ const templateSchema = z.object({
   name: z.string().trim().min(3, "Name the template").max(120),
   assetClass: z.string().optional().transform((v, ctx): (typeof ASSET_CLASSES)[number] | null => {
     if (!v) return null;
-    if (!(ASSET_CLASSES as readonly string[]).includes(v)) { ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a valid asset class" }); return z.NEVER; }
+    if (!(ASSET_CLASSES as readonly string[]).includes(v)) { ctx.addIssue({ code: "custom", message: "Choose a valid asset class" }); return z.NEVER; }
     return v as (typeof ASSET_CLASSES)[number];
   }),
   checklist: z.string().transform((v, ctx) => {
-    try { return parseChecklist(v); } catch (e) { ctx.addIssue({ code: z.ZodIssueCode.custom, message: e instanceof Error ? e.message : "Check the checklist" }); return z.NEVER; }
+    try { return parseChecklist(v); } catch (e) { ctx.addIssue({ code: "custom", message: e instanceof Error ? e.message : "Check the checklist" }); return z.NEVER; }
   }),
 });
 
@@ -97,7 +97,7 @@ const scheduleSchema = z.object({
   recurrenceMonths: z.string().trim().optional().transform((v, ctx): number | null => {
     if (!v) return null;
     if (!/^\d+$/.test(v) || Number(v) < 1 || Number(v) > 120) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Repeat every a whole number of months between 1 and 120, or leave blank" });
+      ctx.addIssue({ code: "custom", message: "Repeat every a whole number of months between 1 and 120, or leave blank" });
       return z.NEVER;
     }
     return Number(v);
@@ -184,7 +184,7 @@ const recordSchema = z.object({
   participants: z.string().trim().max(500).default(""),
   conditionRating: z.string().optional().transform((v, ctx): Rating | null => {
     if (!v) return null;
-    if (!(RATINGS as readonly string[]).includes(v)) { ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a valid condition rating" }); return z.NEVER; }
+    if (!(RATINGS as readonly string[]).includes(v)) { ctx.addIssue({ code: "custom", message: "Choose a valid condition rating" }); return z.NEVER; }
     return v as Rating;
   }),
   summary: z.string().trim().max(5000).default(""),
@@ -193,7 +193,7 @@ const recordSchema = z.object({
   followUpBy: z.string().trim().optional().transform((v) => (v ? parseDateOnly(v) : null)),
   operatingHours: z.string().trim().optional().transform((v, ctx): number | null => {
     if (!v) return null;
-    if (!/^\d{1,9}$/.test(v)) { ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Operating hours must be a whole number" }); return z.NEVER; }
+    if (!/^\d{1,9}$/.test(v)) { ctx.addIssue({ code: "custom", message: "Operating hours must be a whole number" }); return z.NEVER; }
     return Number(v);
   }),
   technicalNotes: z.string().trim().max(3000).default(""),

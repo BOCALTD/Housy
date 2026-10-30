@@ -61,7 +61,7 @@ const profileSchema = z.object({
   gender: enumOf(GENDERS).default("UNSAID"),
   genderPref: enumOf(GENDER_PREFS).default("ANY"),
   showGender: z.boolean().default(false),
-  answers: z.record(z.string()),
+  answers: z.record(z.string(), z.string()),
   must: z.array(z.string()).default([]),
   occupation: z.string().trim().max(80).default(""),
   about: z.string().trim().max(800, "Keep the description under 800 characters").default(""),

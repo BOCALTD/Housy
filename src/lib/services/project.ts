@@ -529,7 +529,7 @@ const variationSchema = z.object({
   }),
   timeImpactDays: z.string().trim().optional().transform((v, c): number => {
     if (!v) return 0;
-    if (!/^\d{1,4}$/.test(v)) { c.addIssue({ code: z.ZodIssueCode.custom, message: "Extra days must be a whole number" }); return z.NEVER; }
+    if (!/^\d{1,4}$/.test(v)) { c.addIssue({ code: "custom", message: "Extra days must be a whole number" }); return z.NEVER; }
     return Number(v);
   }),
 });

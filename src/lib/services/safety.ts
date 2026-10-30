@@ -11,7 +11,7 @@ import { openCase } from "./trust-cases";
 
 const startSchema = z.object({
   expectedMinutes: z.coerce.number().int(),
-  consent: z.literal(true, { errorMap: () => ({ message: "Tick the box to agree to share your location during this session" }) }),
+  consent: z.literal(true, { error: "Tick the box to agree to share your location during this session" }),
   trustedName: z.string().trim().max(120).default(""),
   trustedPhone: z.string().trim().max(30).default(""),
   trustedEmail: z.string().trim().max(160).default(""),

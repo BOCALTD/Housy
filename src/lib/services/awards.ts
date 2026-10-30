@@ -25,7 +25,7 @@ async function adminOnly(adminId: string) {
 
 // ---------- Settings ----------
 
-const num = z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number({ invalid_type_error: "Enter whole numbers", required_error: "Enter whole numbers" }));
+const num = z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number({ error: "Enter whole numbers" }));
 const configSchema = z.object({ wSales: num, wPosts: num, wRating: num, minSales: num, minPosts: num, minReviews: num, windowDays: num, completedDays: num });
 export async function readAwardConfig(): Promise<AwardConfig> {
   const r = await prisma.platformSetting.findUnique({ where: { key: KEY } });

@@ -22,7 +22,7 @@ const DAY = 864e5;
 const SYSTEM_USER = "system";
 
 const score = (label: string, required: boolean) => z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)),
-  required ? z.number({ required_error: `Give an overall rating`, invalid_type_error: `Give an overall rating` }).int().min(1, "Choose 1 to 5").max(5, "Choose 1 to 5")
+  required ? z.number({ error: `Give an overall rating` }).int().min(1, "Choose 1 to 5").max(5, "Choose 1 to 5")
     : z.number().int().min(1, `${label}: choose 1 to 5`).max(5, `${label}: choose 1 to 5`).optional());
 const reviewSchema = z.object({
   overall: score("Overall", true),

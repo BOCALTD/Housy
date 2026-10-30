@@ -66,7 +66,7 @@ const leadSchema = z.object({
   contactMethod: z.enum(["phone", "whatsapp", "email"]),
   contactValue: z.string().trim().min(5, "Enter how the provider should contact you").max(200),
   note: z.string().trim().max(1000).default(""),
-  consent: z.literal("yes", { errorMap: () => ({ message: "Tick the box to agree to share these details" }) }),
+  consent: z.literal("yes", { error: "Tick the box to agree to share these details" }),
 });
 
 /**

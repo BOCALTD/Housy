@@ -34,7 +34,7 @@ export const createSchema = z.object({
   city: z.string().trim().max(80).default(""),
   state: z.string().trim().max(80).default(""),
   status: z.enum(ASSET_STATUSES).default("ACTIVE"),
-  companyRelationship: z.enum(COMPANY_RELATIONSHIPS, { errorMap: () => ({ message: "Choose how your company holds this asset" }) }),
+  companyRelationship: z.enum(COMPANY_RELATIONSHIPS, { error: "Choose how your company holds this asset" }),
   acquisitionCost: optionalKobo,
   acquiredOn: optionalDate,
 });

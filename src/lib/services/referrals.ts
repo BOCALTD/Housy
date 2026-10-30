@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import { z } from "zod";
 
 /** A whole number that may arrive as text from a form. */
-const int = (min: number, max: number, minMessage?: string) => z.preprocess((v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v), z.number({ invalid_type_error: "Enter a whole number" }).int("Enter a whole number").min(min, minMessage).max(max));
+const int = (min: number, max: number, minMessage?: string) => z.preprocess((v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v), z.number({ error: "Enter a whole number" }).int("Enter a whole number").min(min, minMessage).max(max));
 import { prisma, withPlatformAdmin, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { randomRef } from "../tokens";

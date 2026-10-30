@@ -17,12 +17,12 @@ function optionalWhole(label: string, min: number, max: number) {
   return z.string().trim().optional().transform((v, ctx): number | null => {
     if (v === undefined || v === "") return null;
     if (!/^\d+$/.test(v)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${label} must be a whole number` });
+      ctx.addIssue({ code: "custom", message: `${label} must be a whole number` });
       return z.NEVER;
     }
     const n = Number(v);
     if (n < min || n > max) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${label} must be between ${min} and ${max}` });
+      ctx.addIssue({ code: "custom", message: `${label} must be between ${min} and ${max}` });
       return z.NEVER;
     }
     return n;

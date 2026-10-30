@@ -1,0 +1,22 @@
+name: Footage
+on: push
+jobs:
+  footage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+      - run: ./fetch.sh
+      - name: Publish
+        run: |
+          cp -r out /tmp/out
+          git config user.name "ci"; git config user.email "ci@example.invalid"
+          git checkout --orphan media-footage-out
+          git rm -rf -q --cached . > /dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r /tmp/out/* .
+          git add -A && git commit -q -m "Footage candidates"
+          git push -q -f origin media-footage-out

@@ -506,9 +506,9 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await createLead(manager, tenant.id, { title: "[DEMO] Two-bedroom flat to rent in Abuja", budgetMax: "4,000,000" });
 
   // Public profiles, a seeker with a plan who follows them, so the directory and account pages have something real to show.
-  await saveAgentProfile(alpha, { displayName: "[DEMO] Ada Demo", headline: "[DEMO] Lekki and Ikoyi sales", bio: "Demonstration profile.", listed: true, acceptsMessages: true });
-  await saveCompanyProfile(alpha, { kind: "COMPANY", displayName: "[DEMO] Alpha Estates", tagline: "[DEMO] Sales and property management", about: "Demonstration profile.", listed: true });
-  await saveCompanyProfile(beta, { kind: "DEVELOPER", displayName: "[DEMO] Beta Developments", tagline: "[DEMO] Residential estates", about: "Demonstration profile.", listed: true });
+  await saveAgentProfile(alpha, { displayName: "Ada Bakare", headline: "Family homes in Lekki and Ikeja GRA", bio: "Sample agent profile. Sales and lettings across Lagos mainland and Lekki, with weekend viewings.", listed: true, acceptsMessages: true });
+  await saveCompanyProfile(alpha, { kind: "COMPANY", displayName: "Alpha Estates", tagline: "Sales, lettings and property management across Lagos", about: "A sample company for the demonstration. Homes, shops and offices on the mainland and the Island, with a full property-management team.", listed: true });
+  await saveCompanyProfile(beta, { kind: "DEVELOPER", displayName: "Beta Developments", tagline: "Warehouses and residential estates in Lagos and Ogun", about: "A sample developer for the demonstration.", listed: true });
   const seeker = await registerSeeker({ name: "[DEMO] Seyi Seeker", email: "demo.seeker@example.test", password: DEMO_PASSWORD });
   const premium = await withUser("demo-seed", (tx) => tx.subscriptionPlan.findUniqueOrThrow({ where: { code: "premium-seeker" } }));
   const inAYear = toDateOnlyString(new Date(Date.now() + 365 * 864e5));

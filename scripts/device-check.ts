@@ -254,6 +254,9 @@ async function main() {
           }
         } else if (wantShot) {
           // The keyboard check scrolls the page; start the full-page picture from the top so sticky bars sit where a person sees them.
+          // Scroll through the page first so lazily loaded photographs are in the picture, then start from the top.
+          await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 120)); } });
+          await page.waitForLoadState("networkidle", { timeout: 4000 }).catch(() => undefined);
           await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo({ top: 0, behavior: "instant" }); });
           await shot(page, { path: `${OUT}/screens/${prof.device.replace(/\W+/g, "_")}__${pattern(p).replace(/\W+/g, "_") || "home"}.jpg`, type: "jpeg", quality: 55, fullPage: true });
         }

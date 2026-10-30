@@ -956,3 +956,4 @@ body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none
 .composer-preview video { width: min(100%, 280px); aspect-ratio: 9 / 16; object-fit: cover; border-radius: 14px; background: #000; }
 .rf-song { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); min-width: 0; }
 .rf-song span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-preview:focus-visible, audio:focus-visible { outline: 3px solid #FBB017; outline-offset: 2px; border-radius: 22px; }

@@ -10,7 +10,7 @@ import { randomRef } from "../tokens";
 import { rateLimit } from "../ratelimit";
 import { assertCan, type Ctx } from "./context";
 import { refData } from "./reference";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import {
   CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, defaultPeriod, isCode, joinAmenities,
   type CategoryRule, type Filters, type PricePeriod,
@@ -82,6 +82,8 @@ export async function saveListingDraft(ctx: Ctx, assetId: string, input: z.input
       furnishing: data.furnishing as string, condition: data.condition as string, constructionStatus: data.constructionStatus as string, serviced: data.serviced,
       amenities: data.amenities, titleDocument: data.titleDocument as string, availableFrom: data.availableFrom, minLeaseMonths: data.minLeaseMonths,
       estateName: data.estateName, videoUrl: data.videoUrl,
+      // The site outline appears publicly only when the company chose to show it.
+      boundary: asset.boundaryPublic && asset.boundary ? (asset.boundary as Prisma.InputJsonValue) : Prisma.DbNull,
     };
     if (asset.listing) {
       const wasPublished = asset.listing.status === "PUBLISHED";

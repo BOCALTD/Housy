@@ -2,7 +2,7 @@
 
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import { addParty, createAsset, setAssetPosition, updateAssetStatus, uploadDocument } from "@/lib/services/assets";
+import { addParty, createAsset, setAssetBoundary, setAssetPosition, updateAssetStatus, uploadDocument } from "@/lib/services/assets";
 import { createLease, recordPayment } from "@/lib/services/leases";
 import { createTask, updateTaskStatus } from "@/lib/services/tasks";
 import { saveListingDraft, setListingStatus } from "@/lib/services/listings";
@@ -148,6 +148,22 @@ export async function setPositionAction(form: FormData) {
     if (!clear && !str(form, "lat") && !str(form, "lng")) throw new Error("Tap the map where the property is, then save.");
     await setAssetPosition(member, id, clear ? null : { lat: str(form, "lat"), lng: str(form, "lng") });
     return withNotice(assetPath(id), clear ? "Map position cleared." : "Map position saved.");
+  });
+}
+
+export async function setBoundaryAction(form: FormData) {
+  const id = str(form, "assetId");
+  return act(assetPath(id), async () => {
+    const member = await requireMember("asset.update");
+    if (form.get("clear") === "1") {
+      await setAssetBoundary(member, id, null, false);
+      return withNotice(assetPath(id), "Site outline removed.");
+    }
+    let corners: unknown;
+    try { corners = JSON.parse(str(form, "boundary") || "null"); } catch { corners = null; }
+    if (!corners) throw new Error("Tap each corner of the site on the map, then save.");
+    await setAssetBoundary(member, id, corners, str(form, "public") === "yes");
+    return withNotice(assetPath(id), str(form, "public") === "yes" ? "Site outline saved and shown on the listing." : "Site outline saved for your team only.");
   });
 }
 

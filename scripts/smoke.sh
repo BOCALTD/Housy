@@ -42,11 +42,18 @@ curl -s http://localhost:3100/offline | grep -q "You are offline" || fail "/offl
 [ "$(code /api/cron/push)" = "401" ] || fail "/api/cron/push answered without the job secret"
 curl -s "http://localhost:3100/api/map/listings?bbox=3.5,2.5,14.5,15&zoom=6" | grep -q '"markers"' || fail "the map data endpoint did not answer"
 [ "$(code '/api/map/listings?bbox=nonsense')" = "400" ] || fail "the map data endpoint accepted a bad area"
+curl -s "http://localhost:3100/api/map/listings?near=6.45,3.47&km=20" | grep -q '"near"' || fail "radius search did not answer"
+[ "$(code '/api/map/listings?near=6.45,3.47&km=7')" = "400" ] || fail "radius search accepted a radius it does not offer"
+[ "$(code '/api/map/nearby?ref=nonsense')" = "400" ] || fail "the nearby endpoint accepted a bad reference"
+[ "$(code '/api/map/travel?ref=PROP-NONE0000&from=6.5,3.3')" = "404" ] || fail "the travel endpoint answered for a property that does not exist"
 curl -s -H "cf-ipcountry: GB" http://localhost:3100/map | grep -q "United Kingdom" || fail "the map did not open on the visitor's country"
 curl -s http://localhost:3100/ | grep -q 'property="og:image"' || fail "home page has no og:image tag"
 curl -s http://localhost:3100/ | grep -q 'rel="icon"' || fail "home page has no icon link"
 REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)
 [ -n "$REF" ] || fail "no property link on the home page"
+P=${REF#properties/}
+curl -s --max-time 45 "http://localhost:3100/api/map/nearby?ref=$P" | grep -q '"available"' || fail "the nearby endpoint did not answer for $P"
+curl -s "http://localhost:3100/api/map/travel?ref=$P&from=6.6018,3.3515" | grep -q '"estimate"' || fail "the travel endpoint did not answer for $P"
 curl -s "http://localhost:3100/$REF" | grep -q "Verify this property" || fail "$REF has no verification link"
 # Sharing: the page has a share button, a preview picture of its own, and a guest is invited to sign up; a shared link returns to it.
 page=$(curl -s "http://localhost:3100/$REF?shared=1")

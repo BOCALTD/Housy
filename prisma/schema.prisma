@@ -166,6 +166,8 @@ model Asset {
   state               String              @default("")
   lat                 Float?
   lng                 Float?
+  boundary       Json?
+  boundaryPublic Boolean @default(false) @map("boundary_public")
   status              AssetStatus         @default(ACTIVE)
   companyRelationship CompanyRelationship @map("company_relationship")
   acquisitionCostKobo BigInt?             @map("acquisition_cost_kobo")
@@ -610,6 +612,7 @@ model Listing {
   /// Approximate position only (rounded to about 1 km). The exact position of an asset is never published.
   lat         Float?
   lng         Float?
+  boundary       Json?
   status      ListingStatus  @default(DRAFT)
   reviewNote  String         @default("") @map("review_note")
   postedById  String?        @map("posted_by_id")
@@ -949,6 +952,16 @@ model LoginGuard {
   @@index([userId])
   @@index([lockedUntil])
   @@map("login_guards")
+}
+
+/// Nearby places (from OpenStreetMap) by map cell, shared by every property in the cell. See src/lib/services/nearby.ts.
+model NearbyCache {
+  cell      String   @id
+  places    Json     @default("[]")
+  ok        Boolean  @default(true)
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+
+  @@map("nearby_cache")
 }
 
 model RateLimit {
@@ -5132,6 +5145,8 @@ model InspectionBooking {
   durationMinutes Int       @default(60) @map("duration_minutes")
   assignedUserId  String?   @map("assigned_user_id")
   meetingPoint    String    @default("") @map("meeting_point")
+  meetLat         Float?    @map("meet_lat")
+  meetLng         Float?    @map("meet_lng")
   status          String    @default("REQUESTED")
   cancelReason    String    @default("") @map("cancel_reason")
   outcome         String    @default("")

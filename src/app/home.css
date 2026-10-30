@@ -668,3 +668,31 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .demo-strip { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 6px 16px; background: #1F2125; color: #E7E9EC; font-size: 13px; text-align: center; }
 .demo-strip a { color: #FBB017; }
 .demo-strip-tag { padding: 1px 8px; border-radius: 999px; background: #FBB017; color: #1F2125; font-weight: 800; font-size: 12px; letter-spacing: .06em; }
+/* Radius search, outline corners, a day's route, and the layer switch. */
+.map-radius { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.map-radius-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.map-radius-label select { min-height: 44px; }
+.map-corner { background: transparent; border: 0; }
+.map-corner span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: #fbb017; color: #1f2125; font-weight: 800; font-size: 12px; border: 2px solid #1f2125; }
+.map-stop span { background: #1f2125; color: #fbb017; border-color: #fbb017; font-size: 13px; }
+.street-map .leaflet-control-layers { border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 8px 20px -10px rgba(0, 0, 0, .4); }
+.street-map .leaflet-control-layers-base label { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; font: 600 14px var(--font-body); cursor: pointer; }
+.street-map .leaflet-control-layers-base input { width: 18px; height: 18px; accent-color: #fbb017; }
+/* Nearby places and travel times on a property page. */
+.nearby { display: grid; gap: 12px; }
+.nearby-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 10px; list-style: none; margin: 0; padding: 0; }
+.nearby-kind { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.nearby-kind header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.nearby-kind header strong { display: inline-flex; align-items: center; gap: 8px; }
+.nearby-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.nearby-count { font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); }
+.nearby-kind ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: .9rem; }
+.nearby-kind li { display: flex; justify-content: space-between; gap: 8px; }
+.nearby-kind li span:last-child { color: var(--muted); white-space: nowrap; }
+.travel-result { display: grid; gap: 4px; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, #FBB017 45%, var(--line)); background: color-mix(in srgb, #FBB017 8%, var(--surface)); }
+.travel-result strong { font-size: 1.15rem; }
+.directions { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-weight: 600; font-size: 14px; cursor: pointer; }
+.chip-toggle input { width: 18px; height: 18px; accent-color: #FBB017; margin: 0; }
+.chip-toggle:has(input:checked) { border-color: #FBB017; background: color-mix(in srgb, #FBB017 12%, var(--surface)); }
+.chip-toggle:has(input:focus-visible) { outline: 3px solid #FBB017; outline-offset: 2px; }

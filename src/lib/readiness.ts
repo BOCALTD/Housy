@@ -1,4 +1,5 @@
 import { identityProviders } from "./identity-providers";
+import { mapLayers } from "./location-rules";
 import { vapidFromEnv } from "./webpush";
 /**
  * Is this deployment ready for real customers? Looks only at which settings exist and whether they look sane. It never returns a
@@ -50,7 +51,7 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
 
   const tiles = env.NEXT_PUBLIC_MAP_TILES ?? "";
   add("map", "Street map tiles", /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? "ok" : "warn",
-    /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? "A tile provider is set." : "Using OpenStreetMap's public tiles, which are fine for testing and light use only. Set NEXT_PUBLIC_MAP_TILES (and NEXT_PUBLIC_MAP_ATTRIBUTION) to a provider such as MapTiler or Stadia Maps before real traffic, then rebuild.", "provider");
+    /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? `A tile provider is set.${mapLayers(env).length > 1 ? " A satellite layer is available." : " No satellite layer: use MapTiler (its key also gives satellite) or set NEXT_PUBLIC_MAP_SATELLITE_TILES."} Nearby places use ${env.NEARBY_PLACES === "off" ? "nothing (switched off)" : env.OVERPASS_URL ? "your own Overpass server" : "the public Overpass server, cached for 30 days"}; travel times are ${env.ROUTING_URL ? "real driving times from your routing server" : "estimates (set ROUTING_URL to an OSRM server for real times)"}.` : "Using OpenStreetMap's public tiles, which are fine for testing and light use only. Set NEXT_PUBLIC_MAP_TILES (and NEXT_PUBLIC_MAP_ATTRIBUTION) to a provider such as MapTiler or Stadia Maps before real traffic, then rebuild.", "provider");
 
   const kyc = identityProviders(env);
   const sandbox = /sandbox/.test(`${env.DOJAH_BASE_URL ?? ""} ${env.YOUVERIFY_BASE_URL ?? ""}`);

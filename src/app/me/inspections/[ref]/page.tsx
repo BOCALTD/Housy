@@ -1,3 +1,5 @@
+import { StreetMap } from "@/components/StreetMap";
+import { directionsLinks } from "@/lib/location-rules";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -38,6 +40,16 @@ export default async function MyInspection({ params, searchParams }: { params: P
             <ul className="check-list"><li>{formatDateTime(b.scheduledAt)} for about {b.durationMinutes} minutes</li>{b.meetingPoint ? <li>Meet at: {b.meetingPoint}</li> : null}{b.agent ? <li>Meeting you: <Link href={`/agents/${b.agent.userId}`}>{b.agent.displayName}</Link> (check their trust level)</li> : null}</ul>
           ) : <p className="muted">You asked for {formatDateTime(b.preferredAt)}{b.alternativeAt ? ` or ${formatDateTime(b.alternativeAt)}` : ""}. The company will confirm a time.</p>}
           {b.scheduledAt && b.status !== "CANCELLED" && b.status !== "COMPLETED" ? <p><a className="btn" href={`/me/inspections/${encodeURIComponent(b.ref)}/calendar`}>Add to my calendar</a></p> : null}
+          {b.meetLat !== null && b.meetLng !== null && ["CONFIRMED", "EN_ROUTE", "ARRIVED", "IN_PROGRESS"].includes(b.status) ? (
+            <div className="stack" style={{ gap: 8 }}>
+              <h3>Getting there</h3>
+              <StreetMap mode="area" exact centre={{ lat: b.meetLat, lng: b.meetLng }} label="Where the inspection is" />
+              <div className="directions">
+                {(() => { const d = directionsLinks({ lat: b.meetLat, lng: b.meetLng }); return <><a className="btn" href={d.google} target="_blank" rel="noopener noreferrer">Directions in Google Maps</a><a className="btn" href={d.apple} target="_blank" rel="noopener noreferrer">Apple Maps</a><a className="btn" href={d.waze} target="_blank" rel="noopener noreferrer">Waze</a></>; })()}
+              </div>
+              <p className="small muted">The exact spot is shared with you because your inspection is confirmed. Please keep it to yourself.</p>
+            </div>
+          ) : null}
           <BookingTimeline status={b.status} events={b.events} />
           {canCancel ? (
             <details className="inline"><summary>Cancel this inspection</summary>

@@ -138,7 +138,11 @@ export async function confirmBooking(ctx: Ctx, id: string, input: z.input<typeof
     const others = await tx.inspectionBooking.findMany({ where: { companyId: ctx.companyId, assignedUserId: d.assignedUserId, id: { not: b.id }, status: { in: ["CONFIRMED", "EN_ROUTE", "ARRIVED", "IN_PROGRESS"] }, scheduledAt: { not: null } } });
     const clash = others.find((o) => overlaps({ start: d.scheduledAt, minutes: d.durationMinutes }, { start: o.scheduledAt!, minutes: o.durationMinutes }));
     if (clash) throw new Error(`That clashes with inspection ${clash.ref} at ${formatDateTime(clash.scheduledAt!)}. Choose another time or person.`);
-    const fields = { scheduledAt: d.scheduledAt, durationMinutes: d.durationMinutes, assignedUserId: d.assignedUserId, meetingPoint: d.meetingPoint, remindedAt: null };
+    // The exact position of the property goes to the person only now that a time is confirmed, so they can get directions.
+    const listing = await tx.listing.findFirst({ where: { id: b.listingId, companyId: ctx.companyId }, select: { assetId: true } });
+    const asset = listing ? await tx.asset.findFirst({ where: { id: listing.assetId, companyId: ctx.companyId }, select: { lat: true, lng: true } }) : null;
+    const meet = asset && asset.lat !== null && asset.lng !== null ? { meetLat: asset.lat, meetLng: asset.lng } : { meetLat: null, meetLng: null };
+    const fields = { scheduledAt: d.scheduledAt, durationMinutes: d.durationMinutes, assignedUserId: d.assignedUserId, meetingPoint: d.meetingPoint, remindedAt: null, ...meet };
     if (b.status === "CONFIRMED") {
       // A new time for a confirmed booking: record it as rescheduled, then confirmed at the new time.
       await move(tx, ctx, b, "RESCHEDULED", {}, `Was ${b.scheduledAt ? formatDateTime(b.scheduledAt) : "unscheduled"}. ${d.note}`.trim());
@@ -190,3 +194,26 @@ export async function inspectionReminders(now = new Date()) {
 }
 
 export { isOpen };
+
+/**
+ * One person's confirmed inspections on one day, in time order, with where to meet, for the day's route on a map. A manager can
+ * look at anyone's day; an agent sees their own.
+ */
+export async function dayRoute(ctx: Ctx, day: string, forUserId?: string) {
+  assertCan(ctx, "booking.manage");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Choose a day");
+  const who = ctx.role === "AGENT" || !forUserId ? ctx.userId : forUserId;
+  const start = fromLagosLocal(`${day}T00:00`), end = new Date(start.getTime() + 864e5);
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const rows = await tx.inspectionBooking.findMany({
+      where: { companyId: ctx.companyId, assignedUserId: who, status: { in: ["CONFIRMED", "EN_ROUTE", "ARRIVED", "IN_PROGRESS", "COMPLETED"] }, scheduledAt: { gte: start, lt: end } },
+      orderBy: { scheduledAt: "asc" }, take: 30,
+    });
+    const listings = await tx.listing.findMany({ where: { id: { in: rows.map((r) => r.listingId) }, companyId: ctx.companyId }, select: { id: true, title: true, city: true } });
+    const team = await tx.membership.findMany({ where: { companyId: ctx.companyId, status: "ACTIVE", role: { in: ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"] } }, select: { userId: true, user: { select: { name: true } } } });
+    return {
+      day, userId: who, team: team.map((t) => ({ userId: t.userId, name: t.user.name })),
+      stops: rows.map((r) => ({ id: r.id, ref: r.ref, at: r.scheduledAt!, minutes: r.durationMinutes, status: r.status, meetingPoint: r.meetingPoint, who: r.requesterName, lat: r.meetLat, lng: r.meetLng, title: listings.find((l) => l.id === r.listingId)?.title ?? r.ref, city: listings.find((l) => l.id === r.listingId)?.city ?? "" })),
+    };
+  });
+}

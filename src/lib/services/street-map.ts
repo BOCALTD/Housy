@@ -2,7 +2,8 @@
 // a company sees its own assets at the position it set. Requests ask only for what is inside the visible map area.
 import type { Prisma } from "@prisma/client";
 import { withPublic } from "../db";
-import { PLACES, clusterCell, inBounds, shortMoney, type Bounds } from "../geo-rules";
+import { PLACES, clusterCell, distanceKm, inBounds, shortMoney, type Bounds } from "../geo-rules";
+import { circleBounds, distanceLabel } from "../location-rules";
 import { priceSuffix } from "../listing-rules";
 import { formatKobo } from "../money";
 import { coverPhotoIds } from "./listing-photos";
@@ -11,7 +12,7 @@ export const MAP_MAX_PINS = 300;
 export const MAP_LIST = 24;
 
 export type MapFilters = { purpose?: string; maxPrice?: string; minBeds?: string; type?: string };
-export type MapPin = { kind: "pin"; ref: string; lat: number; lng: number; price: string; title: string; priceLabel: string; beds: number | null; city: string; purpose: string; photo: string | null };
+export type MapPin = { kind: "pin"; ref: string; lat: number; lng: number; price: string; title: string; priceLabel: string; beds: number | null; city: string; purpose: string; photo: string | null; distance?: string };
 export type MapGroup = { kind: "group"; lat: number; lng: number; count: number; minPrice: string };
 
 type Clean = { purpose: "SALE" | "RENT" | "LEASE" | null; max: bigint | null; beds: number | null; type: string | null };
@@ -67,6 +68,36 @@ export async function mapView(b: Bounds, zoom: number, f: MapFilters) {
       LIMIT 2000`;
     const markers: MapGroup[] = rows.map((r) => ({ kind: "group", lat: r.lat, lng: r.lng, count: Number(r.n), minPrice: shortMoney(r.minp) }));
     return { total, markers, list: newest.map(pin) };
+  });
+}
+
+/**
+ * Radius search: published listings within km of a point, nearest first, with the distance on each card. Candidates come from
+ * the box around the circle (indexed), then the exact distance decides. Beyond MAP_MAX_PINS results, they are grouped.
+ */
+export async function mapNear(centre: { lat: number; lng: number }, km: number, zoom: number, f: MapFilters) {
+  const c = clean(f);
+  const w = where(circleBounds(centre, km), c);
+  return withPublic(async (tx) => {
+    const rows = await tx.listing.findMany({ where: w, select: { id: true, publicRef: true, title: true, priceKobo: true, pricePeriod: true, bedrooms: true, city: true, purpose: true, lat: true, lng: true, publishedAt: true }, orderBy: { publishedAt: "desc" }, take: 3000 });
+    const inside = rows.map((l) => ({ l, km: distanceKm(centre, { lat: l.lat!, lng: l.lng! }) })).filter((x) => x.km <= km).sort((a, b) => a.km - b.km);
+    const listed = inside.slice(0, inside.length <= MAP_MAX_PINS ? MAP_MAX_PINS : MAP_LIST);
+    const covers = await coverPhotoIds(listed.map((x) => x.l.id));
+    const pin = ({ l, km: d }: (typeof inside)[number]): MapPin => ({
+      kind: "pin", ref: l.publicRef, lat: l.lat!, lng: l.lng!, price: shortMoney(l.priceKobo), title: l.title, priceLabel: `${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}`,
+      beds: l.bedrooms, city: l.city, purpose: l.purpose, photo: covers.get(l.id) ?? null, distance: distanceLabel(d),
+    });
+    if (inside.length <= MAP_MAX_PINS) return { total: inside.length, markers: listed.map(pin), list: listed.slice(0, MAP_LIST).map(pin), near: { ...centre, km } };
+    const cell = clusterCell(zoom);
+    const groups = new Map<string, { lat: number; lng: number; n: number; minp: bigint }>();
+    for (const { l } of inside) {
+      const k = `${Math.floor(l.lat! / cell)}:${Math.floor(l.lng! / cell)}`;
+      const g = groups.get(k) ?? { lat: 0, lng: 0, n: 0, minp: l.priceKobo };
+      g.lat += l.lat!; g.lng += l.lng!; g.n += 1; if (l.priceKobo < g.minp) g.minp = l.priceKobo;
+      groups.set(k, g);
+    }
+    const markers: MapGroup[] = [...groups.values()].map((g) => ({ kind: "group", lat: g.lat / g.n, lng: g.lng / g.n, count: g.n, minPrice: shortMoney(g.minp) }));
+    return { total: inside.length, markers, list: listed.map(pin), near: { ...centre, km } };
   });
 }
 

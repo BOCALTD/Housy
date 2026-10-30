@@ -1,3 +1,4 @@
+import { areaLabel, boundaryAreaSqm } from "@/lib/location-rules";
 import { StreetMap } from "@/components/StreetMap";
 import { countryView, visitorCountry } from "@/lib/countries";
 import { locate } from "@/lib/geo-rules";
@@ -24,7 +25,7 @@ import { can } from "@/lib/permissions";
 import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import {
   addPartyAction, createLeaseAction, createTaskAction, listingStatusAction, recordPaymentAction,
-  addListingPhotoAction, makeCoverPhotoAction, removeListingPhotoAction, saveListingAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
+  addListingPhotoAction, makeCoverPhotoAction, removeListingPhotoAction, saveListingAction, setBoundaryAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
 } from "../actions";
 
 import { CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, parseAmenities } from "@/lib/listing-rules";
@@ -482,6 +483,24 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                   </form>
                 </details>
                 {asset.lat !== null ? <form action={setPositionAction}>{hidden}<input type="hidden" name="clear" value="1" /><input type="hidden" name="lat" value="" /><input type="hidden" name="lng" value="" /><button className="btn small" type="submit">Clear position</button></form> : null}
+              </details>
+            </section>
+          ) : null}
+
+          {can(member.role, "asset.update") ? (
+            <section className="card stack">
+              <h2>Site outline</h2>
+              {Array.isArray(asset.boundary) ? (
+                <p className="small muted">Drawn: {(asset.boundary as unknown[]).length} corners, {areaLabel(boundaryAreaSqm(asset.boundary as [number, number][]))}. {asset.boundaryPublic ? "Shown on the public listing." : "Seen by your team only."}</p>
+              ) : <p className="small muted">For an estate, a development or a plot: draw its outline so buyers can see the site. Optional.</p>}
+              <details className="inline"><summary>{Array.isArray(asset.boundary) ? "Change the outline" : "Draw the outline"}</summary>
+                <form action={setBoundaryAction} className="stack">
+                  {hidden}
+                  <StreetMap mode="draw" start={pickStart} value={Array.isArray(asset.boundary) ? (asset.boundary as [number, number][]) : null} anchor={asset.lat !== null && asset.lng !== null ? { lat: asset.lat, lng: asset.lng } : null} label="Draw the outline of the site" />
+                  <label className="check"><input type="checkbox" name="public" value="yes" defaultChecked={asset.boundaryPublic} /> Show this outline on the public listing. It shows the exact site, so use it for estates, developments and land, not for occupied homes.</label>
+                  <button className="btn primary" type="submit">Save outline</button>
+                </form>
+                {Array.isArray(asset.boundary) ? <form action={setBoundaryAction}>{hidden}<input type="hidden" name="clear" value="1" /><button className="btn small" type="submit">Remove the outline</button></form> : null}
               </details>
             </section>
           ) : null}

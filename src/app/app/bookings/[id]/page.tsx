@@ -1,9 +1,10 @@
+import { directionsLinks } from "@/lib/location-rules";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { companyBooking } from "@/lib/services/inspection-bookings";
 import { BOOKING_LABEL, DURATIONS, nextSteps, sessionLive, type BookingStatus } from "@/lib/booking-rules";
-import { formatDateTime, toLagosLocal } from "@/lib/dates";
+import { formatDateTime, toDateOnlyString, toLagosLocal } from "@/lib/dates";
 import { Flash, sp, type SP } from "@/components/ui";
 import { BookingTimeline } from "@/components/BookingTimeline";
 import { SafetyStartForm } from "@/components/SafetyStartForm";
@@ -42,7 +43,9 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
             {b.message ? <li>“{b.message}”</li> : null}
             {b.scheduledAt ? <li><strong>Confirmed for {formatDateTime(b.scheduledAt)}</strong> ({b.durationMinutes} minutes) with {b.team.find((t) => t.userId === b.assignedUserId)?.name ?? "—"}{b.meetingPoint ? ` · meet at ${b.meetingPoint}` : ""}</li> : null}
           </ul>
-          {b.scheduledAt && b.status !== "CANCELLED" && b.status !== "COMPLETED" ? <p><a className="btn" href={`/app/bookings/${b.id}/calendar`}>Add to calendar</a></p> : null}
+          {b.scheduledAt && b.status !== "CANCELLED" && b.status !== "COMPLETED" ? <p className="row"><a className="btn" href={`/app/bookings/${b.id}/calendar`}>Add to calendar</a><a className="btn" href={`/app/bookings/route?day=${toDateOnlyString(new Date(b.scheduledAt.getTime() + 3_600_000))}${b.assignedUserId ? `&who=${b.assignedUserId}` : ""}`}>The day&apos;s route</a></p> : null}
+          {b.meetLat !== null && b.meetLng !== null && ["CONFIRMED", "EN_ROUTE", "ARRIVED", "IN_PROGRESS"].includes(b.status) ? (() => { const d = directionsLinks({ lat: b.meetLat, lng: b.meetLng }); return <div className="directions"><a className="btn" href={d.google} target="_blank" rel="noopener noreferrer">Directions in Google Maps</a><a className="btn" href={d.apple} target="_blank" rel="noopener noreferrer">Apple Maps</a><a className="btn" href={d.waze} target="_blank" rel="noopener noreferrer">Waze</a></div>; })() : null}
+          {["CONFIRMED", "EN_ROUTE"].includes(b.status) && b.meetLat === null ? <p className="small muted">Set the property&apos;s map position on its page, then confirm again, to give the visitor directions.</p> : null}
           <BookingTimeline status={b.status} events={b.events} />
           {steps.length ? (
             <div className="stack">

@@ -1,3 +1,5 @@
+import { checkBoundary } from "../location-rules";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { distanceKm, locate, publicPosition, validPosition } from "../geo-rules";
 import { withTenant, type Tx } from "../db";
@@ -280,5 +282,32 @@ export async function setAssetPosition(ctx: Ctx, assetId: string, input: { lat: 
     const shown = pos ? publicPosition(pos.lat, pos.lng) : area ? publicPosition(area.lat, area.lng) : null;
     await tx.listing.updateMany({ where: { assetId: asset.id, companyId: ctx.companyId }, data: { lat: shown?.lat ?? null, lng: shown?.lng ?? null } });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "asset", entityId: asset.id, action: pos ? "asset.position_set" : "asset.position_cleared", detail: {} });
+  });
+}
+
+/**
+ * Draw or clear the outline of a site (an estate, a development, a plot). The outline is exact, so it is shown publicly only when
+ * the company ticks "show this outline" — usually for estates under development and land for sale, not for occupied homes.
+ * The listing for the asset carries a copy only while it is public.
+ */
+export async function setAssetBoundary(ctx: Ctx, assetId: string, raw: unknown, showPublicly: boolean) {
+  assertCan(ctx, "asset.update");
+  let points: [number, number][] | null = null;
+  if (raw !== null) {
+    const c = checkBoundary(raw);
+    if (!c.ok) throw new Error(c.error);
+    points = c.points;
+  }
+  await withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const asset = await tx.asset.findFirst({ where: { id: assetId, companyId: ctx.companyId } });
+    if (!asset) throw new Error("Asset not found");
+    if (points) {
+      const near = asset.lat !== null && asset.lng !== null ? { lat: asset.lat, lng: asset.lng } : locate({ city: asset.city, state: asset.state });
+      if (near && points.every(([la, ln]) => distanceKm(near, { lat: la, lng: ln }) > 15)) throw new Error(`That outline is far from ${asset.city || asset.state || "the property's position"}. Check you drew it in the right place.`);
+    }
+    const isPublic = !!points && showPublicly;
+    await tx.asset.update({ where: { id: asset.id }, data: { boundary: points ?? Prisma.DbNull, boundaryPublic: isPublic } });
+    await tx.listing.updateMany({ where: { assetId: asset.id, companyId: ctx.companyId }, data: { boundary: isPublic ? points! : Prisma.DbNull } });
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "asset", entityId: asset.id, action: points ? "asset.boundary_set" : "asset.boundary_cleared", detail: { corners: points?.length ?? 0, public: isPublic } });
   });
 }

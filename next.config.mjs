@@ -8,11 +8,18 @@ const tileHost = (() => {
     return tiles.includes("{s}") ? `${u.protocol}//*.${u.host.split(".").slice(1).join(".")}` : u.origin;
   } catch { return "https://tile.openstreetmap.org"; }
 })();
+// A satellite layer, when one is set up, may come from another host (NEXT_PUBLIC_MAP_SATELLITE_TILES); MapTiler's hybrid layer
+// shares the streets host.
+const satHost = (() => {
+  const t = process.env.NEXT_PUBLIC_MAP_SATELLITE_TILES;
+  if (!t) return "";
+  try { return new URL(t.replace(/\{[a-z]+\}/g, "0")).origin; } catch { return ""; }
+})();
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://accounts.google.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
-  `img-src 'self' data: blob: ${tileHost}`,
+  `img-src 'self' data: blob: ${tileHost}${satHost && satHost !== tileHost ? ` ${satHost}` : ""}`,
   "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https://www.googleapis.com https://accounts.google.com",
   "frame-src https://accounts.google.com",

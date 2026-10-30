@@ -10,7 +10,7 @@ import { prisma, withPlatformAdmin, withTenant, withUser } from "./db";
 import type { Ctx } from "./services/context";
 import { DEMO_COMPANIES, DEMO_LISTINGS, DEMO_REVIEWS } from "./demo-catalogue-data";
 import { acceptInvitation, inviteMember, registerCompany } from "./services/companies";
-import { createAsset, setAssetPosition } from "./services/assets";
+import { createAsset, setAssetBoundary, setAssetPosition } from "./services/assets";
 import { reviewListing, saveListingDraft, setListingStatus } from "./services/listings";
 import { addListingPhoto } from "./services/listing-photos";
 import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./services/community";
@@ -79,6 +79,14 @@ export async function createDemoCatalogue(adminId: string, o: { password: string
     const l = await withTenant(firm.owner.companyId, firm.owner.userId, (tx) => tx.listing.findFirstOrThrow({ where: { assetId: asset.id } }));
     await reviewListing(adminId, l.id, "approve", "Sample listing approved automatically");
     listed.push({ index, listingId: l.id, publicRef: l.publicRef, assetId: asset.id, firm: d.company, poster, priceKobo: l.priceKobo });
+  }
+
+  // ---------- Site outlines: the new estates show their site on the map ----------
+  for (const item of listed.filter((x) => DEMO_LISTINGS[x.index].listing.constructionStatus === "OFF_PLAN" || DEMO_LISTINGS[x.index].cls === "LAND")) {
+    const d = DEMO_LISTINGS[item.index];
+    const r = (n: number) => Math.round(n * 1e6) / 1e6;
+    const ring: [number, number][] = [[-0.0022, -0.0030], [-0.0026, 0.0024], [0.0004, 0.0034], [0.0025, 0.0012], [0.0018, -0.0026]].map(([a, b]) => [r(d.lat + a), r(d.lng + b)]);
+    await setAssetBoundary(firms.get(item.firm)!.owner, item.assetId, ring, true);
   }
 
   // ---------- Reels: short videos made from each property's photographs (scripts/make-demo-reels.ts) ----------

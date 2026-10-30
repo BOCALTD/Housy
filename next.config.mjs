@@ -21,6 +21,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
   `img-src 'self' data: blob: ${tileHost}${satHost && satHost !== tileHost ? ` ${satHost}` : ""}`,
   "font-src 'self' data: https://fonts.gstatic.com",
+  // Reel previews play the chosen clip from the device before it is uploaded.
+  "media-src 'self' blob:",
   "connect-src 'self' https://www.googleapis.com https://accounts.google.com",
   "frame-src https://accounts.google.com",
   "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",

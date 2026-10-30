@@ -137,6 +137,7 @@ test("no route hands out data without checking who is asking", () => {
     "app/calendar/[token]/route.ts": "a private calendar feed: the secret in the link is the key (stored as a hash, replaceable, rate limited)",
     "app/partners/[id]/logo/route.ts": "logos of active partners only; the database hides the rest",
     "app/photos/[id]/route.ts": "pictures of published listings; the database returns nothing for any other listing",
+    "app/music/[id]/audio/route.ts": "tracks in the licensed music library that are switched on; the database hides the rest",
   };
   const AUTH = /scope: "|getMember|getSession|requireUser|requireMember|requirePlatformAdmin|cronAuthorised|signature/;
   for (const f of files.filter((f) => f.endsWith("/route.ts"))) {

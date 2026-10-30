@@ -3,7 +3,7 @@
  * can be read without a connection. Signed-in areas (/app, /admin, /me, /portal, /api, messages, documents)
  * are never cached. The one thing that works offline is the field kit (/field): its page holds nothing personal, the
  * inspector's work is kept in IndexedDB on their device, and it is sent through /api/field once back online. */
-const VERSION = "housy-v4";
+const VERSION = "housy-v5";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const OFFLINE = "/offline";
@@ -12,10 +12,10 @@ const REFRESH_MS = 30 * 60 * 1000;
 
 const PUBLIC = /^\/(?:$|browse|properties|faq|how-it-works|about|safety$|reviews|calculators|compare|trust$|agents|companies|directory|completed|awards|map|support|market|field$)(?:\/|$)/;
 const NEVER = /^\/(?:app|admin|me|portal|api|calendar|kyc|messages|invite|login|join|signup|setup|forgot|reset|unsubscribe|billing|r|safety\/|trust\/|verification|collaborations|feedback|rewards|referrals|ads)(?:\/|$)/;
-/* Reel clips: fetched once, kept on the device (the 30 most recent, for a week), and played again from here, including the
+/* Reel clips and their songs: fetched once, kept on the device (the 30 most recent, for a week), and played again from here, including the
  * byte ranges phones ask for, so scrolling back or watching again never downloads the clip twice. */
 const REELS = `${VERSION}-reels`;
-const REEL_PATH = /^\/reels\/[0-9a-f-]{36}\/video$/;
+const REEL_PATH = /^\/(?:reels\/[0-9a-f-]{36}\/video|music\/[0-9a-f-]{36}\/audio)$/;
 const MAX_REELS = 30;
 const REEL_MAX_AGE = 7 * 24 * 3600 * 1000;
 

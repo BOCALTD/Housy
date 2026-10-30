@@ -4450,9 +4450,18 @@ model Reel {
   reviewedById String?   @map("reviewed_by_id")
   publishedAt DateTime?  @map("published_at")
   createdAt   DateTime   @default(now()) @map("created_at")
+  /// The licensed track under the reel, where it starts, and the two volumes the agent chose.
+  musicTrackId   String?     @map("music_track_id")
+  musicStartSec  Float       @default(0) @map("music_start_sec")
+  musicVolume    Int         @default(80) @map("music_volume")
+  originalVolume Int         @default(40) @map("original_volume")
+  /// True when the track was mixed into the stored clip; otherwise the player plays it alongside.
+  musicMixed     Boolean     @default(false) @map("music_mixed")
+  musicTrack     MusicTrack? @relation(fields: [musicTrackId], references: [id], onDelete: SetNull)
 
   @@index([status, publishedAt])
   @@index([authorId, status])
+  @@index([musicTrackId])
   @@map("reels")
 }
 
@@ -5570,4 +5579,37 @@ model UserSignal {
 
   @@index([userId, createdAt])
   @@map("user_signals")
+}
+
+/// A song in the platform's music library. Uploaded only by the platform administrator, with the licence that allows agents to use it in reels.
+model MusicTrack {
+  id             String      @id @default(uuid())
+  title          String
+  artist         String
+  genre          String      @default("")
+  durationSec    Float?      @map("duration_sec")
+  mimeType       String      @map("mime_type")
+  sizeBytes      Int         @map("size_bytes")
+  licenceName    String      @map("licence_name")
+  licenceSource  String      @default("") @map("licence_source")
+  licenceNote    String      @default("") @map("licence_note")
+  /// The licence asks for the artist to be credited wherever the track is used.
+  creditRequired Boolean     @default(false) @map("credit_required")
+  active         Boolean     @default(true)
+  uses           Int         @default(0)
+  createdById    String      @map("created_by_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  media          MusicMedia?
+  reels          Reel[]
+
+  @@index([active, genre])
+  @@map("music_tracks")
+}
+
+model MusicMedia {
+  trackId String     @id @map("track_id")
+  bytes   Bytes
+  track   MusicTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@map("music_media")
 }

@@ -930,3 +930,29 @@ body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none
   .rf-avatar { width: 44px; height: 44px; font-size: 14px; }
   .rf-avatar-wrap { margin-bottom: 14px; }
 }
+.music-preview { width: 100%; max-width: 420px; height: 44px; }
+
+/* Posting a reel: clip, song from the licensed library, start point and volumes, with a preview. */
+.composer-music { border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 0; display: grid; gap: 12px; min-width: 0; }
+.composer-music legend { font-weight: 700; padding: 0 6px; }
+.composer-filter { display: grid; gap: 8px; }
+.composer-filter input[type="search"] { min-height: 44px; font-size: 16px; border: 1px solid var(--line); border-radius: 999px; padding: 0 16px; background: var(--surface); color: var(--ink); }
+.music-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.music-chips::-webkit-scrollbar { display: none; }
+.music-chip { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 600; font-size: 13px; cursor: pointer; }
+.music-chip.on { background: #1F2125; color: #fff; border-color: #1F2125; }
+@media (hover: hover) { .music-chip:not(.on):hover { border-color: #FBB017; } }
+.tracks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 340px; overflow-y: auto; }
+.tracks li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 12px; border: 1px solid transparent; }
+.tracks li.on { border-color: #FBB017; background: var(--primary-soft, #FFF4D6); }
+.track-play { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: #1F2125; color: #fff; display: grid; place-items: center; cursor: pointer; }
+.track-pick { flex: 1; display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; min-width: 0; }
+.track-pick input { width: 20px; height: 20px; flex-shrink: 0; accent-color: #F29F05; }
+.track-pick span { display: grid; min-width: 0; }
+.track-pick strong, .track-pick small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-pick small { color: var(--muted); font-size: 12px; }
+.composer-mix input[type="range"] { width: 100%; min-height: 44px; accent-color: #F29F05; }
+.composer-preview { display: grid; gap: 10px; justify-items: start; }
+.composer-preview video { width: min(100%, 280px); aspect-ratio: 9 / 16; object-fit: cover; border-radius: 14px; background: #000; }
+.rf-song { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); min-width: 0; }
+.rf-song span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

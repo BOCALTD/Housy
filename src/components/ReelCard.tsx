@@ -12,13 +12,14 @@ import { likeAction, reportAction, saveAction } from "@/app/reels/actions";
 export function ReelView({ r, back, signedIn, detail = false }: { r: Card; back: string; signedIn: boolean; detail?: boolean }) {
   return (
     <article className="card stack reel-card">
-      <ReelPlayer id={r.id} label={r.caption || "Property reel"} />
+      <ReelPlayer id={r.id} label={r.caption || "Property reel"} music={r.music} />
       <div className="stack" style={{ gap: 4 }}>
         <div className="row between">
           <div><strong>{r.authorName}</strong>{r.companyName ? <span className="small muted"> · {r.companyName}</span> : null}</div>
           {r.status !== "PUBLISHED" ? <Pill status={r.status === "PENDING" || r.status === "DRAFT" ? "PENDING" : "SUSPENDED"} label={r.status === "DRAFT" ? "Draft, only you can see it" : r.status === "PENDING" ? "Being checked" : r.status === "HIDDEN" ? "Hidden" : "Removed"} /> : null}
         </div>
         {r.caption ? <p style={{ overflowWrap: "anywhere" }}>{r.caption}</p> : null}
+        {r.music ? <p className="small muted">♪ {r.music.title} · {r.music.artist}{r.music.credit ? ` (licence: ${r.music.licence})` : ""}</p> : null}
         <p className="small muted">{[r.city, r.publishedAt ? formatDate(r.publishedAt) : ""].filter(Boolean).join(" · ")}{r.why.length ? ` · ${r.why[0]}` : ""}</p>
         {r.listingRef ? <p className="small"><Link href={`/properties/${r.listingRef}`}>See the property{r.listingTitle ? `: ${r.listingTitle}` : ""}</Link></p> : null}
       </div>

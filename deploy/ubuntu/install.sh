@@ -10,7 +10,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y curl ca-certificates gnupg git ufw nginx certbot python3-certbot-nginx fail2ban unattended-upgrades openssl
+apt-get install -y curl ca-certificates gnupg git ufw nginx certbot python3-certbot-nginx fail2ban unattended-upgrades openssl ffmpeg
 
 # Node 20 (NodeSource)
 if ! command -v node >/dev/null || ! node -v | grep -q '^v20'; then

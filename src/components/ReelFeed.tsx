@@ -47,6 +47,8 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
   const loaded = useRef(new Set<number>([0, 1]));
   const box = useRef<HTMLDivElement>(null);
   const vids = useRef(new Map<number, HTMLVideoElement>());
+  // Songs that are not mixed into the clip play alongside it, kept in step with the picture.
+  const songs = useRef(new Map<number, HTMLAudioElement>());
   const loading = useRef(false);
   const tap = useRef<{ t: number; timer: ReturnType<typeof setTimeout> | null }>({ t: 0, timer: null });
 
@@ -76,6 +78,7 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
       if (i === active) { v.currentTime = v.currentTime || 0; v.play().catch(() => { /* autoplay with sound blocked: stays paused until a tap */ }); }
       else v.pause();
     });
+    songs.current.forEach((a, i) => { if (i !== active) a.pause(); });
     const r = rows[active];
     const timer = r && signedIn ? setTimeout(() => void watched(r.id, 3), 3000) : null;
     // Near the end, fetch the next page.
@@ -89,7 +92,17 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
     return () => { if (timer) clearTimeout(timer); };
   }, [active, rows, page, total, tab, signedIn]);
 
-  useEffect(() => { vids.current.forEach((v) => { v.muted = muted; }); }, [muted]);
+  useEffect(() => { vids.current.forEach((v) => { v.muted = muted; }); songs.current.forEach((a) => { a.muted = muted; }); }, [muted]);
+
+  /** Keep a separately played song with its clip: same play and pause, and back in step if it drifts or the clip loops. */
+  function syncSong(i: number, r: ReelCard, v: HTMLVideoElement, ev: "play" | "pause" | "time") {
+    const a = songs.current.get(i);
+    if (!a || !r.music || r.music.mixed) return;
+    const want = r.music.startSec + v.currentTime;
+    if (ev === "pause") { a.pause(); return; }
+    if (ev === "play") { a.volume = r.music.volume / 100; v.volume = r.music.originalVolume / 100; a.muted = v.muted; a.currentTime = want; void a.play().catch(() => {}); return; }
+    if (!v.paused && Math.abs(a.currentTime - want) > 0.35) a.currentTime = want;
+  }
 
   const go = useCallback((d: number) => {
     const el = box.current; if (!el) return;
@@ -168,8 +181,12 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
               ref={(v) => { if (v) vids.current.set(i, v); else vids.current.delete(i); }}
               className="rf-video" src={near ? `/reels/${r.id}/video` : undefined} preload={i === active || i === active + 1 ? "auto" : "metadata"}
               muted={muted} loop playsInline aria-label={r.caption || "Property reel"}
-              onTimeUpdate={(e) => { if (i === active) { const v = e.currentTarget; setProgress(v.duration ? v.currentTime / v.duration : 0); } }}
+              onTimeUpdate={(e) => { const v = e.currentTarget; if (i === active) setProgress(v.duration ? v.currentTime / v.duration : 0); syncSong(i, r, v, "time"); }}
+              onPlay={(e) => syncSong(i, r, e.currentTarget, "play")} onPause={(e) => syncSong(i, r, e.currentTarget, "pause")}
             />
+            {r.music && !r.music.mixed ? (
+              <audio ref={(a) => { if (a) songs.current.set(i, a); else songs.current.delete(i); }} src={near ? `/music/${r.music.trackId}/audio` : undefined} preload={i === active ? "auto" : "none"} muted={muted} />
+            ) : null}
             <button type="button" className="rf-tap" aria-label={paused && i === active ? "Play" : "Pause or play. Double tap to like"} onClick={() => onTap(r)} />
             {paused && i === active ? <span className="rf-paused" aria-hidden="true"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z" /></svg></span> : null}
             {burst === r.id ? <span className="rf-burst" aria-hidden="true"><Heart on /></span> : null}
@@ -208,6 +225,7 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
                 {r.companyName ? <span className="rf-co">{r.companyName}</span> : null}
               </div>
               {r.caption ? <Caption text={r.caption} /> : null}
+              {r.music ? <p className="rf-song"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M9 18V6l11-2v12" stroke="currentColor" strokeWidth="2" fill="none" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></svg><span>{r.music.title} · {r.music.artist}</span></p> : null}
               <div className="rf-meta">
                 {r.city ? <span className="rf-chip"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11.5A7 7 0 0 1 19 9.5C19 14.7 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></svg>{r.city}</span> : null}
                 {r.listingRef ? <Link className="rf-chip rf-chip-prop" href={`/properties/${r.listingRef}`}>See the property</Link> : null}
@@ -319,6 +337,7 @@ function SheetView({ sheet, signedIn, onClose, onCommented, onSignIn }: { sheet:
         {sheet.kind === "more" ? (
           <div className="stack rf-sheet-body">
             {sheet.reel.listingRef ? <Link className="btn" href={`/properties/${sheet.reel.listingRef}`}>See the property{sheet.reel.listingTitle ? `: ${sheet.reel.listingTitle}` : ""}</Link> : null}
+{sheet.reel.music ? <p className="small muted">Music: {sheet.reel.music.title} by {sheet.reel.music.artist}, used under {sheet.reel.music.licence}.</p> : null}
             <Link className="btn" href={`/agents/${sheet.reel.authorId}`}>{sheet.reel.authorName}&apos;s profile</Link>
             <Link className="btn" href={`/reels/${sheet.reel.id}`}>Open this reel on its own page</Link>
             {signedIn && !sheet.reel.mine ? (

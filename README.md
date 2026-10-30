@@ -396,3 +396,10 @@ All of these are worked out by rules from the platform's own records, work with 
 - **`/app/reports/accounting`** (finance roles): a period's rent billed, approved adjustments, receipts and reversals, deposits, and service charge billed, collected and spent, as balanced double-entry journals. Download with debit and credit columns or one signed amount column (`/app/reports/journal.csv`), for QuickBooks, Sage, Xero, Zoho Books or a spreadsheet.
 - Rent on properties the company only manages goes to "Rent held for property owners", never to income; service charge moves the tenants' fund (master prompt §13.1). The company administrator sets its own account codes; the defaults are shown. Every download is logged.
 - The platform does not claim to be the books of account (§13.3): the export is for posting and reconciling in the company's accounting package.
+
+## Music on reels
+
+- **Music library** (`/admin/music`, platform administrator only): upload songs the platform holds a licence for (MP3, M4A, AAC or OGG, up to 4 MB), with the licence's name, a link to it and notes, and whether the artist must be credited. Popular commercial songs need a licence from the labels and must not be added without one. Withdrawing a song stops it being chosen.
+- **Posting a reel** (`/reels/new`): agents pick a song (search and filter by style, listen first), where in the song to start, and the volumes of the song and the clip's own sound, then preview both together before uploading.
+- **Mixing**: the server lays the song under the clip with ffmpeg (installed by `deploy/ubuntu/install.sh`; set `FFMPEG_PATH`/`FFPROBE_PATH` if it is elsewhere), copying the picture without re-encoding. Where ffmpeg is missing or the result would pass 4 MB, the clip is kept as it is and the player plays the song alongside it, in step. Every reel shows the song's title and artist.
+- The demo seeds four original instrumentals made with `npx tsx scripts/make-demo-music.ts`; replace them with licensed tracks before launch.

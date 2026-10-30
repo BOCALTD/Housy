@@ -4,6 +4,7 @@
  * completed deals with client reviews, promotions, likes, comments and followers. Runs only as part of createDemoData,
  * that is with SEED_DEMO_DATA=true, and every page then carries a strip saying the data is a sample.
  */
+import { addTrack } from "./services/music";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { prisma, withPlatformAdmin, withTenant, withUser } from "./db";
@@ -92,6 +93,18 @@ export async function createDemoCatalogue(adminId: string, o: { password: string
   // ---------- Reels: short videos made from each property's photographs (scripts/make-demo-reels.ts) ----------
   const fans = [o.seekerId];
   for (const r of DEMO_REVIEWS) fans.push((await registerSeeker({ name: r.client, email: r.email, password: o.password })).userId);
+  // ---------- The music library: original demonstration songs (scripts/make-demo-music.ts), then a song under most reels ----------
+  const SONGS = [
+    { file: "lagos-sunset.mp3", title: "Lagos Sunset", genre: "AFROBEATS" }, { file: "island-breeze.mp3", title: "Island Breeze", genre: "UPBEAT" },
+    { file: "keys-to-home.mp3", title: "Keys to Home", genre: "CHILL" }, { file: "open-house.mp3", title: "Open House", genre: "CORPORATE" },
+  ];
+  const trackIds: string[] = [];
+  for (const sng of SONGS) {
+    const f = join(MEDIA, "music", sng.file);
+    if (!existsSync(f)) continue;
+    const t = await addTrack(adminId, { title: sng.title, artist: "Demo Studio", genre: sng.genre as never, licenceName: "Original demonstration music made for this platform", licenceSource: "", licenceNote: "Synthesised for the demo by scripts/make-demo-music.ts. Replace with tracks from a licensed library before launch.", creditRequired: false, confirmed: true }, { name: sng.file, type: "audio/mpeg", bytes: readFileSync(f) });
+    trackIds.push(t.id);
+  }
   const reels: string[] = [];
   for (const item of listed) {
     const d = DEMO_LISTINGS[item.index];
@@ -101,7 +114,10 @@ export async function createDemoCatalogue(adminId: string, o: { password: string
     const firm = firms.get(item.firm)!;
     const author = item.poster.role === "AGENT" ? item.poster : firm.agents[0];
     if (!author) continue;
-    const reel = await uploadReel(author.userId, { caption: d.reel, city: d.city, listingId: item.listingId }, { type: "video/mp4", bytes: readFileSync(file) });
+    // Three in four demo reels carry a song from the library, starting at different points.
+    const song = trackIds.length && item.index % 4 !== 3 ? trackIds[item.index % trackIds.length] : "";
+    const reel = await uploadReel(author.userId, { caption: d.reel, city: d.city, listingId: item.listingId }, { type: "video/mp4", bytes: readFileSync(file) },
+      song ? { music: { trackId: song, start: String((item.index * 7) % 20), musicVolume: "85", originalVolume: "40" } } : {});
     await moderateReel(adminId, reel.id, "publish", "");
     reels.push(reel.id);
   }

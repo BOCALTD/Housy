@@ -10,6 +10,8 @@ import { notify } from "./notifications";
 import { system } from "./rewards";
 import { shortName } from "./reviews";
 import { reelTaste } from "./signals";
+import { mixIntoClip } from "./music";
+import { cleanChoice, type MusicChoice } from "../music-rules";
 
 // Reels: short property videos by listed agents. Every reel is checked by the platform before it is public. People can like, save,
 // share, comment and report. Reach is organic: it comes from other people's engagement and never from a plan or a promotion.
@@ -32,12 +34,21 @@ const postSchema = z.object({
 });
 
 /** Post a reel for checking, or keep it as a draft only its author can see until they send it. */
-export async function uploadReel(userId: string, input: z.input<typeof postSchema>, file: { type: string; bytes: Uint8Array }, opts: { draft?: boolean } = {}) {
+export async function uploadReel(userId: string, input: z.input<typeof postSchema>, file: { type: string; bytes: Uint8Array }, opts: { draft?: boolean; music?: { trackId?: string; start?: string; musicVolume?: string; originalVolume?: string } } = {}) {
   const d = postSchema.parse(input);
   if (!(REEL_TYPES as readonly string[]).includes(file.type)) throw new Error("Upload an MP4 or WebM video");
   if (file.bytes.byteLength === 0) throw new Error("The video is empty");
   if (file.bytes.byteLength > REEL_MAX_BYTES) throw new Error("Videos must be 4 MB or smaller for now. Trim the clip or lower its quality.");
   if (!sniffVideo(file.type, file.bytes)) throw new Error("The file contents do not match its type");
+  // A song from the platform's licensed library, laid under the clip on the server when it can be; otherwise played alongside.
+  let choice: MusicChoice | null = null, stored = file.bytes, mixed = false;
+  if (opts.music?.trackId) {
+    const track = await withPublic((tx) => tx.musicTrack.findFirst({ where: { id: opts.music!.trackId, active: true }, select: { id: true, durationSec: true } }));
+    if (!track) throw new Error("That track is no longer in the music library. Choose another.");
+    choice = cleanChoice(opts.music, track.durationSec);
+    const m = choice ? await mixIntoClip(file, choice) : null;
+    if (m) { stored = m; mixed = true; }
+  }
   return system(async (tx) => {
     const profile = await tx.agentProfile.findFirst({ where: { userId, listed: true }, orderBy: { createdAt: "asc" } });
     if (!profile) throw new Error("Only a listed agent can post reels. Add your agent profile first and tick the box to list it.");
@@ -51,8 +62,12 @@ export async function uploadReel(userId: string, input: z.input<typeof postSchem
     if ((await tx.reel.count({ where: { authorId: userId, createdAt: { gte: since } } })) >= 5) throw new Error("You have posted five reels today. Please come back tomorrow.");
     if (!opts.draft && (await tx.reel.count({ where: { authorId: userId, status: "PENDING" } })) >= 3) throw new Error("You already have three reels waiting for review. Save this one as a draft for now.");
     if (opts.draft && (await tx.reel.count({ where: { authorId: userId, status: "DRAFT" } })) >= 10) throw new Error("You have ten drafts. Send or delete some first.");
-    const reel = await tx.reel.create({ data: { authorId: userId, companyId: profile.companyId, listingId, caption: d.caption, city, mimeType: file.type, sizeBytes: file.bytes.byteLength, status: opts.draft ? "DRAFT" : "PENDING" } });
-    await tx.reelMedia.create({ data: { reelId: reel.id, bytes: Buffer.from(file.bytes) } });
+    const reel = await tx.reel.create({ data: {
+      authorId: userId, companyId: profile.companyId, listingId, caption: d.caption, city, mimeType: file.type, sizeBytes: stored.byteLength, status: opts.draft ? "DRAFT" : "PENDING",
+      ...(choice ? { musicTrackId: choice.trackId, musicStartSec: choice.startSec, musicVolume: choice.musicVolume, originalVolume: choice.originalVolume, musicMixed: mixed } : {}),
+    } });
+    await tx.reelMedia.create({ data: { reelId: reel.id, bytes: Buffer.from(stored) } });
+    if (choice) await tx.musicTrack.update({ where: { id: choice.trackId }, data: { uses: { increment: 1 } } });
     await logActivity(tx, { companyId: profile.companyId, actorId: userId, entityType: "reel", entityId: reel.id, action: "reel.posted", detail: { listingId } });
     return reel;
   });
@@ -170,9 +185,12 @@ export interface ReelCard {
   likes: number; comments: number; shares: number; liked: boolean; saved: boolean; why: string[]; mine: boolean;
   /** The viewer follows the author. */
   following: boolean;
+  /** The song under the reel. When it is not mixed into the clip, the player plays it from startSec at these volumes. */
+  music: { trackId: string; title: string; artist: string; licence: string; credit: boolean; mixed: boolean; startSec: number; volume: number; originalVolume: number } | null;
 }
 
-async function cards(reels: { id: string; authorId: string; listingId: string | null; caption: string; city: string; publishedAt: Date | null; status: string; sizeBytes: number; mimeType: string }[], viewerId: string | null, whyBy = new Map<string, string[]>()): Promise<ReelCard[]> {
+type ReelRow = { id: string; authorId: string; listingId: string | null; caption: string; city: string; publishedAt: Date | null; status: string; sizeBytes: number; mimeType: string; musicTrackId?: string | null; musicStartSec?: number; musicVolume?: number; originalVolume?: number; musicMixed?: boolean };
+async function cards(reels: ReelRow[], viewerId: string | null, whyBy = new Map<string, string[]>()): Promise<ReelCard[]> {
   if (!reels.length) return [];
   const ids = reels.map((r) => r.id);
   const [likes, comments, shares, mine, authors, listings] = await Promise.all([
@@ -187,6 +205,8 @@ async function cards(reels: { id: string; authorId: string; listingId: string | 
     withPublic((tx) => tx.agentProfile.findMany({ where: { userId: { in: [...new Set(reels.map((r) => r.authorId))] }, listed: true }, select: { userId: true, displayName: true, companyName: true } })),
     withPublic((tx) => tx.listing.findMany({ where: { id: { in: reels.map((r) => r.listingId).filter((x): x is string => !!x) }, status: "PUBLISHED" }, select: { id: true, publicRef: true, title: true } })),
   ]);
+  const trackIds = [...new Set(reels.map((r) => r.musicTrackId).filter((x): x is string => !!x))];
+  const tracks = trackIds.length ? await withPublic((tx) => tx.musicTrack.findMany({ where: { id: { in: trackIds } }, select: { id: true, title: true, artist: true, licenceName: true, creditRequired: true } })) : [];
   const n = (rows: { reelId: string; _count: number }[], id: string) => rows.find((r) => r.reelId === id)?._count ?? 0;
   return reels.map((r) => {
     const a = authors.find((x) => x.userId === r.authorId), l = listings.find((x) => x.id === r.listingId);
@@ -195,6 +215,10 @@ async function cards(reels: { id: string; authorId: string; listingId: string | 
       authorId: r.authorId, authorName: a?.displayName ?? "Agent", companyName: a?.companyName ?? "", listingRef: l?.publicRef ?? null, listingTitle: l?.title ?? null,
       likes: n(likes, r.id), comments: n(comments, r.id), shares: n(shares, r.id), liked: mine.likes.some((x) => x.reelId === r.id), saved: mine.saves.some((x) => x.reelId === r.id),
       why: whyBy.get(r.id) ?? [], mine: r.authorId === viewerId, following: mine.follows.some((f) => f.targetId === r.authorId),
+      music: (() => {
+        const t = tracks.find((x) => x.id === r.musicTrackId);
+        return t ? { trackId: t.id, title: t.title, artist: t.artist, licence: t.licenceName, credit: t.creditRequired, mixed: !!r.musicMixed, startSec: r.musicStartSec ?? 0, volume: r.musicVolume ?? 80, originalVolume: r.originalVolume ?? 40 } : null;
+      })(),
     };
   });
 }

@@ -74,6 +74,9 @@ jobs:
       - name: Unit tests
         run: scripts/ci-run.sh "Unit tests" npm run test:unit
 
+      - name: ffmpeg for mixing songs into reels (installed on the server by deploy/ubuntu/install.sh)
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
+
       - name: Integration tests (separate database, app role)
         env:
           MIGRATION_DATABASE_URL: postgresql://estate_owner:owner_ci_pw@localhost:5432/estate_it

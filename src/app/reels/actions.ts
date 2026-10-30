@@ -29,7 +29,9 @@ export async function uploadAction(form: FormData) {
     const f = form.get("video");
     if (!(f instanceof File) || f.size === 0) throw new Error("Choose a video");
     const draft = str(form, "intent") === "draft";
-    await uploadReel(u.id, { caption: str(form, "caption"), city: str(form, "city"), listingId: optStr(form, "listingId") }, { type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) }, { draft });
+    await uploadReel(u.id, { caption: str(form, "caption"), city: str(form, "city"), listingId: optStr(form, "listingId") }, { type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) }, {
+      draft, music: { trackId: str(form, "musicTrackId"), start: str(form, "musicStart"), musicVolume: str(form, "musicVolume"), originalVolume: str(form, "originalVolume") },
+    });
     return withNotice("/reels/mine", draft ? "Saved as a draft. Only you can see it until you send it for checking." : "Your reel was sent for checking. You will be told when it is live.");
   });
 }

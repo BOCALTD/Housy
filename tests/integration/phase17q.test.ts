@@ -30,7 +30,7 @@ async function setup(label: string) {
 }
 
 test("a record made offline applies once, merges with office changes and asks about real clashes", async () => {
-  const { officer, other, manager, ins } = await setup("field");
+  const { admin, officer, other, manager, ins } = await setup("field");
   const pack = await fieldPack(officer);
   const p = pack.inspections.find((x) => x.id === ins.id)!;
   assert.ok(p, "the inspection assigned to the officer is in their pack");
@@ -82,7 +82,7 @@ test("a record made offline applies once, merges with office changes and asks ab
 
   // Permissions are checked when the work arrives.
   await assert.rejects(syncFieldRecord(other, { clientId: randomUUID(), inspectionId: ins.id, base: r.record, mine: chosen, findings: [] }), /assigned inspector/);
-  const viewer = await addMember(manager, "VIEWER", "fview");
+  const viewer = await addMember(admin, "VIEWER", "fview");
   await assert.rejects(syncFieldRecord(viewer, { clientId: randomUUID(), inspectionId: ins.id, base: r.record, mine: chosen, findings: [] }), /permission/i);
   await assert.rejects(syncFieldRecord(officer, { clientId: "x", inspectionId: ins.id, base: r.record, mine: chosen }), /device/);
 

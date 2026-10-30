@@ -1,3 +1,4 @@
+import { recordSignal } from "@/lib/services/signals";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, SORTS, extraFilterCount, filtersToQuery, parseFilters, type Category } from "@/lib/listing-rules";
@@ -27,6 +28,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
   const page = await searchListingsPage(f, category?.rule ?? {}, companyIds);
   const rows = await decorateListings(page.rows, f.sort === "newest");
   const session = await getSession();
+  if (session && f.city) void recordSignal(session.user.id, { kind: "SEARCH", city: f.city, purpose: f.purpose ?? "" });
   const bot = isBot((await headers()).get("user-agent"));
   const sponsored = await sponsoredFor("SEARCH_TOP", { filters: { q: f.q, purpose: f.purpose, city: f.city, maxPrice: f.maxPrice, minBeds: f.minBeds?.toString() }, bot }).catch(() => []);
   const extra = extraFilterCount(f);

@@ -16,7 +16,7 @@ export function ReelView({ r, back, signedIn, detail = false }: { r: Card; back:
       <div className="stack" style={{ gap: 4 }}>
         <div className="row between">
           <div><strong>{r.authorName}</strong>{r.companyName ? <span className="small muted"> · {r.companyName}</span> : null}</div>
-          {r.status !== "PUBLISHED" ? <Pill status={r.status === "PENDING" ? "PENDING" : "SUSPENDED"} label={r.status === "PENDING" ? "Being checked" : r.status === "HIDDEN" ? "Hidden" : "Removed"} /> : null}
+          {r.status !== "PUBLISHED" ? <Pill status={r.status === "PENDING" || r.status === "DRAFT" ? "PENDING" : "SUSPENDED"} label={r.status === "DRAFT" ? "Draft, only you can see it" : r.status === "PENDING" ? "Being checked" : r.status === "HIDDEN" ? "Hidden" : "Removed"} /> : null}
         </div>
         {r.caption ? <p style={{ overflowWrap: "anywhere" }}>{r.caption}</p> : null}
         <p className="small muted">{[r.city, r.publishedAt ? formatDate(r.publishedAt) : ""].filter(Boolean).join(" · ")}{r.why.length ? ` · ${r.why[0]}` : ""}</p>

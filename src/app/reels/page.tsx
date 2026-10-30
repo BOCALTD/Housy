@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { discover, type Tab } from "@/lib/services/reels";
+import { withPublic } from "@/lib/db";
+import { discover, getReel, type Tab } from "@/lib/services/reels";
 import { Flash, sp, type SP } from "@/components/ui";
 import { ModeSwitch } from "@/components/ModeSwitch";
-import { ReelView } from "@/components/ReelCard";
+import { ReelFeed } from "@/components/ReelFeed";
 
-export const metadata = { title: "Reels" };
+export const metadata = { title: "Property reels", description: "Short videos of homes, land and neighbourhoods from verified agents. Swipe up for the next one." };
 export const dynamic = "force-dynamic";
 
 const TABS: { id: Tab; label: string }[] = [{ id: "foryou", label: "For you" }, { id: "following", label: "Following" }, { id: "trending", label: "Popular" }];
@@ -16,31 +17,28 @@ export default async function ReelsPage({ searchParams: searchP }: { searchParam
   const viewerId = session?.user.id ?? null;
   const asked = sp(searchParams, "tab");
   const tab = (TABS.find((t) => t.id === asked)?.id ?? (viewerId ? "foryou" : "trending")) as Tab;
-  const page = Math.max(0, Number.parseInt(sp(searchParams, "page") ?? "0", 10) || 0);
-  const feed = await discover({ viewerId, tab: viewerId ? tab : "trending", page });
-  const here = `/reels?tab=${tab}&page=${page}`;
+  const [feed, start, canPost] = await Promise.all([
+    discover({ viewerId, tab: viewerId ? tab : "trending", page: 0 }),
+    sp(searchParams, "r") ? getReel(sp(searchParams, "r")!, viewerId).catch(() => null) : Promise.resolve(null),
+    viewerId ? withPublic((tx) => tx.agentProfile.count({ where: { userId: viewerId, listed: true } })).then((n) => n > 0).catch(() => false) : Promise.resolve(false),
+  ]);
+  // A shared or returned-to reel opens first.
+  const rows = start && start.status === "PUBLISHED" ? [start, ...feed.rows.filter((r) => r.id !== start.id)] : feed.rows;
   return (
-    <div className="stack-lg">
-      <ModeSwitch active="reels" />
-      <div className="stack" style={{ gap: 6 }}>
-        <h1>Reels</h1>
-        <p className="muted">Short videos of homes and neighbourhoods from agents. What you see first comes from people you follow and from what others find useful. Paying for a plan or a promotion does not move a reel up.</p>
-        <p className="small">{viewerId ? <><Link href="/reels/new">Post a reel</Link> · <Link href="/reels/mine">My reels</Link> · <Link href="/reels/saved">Saved</Link></> : <><Link href="/login">Sign in</Link> to like, save, comment and follow agents.</>}</p>
+    <div className="rf-page">
+      <h1 className="visually-hidden">Property reels</h1>
+      <div className="rf-head">
+        <ModeSwitch active="reels" />
+        {viewerId ? (
+          <nav className="rf-tabs" aria-label="Which reels">
+            {TABS.map((t) => <Link key={t.id} className="rf-tab" href={`/reels?tab=${t.id}`} aria-current={t.id === tab ? "page" : undefined} replace>{t.label}</Link>)}
+            <Link className="rf-tab" href="/reels/saved">Saved</Link>
+            <Link className="rf-tab" href="/reels/mine">Mine</Link>
+          </nav>
+        ) : null}
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
-      {viewerId ? <nav className="nav nav-scroll" aria-label="Reels">{TABS.map((t) => <Link key={t.id} href={`/reels?tab=${t.id}`} aria-current={t.id === tab ? "page" : undefined}>{t.label}</Link>)}</nav> : null}
-      {feed.rows.length === 0 ? (
-        <div className="card"><p className="muted">{tab === "following" ? "Follow agents or companies from the directory and their reels will appear here." : "No reels yet. Agents can post one from this page."}</p></div>
-      ) : (
-        <div className="stack-lg">{feed.rows.map((r) => <ReelView key={r.id} r={r} back={here} signedIn={!!viewerId} />)}</div>
-      )}
-      {feed.pages > 1 ? (
-        <div className="row between">
-          {feed.page > 0 ? <Link className="btn" href={`/reels?tab=${tab}&page=${feed.page - 1}`}>Previous</Link> : <span />}
-          <span className="small muted">Page {feed.page + 1} of {feed.pages}</span>
-          {feed.page + 1 < feed.pages ? <Link className="btn" href={`/reels?tab=${tab}&page=${feed.page + 1}`}>Next</Link> : <span />}
-        </div>
-      ) : null}
+      <ReelFeed key={tab} initial={rows} pages={feed.pages} tab={tab} signedIn={!!viewerId} canPost={canPost} />
     </div>
   );
 }

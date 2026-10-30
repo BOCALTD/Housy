@@ -34,6 +34,8 @@ model User {
   passwordHash    String       @map("password_hash")
   /// Given at sign-up (agents must, others may), stored as +234...
   phone           String       @default("")
+  /// Suggestions from what this person looks at (user_signals). They can turn it off.
+  personalise     Boolean      @default(true)
   isPlatformAdmin Boolean      @default(false) @map("is_platform_admin")
   createdAt       DateTime     @default(now()) @map("created_at")
   /// Two-step sign-in: the secret is stored encrypted; it only counts once mfaEnabledAt is set. mfaLastStep stops a code being used twice.
@@ -42,6 +44,7 @@ model User {
   mfaLastStep     BigInt?      @map("mfa_last_step")
   sessions        Session[]
   memberships     Membership[]
+  signals         UserSignal[]
   passwordResets  PasswordReset[]
   mfaRecoveries   MfaRecovery[]
 
@@ -4414,6 +4417,7 @@ model CompletedDisplay {
 // ---------- Phase 12c: Reels and social ----------
 
 enum ReelStatus {
+  DRAFT
   PENDING
   PUBLISHED
   HIDDEN
@@ -5545,4 +5549,25 @@ model FieldSync {
 
   @@unique([companyId, userId, clientId])
   @@map("field_syncs")
+}
+
+/// What a signed-in person looked at, saved, asked about or watched: used only for their own suggestions, kept 180 days.
+model UserSignal {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  kind         String
+  listingId    String?  @map("listing_id")
+  reelId       String?  @map("reel_id")
+  agentId      String?  @map("agent_id")
+  companyId    String?  @map("company_id")
+  city         String   @default("")
+  propertyType String   @default("") @map("property_type")
+  purpose      String   @default("")
+  priceKobo    BigInt?  @map("price_kobo")
+  bedrooms     Int?
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("user_signals")
 }

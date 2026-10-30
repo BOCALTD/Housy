@@ -1,3 +1,4 @@
+import { recordSignal } from "@/lib/services/signals";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
@@ -35,6 +36,7 @@ export default async function AgentPage({ params: paramsP, searchParams: searchP
   if (!agent) notFound();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const [rep, list, session, trust] = await Promise.all([ensureReputation("AGENT", agent.userId), publicReviews("AGENT", agent.userId, page), getSession(), agentTrust(agent.userId)]);
+  if (session && session.user.id !== agent.userId) void recordSignal(session.user.id, { kind: "AGENT_VIEW", agentId: agent.userId, companyId: agent.companyId });
   const awards = (await awardsFor([agent.userId])).get(agent.userId) ?? [];
   const badges = (rep?.badges as string[] | undefined) ?? [];
   const comps = (rep?.components as Record<string, number> | undefined) ?? {};

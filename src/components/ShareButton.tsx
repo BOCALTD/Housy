@@ -11,9 +11,11 @@ import { NETWORKS, networkLink, shareLink, type ShareKind } from "@/lib/share-ru
  * Every shared link opens the page again, greets the visitor and invites them to sign up; a signed-in sharer's link carries their
  * invite code.
  */
-export default function ShareButton({ kind, path, title, text, photos = [], video, reelId, count, signedIn, small = false }: {
+export default function ShareButton({ kind, path, title, text, photos = [], video, reelId, count, signedIn, small = false, rail = false }: {
   kind: ShareKind; path: string; title: string; text: string; photos?: string[]; video?: string;
   reelId?: string; count?: number; signedIn: boolean; small?: boolean;
+  /** Drawn as an icon with its count in the reels side rail. */
+  rail?: boolean;
 }) {
   const box = useRef<HTMLDialogElement>(null);
   const headId = `share-h-${useId().replace(/:/g, "")}`;
@@ -105,9 +107,16 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
 
   return (
     <>
-      <button type="button" className={`btn share-btn${small ? " small" : ""}`} onClick={open} aria-haspopup="dialog">
-        {ShareIcon}<span>Share{reelId ? ` (${n})` : ""}</span>
-      </button>
+      {rail ? (
+        <button type="button" className="rf-act" onClick={open} aria-haspopup="dialog" aria-label={`Share${reelId ? `, ${n} shares` : ""}`}>
+          <span className="rf-ico"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3 11 14M22 3l-7 19-4-8-8-4 19-7Z" /></svg></span>
+          <span className="rf-n">{n}</span>
+        </button>
+      ) : (
+        <button type="button" className={`btn share-btn${small ? " small" : ""}`} onClick={open} aria-haspopup="dialog">
+          {ShareIcon}<span>Share{reelId ? ` (${n})` : ""}</span>
+        </button>
+      )}
       <dialog ref={box} className="share-sheet" aria-labelledby={headId} onClick={(e) => { if (e.target === box.current) box.current?.close(); }}>
         <div className="share-inner stack">
           <div className="row between share-head">

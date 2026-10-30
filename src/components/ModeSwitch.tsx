@@ -37,10 +37,10 @@ export function ModeSwitch({ active }: { active: "listings" | "reels" }) {
   }, [active, router]);
 
   return (
-    <nav className="mode-switch" aria-label="Show listings or reels">
-      <Link href="/" aria-current={active === "listings" ? "page" : undefined}>Listings</Link>
-      <Link href="/reels" aria-current={active === "reels" ? "page" : undefined}>Reels</Link>
-      <span className="mode-hint" aria-hidden="true">{active === "listings" ? "Swipe left for reels" : "Swipe right for listings"}</span>
+    <nav className="mode-switch" aria-label="Show properties or reels">
+      <Link href="/" aria-current={active === "listings" ? "page" : undefined}>For you</Link>
+      <Link href="/reels" aria-current={active === "reels" ? "page" : undefined}>Property reels</Link>
+      <span className="mode-hint" aria-hidden="true">{active === "listings" ? "Swipe left for reels" : "Swipe right for properties"}</span>
     </nav>
   );
 }

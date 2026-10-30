@@ -23,7 +23,11 @@ export default async function NewReelPage({ searchParams: searchP }: { searchPar
             <select name="listingId" defaultValue=""><option value="">No property</option>{c.listings.map((l) => <option key={l.id} value={l.id}>{l.title} ({l.city})</option>)}</select>
           </Field>
           <Field label="Area (optional)" hint="Shown with the reel and used to suggest it to people interested in the area."><input name="city" maxLength={80} /></Field>
-          <button className="btn primary" type="submit">Send for checking</button>
+          <div className="row">
+            <button className="btn primary" type="submit" name="intent" value="post">Send for checking</button>
+            <button className="btn" type="submit" name="intent" value="draft">Save as draft</button>
+          </div>
+          <p className="small muted">A draft is kept in My reels where only you can see it, until you send it.</p>
         </form>
       )}
     </div>

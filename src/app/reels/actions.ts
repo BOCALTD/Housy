@@ -2,7 +2,7 @@
 
 import { requireUser } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import { addComment, recordShare, reportTarget, toggleLike, toggleSave, uploadReel, withdrawReel } from "@/lib/services/reels";
+import { addComment, recordShare, reportTarget, sendDraft, toggleLike, toggleSave, uploadReel, withdrawReel } from "@/lib/services/reels";
 
 const back = (form: FormData) => { const b = str(form, "back"); return b.startsWith("/reels") ? b : "/reels"; };
 
@@ -28,10 +28,15 @@ export async function uploadAction(form: FormData) {
     const u = await requireUser();
     const f = form.get("video");
     if (!(f instanceof File) || f.size === 0) throw new Error("Choose a video");
-    await uploadReel(u.id, { caption: str(form, "caption"), city: str(form, "city"), listingId: optStr(form, "listingId") }, { type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) });
-    return withNotice("/reels/mine", "Your reel was sent for checking. You will be told when it is live.");
+    const draft = str(form, "intent") === "draft";
+    await uploadReel(u.id, { caption: str(form, "caption"), city: str(form, "city"), listingId: optStr(form, "listingId") }, { type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) }, { draft });
+    return withNotice("/reels/mine", draft ? "Saved as a draft. Only you can see it until you send it for checking." : "Your reel was sent for checking. You will be told when it is live.");
   });
 }
 export async function withdrawAction(form: FormData) {
   return act("/reels/mine", async () => { const u = await requireUser(); await withdrawReel(u.id, str(form, "id")); return withNotice("/reels/mine", "Reel withdrawn."); });
+}
+
+export async function sendDraftAction(form: FormData) {
+  return act("/reels/mine", async () => { const u = await requireUser(); await sendDraft(u.id, str(form, "id"), form.has("caption") ? str(form, "caption") : undefined); return withNotice("/reels/mine", "Sent for checking. You will be told when it is live."); });
 }

@@ -1,5 +1,6 @@
 "use server";
 
+import { recordSignal } from "@/lib/services/signals";
 import { cookies, headers } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/auth";
@@ -33,6 +34,8 @@ export async function enquiryAction(form: FormData) {
   return act(back, async () => {
     const ad = str(form, "ad");
     await createEnquiry(ref, { name: str(form, "name"), contact: str(form, "contact"), message: str(form, "message") }, await clientKey(), ad ? { adRef: ad, viewerKey: viewerKeyFor(await clientKey(), (await headers()).get("user-agent") ?? "") } : undefined);
+    const s = await getSession();
+    if (s) await recordSignal(s.user.id, { kind: "ENQUIRY", publicRef: ref });
     return withNotice(back, "Your enquiry was sent to the listing company.");
   });
 }
@@ -95,6 +98,7 @@ export async function requestInspectionAction(form: FormData) {
     const user = await requireUser();
     const { requestInspection } = await import("@/lib/services/inspection-bookings");
     const bookingRef = await requestInspection(user.id, ref, { name: str(form, "name"), phone: str(form, "phone"), preferredAt: str(form, "preferredAt"), alternativeAt: str(form, "alternativeAt") || undefined, message: str(form, "message") });
+    await recordSignal(user.id, { kind: "INSPECTION", publicRef: ref });
     return withNotice(`/me/inspections/${bookingRef}`, "Inspection requested. The company will confirm a time; you will see it here and in your notifications.");
   });
 }

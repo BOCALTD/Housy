@@ -27,6 +27,10 @@ import { trustMany } from "@/lib/services/kyc";
 import { sponsoredFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
 import { sp, type SP } from "@/components/ui";
+import { getSession } from "@/lib/auth";
+import { suggestedListings } from "@/lib/services/signals";
+import { publicListingsByRefs } from "@/lib/services/listings";
+import { decorateListings } from "@/lib/services/promotions";
 
 export const dynamic = "force-dynamic";
 
@@ -72,10 +76,15 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
   const h = await headers();
   const bot = isBot(h.get("user-agent"));
   const country = visitorCountry(h);
-  const [listings, sponsored] = await Promise.all([
+  const session = await getSession();
+  const [listings, sponsored, picks] = await Promise.all([
     searchListingsRanked(filters),
     sponsoredFor("HOME_FEATURED", { filters, bot }).catch(() => []),
+    session ? suggestedListings(session.user.id, 10).catch(() => null) : Promise.resolve(null),
   ]);
+  // Suggestions from what this person has looked at, saved and asked about; each says why. Shown only when there are some.
+  const pickRows = picks?.length ? await decorateListings(await publicListingsByRefs(picks.map((p) => p.publicRef)), false) : [];
+  const picked = (picks ?? []).map((p) => ({ why: p.why, l: pickRows.find((r) => r.publicRef === p.publicRef) })).filter((x): x is { why: string[]; l: (typeof pickRows)[number] } => !!x.l);
 
   const search = (
     <form className="hx-search" role="search" aria-label="Search properties" action="/browse">
@@ -174,6 +183,20 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
           ))}
         </div>
       </section>
+
+      {picked.length ? (
+      <section className="sec" aria-labelledby="picks-h">
+        <SectionHead kicker="For you" title="Picked for you" text="From the places, homes and agents you have been looking at. You can see or clear what shapes this in Your data and privacy." link={{ href: "/me/privacy#suggestions", label: "Why these?" }} />
+        <Carousel label="Picked for you" few={picked.length <= 3}>
+          {picked.map(({ l, why }) => (
+            <div key={l.id} className="pick">
+              <ListingCard l={l} />
+              <p className="pick-why small">{why[0]}</p>
+            </div>
+          ))}
+        </Carousel>
+      </section>
+      ) : null}
 
       {/* Each section shows only when it has something in it; an empty platform shows no empty boxes. */}
       {featured.length || promoted.length ? (

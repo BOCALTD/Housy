@@ -25,6 +25,7 @@ export async function exportMyData(userId: string) {
     part(userId, "agent_profiles", (tx) => tx.agentProfile.findMany({ where: { userId }, select: { displayName: true, companyName: true, headline: true, bio: true, listed: true, createdAt: true } })),
     part(userId, "saved_searches", (tx) => tx.savedSearch.findMany({ where: { userId } })),
     part(userId, "watched_properties", (tx) => tx.watchedListing.findMany({ where: { userId }, select: { listingId: true, createdAt: true } })),
+    part(userId, "suggestion_history", (tx) => tx.userSignal.findMany({ where: { userId }, select: { kind: true, listingId: true, reelId: true, city: true, propertyType: true, purpose: true, createdAt: true } })),
     part(userId, "following", (tx) => tx.follow.findMany({ where: { followerId: userId }, select: { targetKind: true, targetId: true, createdAt: true } })),
     part(userId, "notifications", (tx) => tx.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 1000, select: { kind: true, title: true, body: true, createdAt: true, readAt: true } })),
     part(userId, "notification_settings", (tx) => tx.notificationPref.findMany({ where: { userId } })),
@@ -79,6 +80,7 @@ export async function deleteMyAccount(userId: string, password: string, confirm:
 
   await step("saved searches", () => withUser(userId, (tx) => tx.savedSearch.deleteMany({ where: { userId } })));
   await step("watched properties", () => withUser(userId, (tx) => tx.watchedListing.deleteMany({ where: { userId } })));
+  await step("suggestion history", () => withUser(userId, (tx) => tx.userSignal.deleteMany({ where: { userId } })));
   await step("follows", () => withUser(userId, (tx) => tx.follow.deleteMany({ where: { followerId: userId } })));
   await step("flatmate profile", () => withUser(userId, async (tx) => {
     await tx.flatmateRequest.updateMany({ where: { OR: [{ fromUserId: userId }, { toUserId: userId }], status: { in: ["PENDING", "ACCEPTED"] } }, data: { status: "ENDED", decidedAt: new Date() } });

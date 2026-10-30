@@ -3,15 +3,48 @@
  * can be read without a connection. Signed-in areas (/app, /admin, /me, /portal, /api, messages, documents)
  * are never cached. The one thing that works offline is the field kit (/field): its page holds nothing personal, the
  * inspector's work is kept in IndexedDB on their device, and it is sent through /api/field once back online. */
-const VERSION = "housy-v3";
+const VERSION = "housy-v4";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const OFFLINE = "/offline";
 const MAX_PAGES = 30;
 const REFRESH_MS = 30 * 60 * 1000;
 
-const PUBLIC = /^\/(?:$|browse|properties|faq|how-it-works|about|safety$|reviews|calculators|compare|trust$|agents|companies|directory|completed|awards|reels|map|support|market|field$)(?:\/|$)/;
+const PUBLIC = /^\/(?:$|browse|properties|faq|how-it-works|about|safety$|reviews|calculators|compare|trust$|agents|companies|directory|completed|awards|map|support|market|field$)(?:\/|$)/;
 const NEVER = /^\/(?:app|admin|me|portal|api|calendar|kyc|messages|invite|login|join|signup|setup|forgot|reset|unsubscribe|billing|r|safety\/|trust\/|verification|collaborations|feedback|rewards|referrals|ads)(?:\/|$)/;
+/* Reel clips: fetched once, kept on the device (the 30 most recent, for a week), and played again from here, including the
+ * byte ranges phones ask for, so scrolling back or watching again never downloads the clip twice. */
+const REELS = `${VERSION}-reels`;
+const REEL_PATH = /^\/reels\/[0-9a-f-]{36}\/video$/;
+const MAX_REELS = 30;
+const REEL_MAX_AGE = 7 * 24 * 3600 * 1000;
+
+async function reelResponse(req) {
+  const url = new URL(req.url);
+  const cache = await caches.open(REELS);
+  let hit = await cache.match(url.pathname);
+  if (hit && Date.now() - Number(hit.headers.get("x-sw-cached-at") || 0) > REEL_MAX_AGE) { await cache.delete(url.pathname); hit = undefined; }
+  let blob, type;
+  if (hit) { blob = await hit.blob(); type = hit.headers.get("content-type") || "video/mp4"; }
+  else {
+    let res;
+    try { res = await fetch(url.pathname, { credentials: "same-origin" }); } catch { return fetch(req); }
+    if (res.status !== 200) return res;
+    blob = await res.blob(); type = res.headers.get("content-type") || "video/mp4";
+    await cache.put(url.pathname, new Response(blob, { headers: { "content-type": type, "x-sw-cached-at": String(Date.now()) } }));
+    const keys = await cache.keys();
+    for (let i = 0; i < keys.length - MAX_REELS; i++) await cache.delete(keys[i]);
+  }
+  const size = blob.size;
+  const base = { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": "private, max-age=300" };
+  const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get("range") || "");
+  if (!m || (m[1] === "" && m[2] === "")) return new Response(blob, { status: 200, headers: { ...base, "Content-Length": String(size) } });
+  let start = m[1] === "" ? Math.max(0, size - Number(m[2])) : Number(m[1]);
+  let end = m[1] === "" || m[2] === "" ? size - 1 : Math.min(Number(m[2]), size - 1);
+  if (start >= size || start > end) return new Response(null, { status: 416, headers: { ...base, "Content-Range": `bytes */${size}` } });
+  return new Response(blob.slice(start, end + 1), { status: 206, headers: { ...base, "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": String(end - start + 1) } });
+}
+
 const STATIC_PATH = /^\/(?:_next\/static\/|icons\/|stock\/|icon\.svg$|apple-icon\.png$)/;
 
 self.addEventListener("install", (event) => {
@@ -59,6 +92,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   const path = url.pathname;
+
+  if (REEL_PATH.test(path)) { event.respondWith(reelResponse(req)); return; }
 
   if (STATIC_PATH.test(path)) {
     event.respondWith((async () => {

@@ -227,7 +227,7 @@ input[type="file"] { max-width: 100%; font-size: 14px; }
   label.row input[type="checkbox"] { width: 22px; height: 22px; }
   .dialog .close { width: 44px; height: 44px; }
   /* Links get a larger hit area without moving anything on the page. */
-  main a:not(.btn):not(.brand):not(.shell-link):not(.portal-tile):not(.job-row):not(.map-card):not(.map-item):not(.share-net):not(.hx-action):not(.setup-kind):not(.market-city):not([class*="leaflet-"]) { display: inline-block; padding-block: 13px; margin-block: -13px; }
+  main a:not(.btn):not(.brand):not(.shell-link):not(.portal-tile):not(.job-row):not(.map-card):not(.map-item):not(.share-net):not(.hx-action):not(.setup-kind):not(.market-city):not(.acct-tab):not([class*="rf-"]):not([class*="leaflet-"]) { display: inline-block; padding-block: 13px; margin-block: -13px; }
   .brand { min-height: 44px; }
 }
 input[type="file"] { width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }

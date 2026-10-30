@@ -1,3 +1,4 @@
+import { recordSignal } from "./signals";
 import { z } from "zod";
 import { prisma, withTenant, withUser } from "../db";
 import { logActivity } from "../audit";
@@ -65,6 +66,7 @@ export async function watchListing(userId: string, publicRef: string) {
     if ((await tx.watchedListing.count({ where: { userId } })) >= MAX_WATCHED) throw new Error(`You can watch ${MAX_WATCHED} properties. Stop watching one first.`);
     await tx.watchedListing.upsert({ where: { userId_listingId: { userId, listingId: l.id } }, create: { userId, listingId: l.id }, update: {} });
   });
+  await recordSignal(userId, { kind: "PROPERTY_SAVE", publicRef });
 }
 export async function unwatchListing(userId: string, publicRef: string) {
   // The property may have stopped being public, so it is found with the platform's view rather than the person's.

@@ -9,6 +9,7 @@ import {
 import { notify } from "./notifications";
 import { system } from "./rewards";
 import { shortName } from "./reviews";
+import { reelTaste } from "./signals";
 
 // Reels: short property videos by listed agents. Every reel is checked by the platform before it is public. People can like, save,
 // share, comment and report. Reach is organic: it comes from other people's engagement and never from a plan or a promotion.
@@ -30,7 +31,8 @@ const postSchema = z.object({
   listingId: z.string().trim().optional(),
 });
 
-export async function uploadReel(userId: string, input: z.input<typeof postSchema>, file: { type: string; bytes: Uint8Array }) {
+/** Post a reel for checking, or keep it as a draft only its author can see until they send it. */
+export async function uploadReel(userId: string, input: z.input<typeof postSchema>, file: { type: string; bytes: Uint8Array }, opts: { draft?: boolean } = {}) {
   const d = postSchema.parse(input);
   if (!(REEL_TYPES as readonly string[]).includes(file.type)) throw new Error("Upload an MP4 or WebM video");
   if (file.bytes.byteLength === 0) throw new Error("The video is empty");
@@ -47,11 +49,24 @@ export async function uploadReel(userId: string, input: z.input<typeof postSchem
     }
     const since = new Date(Date.now() - 864e5);
     if ((await tx.reel.count({ where: { authorId: userId, createdAt: { gte: since } } })) >= 5) throw new Error("You have posted five reels today. Please come back tomorrow.");
-    if ((await tx.reel.count({ where: { authorId: userId, status: "PENDING" } })) >= 3) throw new Error("You already have three reels waiting for review.");
-    const reel = await tx.reel.create({ data: { authorId: userId, companyId: profile.companyId, listingId, caption: d.caption, city, mimeType: file.type, sizeBytes: file.bytes.byteLength } });
+    if (!opts.draft && (await tx.reel.count({ where: { authorId: userId, status: "PENDING" } })) >= 3) throw new Error("You already have three reels waiting for review. Save this one as a draft for now.");
+    if (opts.draft && (await tx.reel.count({ where: { authorId: userId, status: "DRAFT" } })) >= 10) throw new Error("You have ten drafts. Send or delete some first.");
+    const reel = await tx.reel.create({ data: { authorId: userId, companyId: profile.companyId, listingId, caption: d.caption, city, mimeType: file.type, sizeBytes: file.bytes.byteLength, status: opts.draft ? "DRAFT" : "PENDING" } });
     await tx.reelMedia.create({ data: { reelId: reel.id, bytes: Buffer.from(file.bytes) } });
     await logActivity(tx, { companyId: profile.companyId, actorId: userId, entityType: "reel", entityId: reel.id, action: "reel.posted", detail: { listingId } });
     return reel;
+  });
+}
+
+/** Send a draft for checking, with its caption as it now reads. */
+export async function sendDraft(userId: string, reelId: string, caption?: string) {
+  const text = caption === undefined ? undefined : postSchema.shape.caption.parse(caption);
+  return system(async (tx) => {
+    const r = await tx.reel.findFirst({ where: { id: reelId, authorId: userId } });
+    if (!r || r.status !== "DRAFT") throw new Error("That draft was not found");
+    if ((await tx.reel.count({ where: { authorId: userId, status: "PENDING" } })) >= 3) throw new Error("You already have three reels waiting for review. Send this one when one of them is checked.");
+    await tx.reel.update({ where: { id: r.id }, data: { status: "PENDING", ...(text !== undefined ? { caption: text } : {}) } });
+    await logActivity(tx, { companyId: r.companyId, actorId: userId, entityType: "reel", entityId: r.id, action: "reel.posted", detail: { fromDraft: true } });
   });
 }
 
@@ -153,6 +168,8 @@ export interface ReelCard {
   id: string; caption: string; city: string; publishedAt: Date | null; status: string; sizeBytes: number; mimeType: string;
   authorId: string; authorName: string; companyName: string; listingRef: string | null; listingTitle: string | null;
   likes: number; comments: number; shares: number; liked: boolean; saved: boolean; why: string[]; mine: boolean;
+  /** The viewer follows the author. */
+  following: boolean;
 }
 
 async function cards(reels: { id: string; authorId: string; listingId: string | null; caption: string; city: string; publishedAt: Date | null; status: string; sizeBytes: number; mimeType: string }[], viewerId: string | null, whyBy = new Map<string, string[]>()): Promise<ReelCard[]> {
@@ -162,7 +179,11 @@ async function cards(reels: { id: string; authorId: string; listingId: string | 
     withPublic((tx) => tx.reelLike.groupBy({ by: ["reelId"], where: { reelId: { in: ids } }, _count: true })),
     withPublic((tx) => tx.reelComment.groupBy({ by: ["reelId"], where: { reelId: { in: ids }, status: "VISIBLE" }, _count: true })),
     withPublic((tx) => tx.reelShare.groupBy({ by: ["reelId"], where: { reelId: { in: ids } }, _count: true })),
-    viewerId ? withUser(viewerId, async (tx) => ({ likes: await tx.reelLike.findMany({ where: { userId: viewerId, reelId: { in: ids } }, select: { reelId: true } }), saves: await tx.reelSave.findMany({ where: { userId: viewerId, reelId: { in: ids } }, select: { reelId: true } }) })) : Promise.resolve({ likes: [], saves: [] }),
+    viewerId ? withUser(viewerId, async (tx) => ({
+      likes: await tx.reelLike.findMany({ where: { userId: viewerId, reelId: { in: ids } }, select: { reelId: true } }),
+      saves: await tx.reelSave.findMany({ where: { userId: viewerId, reelId: { in: ids } }, select: { reelId: true } }),
+      follows: await tx.follow.findMany({ where: { followerId: viewerId, targetKind: "AGENT", targetId: { in: [...new Set(reels.map((r) => r.authorId))] } }, select: { targetId: true } }),
+    })) : Promise.resolve({ likes: [], saves: [], follows: [] as { targetId: string }[] }),
     withPublic((tx) => tx.agentProfile.findMany({ where: { userId: { in: [...new Set(reels.map((r) => r.authorId))] }, listed: true }, select: { userId: true, displayName: true, companyName: true } })),
     withPublic((tx) => tx.listing.findMany({ where: { id: { in: reels.map((r) => r.listingId).filter((x): x is string => !!x) }, status: "PUBLISHED" }, select: { id: true, publicRef: true, title: true } })),
   ]);
@@ -173,7 +194,7 @@ async function cards(reels: { id: string; authorId: string; listingId: string | 
       id: r.id, caption: r.caption, city: r.city, publishedAt: r.publishedAt, status: r.status, sizeBytes: r.sizeBytes, mimeType: r.mimeType,
       authorId: r.authorId, authorName: a?.displayName ?? "Agent", companyName: a?.companyName ?? "", listingRef: l?.publicRef ?? null, listingTitle: l?.title ?? null,
       likes: n(likes, r.id), comments: n(comments, r.id), shares: n(shares, r.id), liked: mine.likes.some((x) => x.reelId === r.id), saved: mine.saves.some((x) => x.reelId === r.id),
-      why: whyBy.get(r.id) ?? [], mine: r.authorId === viewerId,
+      why: whyBy.get(r.id) ?? [], mine: r.authorId === viewerId, following: mine.follows.some((f) => f.targetId === r.authorId),
     };
   });
 }
@@ -189,6 +210,9 @@ async function viewerProfile(userId: string): Promise<Viewer & { any: boolean }>
   const touched = [...new Set([...mine.liked, ...mine.saved].map((x) => x.reelId))];
   const cities = new Set<string>();
   if (touched.length) for (const r of await withPublic((tx) => tx.reel.findMany({ where: { id: { in: touched }, status: "PUBLISHED" }, select: { city: true } }))) if (r.city) cities.add(r.city.toLowerCase());
+  // What this person watches, likes and looks at elsewhere on the platform (their own signals) also shapes their reels.
+  const t = await reelTaste(userId).catch(() => null);
+  if (t) { for (const c of t.cities) if (c) cities.add(c); for (const a of t.authors) if (a && a !== userId) followedAuthors.add(a); }
   return { followedAuthors, followedCompanies, cities, any: followedAuthors.size + followedCompanies.size + cities.size > 0 };
 }
 

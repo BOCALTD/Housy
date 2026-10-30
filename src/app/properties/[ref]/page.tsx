@@ -1,3 +1,4 @@
+import { recordSignal } from "@/lib/services/signals";
 import { EnquiryHelper } from "@/components/EnquiryHelper";
 import { LocationInsights } from "@/components/LocationInsights";
 import { CompareToggle } from "@/components/Compare";
@@ -58,6 +59,8 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   // One visit per visitor per day, remembered as coming from an advert or not, so paid and organic attention can be told apart.
   if (!isBot(ua)) await recordView(listing.id, viewerKeyFor((await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
   const session = await getSession();
+  // Shapes this person's own suggestions only (see Your data and privacy). Not recorded for visitors.
+  if (session) void recordSignal(session.user.id, { kind: "PROPERTY_VIEW", listingId: listing.id });
   const photos = await publicPhotosOf(listing.id);
   const naira = (k: bigint | null) => (k == null ? "" : String(k / 100n));
   const calcHref = listing.purpose === "SALE"

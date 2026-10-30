@@ -5,6 +5,7 @@ import { MUSIC_GENRES, durationLabel } from "@/lib/music-rules";
 import { formatDate } from "@/lib/dates";
 import { Field, Flash, ShowMore, sp, type SP } from "@/components/ui";
 import { addTrackAction, trackActiveAction } from "./actions";
+import { TrackListen } from "@/components/TrackListen";
 
 export const metadata = { title: "Music library" };
 export const dynamic = "force-dynamic";
@@ -57,7 +58,7 @@ export default async function MusicAdminPage({ searchParams: searchP }: { search
                   <div><strong>{t.title}</strong> <span className="muted">· {t.artist}</span><div className="small muted">{MUSIC_GENRES[t.genre as keyof typeof MUSIC_GENRES] ?? t.genre} · {durationLabel(t.durationSec)} · used in {t.uses} reel{t.uses === 1 ? "" : "s"} · added {formatDate(t.createdAt)}</div></div>
                   <span className={`pill ${t.active ? "ok" : "disc"}`}>{t.active ? "Live" : "Withdrawn"}</span>
                 </div>
-                {t.active ? <audio controls preload="none" src={`/music/${t.id}/audio`} className="music-preview" aria-label={`Listen to ${t.title}`} /> : null}
+                {t.active ? <TrackListen id={t.id} title={t.title} /> : null}
                 <p className="small">Licence: {t.licenceName}{t.licenceSource ? <> · <a href={t.licenceSource} rel="noopener noreferrer" target="_blank">licence</a></> : null}{t.creditRequired ? " · credit required" : ""}{t.licenceNote ? ` · ${t.licenceNote}` : ""}</p>
                 <form action={trackActiveAction}><input type="hidden" name="id" value={t.id} /><input type="hidden" name="on" value={t.active ? "no" : "yes"} />
                   <button className="btn small" type="submit">{t.active ? "Withdraw" : "Switch back on"}</button></form>

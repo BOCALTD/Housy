@@ -957,3 +957,7 @@ body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none
 .rf-song { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); min-width: 0; }
 .rf-song span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .music-preview:focus-visible, audio:focus-visible { outline: 3px solid #FBB017; outline-offset: 2px; border-radius: 22px; }
+.listen { display: flex; align-items: center; gap: 10px; max-width: 420px; }
+.listen-bar { flex: 1; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.listen-bar i { display: block; height: 100%; background: #F29F05; }
+.track-play:focus-visible { outline: 3px solid #FBB017; outline-offset: 2px; }

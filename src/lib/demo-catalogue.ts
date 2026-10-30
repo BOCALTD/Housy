@@ -155,10 +155,56 @@ export async function createDemoCatalogue(adminId: string, o: { password: string
       } catch (e) { console.warn("sample promotion skipped:", (e as Error).message); }
     }
   }
-  return { companies: firms.size, listings: listed.length, reels: reels.length, reviews: DEMO_REVIEWS.length };
+  const history = await createMarketHistory(adminId, firms);
+  return { companies: firms.size, listings: listed.length, reels: reels.length, reviews: DEMO_REVIEWS.length, history };
 }
 
 /** Whether this database holds the demonstration data (used for the "sample data" strip). */
 export async function hasDemoData() {
   return (await prisma.user.count({ where: { email: "demo.alpha@example.test" } })) > 0;
+}
+
+/**
+ * A year of sample lettings and sales in Lekki and Ikeja, so the market pages have figures to show: homes listed over the last
+ * twelve months and since let or sold (taken off the market), spread across the sample companies. Prices are deterministic
+ * within ranges typical of asking prices in those areas; every one is labelled as sample data.
+ */
+const MARKET_HISTORY = [
+  { city: "Lekki", state: "Lagos", area: "Lekki Phase 1", firms: ["lekki", "west", "abuja"], sale: { 2: [85, 115], 3: [130, 190], 4: [210, 320] }, rent: { 2: [5.5, 8], 3: [8, 13], 4: [12, 18] } },
+  { city: "Ikeja", state: "Lagos", area: "Ikeja GRA", firms: ["west", "lekki", "ph"], sale: { 2: [45, 65], 3: [70, 110], 4: [120, 180] }, rent: { 2: [3, 4.5], 3: [4.5, 7], 4: [7, 10] } },
+] as const;
+const HISTORY_PER_CITY = 60;
+
+async function createMarketHistory(adminId: string, firms: Map<string, { owner: Ctx; agents: Ctx[] }>) {
+  let made = 0;
+  const now = Date.now();
+  for (const m of MARKET_HISTORY) {
+    for (let k = 0; k < HISTORY_PER_CITY; k++) {
+      const owner = firms.get(m.firms[k % m.firms.length])?.owner;
+      if (!owner) continue;
+      const purpose = k % 2 === 0 ? "SALE" : "RENT";
+      const beds = (2 + (Math.floor(k / 2) % 3)) as 2 | 3 | 4;
+      const [lo, hi] = (purpose === "SALE" ? m.sale : m.rent)[beds];
+      const frac = (k * 0.618034) % 1;
+      const millions = purpose === "SALE" ? Math.round((lo + (hi - lo) * frac) * 2) / 2 : Math.round((lo + (hi - lo) * frac) * 10) / 10;
+      const price = (millions * 1_000_000).toLocaleString("en-GB");
+      const kind = beds === 4 ? { type: "DUPLEX", cat: "House", word: "duplex" } : { type: "FLAT", cat: "Apartment", word: "flat" };
+      const asset = await createAsset(owner, { name: `[DEMO] Past listing: ${beds}-bedroom ${kind.word}, ${m.area}`, assetClass: "RESIDENTIAL", category: kind.cat, city: m.city, state: m.state, address: m.area, companyRelationship: "MANAGER" } as never);
+      await saveListingDraft(owner, asset.id, {
+        title: `${beds}-bedroom ${kind.word} ${purpose === "SALE" ? "for sale" : "to let"}, ${m.area}`, purpose, ...(purpose === "RENT" ? { pricePeriod: "YEAR" } : {}), price,
+        bedrooms: String(beds), bathrooms: String(beds), propertyType: kind.type, buildingSqm: String(beds * 45 + 20 + (k % 5) * 10), city: m.city, state: m.state,
+        description: "Sample listing from the demonstration market history. Already let or sold.",
+      } as never);
+      await setListingStatus(owner, asset.id, "PENDING_REVIEW");
+      const l = await withTenant(owner.companyId, owner.userId, (tx) => tx.listing.findFirstOrThrow({ where: { assetId: asset.id } }));
+      await reviewListing(adminId, l.id, "approve", "Sample listing approved automatically");
+      await setListingStatus(owner, asset.id, "UNAVAILABLE");
+      // Listed at some point in the last twelve months; let or sold 2 to 13 weeks later, never in the future.
+      const publishedAt = new Date(now - ((k * 5.9) % 350 + 15) * 864e5);
+      const offMarketAt = new Date(Math.min(now - 864e5, publishedAt.getTime() + (14 + ((k * 37) % 77)) * 864e5));
+      await withTenant(owner.companyId, owner.userId, (tx) => tx.listing.update({ where: { id: l.id }, data: { publishedAt, offMarketAt } }));
+      made += 1;
+    }
+  }
+  return made;
 }

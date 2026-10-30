@@ -705,3 +705,22 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .setup-row:first-of-type { border-top: 0; padding-top: 0; }
 @media (hover: hover) { .setup-kind:hover { border-color: #FBB017; } }
 .first-steps { margin: 10px 0 0; padding-left: 22px; display: grid; gap: 6px; }
+/* Market insights. */
+.market-cities { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 10px; }
+.market-city { display: grid; gap: 6px; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; height: 100%; }
+.market-city-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+@media (hover: hover) { .market-city:hover { border-color: #FBB017; } }
+.trend { margin: 0; display: grid; gap: 8px; }
+.trend-bars { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; height: 180px; align-items: end; }
+.trend-col { display: grid; grid-template-rows: auto 1fr auto; height: 100%; align-items: end; justify-items: center; gap: 2px; min-width: 0; }
+.trend-val { font-size: 12px; color: var(--muted); writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+.trend-bar { width: 100%; max-width: 28px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, #FBB017, #F29F05); align-self: end; }
+.trend-bar.gap { background: var(--line); }
+.trend-m { font-size: 12px; color: var(--muted); }
+.bench-bar { position: relative; height: 10px; border-radius: 999px; background: var(--surface-2); }
+.bench-bar span { position: absolute; top: -3px; width: 4px; height: 16px; border-radius: 2px; }
+.fc-bars { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; height: 160px; align-items: end; }
+.fc-col { display: grid; grid-template-rows: 1fr auto; height: 100%; justify-items: center; gap: 2px; min-width: 0; }
+.fc-stack { align-self: end; width: 100%; max-width: 28px; background: var(--line); border-radius: 6px 6px 2px 2px; display: flex; align-items: flex-end; overflow: hidden; }
+.fc-likely { width: 100%; background: linear-gradient(180deg, #FBB017, #F29F05); }
+.fc-m { font-size: 12px; color: var(--muted); }

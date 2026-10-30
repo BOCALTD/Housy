@@ -1,6 +1,19 @@
 import { ImageResponse } from "next/og";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { withPublic } from "@/lib/db";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+/** Inter (SIL Open Font Licence, src/assets/fonts) is bundled so the naira sign and every letter draw without downloading a font. */
+let fonts: { name: string; data: Buffer; weight: 500 | 700; style: "normal" }[] | null = null;
+function cardFonts() {
+  if (fonts) return fonts;
+  try {
+    const dir = join(process.cwd(), "src/assets/fonts");
+    fonts = [{ name: "Inter", data: readFileSync(join(dir, "Inter-Medium.otf")), weight: 500, style: "normal" }, { name: "Inter", data: readFileSync(join(dir, "Inter-Bold.otf")), weight: 700, style: "normal" }];
+  } catch { fonts = []; }
+  return fonts;
+}
 
 /**
  * The picture a link preview shows (WhatsApp, Facebook, X, LinkedIn, Telegram): the property's photo beside its price and
@@ -35,14 +48,14 @@ const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trim
 export function shareCard(o: { photo?: string | null; initials?: string; eyebrow: string; title: string; big?: string; lines: string[]; cta: string }) {
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", background: INK, color: "#FFFFFF" }}>
+      <div style={{ width: "100%", height: "100%", display: "flex", background: INK, color: "#FFFFFF", fontFamily: "Inter" }}>
         {o.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={o.photo} width={600} height={630} style={{ width: 600, height: 630, objectFit: "cover" }} alt="" />
         ) : (
           <div style={{ width: 420, height: 630, display: "flex", alignItems: "center", justifyContent: "center", background: "#2A2D33" }}>
             <div style={{ width: 240, height: 240, borderRadius: 120, background: AMBER, color: INK, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 96, fontWeight: 700 }}>
-              {o.initials || "★"}
+              {o.initials || "H"}
             </div>
           </div>
         )}
@@ -63,7 +76,7 @@ export function shareCard(o: { photo?: string | null; initials?: string; eyebrow
         </div>
       </div>
     ),
-    CARD_SIZE,
+    { ...CARD_SIZE, fonts: cardFonts() },
   );
 }
 

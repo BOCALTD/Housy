@@ -367,3 +367,10 @@ What code and documents can do is done; the launch itself needs your accounts an
 - Each suggests departments, inspection checklists made for that work (move-in and move-out, site progress and snagging, building services and fire safety, annual asset verification and boundary checks...), reminders for the levies, renewals and permits that kind of business usually has, commission rules, and reminder timings.
 - Nothing is applied unseen. The administrator unticks what they do not want, enters when each reminder is next due and their own commission percentages (the usual market figure is shown only as a guide), and applies. No amount, rate or date is invented. Applying again adds only what is missing and never changes what exists.
 - The dashboard invites a new company to choose a set-up, then shows the first steps for the one chosen.
+
+## Market insights, benchmarks and rent forecast
+
+- **Market prices** (`/market`, `/market/[city]`): asking prices and yearly rents for homes, by bedrooms, per square metre, gross yield and time on the market, worked out from published listings (and those taken off the market in the last year). A figure appears only when at least 5 listings from at least 2 companies sit behind it; shared rooms and nightly short lets are left out of home prices. Recalculated at most once an hour.
+- **How you compare** (`/app/analytics`): each published home against the middle half of its city for the same bedrooms, and occupancy and rent collection against the middle company — shown only once at least 5 companies have enough records, never naming any of them.
+- **Rent forecast** (`/app/analytics`): the next 12 months of rent due on active leases, the share likely to come in at the company's own collection rate (needs 6 past charges), arrears already owed, and a year's rent on leases ending without a renewal. Every figure comes from the company's own records.
+- `listings.off_market_at` records when a listing was let, sold or withdrawn; time-on-market figures start from listings taken off after this release.

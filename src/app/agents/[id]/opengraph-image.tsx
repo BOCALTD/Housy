@@ -15,7 +15,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
     initials: initialsOf(a.displayName),
     eyebrow: a.companyName ? `Agent · ${a.companyName}` : "Agent",
     title: a.displayName,
-    big: rep && rep.reviewCount > 0 ? `★ ${rep.average.toFixed(1)} · ${rep.reviewCount} review${rep.reviewCount === 1 ? "" : "s"}` : undefined,
+    big: rep && rep.reviewCount > 0 ? `${rep.average.toFixed(1)} out of 5 · ${rep.reviewCount} review${rep.reviewCount === 1 ? "" : "s"}` : undefined,
     lines: [a.headline],
     cta: "See profile",
   });

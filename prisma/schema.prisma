@@ -619,6 +619,8 @@ model Listing {
   reviewNote  String         @default("") @map("review_note")
   postedById  String?        @map("posted_by_id")
   publishedAt DateTime?      @map("published_at")
+  /// When a published listing was taken off the market (let, sold or withdrawn), for time-on-market figures.
+  offMarketAt DateTime?      @map("off_market_at")
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
   asset       Asset          @relation(fields: [assetId], references: [id], onDelete: Restrict)

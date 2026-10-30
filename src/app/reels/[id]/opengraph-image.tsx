@@ -15,7 +15,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   return shareCard({
     photo: listing ? await cardPhoto(listing.id) : null,
     initials: initialsOf(r.authorName),
-    eyebrow: "▶ Property reel",
+    eyebrow: "Property reel",
     title: r.caption || r.listingTitle || `A reel by ${r.authorName}`,
     lines: [r.companyName ? `${r.authorName} · ${r.companyName}` : r.authorName, r.city],
     cta: "Watch the reel",

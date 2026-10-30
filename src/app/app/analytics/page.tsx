@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { companyAnalytics } from "@/lib/services/analytics";
+import { companyBenchmarks, companyForecast } from "@/lib/services/market";
+import { MIN_PEERS, compactNaira } from "@/lib/market-rules";
 import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -17,7 +19,7 @@ function Bar({ label, value, of, text, warn }: { label: string; value: number; o
 
 export default async function AnalyticsPage() {
   const member = await requireMember();
-  const a = await companyAnalytics(member);
+  const [a, bench, fc] = await Promise.all([companyAnalytics(member), companyBenchmarks(member).catch(() => null), companyForecast(member).catch(() => null)]);
   if (!a) return <div className="card"><p>Your role does not include portfolio analytics.</p></div>;
   const o = a.occupancy, ar = a.arrears, m = a.maintenance, v = a.values, p = a.projects, c = a.compliance;
   return (
@@ -94,6 +96,70 @@ export default async function AnalyticsPage() {
           <Link className="small" href="/app/compliance">Open the compliance calendar</Link>
         </section>
       ) : null}
+      {fc ? <ForecastPanel f={fc} /> : null}
+      {bench ? <BenchmarkPanel b={bench} /> : null}
     </div>
+  );
+}
+
+type Forecast = NonNullable<Awaited<ReturnType<typeof companyForecast>>>;
+type Bench = NonNullable<Awaited<ReturnType<typeof companyBenchmarks>>>;
+const monthShort = (m: string) => new Date(`${m}-15T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
+
+function ForecastPanel({ f }: { f: Forecast }) {
+  const due = f.months.reduce((s, m) => s + m.dueKobo, 0n), likely = f.months.reduce((s, m) => s + m.likelyKobo, 0n);
+  const max = f.months.reduce((s, m) => (m.dueKobo > s ? m.dueKobo : s), 1n);
+  return (
+    <section className="card stack" aria-labelledby="fc-h">
+      <h2 id="fc-h">Rent forecast, next 12 months</h2>
+      <div className="stats">
+        <div className="stat"><b>{formatKobo(due)}</b><span>Scheduled to fall due on active leases</span></div>
+        <div className="stat"><b>{f.rate === null ? "–" : formatKobo(likely)}</b><span>{f.rate === null ? "Likely to come in: needs at least 6 past charges" : `Likely to come in at your ${Math.round(f.rate * 100)}% collection rate`}</span></div>
+        <div className={`stat${f.arrearsKobo > 0n ? " alert" : ""}`}><b>{formatKobo(f.arrearsKobo)}</b><span>Already overdue</span></div>
+        <div className="stat"><b>{formatKobo(f.atRisk.yearlyKobo)}</b><span>A year&apos;s rent on {f.atRisk.leases} leases ending without a renewal</span></div>
+      </div>
+      {due > 0n ? (
+        <div className="fc-bars" role="list" aria-label="Rent due by month">
+          {f.months.map((m) => (
+            <div key={m.month} className="fc-col" role="listitem" aria-label={`${monthShort(m.month)}: ${formatKobo(m.dueKobo)} due${f.rate === null ? "" : `, ${formatKobo(m.likelyKobo)} likely`}`}>
+              <span className="fc-stack" style={{ height: `${Math.max(2, Number((m.dueKobo * 100n) / max))}%` }}>
+                {f.rate === null ? null : <span className="fc-likely" style={{ height: `${m.dueKobo > 0n ? Number((m.likelyKobo * 100n) / m.dueKobo) : 0}%` }} />}
+              </span>
+              <span className="fc-m">{monthShort(m.month)}</span>
+            </div>
+          ))}
+        </div>
+      ) : <p className="muted">No rent is scheduled on active leases for the next 12 months.</p>}
+      <p className="small muted">From your rent schedules only. The likely figure applies the share of rent you collected on charges due between a month and a year ago; it is a guide, not a promise. Rent at risk is a year&apos;s rent on leases that end within 12 months with no renewal offered or agreed.</p>
+      <div className="row"><Link className="btn" href="/app/leases">Leases</Link><Link className="btn" href="/app/receipts">Receipts</Link></div>
+    </section>
+  );
+}
+
+function BenchmarkPanel({ b }: { b: Bench }) {
+  const peer = (label: string, x: Bench["occupancy"]) => (
+    <div className="stat"><b>{x.me === null ? "–" : `${Math.round(x.me * 100)}%`}</b>
+      <span>{label}{x.me === null ? ": not enough records yet" : x.median === null ? `; compared once ${MIN_PEERS} companies have enough records` : ` · middle company ${Math.round(x.median * 100)}%`}</span></div>
+  );
+  const words = { below: "Below most", within: "In line with", above: "Above most" } as const;
+  return (
+    <section className="card stack" aria-labelledby="bm-h">
+      <h2 id="bm-h">How you compare</h2>
+      <div className="stats">{peer("Occupancy", b.occupancy)}{peer("Rent collected, last 12 months", b.collection)}</div>
+      {b.listings.length ? (
+        <details className="inline" open={b.listings.length <= 5}>
+          <summary>Your listings against the market ({b.listings.length})</summary>
+          <ul className="timeline">
+            {b.listings.slice(0, 30).map((l) => (
+              <li key={l.ref}>
+                <div><Link href={`/properties/${l.ref}`}>{l.title}</Link><div className="small muted">{l.band} bed · {l.city} · {l.purpose === "SALE" ? "asking" : "a year"} {compactNaira(l.value)}; most similar homes {compactNaira(l.market.low)} to {compactNaira(l.market.high)}</div></div>
+                <span className={`pill${l.where === "above" ? " SUSPENDED" : ""}`}>{words[l.where]} ({l.vsMedianPct > 0 ? "+" : ""}{l.vsMedianPct}%)</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : <p className="small muted">None of your published homes has enough similar listings in its city to compare yet.</p>}
+      <p className="small muted">Other companies are never named or shown one by one; their figures appear only as a middle value across at least {MIN_PEERS} companies. Market figures are asking prices. <Link href="/market">See market prices</Link></p>
+    </section>
   );
 }

@@ -39,12 +39,12 @@ async function shot(page: import("@playwright/test").Page, opts: Parameters<impo
 }
 
 // Pages that get a screenshot on the profiles that take them.
-const SHOT_PATTERNS = ["/properties/:id?shared=1", "/", "/pricing", "/signup", "/join", "/admin/sign-in-locks", "/app/bookings/route", "/app/setup", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline", "/map", "/app/map", "/me", "/admin", "/app/crm", "/app/deals", "/app/projects/:id", "/app/valuations/:id", "/app/team", "/app/settings", "/app/reports", "/app/analytics", "/app/files", "/app/correspondence", "/flatmates", "/flatmates/profile", "/flatmates/matches", "/flatmates/requests", "/flatmates/p/:id", "/messages/:id"];
+const SHOT_PATTERNS = ["/properties/:id?shared=1", "/", "/market", "/market/:id", "/pricing", "/signup", "/join", "/admin/sign-in-locks", "/app/bookings/route", "/app/setup", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline", "/map", "/app/map", "/me", "/admin", "/app/crm", "/app/deals", "/app/projects/:id", "/app/valuations/:id", "/app/team", "/app/settings", "/app/reports", "/app/analytics", "/app/files", "/app/correspondence", "/flatmates", "/flatmates/profile", "/flatmates/matches", "/flatmates/requests", "/flatmates/p/:id", "/messages/:id"];
 
 interface Issue { kind: string; page: string; profile: string; detail: string; items: string[] }
 const issues: Issue[] = [];
 
-const pattern = (p: string) => p.replace(/\/[0-9a-f]{8}-[0-9a-f-]{27}/g, "/:id").replace(/\/(PROP|prop|INS|TS)-[A-Z0-9]+/g, "/:id");
+const pattern = (p: string) => p.replace(/\/[0-9a-f]{8}-[0-9a-f-]{27}/g, "/:id").replace(/\/(PROP|prop|INS|TS)-[A-Z0-9]+/g, "/:id").replace(/^\/market\/[a-z0-9-]+$/, "/market/:id");
 
 async function inspect(page: Page, touch: boolean) {
   return page.evaluate((isTouch) => {
@@ -159,7 +159,8 @@ async function main() {
   }
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
-  const publicPages = ["/", "/pricing", "/login", "/forgot", "/support", "/signup", "/join", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", "/offline", ...(prop ? [`/${prop}`] : [])];
+  const marketCity = (await (await fetch(`${BASE}/market`)).text()).match(/href="(\/market\/[a-z0-9-]+)"/)?.[1];
+  const publicPages = ["/", "/pricing", "/login", "/forgot", "/support", "/signup", "/join", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", "/offline", "/market", ...(marketCity ? [marketCity] : []), ...(prop ? [`/${prop}`] : [])];
   // A visitor with no account who opened a shared property: the sign-up invitation and the locked photos.
   const guestPages = prop ? [`/${prop}?shared=1`] : [];
   const pages = [...publicPages.map((p) => ({ p, auth: false, guest: false })), ...guestPages.map((p) => ({ p, auth: false, guest: true })), ...signedIn.map((p) => ({ p, auth: true, guest: false }))];

@@ -153,7 +153,7 @@ function BenchmarkPanel({ b }: { b: Bench }) {
             {b.listings.slice(0, 30).map((l) => (
               <li key={l.ref}>
                 <div><Link href={`/properties/${l.ref}`}>{l.title}</Link><div className="small muted">{l.band} bed · {l.city} · {l.purpose === "SALE" ? "asking" : "a year"} {compactNaira(l.value)}; most similar homes {compactNaira(l.market.low)} to {compactNaira(l.market.high)}</div></div>
-                <span className={`pill${l.where === "above" ? " SUSPENDED" : ""}`}>{words[l.where]} ({l.vsMedianPct > 0 ? "+" : ""}{l.vsMedianPct}%)</span>
+                <span className={`pill ${l.where === "above" ? "warn" : l.where === "below" ? "brand" : "ok"}`}>{words[l.where]} ({l.vsMedianPct > 0 ? "+" : ""}{l.vsMedianPct}%)</span>
               </li>
             ))}
           </ul>

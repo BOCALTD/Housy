@@ -18,7 +18,7 @@ export const CHECK_RESULTS = ["PENDING", "PASS", "ATTENTION", "FAIL", "NOT_APPLI
 export const SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 const ASSET_CLASSES = ["RESIDENTIAL", "COMMERCIAL", "LAND", "INDUSTRIAL", "PLANT_MACHINERY", "OTHER"] as const;
 
-async function lockInspection(tx: Tx, id: string, companyId: string) {
+export async function lockInspection(tx: Tx, id: string, companyId: string) {
   const rows = await tx.$queryRawUnsafe<{ id: string }[]>(
     `SELECT id FROM inspections WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, companyId);
   if (rows.length === 0) throw new Error("Inspection not found");
@@ -171,7 +171,7 @@ export async function cancelInspection(ctx: Ctx, inspectionId: string, reasonInp
 // ---------- Recording ----------
 
 /** The assigned inspector, or a manager, may record the inspection. Others may not. */
-function assertCanRecord(ctx: Ctx, inspectorId: string | null) {
+export function assertCanRecord(ctx: Ctx, inspectorId: string | null) {
   assertCan(ctx, "inspection.conduct");
   if (inspectorId !== ctx.membershipId && !can(ctx.role, "inspection.manage")) {
     throw new Error("Only the assigned inspector or a manager can record this inspection");
@@ -224,13 +224,14 @@ export async function saveInspectionRecord(ctx: Ctx, inspectionId: string, input
         conductedOn: data.conductedOn, location: data.location, participants: data.participants, conditionRating: data.conditionRating,
         summary: data.summary, recommendedActions: data.recommendedActions, estimatedRepairKobo: data.estimatedRepair,
         followUpBy: data.followUpBy, operatingHours: data.operatingHours, technicalNotes: data.technicalNotes,
+        revision: { increment: 1 },
       },
     });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "asset", entityId: row.assetId, action: "inspection.recorded", detail: { inspectionId, ref: row.ref } });
   });
 }
 
-const findingSchema = z.object({
+export const findingSchema = z.object({
   title: z.string().trim().min(3, "Name the defect or observation").max(200),
   description: z.string().trim().max(3000).default(""),
   location: z.string().trim().max(200).default(""),

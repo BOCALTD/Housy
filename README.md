@@ -374,3 +374,10 @@ What code and documents can do is done; the launch itself needs your accounts an
 - **How you compare** (`/app/analytics`): each published home against the middle half of its city for the same bedrooms, and occupancy and rent collection against the middle company — shown only once at least 5 companies have enough records, never naming any of them.
 - **Rent forecast** (`/app/analytics`): the next 12 months of rent due on active leases, the share likely to come in at the company's own collection rate (needs 6 past charges), arrears already owed, and a year's rent on leases ending without a renewal. Every figure comes from the company's own records.
 - `listings.off_market_at` records when a listing was let, sold or withdrawn; time-on-market figures start from listings taken off after this release.
+
+## Offline field work (field kit)
+
+- **`/field`**: inspectors download the open inspections assigned to them (last 60 days and next 14, up to 25) while they have a connection, then record them on site without one: checklist answers, condition, summary, defects and photos (shrunk to 1600 px on the device). Everything is kept in IndexedDB in that browser, keyed by the user, until it reaches the office. "Remove from this device" clears it.
+- **Sending** (`/api/field/sync`, `/api/field/photo`, `/api/field/submit`): each send carries the device's own id, so a retry after a dropped connection is applied once (`field_syncs`). The sign-in, role and assignment are checked when the work arrives, not when it was downloaded; same-origin requests only.
+- **Conflicts**: the device sends the copy it downloaded with its own. Changes made only on the device apply, changes made only in the office stay, and where both changed the same answer differently the office's stays and the inspector chooses (`src/lib/field-merge.ts`). An inspection the office has closed is never changed.
+- **Not offline**: payments, identity checks, bookings and anything else that needs a live check. The service worker caches only the anonymous `/field` page; no signed-in page or API response is cached.

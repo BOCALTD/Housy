@@ -1324,6 +1324,8 @@ model Inspection {
   decidedAt        DateTime?         @map("decided_at")
   returnNote       String            @default("") @map("return_note")
   cancelReason     String            @default("") @map("cancel_reason")
+  /// Goes up by one each time the record is saved, so a copy recorded offline knows whether the office changed it since.
+  revision         Int               @default(0)
   createdById      String            @map("created_by_id")
   createdAt        DateTime          @default(now()) @map("created_at")
   asset            Asset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
@@ -5515,4 +5517,19 @@ model FlatmateHide {
 
   @@unique([userId, hiddenUserId])
   @@map("flatmate_hides")
+}
+
+/// Things a device sent from offline field work, by the device's own id, so a record sent twice is applied once.
+model FieldSync {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  userId    String   @map("user_id")
+  clientId  String   @map("client_id")
+  kind      String
+  subjectId String   @map("subject_id")
+  result    Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([companyId, userId, clientId])
+  @@map("field_syncs")
 }

@@ -1,15 +1,16 @@
 /* Housy service worker (master prompt §49).
  * Caches static assets and anonymous copies of public pages only, so the app opens and public pages
  * can be read without a connection. Signed-in areas (/app, /admin, /me, /portal, /api, messages, documents)
- * are never cached, and nothing is written while offline: forms always need the network. */
-const VERSION = "housy-v2";
+ * are never cached. The one thing that works offline is the field kit (/field): its page holds nothing personal, the
+ * inspector's work is kept in IndexedDB on their device, and it is sent through /api/field once back online. */
+const VERSION = "housy-v3";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const OFFLINE = "/offline";
 const MAX_PAGES = 30;
 const REFRESH_MS = 30 * 60 * 1000;
 
-const PUBLIC = /^\/(?:$|browse|properties|faq|how-it-works|about|safety$|reviews|calculators|compare|trust$|agents|companies|directory|completed|awards|reels|map|support)(?:\/|$)/;
+const PUBLIC = /^\/(?:$|browse|properties|faq|how-it-works|about|safety$|reviews|calculators|compare|trust$|agents|companies|directory|completed|awards|reels|map|support|market|field$)(?:\/|$)/;
 const NEVER = /^\/(?:app|admin|me|portal|api|calendar|kyc|messages|invite|login|join|signup|setup|forgot|reset|unsubscribe|billing|r|safety\/|trust\/|verification|collaborations|feedback|rewards|referrals|ads)(?:\/|$)/;
 const STATIC_PATH = /^\/(?:_next\/static\/|icons\/|stock\/|icon\.svg$|apple-icon\.png$)/;
 
@@ -18,6 +19,8 @@ self.addEventListener("install", (event) => {
     const cache = await caches.open(PAGES);
     const res = await fetch(OFFLINE, { credentials: "omit", cache: "reload" });
     if (res.ok) await cache.put(OFFLINE, res);
+    const kit = await fetch("/field", { credentials: "omit", cache: "reload" }).catch(() => null);
+    if (kit && kit.ok) await cache.put("/field", kit);
     const s = await caches.open(STATIC);
     await s.addAll(["/icons/icon-192.png", "/icons/icon-512.png"]).catch(() => {});
     await self.skipWaiting();

@@ -24,3 +24,15 @@ export function headerSafeFilename(name: string, fallback = "download"): string 
   return cleaned || fallback;
 }
 
+
+/**
+ * True for a request a page on this site sent itself: the browser says so (Sec-Fetch-Site) or the Origin matches the Host.
+ * Cookie-authenticated endpoints that change records refuse anything else, on top of the Lax session cookie.
+ */
+export function sameOriginRequest(headers: { get(name: string): string | null }): boolean {
+  const site = headers.get("sec-fetch-site");
+  if (site) return site === "same-origin";
+  const origin = headers.get("origin"), host = headers.get("x-forwarded-host") ?? headers.get("host");
+  if (!origin || !host) return false;
+  try { return new URL(origin).host === host; } catch { return false; }
+}

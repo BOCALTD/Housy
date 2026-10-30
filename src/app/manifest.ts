@@ -23,6 +23,7 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       { name: "Browse property", url: "/browse", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
       { name: "My account", url: "/me", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+      { name: "Field kit", url: "/field", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
       { name: "Company workspace", url: "/app", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
     ],
   };

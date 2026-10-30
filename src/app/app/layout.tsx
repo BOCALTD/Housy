@@ -17,6 +17,7 @@ function groupsFor(r: Role, incoming: number): SideGroup[] {
     g("Properties", [
       ["/app/assets", "Assets", "building", true],
       ["/app/inspections", "Inspections", "clipboard", true],
+      ["/field", "Field kit (works offline)", "clipboard", can(r, "inspection.conduct")],
       ["/app/maintenance", "Maintenance", "wrench", true],
       ["/app/inventory", "Inventory", "box", true],
       ["/app/compliance", "Compliance", "shield", true],

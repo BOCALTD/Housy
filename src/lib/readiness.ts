@@ -11,7 +11,7 @@ export interface ReadinessCheck { id: string; label: string; level: Level; detai
 
 const has = (v: string | undefined) => !!v && v.trim() !== "";
 const long = (v: string | undefined, n: number) => has(v) && v!.trim().length >= n;
-const PLACEHOLDER = /CHANGE_ME|changeme|example\.com|^\[.*\]$/i;
+const PLACEHOLDER = /CHANGE_ME|changeme|example\.com|your product name|^\[.*\]$/i;
 
 export function readinessChecks(env: Env): ReadinessCheck[] {
   const prod = env.NODE_ENV === "production";
@@ -39,8 +39,9 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
   add("app-url", "Public web address", /^https:\/\//.test(url) ? "ok" : has(url) ? (prod ? "fail" : "warn") : "warn",
     /^https:\/\//.test(url) ? "HTTPS address set." : has(url) ? "The address is not HTTPS." : "NEXT_PUBLIC_APP_URL is not set; links in email will use a guess.", "hosting");
 
-  add("brand", "Product name", has(env.NEXT_PUBLIC_PLATFORM_NAME) && !PLACEHOLDER.test(env.NEXT_PUBLIC_PLATFORM_NAME!) ? "ok" : "warn",
-    has(env.NEXT_PUBLIC_PLATFORM_NAME) && !PLACEHOLDER.test(env.NEXT_PUBLIC_PLATFORM_NAME!) ? "Set." : "NEXT_PUBLIC_PLATFORM_NAME still holds the placeholder.");
+  const name = env.NEXT_PUBLIC_PLATFORM_NAME;
+  add("brand", "Product name", has(name) && PLACEHOLDER.test(name!) ? "warn" : "ok",
+    !has(name) ? "Housy (the default brand)." : PLACEHOLDER.test(name!) ? "NEXT_PUBLIC_PLATFORM_NAME still holds a placeholder." : `Set to ${name}.`);
 
   add("email", "Email provider", has(env.RESEND_API_KEY) && has(env.EMAIL_FROM) ? "ok" : "fail",
     has(env.RESEND_API_KEY) && has(env.EMAIL_FROM) ? "Key and sender address set. Send one real test message before launch." : "RESEND_API_KEY and EMAIL_FROM are both needed. Without them no email is delivered, including password resets.", "provider");

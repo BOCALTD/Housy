@@ -16,7 +16,7 @@ Each line says who does it and how you know it is done. The page `/admin/launch`
 | `REQUIRE_ADMIN_MFA` | `true` | |
 | `SETUP_TOKEN` | random, 24+ characters | Remove after step A8 |
 | `NEXT_PUBLIC_APP_URL` | `https://your-domain` | |
-| `NEXT_PUBLIC_PLATFORM_NAME` | the final product name | |
+| `NEXT_PUBLIC_PLATFORM_NAME` | optional: leave unset for Housy | |
 | `CRON_SECRET`, `UNSUBSCRIBE_SECRET` | random, 24+ characters each | |
 | `RESEND_API_KEY`, `EMAIL_FROM` | from the email provider | Sender domain verified (SPF, DKIM) |
 | `PAYSTACK_SECRET_KEY` | live key, once the business account is approved | |

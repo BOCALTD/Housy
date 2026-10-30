@@ -24,7 +24,7 @@ body { background: var(--bg); min-height: 100vh; }
 
 /* Header: frosted glass, brand mark with a glow, links with a sliding underline */
 .top { background: color-mix(in srgb, var(--surface) 82%, transparent); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent); box-shadow: 0 6px 20px -14px rgba(17, 24, 39, .35); }
-.brand-mark { background: var(--grad-primary); box-shadow: 0 4px 12px -2px rgba(242, 159, 5, .55); }
+.brand .logo-mark { box-shadow: 0 4px 12px -2px rgba(242, 159, 5, .55); }
 .nav a { position: relative; transition: color .2s, background-color .2s; }
 .nav a::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 3px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--gold-2), var(--gold-1)); transform: scaleX(0); transform-origin: left; transition: transform .28s ease; }
 .nav a:hover::after, .nav a[aria-current="page"]::after { transform: scaleX(1); }
@@ -132,7 +132,7 @@ details.inline > summary { transition: color .2s; }
   .prop:hover .prop-img::after { animation: shine 1s ease-out 1; }
   .btn:hover { transform: translateY(-2px); }
   .dialog .close:hover { transform: rotate(90deg) scale(1.08); background: var(--bad-bg); color: var(--bad); }
-  .brand:hover .brand-mark { transform: rotate(-8deg) scale(1.1); } .brand-mark { transition: transform .3s var(--ease-spring); }
+  .brand:hover .logo-mark { transform: rotate(-8deg) scale(1.1); } .brand .logo-mark { transition: transform .3s var(--ease-spring); }
   .to-top:hover { transform: translateY(-3px) scale(1.06); }
 }
 @media (hover: hover) and (prefers-reduced-motion: reduce) {

@@ -1,12 +1,27 @@
-/** Placeholder brand mark (a dark house on an amber tile). Replace the shapes here, in src/app/icon.svg and in src/app/apple-icon.png when the real logo exists. */
-export function LogoMark({ size = 48 }: { size?: number }) {
+import { BRAND } from "@/lib/brand";
+import { PLATFORM_NAME } from "@/lib/labels";
+
+/** The mark on its own: an "H" under a roof on an amber tile. Decorative; the name beside it carries the meaning. */
+export function LogoMark({ size = 48, className }: { size?: number; className?: string }) {
+  const stroke = size <= 24 ? BRAND.strokeSmall : BRAND.stroke;
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <rect width="64" height="64" rx="14" fill="#FBB017" />
-      <path d="M12 31 32 14l20 17" fill="none" stroke="#1F2125" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M18 29v21h28V29" fill="none" stroke="#1F2125" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <rect x="27" y="36" width="10" height="14" rx="2" fill="#FFFFFF" />
+    <svg className={className} width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <rect width="64" height="64" rx={BRAND.tileRadius} fill={BRAND.amber} />
+      <g fill="none" stroke={BRAND.ink} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+        <path d={BRAND.roof} />
+        <path d={BRAND.body} />
+      </g>
     </svg>
+  );
+}
+
+/** The full logo: mark and wordmark. The wordmark is set in lower case ("housy"); in sentences the name is written "Housy". */
+export function Logo({ size = 32, tone = "ink" }: { size?: number; tone?: "ink" | "light" }) {
+  return (
+    <span className={`logo logo-${tone}`} style={{ ["--logo" as string]: `${size}px` }}>
+      <LogoMark size={size} className="logo-mark" />
+      <span className="wordmark">{PLATFORM_NAME}</span>
+    </span>
   );
 }
 

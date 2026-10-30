@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/labels";
-import { LogoMark } from "./Logo";
+import { Logo } from "./Logo";
 import { InstallButton } from "./Pwa";
 
 const COLS: { title: string; links: [string, string][] }[] = [
@@ -17,7 +17,7 @@ export function SiteFooter() {
       <div className="wrap">
         <div className="foot-grid">
           <div className="foot-brand">
-            <strong><LogoMark size={36} />{PLATFORM_NAME}</strong>
+            <strong><Logo size={38} tone="light" /></strong>
             <p>Find property from verified companies and agents, check before you pay, and manage property portfolios in one place.</p>
             <InstallButton />
           </div>

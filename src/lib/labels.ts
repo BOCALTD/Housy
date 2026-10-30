@@ -4,7 +4,7 @@ export function humanize(value: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export const PLATFORM_NAME = process.env.NEXT_PUBLIC_PLATFORM_NAME || "[Platform Name]";
+export const PLATFORM_NAME = process.env.NEXT_PUBLIC_PLATFORM_NAME || "Housy";
 
 /** Visual tone for status pills. */
 export function tone(status: string): "ok" | "warn" | "bad" | "brand" | "" {

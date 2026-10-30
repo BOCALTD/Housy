@@ -1,3 +1,5 @@
+import { BRAND } from "./brand";
+import { PLATFORM_NAME } from "./labels";
 // Reusable email templates. Each template turns a small set of values into a subject, plain text and HTML. Values are always
 // escaped, subjects cannot carry line breaks, and links must be web addresses or paths on this site.
 
@@ -26,7 +28,7 @@ export const TEMPLATES: Record<string, (v: V) => Body> = {
       : k === "agent" ? "Your agent workspace is ready. Finish your profile and verification so clients can find and trust you, then add your first listing."
       : "Your account is ready. Browse homes, follow agents you like and save a search to be told about new matches.";
     return {
-      subject: `Welcome to the platform, ${s(v.name, 60) || "there"}`, heading: "Welcome",
+      subject: `Welcome to ${PLATFORM_NAME}, ${s(v.name, 60) || "there"}`, heading: "Welcome",
       lines: [line, "You decide which emails you get from your notification settings."],
       cta: { label: k === "company" || k === "agent" ? "Open your workspace" : "Find a home", path: k === "company" || k === "agent" ? "/app" : "/" },
     };
@@ -62,6 +64,9 @@ export function renderEmail(template: string, vars: V, layout: Layout): Rendered
   const li = items
     ? `<ul>${items.map((i) => { const u = safeLink(layout.baseUrl, s(i.link, 300)); const label = esc([s(i.title, 160), s(i.body, 160)].filter(Boolean).join(": ")); return `<li>${u ? `<a href="${esc(u)}">${label}</a>` : label}</li>`; }).join("")}</ul>`
     : b.lines.map((l) => `<p>${esc(l)}</p>`).join("");
-  const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2933;max-width:560px;margin:0 auto;padding:16px"><p>Hello ${esc(layout.recipientName)},</p><h2 style="margin:16px 0 8px">${esc(b.heading)}</h2>${li}${cta?.url ? `<p><a href="${esc(cta.url)}" style="display:inline-block;padding:12px 18px;background:#0b6b4f;color:#fff;text-decoration:none;border-radius:6px">${esc(cta.label)}</a></p>` : ""}<hr style="border:0;border-top:1px solid #ddd;margin:24px 0"><p style="font-size:12px;color:#52606d">${esc(layout.platform)}<br>${layout.unsubscribeUrl ? `You are getting this because of your <a href="${esc(layout.settingsUrl)}">notification settings</a>. <a href="${esc(layout.unsubscribeUrl)}">Stop emails like this</a>.` : `This is a service message about your account, so it cannot be switched off. <a href="${esc(layout.settingsUrl)}">Your other email choices</a>.`}</p></body></html>`;
+  const home = layout.baseUrl.replace(/\/+$/, "");
+  // Brand header: the app icon (a PNG, which every mail program shows; SVG is blocked by many) and the wordmark.
+  const brandBar = `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="padding-right:10px"><img src="${esc(home)}/icons/icon-192.png" width="36" height="36" alt="" style="display:block;border-radius:9px"></td><td style="font:700 22px Arial,Helvetica,sans-serif;color:${BRAND.ink};letter-spacing:-.5px">${esc(layout.platform.toLowerCase())}</td></tr></table>`;
+  const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2933;max-width:560px;margin:0 auto;padding:16px">${brandBar}<p>Hello ${esc(layout.recipientName)},</p><h2 style="margin:16px 0 8px">${esc(b.heading)}</h2>${li}${cta?.url ? `<p><a href="${esc(cta.url)}" style="display:inline-block;padding:12px 18px;background:${BRAND.amber};color:${BRAND.ink};font-weight:bold;text-decoration:none;border-radius:8px">${esc(cta.label)}</a></p>` : ""}<hr style="border:0;border-top:1px solid #ddd;margin:24px 0"><p style="font-size:12px;color:#52606d">${esc(layout.platform)}<br>${layout.unsubscribeUrl ? `You are getting this because of your <a href="${esc(layout.settingsUrl)}">notification settings</a>. <a href="${esc(layout.unsubscribeUrl)}">Stop emails like this</a>.` : `This is a service message about your account, so it cannot be switched off. <a href="${esc(layout.settingsUrl)}">Your other email choices</a>.`}</p></body></html>`;
   return { subject: b.subject.replace(/[\r\n]+/g, " ").slice(0, 200), text, html };
 }

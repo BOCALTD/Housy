@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/labels";
+import { LogoMark } from "./Logo";
 
 /**
  * Shown to people who are not signed in, on pages that can be shared: what they are missing and a one-tap way to join.
@@ -10,7 +11,7 @@ export function SignupNudge({ path, shared, what, perks }: { path: string; share
   return (
     <aside className="nudge" aria-labelledby="nudge-h">
       <div className="nudge-mark" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11 12 4l9 7" /><path d="M5 10v10h14V10" /></svg>
+        <LogoMark size={44} />
       </div>
       <div className="stack" style={{ gap: 6, minWidth: 0 }}>
         <p className="eyebrow">{shared ? "Shared with you" : `New to ${PLATFORM_NAME}?`}</p>

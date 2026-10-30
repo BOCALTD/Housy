@@ -19,7 +19,7 @@ html.booting, html.booting body { overflow: hidden; }
 .boot-lens { position: absolute; top: -6px; left: 50%; margin-left: -22px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: #FBB017; color: #1F2125; box-shadow: 0 6px 18px rgba(251, 176, 23, .4); }
 .boot-tick { position: absolute; opacity: 0; transform: scale(.4); }
 .boot-pct { margin: 10px 0 0; font: 700 34px/1 var(--font-display, system-ui); letter-spacing: -.5px; font-variant-numeric: tabular-nums; transition: color .3s; }
-.boot-name { margin: 6px 0 0; font: 700 18px var(--font-display, system-ui); }
+.boot-name { margin: 6px 0 0; display: inline-flex; align-items: center; gap: 8px; font: 700 20px var(--font-display, system-ui); }
 .boot-sub { margin: 0; font-size: 13px; color: rgba(255, 255, 255, .62); }
 .boot.is-done .boot-ring-fg { stroke: #22C55E; }
 .boot.is-done .boot-pct { color: #22C55E; }
@@ -55,9 +55,7 @@ html.intro-on, html.intro-on body { overflow: hidden; }
 .intro-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .5) 0%, rgba(0, 0, 0, .05) 24%, rgba(0, 0, 0, .62) 46%, rgba(0, 0, 0, .93) 100%); }
 .intro-top, .intro-copy, .intro-foot { position: relative; z-index: 2; }
 .intro-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: max(14px, env(safe-area-inset-top)) 16px 0; }
-.intro-brand { display: inline-flex; align-items: center; gap: 10px; font: 700 18px var(--font-display, system-ui); }
-.intro-mark { width: 34px; height: 34px; border-radius: 10px; background: #FBB017; display: grid; place-items: center; }
-.intro-mark svg { width: 20px; height: 20px; }
+.intro-brand { display: inline-flex; align-items: center; gap: 10px; font: 700 22px var(--font-display, system-ui); }
 .intro-nav { display: flex; gap: 4px; }
 .intro-link { min-height: 44px; min-width: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #fff; font: 600 15px var(--font-body, system-ui); cursor: pointer; }
 .intro-next { background: rgba(255, 255, 255, .16); backdrop-filter: blur(6px); }

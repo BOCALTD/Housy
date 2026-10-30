@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LogoMark } from "./Logo";
 
 const KEY = "intro-done";
 
@@ -59,7 +60,7 @@ export function FirstVisitIntro({ signedIn, name, preview }: { signedIn: boolean
       <div className="intro-shade" aria-hidden="true" />
 
       <div className="intro-top">
-        <span className="intro-brand"><span className="intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" strokeWidth="2.4" stroke="#1F2125" strokeLinejoin="round"><path d="M3 11 12 4l9 7M6 10v10h12V10" /></svg></span>{name}</span>
+        <span className="intro-brand"><LogoMark size={36} /><span className="wordmark">{name}</span></span>
         <span className="intro-nav">
           {!last ? <button type="button" className="intro-link" onClick={close}>Skip</button> : null}
           {!last ? <button type="button" className="intro-link intro-next" onClick={() => setI(i + 1)}>Next <span aria-hidden="true">→</span></button> : <button type="button" className="intro-link" onClick={close}>Close</button>}
@@ -143,7 +144,7 @@ const SLIDES: { id: string; kicker: (n: string) => string; title: string; text: 
     id: "safe",
     kicker: () => "Chapter 3 · Visit",
     title: "Visit safely. Pay only when you are sure.",
-    text: () => "Book inspections through the platform, share your trip with someone you trust, and read reviews from people who really closed a deal. Badges show who has passed identity and business checks. Never pay before you inspect.",
+    text: (n) => `Book inspections through ${n}, share your trip with someone you trust, and read reviews from people who really closed a deal. Badges show who has passed identity and business checks. Never pay before you inspect.`,
     art: (
       <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
         <defs><radialGradient id="iv-glow" cx="50%" cy="45%"><stop offset="0" stopColor="#3A2C10" /><stop offset="1" stopColor="#121316" /></radialGradient></defs>

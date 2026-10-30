@@ -29,6 +29,7 @@ test("example values are not accepted in production", () => {
   assert.equal(by({ ...good, NEXT_PUBLIC_APP_URL: "http://housy.ng" }).database.level, "ok");
   assert.equal(by({ ...good, NEXT_PUBLIC_APP_URL: "http://housy.ng" })["app-url"].level, "fail");
   assert.equal(by({ ...good, NEXT_PUBLIC_PLATFORM_NAME: "[Platform Name]" }).brand.level, "warn");
+  assert.equal(by({ ...good, NEXT_PUBLIC_PLATFORM_NAME: undefined }).brand.level, "ok"); // unset means the Housy brand
   assert.equal(by({ ...good, SEED_DEMO_DATA: "true" })["demo-data"].level, "fail");
 });
 

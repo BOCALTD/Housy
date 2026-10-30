@@ -66,8 +66,12 @@ small { font-size: 12.5px; }
 .top { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
 .top .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; }
 .brand { font: 700 18px var(--font-display); text-decoration: none; display: flex; align-items: center; gap: 8px; }
-.brand-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--primary); display: grid; place-items: center; }
-.brand-mark svg { width: 16px; height: 16px; stroke: var(--primary-ink); }
+/* The logo: mark plus the lower-case wordmark. In sentences the name is written "Housy"; see docs/BRAND.md. */
+.logo { display: inline-flex; align-items: center; gap: calc(var(--logo, 32px) * .3); line-height: 1; }
+.logo-mark { flex: none; border-radius: calc(var(--logo, 32px) * .234); }
+.wordmark { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--logo, 32px) * .8); letter-spacing: -.035em; text-transform: lowercase; color: var(--ink); }
+.logo-light .wordmark, .intro-brand .wordmark, .boot-name .wordmark { color: #fff; }
+.intro-brand .wordmark { font-size: 26px; } .boot-name .wordmark { font-size: 24px; }
 .nav { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .nav a { text-decoration: none; padding: 7px 11px; border-radius: 8px; color: var(--muted); font-weight: 500; }
 .nav a:hover, .nav a[aria-current="page"] { background: var(--primary-soft); color: var(--ink); }

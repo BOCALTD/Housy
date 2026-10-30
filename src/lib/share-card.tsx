@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { PLATFORM_NAME } from "@/lib/labels";
+import { BRAND } from "@/lib/brand";
 import { withPublic } from "@/lib/db";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -31,14 +32,14 @@ export async function cardPhoto(listingId: string): Promise<string | null> {
   return `data:${p.mimeType};base64,${Buffer.from(p.bytes).toString("base64")}`;
 }
 
-const AMBER = "#FBB017", INK = "#1F2125", MUTED = "#C9CDD3";
+const AMBER = BRAND.amber, INK = BRAND.ink, MUTED = BRAND.grey;
 
-function Mark() {
+function Mark({ size = 44 }: { size?: number }) {
   return (
-    <svg width="44" height="44" viewBox="0 0 64 64">
-      <rect width="64" height="64" rx="14" fill={AMBER} />
-      <path d="M12 31 32 14l20 17" fill="none" stroke={INK} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M18 29v21h28V29" fill="none" stroke={INK} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={size} height={size} viewBox="0 0 64 64">
+      <rect width="64" height="64" rx={BRAND.tileRadius} fill={AMBER} />
+      <path d={BRAND.roof} fill="none" stroke={INK} strokeWidth={BRAND.stroke} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={BRAND.body} fill="none" stroke={INK} strokeWidth={BRAND.stroke} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -69,7 +70,7 @@ export function shareCard(o: { photo?: string | null; initials?: string; eyebrow
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center" }}>
               <Mark />
-              <div style={{ marginLeft: 14, fontSize: 30, fontWeight: 700 }}>{PLATFORM_NAME}</div>
+              <div style={{ marginLeft: 14, fontSize: 32, fontWeight: 700, letterSpacing: -1 }}>{PLATFORM_NAME.toLowerCase()}</div>
             </div>
             <div style={{ fontSize: 24, background: AMBER, color: INK, padding: "10px 20px", borderRadius: 10, fontWeight: 700 }}>{o.cta}</div>
           </div>

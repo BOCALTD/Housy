@@ -1,4 +1,5 @@
 import { PLATFORM_NAME } from "@/lib/labels";
+import { LogoMark } from "./Logo";
 
 /**
  * The opening loader, shown once per visit (per browser tab session): a magnifying glass circling a turning globe while the
@@ -44,7 +45,7 @@ export function BootLoader() {
             <svg className="boot-tick" viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
           </div>
           <p className="boot-pct"><span id="boot-n">0</span>%</p>
-          <p className="boot-name">{PLATFORM_NAME}</p>
+          <p className="boot-name"><LogoMark size={28} /><span className="wordmark">{PLATFORM_NAME}</span></p>
           <p className="boot-sub">Searching for property you can trust</p>
         </div>
       </div>

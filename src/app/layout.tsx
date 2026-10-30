@@ -21,6 +21,7 @@ import { CompareBar } from "@/components/Compare";
 import { ServiceWorker } from "@/components/Pwa";
 import { HeaderNav } from "@/components/HeaderNav";
 import { BootLoader } from "@/components/BootLoader";
+import { Logo } from "@/components/Logo";
 import { FirstVisitIntro } from "@/components/FirstVisitIntro";
 import "./intro.css";
 
@@ -72,11 +73,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}><UrlToasts /></Suspense>
         <header className="top">
           <div className="wrap">
-            <Link href="/" className="brand">
-              <span className="brand-mark" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.4" strokeLinejoin="round"><path d="M3 11 12 4l9 7M6 10v10h12V10" /></svg>
-              </span>
-              {PLATFORM_NAME}
+            <Link href="/" className="brand" aria-label={`${PLATFORM_NAME} home`}>
+              <Logo size={30} />
             </Link>
             <HeaderNav>
               <Link href="/">Find property</Link>

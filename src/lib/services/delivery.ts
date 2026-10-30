@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma, withUser } from "../db";
 import { logActivity } from "../audit";
 import { configuredDriver, type EmailDriver } from "../email-drivers";
+import { PLATFORM_NAME } from "../labels";
 import { renderEmail, type Layout } from "../email-templates";
 import {
   BACKOFF_MINUTES, DEFAULT_PREFS, DIGEST_MAX_ITEMS, MAX_ATTEMPTS, backoff, decide, inQuiet, lagosHour, readUnsub, signUnsub, unsubScopeFor,
@@ -62,7 +63,7 @@ export interface RunSummary { configured: boolean; waiting: number; sent: number
 
 const layoutFor = (u: { id: string; name: string }, category: Category, kind: string): Layout => {
   const scope = unsubScopeFor(category, kind);
-  return { baseUrl: baseUrl(), platform: process.env.NEXT_PUBLIC_PLATFORM_NAME || "The platform", recipientName: u.name.split(/\s+/)[0] || "there", unsubscribeUrl: scope ? unsubscribeUrl(u.id, scope) : null, settingsUrl: `${baseUrl()}/me/notification-settings` };
+  return { baseUrl: baseUrl(), platform: PLATFORM_NAME, recipientName: u.name.split(/\s+/)[0] || "there", unsubscribeUrl: scope ? unsubscribeUrl(u.id, scope) : null, settingsUrl: `${baseUrl()}/me/notification-settings` };
 };
 
 async function log(userId: string | null, kind: string, outcome: string, detail = "") {

@@ -64,7 +64,7 @@ Method: a sweep of every route, every server action, the database's row-level se
 - New features: offline field sync accepts same-origin requests only and re-checks the inspector on arrival; suggestions history is readable only by its owner (row-level security) and can be cleared or turned off; reels actions answer "sign in" to visitors; music tracks require a recorded licence and only the platform administrator can add them.
 
 ## Still open before launch (owner's actions)
-1. Set the production secrets and keys (see `/admin/launch`): `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_PLATFORM_NAME`, `MFA_ENCRYPTION_KEY`, `REQUIRE_ADMIN_MFA=true`, `CRON_SECRET`, `UNSUBSCRIBE_SECRET`, Resend, Paystack (live), MapTiler, Dojah or Youverify.
+1. Set the production secrets and keys (see `/admin/launch`): `NEXT_PUBLIC_APP_URL`, `MFA_ENCRYPTION_KEY`, `REQUIRE_ADMIN_MFA=true`, `CRON_SECRET`, `UNSUBSCRIBE_SECRET`, Resend, Paystack (live), MapTiler, Dojah or Youverify.
 2. Do not run `db:seed:demo` on the live database; replace the demo music with licensed tracks.
 3. ~~Commit `package-lock.json`~~ Done: the lockfile CI resolved and tested is committed (Next.js 16.4.2, React 19.2.0, zod 4.6.7).
 4. Commission an external penetration test once the site runs on its real domain.

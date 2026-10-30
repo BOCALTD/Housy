@@ -8,6 +8,7 @@ import { verifiedCompanyIds } from "@/lib/services/kyc";
 import { activeOf, labelsOf, refData } from "@/lib/services/reference";
 import { saveSearchAction } from "@/app/me/saved/actions";
 import { ListingCard } from "./ListingCard";
+import { PLATFORM_NAME } from "@/lib/labels";
 import { CompareToggle } from "./Compare";
 import { SponsoredStrip } from "./Sponsored";
 import { sponsoredFor } from "@/lib/services/ads";
@@ -92,7 +93,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
       <SponsoredStrip items={sponsored} where="search" />
       <section className="sec" aria-label="Results">
         <div className="sec-head">
-          <div><h2>{page.total} {page.total === 1 ? "property" : "properties"}</h2><p className="small muted">Title documents are listed as the company states them; the platform has not verified title.</p></div>
+          <div><h2>{page.total} {page.total === 1 ? "property" : "properties"}</h2><p className="small muted">Title documents are listed as the company states them; {PLATFORM_NAME} has not verified title.</p></div>
           <nav className="sort-links" aria-label="Sort">{Object.entries(SORTS).map(([k, v]) => <Link key={k} href={href({ sort: k === "newest" ? undefined : k, page: undefined })} aria-current={f.sort === k ? "page" : undefined}>{v}</Link>)}</nav>
         </div>
         {session ? (

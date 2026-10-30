@@ -1,0 +1,25 @@
+name: Voice-over
+on: push
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: sudo apt-get update -q && sudo apt-get install -y -q espeak-ng
+      - run: pip install -q "kokoro>=0.9.4" soundfile "misaki[en]"
+      - run: python voice.py
+      - name: Publish the voice files
+        run: |
+          cp -r out /tmp/out
+          git config user.name "ci"; git config user.email "ci@example.invalid"
+          git checkout --orphan media-voice-out
+          git rm -rf -q --cached . > /dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r /tmp/out/* .
+          git add -A && git commit -q -m "Voice-over for ${GITHUB_SHA}"
+          git push -q -f origin media-voice-out

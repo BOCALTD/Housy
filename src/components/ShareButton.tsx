@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { shareCodeAction } from "@/app/share-actions";
 import { shareAction as countReelShare } from "@/app/reels/actions";
 import { NETWORKS, networkLink, shareLink, type ShareKind } from "@/lib/share-rules";
@@ -16,6 +16,7 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
   reelId?: string; count?: number; signedIn: boolean; small?: boolean;
 }) {
   const box = useRef<HTMLDialogElement>(null);
+  const headId = `share-h-${useId().replace(/:/g, "")}`;
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -107,10 +108,10 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
       <button type="button" className={`btn share-btn${small ? " small" : ""}`} onClick={open} aria-haspopup="dialog">
         {ShareIcon}<span>Share{reelId ? ` (${n})` : ""}</span>
       </button>
-      <dialog ref={box} className="share-sheet" aria-labelledby={`share-h-${kind}`} onClick={(e) => { if (e.target === box.current) box.current?.close(); }}>
+      <dialog ref={box} className="share-sheet" aria-labelledby={headId} onClick={(e) => { if (e.target === box.current) box.current?.close(); }}>
         <div className="share-inner stack">
           <div className="row between share-head">
-            <h2 id={`share-h-${kind}`}>Share {{ property: "this property", reel: "this reel", agent: "this agent", company: "this company" }[kind]}</h2>
+            <h2 id={headId}>Share {{ property: "this property", reel: "this reel", agent: "this agent", company: "this company" }[kind]}</h2>
             <button type="button" className="btn share-close" aria-label="Close" onClick={() => box.current?.close()}>×</button>
           </div>
           <div className="share-preview">

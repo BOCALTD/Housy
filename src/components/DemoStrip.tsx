@@ -1,5 +1,4 @@
 import { unstable_cache } from "next/cache";
-import Link from "next/link";
 import { withPlatformAdmin } from "@/lib/db";
 
 const hasDemo = unstable_cache(
@@ -14,7 +13,6 @@ export async function DemoStrip() {
     <div className="demo-strip" role="note">
       <span className="demo-strip-tag">DEMO</span>
       <span>Sample data: the companies, agents, properties, photos and videos on this site are examples to show how it works.</span>
-      <Link href="/how-it-works">How it works</Link>
     </div>
   );
 }

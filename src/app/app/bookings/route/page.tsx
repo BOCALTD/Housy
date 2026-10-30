@@ -26,7 +26,7 @@ export default async function DayRoutePage({ searchParams: searchP }: { searchPa
   return (
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
-        <p className="eyebrow"><Link href="/app/bookings">Inspections</Link></p>
+        <p className="eyebrow">Inspections</p>
         <h1>The day&apos;s route</h1>
         <p className="muted">{who}: confirmed inspections on {new Date(`${day}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}, in time order.</p>
       </div>
@@ -35,6 +35,7 @@ export default async function DayRoutePage({ searchParams: searchP }: { searchPa
         <label className="field">Day<input type="date" name="day" defaultValue={day} /></label>
         {member.role !== "AGENT" ? <label className="field">Person<select name="who" defaultValue={r.userId}>{r.team.map((t) => <option key={t.userId} value={t.userId}>{t.name}</option>)}</select></label> : null}
         <button className="btn" type="submit">Show</button>
+        <Link className="btn" href="/app/bookings">All inspections</Link>
         <Link className="btn" href={`/app/bookings/route?day=${shift(1)}${sp(s, "who") ? `&who=${sp(s, "who")}` : ""}`}>Next day</Link>
       </form>
       {r.stops.length === 0 ? <div className="card"><p className="muted">No confirmed inspections on this day.</p></div> : (

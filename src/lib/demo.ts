@@ -328,6 +328,9 @@ export async function createDemoData(adminId: string): Promise<boolean> {
     await submitInspection(officer, waiting.id);
   }
   await scheduleInspection(alpha, plaza.id, { templateId: commercial.id, purpose: "ROUTINE", scheduledFor: daysFromToday(-5), inspectorId: officer.membershipId });
+  // Two inspections for the demo administrator to try in the field kit (/field), today and in two days.
+  await scheduleInspection(alpha, duplex.id, { templateId: residential.id, purpose: "ROUTINE", scheduledFor: daysFromToday(0), inspectorId: alpha.membershipId, location: "Whole house" });
+  await scheduleInspection(alpha, shop.id, { templateId: commercial.id, purpose: "MAINTENANCE_ASSESSMENT", scheduledFor: daysFromToday(2), inspectorId: alpha.membershipId, location: "Roof and storeroom" });
 
   // Maintenance: a work order raised from the inspection finding, an emergency, a closed job and a recurring job.
   const sparky = await createContractor(alpha, { name: "[DEMO] Sparky Roofing & Electrical", trade: "Roofing, electrical", phone: "0800 000 0000", email: "", notes: "Demonstration contractor" });

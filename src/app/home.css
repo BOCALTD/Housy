@@ -780,3 +780,10 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .enq-q { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; cursor: pointer; }
 .enq-q input { width: 20px; height: 20px; flex-shrink: 0; }
 .codes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 14px; }
+details.fold-card > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; list-style: none; }
+details.fold-card > summary::-webkit-details-marker { display: none; }
+details.fold-card > summary h2 { margin: 0; }
+details.fold-card > summary::after { content: "+"; font-size: 22px; font-weight: 600; color: var(--muted); }
+details.fold-card[open] > summary::after { content: "–"; }
+details.fold-card[open] > summary { margin-bottom: 12px; }
+@media (hover: hover) { details.fold-card > summary:hover h2 { color: #B87500; } }

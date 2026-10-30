@@ -16,10 +16,9 @@ export default async function AccountingPage({ searchParams: searchP }: { search
   const searchParams = await searchP;
   const member = await requireMember("finance.view");
   const today = todayInLagos();
-  const firstOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
-  const lastOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
-  const from = sp(searchParams, "from") ?? toDateOnlyString(firstOfMonth);
-  const to = sp(searchParams, "to") ?? toDateOnlyString(lastOfMonth);
+  // The year so far, unless a period is chosen.
+  const from = sp(searchParams, "from") ?? `${today.getUTCFullYear()}-01-01`;
+  const to = sp(searchParams, "to") ?? toDateOnlyString(today);
   let problem: string | undefined;
   let j: Awaited<ReturnType<typeof accountingJournal>> | null = null;
   try { j = await accountingJournal(member, from, to); } catch (e) { problem = e instanceof Error ? e.message : "Could not build the journal"; }
@@ -78,8 +77,8 @@ export default async function AccountingPage({ searchParams: searchP }: { search
         </section>
       ) : null}
 
-      <section className="card stack" aria-labelledby="codes-h">
-        <h2 id="codes-h">Your account codes</h2>
+      <details className="card fold-card">
+        <summary><h2>Your account codes</h2><span className="small muted">{keys.filter((k) => j?.codes[k]).length ? `${keys.filter((k) => j?.codes[k]).length} of ${keys.length} set` : "Using the defaults"}</span></summary>
         <p className="small muted">Use the codes from your own chart of accounts so the import lands in the right place. Leave a code blank to use the one shown.</p>
         {can(member.role, "settings.manage") ? (
           <form action={saveCodesAction} className="stack">
@@ -96,7 +95,7 @@ export default async function AccountingPage({ searchParams: searchP }: { search
         ) : (
           <ul className="small">{keys.map((k) => <li key={k}><span className="mono">{code(k)}</span> {ACCOUNTS[k].name}</li>)}</ul>
         )}
-      </section>
+      </details>
     </div>
   );
 }

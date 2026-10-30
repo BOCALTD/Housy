@@ -48,6 +48,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Keep a copy of the resolved lockfile for the device-shots branch
+        run: cp package-lock.json /tmp/package-lock.json
+
       - name: Save the resolved lockfile
         uses: actions/upload-artifact@v4
         with:
@@ -129,6 +132,7 @@ jobs:
           git rm -rf -q --cached . > /dev/null 2>&1 || true
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -r /tmp/device-report/* .
+          cp /tmp/package-lock.json . 2>/dev/null || true
           git add -A && git commit -q -m "Device screenshots for ${GITHUB_SHA}"
           git push -q -f origin device-shots
 

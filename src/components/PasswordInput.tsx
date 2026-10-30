@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useNoPrefill } from "./CleanInput";
 
 const Eye = ({ off }: { off: boolean }) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -10,14 +11,18 @@ const Eye = ({ off }: { off: boolean }) => (
 );
 
 /** A password box with a button to show or hide what was typed. */
-export function PasswordInput({ name, id, autoComplete, minLength, required = true, value, onChange, describedBy, invalid }: {
+export function PasswordInput({ name, id, autoComplete, minLength, required = true, value, onChange, describedBy, invalid, noPrefill = false }: {
   name: string; id: string; autoComplete: string; minLength?: number; required?: boolean;
   value?: string; onChange?: (v: string) => void; describedBy?: string; invalid?: boolean;
+  /** On sign-in: the browser may not fill in or keep a saved password (see CleanInput). */
+  noPrefill?: boolean;
 }) {
   const [show, setShow] = useState(false);
+  const ref = useNoPrefill<HTMLInputElement>();
   return (
     <span className="pw">
       <input
+        ref={noPrefill ? ref : undefined} readOnly={noPrefill || undefined}
         name={name} id={id} type={show ? "text" : "password"} required={required} minLength={minLength} autoComplete={autoComplete}
         autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-describedby={describedBy} aria-invalid={invalid || undefined}
         {...(onChange ? { value: value ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value) } : {})}

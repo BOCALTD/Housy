@@ -6,6 +6,7 @@ import { addCommissionRule } from "./commission";
 import { createObligation } from "./obligations";
 import { todayInLagos, toDateOnlyString } from "../dates";
 import { can } from "../permissions";
+import { TEMPLATE_FOR } from "../account-type-rules";
 
 export type Choices = {
   departments: string[];            // codes
@@ -20,7 +21,7 @@ export async function setupState(ctx: Ctx) {
   assertCan(ctx, "settings.manage");
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const [company, departments, checklists, rules, obligations] = await Promise.all([
-      tx.company.findUniqueOrThrow({ where: { id: ctx.companyId }, select: { industryTemplate: true, reminderLeadDays: true, escalationDays: true } }),
+      tx.company.findUniqueOrThrow({ where: { id: ctx.companyId }, select: { industryTemplate: true, reminderLeadDays: true, escalationDays: true, businessType: true } }),
       tx.department.findMany({ where: { companyId: ctx.companyId }, select: { code: true } }),
       tx.inspectionTemplate.findMany({ where: { companyId: ctx.companyId }, select: { name: true } }),
       tx.commissionRule.findMany({ where: { companyId: ctx.companyId }, select: { name: true } }),
@@ -28,6 +29,8 @@ export async function setupState(ctx: Ctx) {
     ]);
     return {
       current: company.industryTemplate as IndustryKey | "",
+      /** The template that matches what the company said it does at sign-up, offered first. */
+      suggested: ((TEMPLATE_FOR as Record<string, string>)[company.businessType] ?? "") as IndustryKey | "",
       reminders: { leadDays: company.reminderLeadDays, escalationDays: company.escalationDays },
       has: { departments: new Set(departments.map((d) => d.code)), checklists: new Set(checklists.map((c) => c.name)), rules: new Set(rules.map((r) => r.name)), obligations: new Set(obligations.map((o) => o.title)) },
     };

@@ -7,16 +7,34 @@ import { hashPassword } from "../auth-hash";
 import { hashToken, newToken } from "../tokens";
 import { ALL_ROLES, type Role } from "../permissions";
 import { assertCan, type Ctx } from "./context";
+import { BUSINESS_TYPES, INDEPENDENT_AGENT, cleanCac, isFreeMail, normalisePhone, type BusinessType } from "../account-type-rules";
 
 const email = z.string().trim().toLowerCase().email("Enter a valid email address");
 const password = z.string().min(10, "Use a password of at least 10 characters").max(200);
 const personName = z.string().trim().min(2, "Enter your full name").max(120);
+
+const phoneField = (required: boolean) => z.string().trim().max(30).default("").transform((v, ctx) => {
+  if (!v) { if (required) ctx.addIssue({ code: "custom", message: "Enter a phone number clients can reach you on" }); return ""; }
+  const p = normalisePhone(v);
+  if (!p) { ctx.addIssue({ code: "custom", message: "Enter a valid phone number, for example 0803 123 4567" }); return z.NEVER; }
+  return p;
+});
 
 const registerSchema = z.object({
   companyName: z.string().trim().min(2, "Enter the company name").max(160),
   name: personName,
   email,
   password,
+  /** From the company sign-up form; other callers (demo data, tests) leave these out. */
+  businessType: z.enum(Object.keys(BUSINESS_TYPES) as [BusinessType, ...BusinessType[]], { error: "Choose what your company does" }).optional(),
+  contactPhone: phoneField(false),
+  cacNumber: z.string().trim().max(20).default("").transform((v, ctx) => {
+    const c = cleanCac(v);
+    if (c === null) { ctx.addIssue({ code: "custom", message: "Enter the CAC number as it appears on the certificate, for example RC 1234567 or BN 1234567" }); return z.NEVER; }
+    return c;
+  }),
+  /** Ticked when a company with no email domain of its own signs up with a personal mailbox. */
+  noCompanyDomain: z.boolean().default(false),
 });
 
 function slugify(name: string) {
@@ -27,15 +45,18 @@ function slugify(name: string) {
 /** Create a user, their company workspace, and make them its Company Super Admin. */
 export async function registerCompany(input: z.input<typeof registerSchema>) {
   const data = registerSchema.parse(input);
+  if (data.businessType && isFreeMail(data.email) && !data.noCompanyDomain) {
+    throw new Error("Use your company email address, for example you@yourcompany.com. If your company has no email domain yet, tick the box under the email to say so.");
+  }
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) throw new Error("An account with that email already exists. Sign in instead.");
 
   const user = await prisma.user.create({
-    data: { email: data.email, name: data.name, passwordHash: await hashPassword(data.password) },
+    data: { email: data.email, name: data.name, passwordHash: await hashPassword(data.password), phone: data.contactPhone },
   });
   const companyId = randomUUID();
   await withTenant(companyId, user.id, async (tx) => {
-    await tx.company.create({ data: { id: companyId, name: data.companyName, slug: slugify(data.companyName) } });
+    await tx.company.create({ data: { id: companyId, name: data.companyName, slug: slugify(data.companyName), businessType: data.businessType ?? "", contactEmail: data.email, contactPhone: data.contactPhone, cacNumber: data.cacNumber } });
     await tx.membership.create({ data: { companyId, userId: user.id, role: "COMPANY_SUPER_ADMIN" } });
     await logActivity(tx, {
       companyId, actorId: user.id, entityType: "company", entityId: companyId, action: "company.created",
@@ -44,6 +65,43 @@ export async function registerCompany(input: z.input<typeof registerSchema>) {
   });
   await enqueueEmail(prisma, user.id, { kind: "onboarding", template: "welcome", vars: { name: user.name, kind: "company" }, dedupeKey: "welcome" });
   return { userId: user.id, companyId };
+}
+
+const agentSchema = z.object({
+  name: personName,
+  email,
+  password,
+  phone: phoneField(true),
+  tradingName: z.string().trim().max(160).default(""),
+});
+
+/**
+ * An agent who works for themselves: their account, their own one-person workspace (to list, manage clients and get paid),
+ * and their agent profile, not shown in the directory until they finish it. Agents who work for a company are invited by it.
+ */
+export async function registerAgent(input: z.input<typeof agentSchema>) {
+  const data = agentSchema.parse(input);
+  if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead.");
+  const user = await prisma.user.create({ data: { email: data.email, name: data.name, phone: data.phone, passwordHash: await hashPassword(data.password) } });
+  const companyId = randomUUID();
+  const business = data.tradingName || data.name;
+  await withTenant(companyId, user.id, async (tx) => {
+    await tx.company.create({ data: { id: companyId, name: business, slug: slugify(business), businessType: INDEPENDENT_AGENT, contactEmail: data.email, contactPhone: data.phone } });
+    const m = await tx.membership.create({ data: { companyId, userId: user.id, role: "COMPANY_SUPER_ADMIN" } });
+    await tx.agentProfile.create({ data: { membershipId: m.id, userId: user.id, companyId, displayName: data.name, companyName: data.tradingName || "Independent agent", listed: false } });
+    await logActivity(tx, { companyId, actorId: user.id, entityType: "company", entityId: companyId, action: "company.created", detail: { name: business, kind: "independent agent" } });
+  });
+  await enqueueEmail(prisma, user.id, { kind: "onboarding", template: "welcome", vars: { name: user.name, kind: "agent" }, dedupeKey: "welcome" });
+  return { userId: user.id, companyId };
+}
+
+/** Each active membership with what its company is, for choosing where a sign-in lands. */
+export async function membershipKinds(userId: string) {
+  return withUser(userId, (tx) => tx.membership.findMany({
+    where: { userId, status: "ACTIVE", company: { suspendedAt: null } },
+    select: { companyId: true, role: true, company: { select: { businessType: true } } },
+    orderBy: { createdAt: "asc" },
+  })).then((rows) => rows.map((r) => ({ companyId: r.companyId, role: r.role as string, businessType: r.company.businessType })));
 }
 
 const inviteSchema = z.object({

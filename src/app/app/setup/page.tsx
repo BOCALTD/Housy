@@ -18,7 +18,7 @@ export default async function SetupPage({ searchParams: searchP }: { searchParam
   const s = await searchP;
   const member = await requireMember("settings.manage");
   const state = await setupState(member);
-  const t = templateFor(sp(s, "t") ?? state.current);
+  const t = templateFor(sp(s, "t") ?? (state.current || state.suggested));
   const today = toDateOnlyString(todayInLagos());
   const Had = ({ yes }: { yes: boolean }) => (yes ? <span className="pill">Already set up</span> : null);
   return (

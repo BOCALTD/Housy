@@ -297,7 +297,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
         <p className="sec-kicker" style={{ color: "#FFD36B" }}>For companies and agents</p>
         <h2>List your properties where buyers can check you</h2>
         <p>Register your company, complete verification and publish listings with photos, offers and reels. Manage tenants, rent and deals in the same workspace.</p>
-        <div className="row"><Link className="btn primary" href="/signup">Register a company</Link><Link className="btn" href="/how-it-works">How it works</Link></div>
+        <div className="row"><Link className="btn primary" href="/join?as=company">Register a company</Link><Link className="btn" href="/how-it-works">How it works</Link></div>
       </section>
     </div>
   );

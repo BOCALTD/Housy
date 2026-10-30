@@ -20,7 +20,7 @@ export default async function SwitchPage({ searchParams: searchP }: { searchPara
           <p>You are not an active member of any company.</p>
           <p className="muted small">Ask your administrator for an invitation, or register a new company.</p>
           <div className="row">
-            <Link className="btn primary" href="/signup">Register a company</Link>
+            <Link className="btn primary" href="/join?as=company">Register a company</Link>
             {user.isPlatformAdmin ? <Link className="btn" href="/admin">Platform admin</Link> : null}
           </div>
         </div>

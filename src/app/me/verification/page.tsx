@@ -26,7 +26,7 @@ export default async function AgentVerificationPage({ searchParams: searchP }: {
       {current ? (
         <KycPanel autoReady={identityProviders().length > 0} kind="AGENT" view={await agentKyc(user.id)} action={submitAgentKycAction} docBase="/kyc/doc" extra={<input type="hidden" name="companyId" value={current.companyId} />} />
       ) : (
-        <div className="card stack"><p>Agent checks are for people who work for a registered company. Ask your company to invite you, or <Link href="/signup">register your company</Link>.</p></div>
+        <div className="card stack"><p>Agent checks are for people who work for a registered company. Ask your company to invite you, <Link href="/join?as=agent">create an agent account</Link> if you work for yourself, or <Link href="/join?as=company">register your company</Link>.</p></div>
       )}
     </div>
   );

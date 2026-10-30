@@ -45,7 +45,7 @@ export function PlanCompare({ audience, plans, buy, currentPlanId }: { audience:
                     <button className={`btn${p.id === top ? " primary" : ""}`} type="submit">{currentPlanId === p.id ? "Renew" : "Choose"} {p.name}</button></form>
                 ) : free ? <span className="small muted">{currentPlanId ? "" : "What you have now"}</span> : <Link className="btn" href="/support">Ask about {p.name}</Link>
               ) : (
-                <Link className={`btn${p.id === top ? " primary" : ""}`} href={audience === "COMPANY" ? "/signup" : "/join"}>{free ? "Start free" : `Get ${p.name}`}</Link>
+                <Link className={`btn${p.id === top ? " primary" : ""}`} href={audience === "COMPANY" ? "/join?as=company" : "/join?as=agent"}>{free ? "Start free" : `Get ${p.name}`}</Link>
               )}
             </div>
           </article>

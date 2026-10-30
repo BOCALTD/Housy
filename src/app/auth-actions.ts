@@ -6,7 +6,8 @@ import { prisma } from "@/lib/db";
 import { createSession, destroySession, getSession, setActiveCompany, verifyPassword, hashPassword } from "@/lib/auth";
 import { act, str } from "@/lib/forms";
 import { rateLimit } from "@/lib/ratelimit";
-import { acceptInvitation, myCompanies, registerCompany } from "@/lib/services/companies";
+import { acceptInvitation, membershipKinds, myCompanies, registerAgent, registerCompany } from "@/lib/services/companies";
+import { accountTypeOf, landingFor, signInRefusal } from "@/lib/account-type-rules";
 import { registerSeeker } from "@/lib/services/community";
 import { captureReferral } from "@/lib/services/referrals";
 import { cookies } from "next/headers";
@@ -37,24 +38,36 @@ async function clientIp() {
   return (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 }
 
+/** Kept for old links and forms: a company sign-up. */
 export async function signupAction(form: FormData) {
-  return act("/signup", async () => {
-    if (!(await rateLimit(`signup:${await clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
-    const { userId, companyId } = await registerCompany({
-      companyName: str(form, "companyName"), name: str(form, "name"),
-      email: str(form, "email"), password: confirmedPassword(form),
-    });
-    await captureReferral({ id: userId, name: str(form, "name"), email: str(form, "email").toLowerCase(), companyId }, "COMPANY", await takeReferral());
-    await createSession(userId, companyId);
-    return "/app?notice=" + encodeURIComponent("Your company workspace is ready.");
-  });
+  form.set("as", "company");
+  return joinAction(form);
 }
 
+/** One sign-up for all three kinds of account; each asks only for what it needs. */
 export async function joinAction(form: FormData) {
-  return act("/join", async () => {
+  const as = accountTypeOf(str(form, "as"));
+  const nextParam = safeLocalPath(str(form, "next"), "");
+  return act(`/join?as=${as}${nextParam ? `&next=${encodeURIComponent(nextParam)}` : ""}`, async () => {
     if (!(await rateLimit(`signup:${await clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
-    const { userId } = await registerSeeker({ name: str(form, "name"), email: str(form, "email"), password: confirmedPassword(form) });
-    await captureReferral({ id: userId, name: str(form, "name"), email: str(form, "email").toLowerCase() }, "SEEKER", await takeReferral());
+    const email = str(form, "email"), name = str(form, "name");
+    if (as === "company") {
+      const { userId, companyId } = await registerCompany({
+        companyName: str(form, "companyName"), name, email, password: confirmedPassword(form),
+        businessType: str(form, "businessType") as never, contactPhone: str(form, "phone"), cacNumber: str(form, "cacNumber"), noCompanyDomain: form.get("noCompanyDomain") === "on",
+      });
+      await captureReferral({ id: userId, name, email: email.toLowerCase(), companyId }, "COMPANY", await takeReferral());
+      await createSession(userId, companyId);
+      return "/app?notice=" + encodeURIComponent("Your company workspace is ready. Start with Business set-up.");
+    }
+    if (as === "agent") {
+      const { userId, companyId } = await registerAgent({ name, email, password: confirmedPassword(form), phone: str(form, "phone"), tradingName: str(form, "tradingName") });
+      await captureReferral({ id: userId, name, email: email.toLowerCase(), companyId }, "COMPANY", await takeReferral());
+      await createSession(userId, companyId);
+      return "/app/profile?notice=" + encodeURIComponent("Your agent account is ready. Finish your profile so clients can find you.");
+    }
+    const { userId } = await registerSeeker({ name, email, password: confirmedPassword(form), phone: str(form, "phone") });
+    await captureReferral({ id: userId, name, email: email.toLowerCase() }, "SEEKER", await takeReferral());
     await createSession(userId, null);
     const next = safeLocalPath(str(form, "next"), "");
     if (next) return next;
@@ -63,7 +76,9 @@ export async function joinAction(form: FormData) {
 }
 
 export async function loginAction(form: FormData) {
-  return act("/login", async () => {
+  const as = accountTypeOf(str(form, "as"));
+  const nextParam = safeLocalPath(str(form, "next"), "");
+  return act(`/login?as=${as}${nextParam ? `&next=${encodeURIComponent(nextParam)}` : ""}`, async () => {
     const email = str(form, "email").toLowerCase();
     if (!(await rateLimit(`login:${await clientIp()}:${email}`, 8, 15 * 60 * 1000))) {
       throw new Error("Too many sign-in attempts. Wait 15 minutes and try again.");
@@ -85,13 +100,18 @@ export async function loginAction(form: FormData) {
       if (!code) throw new Error("Enter the code from your authenticator app, or a recovery code.");
       if (!(await rateLimit(`mfa:${user.id}`, 8, 15 * 60 * 1000)) || !(await checkSecondStep(user.id, code))) throw new Error("That code is not right or has already been used.");
     }
+    // The password is right, so saying which kind of account this is reveals nothing to someone who does not already hold it.
+    const kinds = await membershipKinds(user.id);
+    const refusal = user.isPlatformAdmin && as === "personal" ? null : signInRefusal(as, kinds);
+    if (refusal) throw new Error(refusal);
     await recordSuccessfulSignIn(email);
-    const companies = await myCompanies(user.id);
-    await createSession(user.id, companies[0]?.companyId ?? null);
+    // Land in the workspace that matches the tab: an agent's own or agent seat, or a company seat.
+    const pick = as === "agent" ? kinds.find((k) => k.role === "AGENT" || k.businessType === "INDEPENDENT_AGENT")
+      : as === "company" ? kinds.find((k) => k.role !== "AGENT" && k.businessType !== "INDEPENDENT_AGENT") : kinds[0];
+    await createSession(user.id, pick?.companyId ?? null);
     const next = safeLocalPath(str(form, "next"), "");
     if (next) return next;
-    if (companies.length === 0) return user.isPlatformAdmin ? "/admin" : "/me";
-    return "/app";
+    return landingFor(as, user.isPlatformAdmin);
   });
 }
 

@@ -22,7 +22,7 @@ const FLOWS = {
       { icon: Icon.home, title: "List and promote", text: "Add properties with photos, send them for review, and run offers that appear in the promotions slideshow." },
       { icon: Icon.chart, title: "Manage everything", text: "Leases, rent, receipts, maintenance, inspections, documents and deals in one workspace." },
     ],
-    cta: { href: "/signup", label: "Register a company" },
+    cta: { href: "/join?as=company", label: "Register a company" },
   },
 };
 

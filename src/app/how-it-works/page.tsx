@@ -33,7 +33,7 @@ export default function HowItWorksPage() {
             <li>Add each property as an asset, then create its listing with photos; we review it before it goes live.</li>
             <li>Run offers, post reels, answer enquiries, and manage leases, rent and receipts in the workspace.</li>
           </ul>
-          <Link className="btn primary" href="/signup">Register a company</Link>
+          <Link className="btn primary" href="/join?as=company">Register a company</Link>
         </div>
       </section>
     </div>

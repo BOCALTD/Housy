@@ -20,11 +20,17 @@ export function safeLink(base: string, link: string): string | null {
 
 export const TEMPLATES: Record<string, (v: V) => Body> = {
   generic: (v) => ({ subject: s(v.title, 160) || "A notice from us", heading: s(v.title, 160), lines: [s(v.body, 600)].filter(Boolean), cta: v.link ? { label: s(v.cta) || "Open", path: s(v.link, 300) } : undefined }),
-  welcome: (v) => ({
-    subject: `Welcome to the platform, ${s(v.name, 60) || "there"}`, heading: "Welcome",
-    lines: [s(v.kind) === "company" ? "Your company workspace is ready. Add your team, your assets and your first listing when you are ready." : "Your account is ready. Browse homes, follow agents you like and save a search to be told about new matches.", "You decide which emails you get from your notification settings."],
-    cta: { label: s(v.kind) === "company" ? "Open your workspace" : "Find a home", path: s(v.kind) === "company" ? "/app" : "/" },
-  }),
+  welcome: (v) => {
+    const k = s(v.kind);
+    const line = k === "company" ? "Your company workspace is ready. Add your team, your properties and your first listing when you are ready."
+      : k === "agent" ? "Your agent workspace is ready. Finish your profile and verification so clients can find and trust you, then add your first listing."
+      : "Your account is ready. Browse homes, follow agents you like and save a search to be told about new matches.";
+    return {
+      subject: `Welcome to the platform, ${s(v.name, 60) || "there"}`, heading: "Welcome",
+      lines: [line, "You decide which emails you get from your notification settings."],
+      cta: { label: k === "company" || k === "agent" ? "Open your workspace" : "Find a home", path: k === "company" || k === "agent" ? "/app" : "/" },
+    };
+  },
   enquiry_received: (v) => ({ subject: `New enquiry about ${s(v.listing, 120)}`, heading: "You have a new enquiry", lines: [`${s(v.from, 80)} asked about ${s(v.listing, 120)}.`, s(v.message, 400)].filter(Boolean), cta: { label: "Open enquiries", path: "/app/crm" } }),
   property_alert: (v) => ({
     subject: `New match: ${s(v.title, 120)}`, heading: "A new property matches what you asked for",

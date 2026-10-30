@@ -787,3 +787,31 @@ details.fold-card > summary::after { content: "+"; font-size: 22px; font-weight:
 details.fold-card[open] > summary::after { content: "–"; }
 details.fold-card[open] > summary { margin-bottom: 12px; }
 @media (hover: hover) { details.fold-card > summary:hover h2 { color: #B87500; } }
+
+/* Account type: three ways in, each with its own sign-in and sign-up. */
+.acct-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 5px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); }
+.acct-tab { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px; border-radius: 12px; color: var(--muted); text-decoration: none; transition: background .18s ease, color .18s ease, box-shadow .18s ease; }
+.acct-tab span { display: grid; gap: 1px; min-width: 0; }
+.acct-tab strong { font-size: 14px; color: var(--ink); }
+.acct-tab small { font-size: 12px; line-height: 1.3; color: var(--muted); }
+.acct-tab svg { flex-shrink: 0; }
+.acct-tab.on { background: var(--surface); color: #B87500; box-shadow: 0 1px 2px rgba(17, 18, 20, .08), 0 6px 18px rgba(17, 18, 20, .06); }
+.acct-tab.on svg { color: #F29F05; }
+.acct-tab:focus-visible { outline: 3px solid #FBB017; outline-offset: 2px; }
+@media (hover: hover) { .acct-tab:not(.on):hover { background: var(--surface); color: var(--ink); } }
+@media (max-width: 560px) { .acct-tab small { display: none; } .acct-tab { justify-content: center; flex-direction: column; gap: 4px; padding: 8px 4px; text-align: center; } }
+
+.acct-tabs.cards { grid-template-columns: 1fr; gap: 10px; padding: 0; background: none; border: 0; }
+.acct-tabs.cards .acct-tab { min-height: 88px; padding: 16px 18px; gap: 16px; border: 1px solid var(--line); background: var(--surface); border-radius: 16px; flex-direction: row; text-align: left; }
+.acct-tabs.cards .acct-tab svg { width: 44px; height: 44px; padding: 10px; border-radius: 12px; background: var(--primary-soft, #FFF4D6); color: #B87500; }
+.acct-tabs.cards .acct-tab strong { font-size: 17px; }
+.acct-tabs.cards .acct-tab small { display: block; font-size: 13px; }
+.acct-tabs.cards .acct-go { margin-left: auto; font-size: 22px; color: var(--muted); transition: transform .18s ease, color .18s ease; }
+@media (hover: hover) { .acct-tabs.cards .acct-tab:hover { border-color: #FBB017; box-shadow: 0 8px 24px rgba(242, 159, 5, .12); } .acct-tabs.cards .acct-tab:hover .acct-go { color: #B87500; } }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) { .acct-tabs.cards .acct-tab:hover .acct-go { transform: translateX(4px); } }
+
+.auth-group { border: 0; margin: 0; padding: 0; display: grid; gap: 14px; min-width: 0; }
+.auth-group + .auth-group { padding-top: 16px; border-top: 1px dashed var(--line); }
+.auth-group legend { font: 600 12px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: #B87500; margin-bottom: 10px; padding: 0; }
+.auth-submit { min-height: 50px; font-size: 16px; }
+.auth-note { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin: 0; }

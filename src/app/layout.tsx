@@ -84,9 +84,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </>
               ) : (
                 <>
-                  <Link href="/login">Sign in</Link>
-                  <Link href="/join">Create an account</Link>
-                  <Link href="/signup" className="btn primary small">Register a company</Link>
+                  {/* One way in: sign in, and from there create an account if you have none. */}
+                  <Link href="/login" className="btn primary small">Sign in</Link>
                 </>
               )}
             </HeaderNav>

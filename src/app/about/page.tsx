@@ -32,7 +32,7 @@ export default async function AboutPage() {
               <li>{c.completed} completed {c.completed === 1 ? "deal" : "deals"} shown with the company&apos;s confirmation</li>
             </ul>
           ) : <p className="muted">Figures are not available right now.</p>}
-          <div className="row"><Link className="btn primary" href="/signup">Register a company</Link><Link className="btn" href="/support">Contact us</Link></div>
+          <div className="row"><Link className="btn primary" href="/join?as=company">Register a company</Link><Link className="btn" href="/support">Contact us</Link></div>
         </div>
       </section>
     </div>

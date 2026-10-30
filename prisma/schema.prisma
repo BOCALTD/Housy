@@ -32,6 +32,8 @@ model User {
   email           String       @unique
   name            String
   passwordHash    String       @map("password_hash")
+  /// Given at sign-up (agents must, others may), stored as +234...
+  phone           String       @default("")
   isPlatformAdmin Boolean      @default(false) @map("is_platform_admin")
   createdAt       DateTime     @default(now()) @map("created_at")
   /// Two-step sign-in: the secret is stored encrypted; it only counts once mfaEnabledAt is set. mfaLastStep stops a code being used twice.
@@ -73,6 +75,12 @@ model Company {
   industryTemplate String    @default("") @map("industry_template")
   /// The company's own account codes for the accounting export (accounting-rules.ts ACCOUNTS keys to codes).
   accountingCodes  Json      @default("{}") @map("accounting_codes")
+  /// What the business does (account-type-rules.ts BUSINESS_TYPES), or INDEPENDENT_AGENT for an agent's own workspace.
+  businessType     String    @default("") @map("business_type")
+  /// The company's own contact details from sign-up, and its CAC number if given (checked in verification).
+  contactEmail     String    @default("") @map("contact_email")
+  contactPhone     String    @default("") @map("contact_phone")
+  cacNumber        String    @default("") @map("cac_number")
   /// Set by a platform administrator: the workspace is closed and the company's listings and profiles are hidden until restored.
   suspendedAt      DateTime? @map("suspended_at")
   suspendedReason  String    @default("") @map("suspended_reason")

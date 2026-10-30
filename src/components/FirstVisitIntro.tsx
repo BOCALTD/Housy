@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LogoMark } from "./Logo";
+import { Logo } from "./Logo";
 
 const KEY = "intro-done";
 
@@ -60,7 +60,7 @@ export function FirstVisitIntro({ signedIn, name, preview }: { signedIn: boolean
       <div className="intro-shade" aria-hidden="true" />
 
       <div className="intro-top">
-        <span className="intro-brand"><LogoMark size={36} /><span className="wordmark">{name}</span></span>
+        <span className="intro-brand"><Logo height={30} tone="light" /></span>
         <span className="intro-nav">
           {!last ? <button type="button" className="intro-link" onClick={close}>Skip</button> : null}
           {!last ? <button type="button" className="intro-link intro-next" onClick={() => setI(i + 1)}>Next <span aria-hidden="true">→</span></button> : <button type="button" className="intro-link" onClick={close}>Close</button>}

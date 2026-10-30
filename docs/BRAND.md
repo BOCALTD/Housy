@@ -13,36 +13,40 @@ the product behind it serves companies too.
 
 ## Logo
 
-The mark is an **H standing under a roof** on an amber tile: a house, and the first letter of the name. The full logo is the
-mark followed by the wordmark.
+The mark is a lower-case **h whose shoulder is a gabled roof**, with one lit **amber doorway**: the first letter of the name and
+a house drawn as a single line. The full logo is the mark followed by the wordmark **housy** (Inter Display SemiBold, tightened,
+stored as outlines so it never depends on a font loading).
 
 | Use | What to show |
 | --- | --- |
-| Header, footer, sign-in, loader, welcome slides, emails, share pictures | Mark and wordmark |
-| Browser tab, home-screen icon, app icon, avatars | Mark only |
+| Header, footer, sign-in, loader, welcome slides, emails, share pictures | Full logo |
+| Browser tab, home-screen and app icon, avatars, small badges | Mark on the ink tile |
 
-- The shapes live only in `src/lib/brand.ts`. Change them there, then run `npx tsx scripts/make-brand-icons.ts` to redraw the
-  favicon, app icons and `icon.svg`.
-- Keep clear space around the logo of at least a quarter of the mark's height.
-- Smallest size: 16 px for the mark (the tab icon uses thicker lines), 24 px for the full logo.
-- On dark backgrounds the wordmark is white; the mark stays amber with dark lines.
-- Do not stretch, rotate, outline, add shadows inside the tile, recolour the tile, or put the mark on a busy photo without a
-  dark panel behind it.
+- Files: `public/brand/housy-logo.svg` (ink), `housy-logo-white.svg` (for dark backgrounds), `housy-mark.svg` (app tile) and
+  `housy-logo-email.png`. Give these to partners and the press.
+- The shapes live only in `src/lib/brand.ts`. After changing them, run `npx tsx scripts/make-brand-icons.ts` to redraw every
+  icon and logo file.
+- Clear space: at least the width of the doorway times three on every side.
+- Smallest sizes: 16 px for the tile, 22 px tall for the full logo.
+- Ink logo on light backgrounds, white logo on dark backgrounds and photos with a dark panel. The doorway is always amber.
+- Do not stretch, rotate, outline, recolour the doorway, add effects, retype the wordmark in another font, or set the mark
+  inside a different shape. The one sanctioned effect: on hover the doorway lights up.
 
 ## Colours
 
 | Name | Hex | Use |
 | --- | --- | --- |
-| Housy amber | `#FBB017` | Tile, main buttons, highlights |
-| Deep amber | `#F29F05` | Hover, gradients |
-| Ink | `#1F2125` | Lines of the mark, dark panels, text on amber |
+| Ink | `#1F2125` | Logo, app tile, dark panels, text on amber |
+| Doorway amber | `#F2A007` | The doorway in the logo |
+| Housy amber | `#FBB017` | Main buttons, highlights |
 | Grey | `#C9CDD3` | Secondary text on dark panels |
+| Paper | `#FAF8F4` | Light brand backgrounds |
 
-Text on amber is always ink, never white: white on amber fails contrast.
+Amber is the accent, never the background of the logo. Text on amber is always ink, never white: white on amber fails contrast.
 
 ## Type
 
-- Display and wordmark: **Bricolage Grotesque**, bold, tight letter spacing.
+- Wordmark: **Inter Display SemiBold**, as outlines. Headings on the site: **Bricolage Grotesque**.
 - Body: **Instrument Sans**. Figures and codes: **IBM Plex Mono**.
 - Share pictures and emails use **Inter** and Arial, because those draw without downloading a font.
 

@@ -44,7 +44,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FBB017" },
+    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
     { media: "(prefers-color-scheme: dark)", color: "#111214" },
   ],
 };
@@ -74,7 +74,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="top">
           <div className="wrap">
             <Link href="/" className="brand" aria-label={`${PLATFORM_NAME} home`}>
-              <Logo size={30} />
+              <Logo height={30} />
             </Link>
             <HeaderNav>
               <Link href="/">Find property</Link>

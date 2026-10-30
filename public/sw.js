@@ -3,7 +3,7 @@
  * can be read without a connection. Signed-in areas (/app, /admin, /me, /portal, /api, messages, documents)
  * are never cached. The one thing that works offline is the field kit (/field): its page holds nothing personal, the
  * inspector's work is kept in IndexedDB on their device, and it is sent through /api/field once back online. */
-const VERSION = "housy-v5";
+const VERSION = "housy-v6";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const OFFLINE = "/offline";

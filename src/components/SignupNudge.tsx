@@ -11,7 +11,7 @@ export function SignupNudge({ path, shared, what, perks }: { path: string; share
   return (
     <aside className="nudge" aria-labelledby="nudge-h">
       <div className="nudge-mark" aria-hidden="true">
-        <LogoMark size={44} />
+        <LogoMark size={44} tile />
       </div>
       <div className="stack" style={{ gap: 6, minWidth: 0 }}>
         <p className="eyebrow">{shared ? "Shared with you" : `New to ${PLATFORM_NAME}?`}</p>

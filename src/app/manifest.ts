@@ -12,8 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#F3F4F6",
-    theme_color: "#FBB017",
+    background_color: "#1F2125", // the splash screen: ink, behind the ink app icon
+    theme_color: "#1F2125",
     categories: ["business", "lifestyle", "productivity"],
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

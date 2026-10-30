@@ -1,27 +1,43 @@
 import { BRAND } from "@/lib/brand";
 import { PLATFORM_NAME } from "@/lib/labels";
 
-/** The mark on its own: an "H" under a roof on an amber tile. Decorative; the name beside it carries the meaning. */
-export function LogoMark({ size = 48, className }: { size?: number; className?: string }) {
-  const stroke = size <= 24 ? BRAND.strokeSmall : BRAND.stroke;
+const M = BRAND.mark;
+const ink = (tone: "ink" | "light") => (tone === "light" ? "#FFFFFF" : "var(--logo-ink, #1F2125)");
+
+function MarkShapes({ line }: { line: string }) {
+  return (
+    <>
+      <path d={M.path} fill="none" stroke={line} strokeWidth={M.stroke} strokeLinejoin="miter" strokeMiterlimit={10} />
+      <rect className="logo-door" x={M.door.x} y={M.door.y} width={M.door.w} height={M.door.h} fill={BRAND.door} />
+    </>
+  );
+}
+
+/**
+ * The mark on its own: a lower-case "h" with a gabled roof and a lit doorway. tile puts it on the ink app tile (icons,
+ * avatars, small badges). Decorative: the name beside it, or the link's label, carries the meaning.
+ */
+export function LogoMark({ size = 48, tone = "ink", tile = false, className }: { size?: number; tone?: "ink" | "light"; tile?: boolean; className?: string }) {
   return (
     <svg className={className} width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <rect width="64" height="64" rx={BRAND.tileRadius} fill={BRAND.amber} />
-      <g fill="none" stroke={BRAND.ink} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
-        <path d={BRAND.roof} />
-        <path d={BRAND.body} />
-      </g>
+      {tile ? (
+        <>
+          <rect width="64" height="64" rx="14" fill={BRAND.ink} />
+          <g transform="translate(32 32) scale(.74) translate(-32 -32)"><MarkShapes line="#FFFFFF" /></g>
+        </>
+      ) : <MarkShapes line={ink(tone)} />}
     </svg>
   );
 }
 
-/** The full logo: mark and wordmark. The wordmark is set in lower case ("housy"); in sentences the name is written "Housy". */
-export function Logo({ size = 32, tone = "ink" }: { size?: number; tone?: "ink" | "light" }) {
+/** The full logo, mark and wordmark, drawn from outlines so it is identical everywhere. height is in pixels. */
+export function Logo({ height = 30, tone = "ink" }: { height?: number; tone?: "ink" | "light" }) {
+  const l = BRAND.lockup;
   return (
-    <span className={`logo logo-${tone}`} style={{ ["--logo" as string]: `${size}px` }}>
-      <LogoMark size={size} className="logo-mark" />
-      <span className="wordmark">{PLATFORM_NAME}</span>
-    </span>
+    <svg className="logo" width={Math.round((height * l.width) / l.height)} height={height} viewBox={`0 0 ${l.width} ${l.height}`} role="img" aria-label={PLATFORM_NAME} focusable="false">
+      <MarkShapes line={ink(tone)} />
+      <path transform={l.wordmarkTransform} fill={ink(tone)} d={BRAND.wordmark} />
+    </svg>
   );
 }
 
@@ -29,7 +45,7 @@ export function Logo({ size = 32, tone = "ink" }: { size?: number; tone?: "ink" 
 export function Loader({ label = "Loading" }: { label?: string }) {
   return (
     <div className="loader" role="status" aria-live="polite">
-      <LogoMark size={64} />
+      <LogoMark size={64} tile />
       <span className="visually-hidden">{label}</span>
     </div>
   );

@@ -14,6 +14,17 @@ function asset(name: string) {
   try { return readFileSync(join(process.cwd(), "src/assets", name)); } catch { return null; }
 }
 
+function BrandLockup({ height, color = "#FFFFFF" }: { height: number; color?: string }) {
+  const l = BRAND.lockup, m = BRAND.mark;
+  return (
+    <svg width={Math.round((height * l.width) / l.height)} height={height} viewBox={`0 0 ${l.width} ${l.height}`}>
+      <path d={m.path} fill="none" stroke={color} strokeWidth={m.stroke} strokeLinejoin="miter" strokeMiterlimit={10} />
+      <rect x={m.door.x} y={m.door.y} width={m.door.w} height={m.door.h} fill={BRAND.door} />
+      <path transform={l.wordmarkTransform} fill={color} d={BRAND.wordmark} />
+    </svg>
+  );
+}
+
 export default function OpengraphImage() {
   const photo = asset("og-photo.jpg");
   const bold = asset("fonts/Inter-Bold.otf"), medium = asset("fonts/Inter-Medium.otf");
@@ -23,19 +34,14 @@ export default function OpengraphImage() {
       <div style={{ width: "100%", height: "100%", display: "flex", background: "#1F2125", color: "#FFFFFF", fontFamily: "Inter" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "64px 56px 56px 72px" }}>
           <div style={{ display: "flex", alignItems: "center" }}>
-            <svg width="80" height="80" viewBox="0 0 64 64">
-              <rect width="64" height="64" rx={BRAND.tileRadius} fill={BRAND.amber} />
-              <path d={BRAND.roof} fill="none" stroke={BRAND.ink} strokeWidth={BRAND.stroke} strokeLinecap="round" strokeLinejoin="round" />
-              <path d={BRAND.body} fill="none" stroke={BRAND.ink} strokeWidth={BRAND.stroke} strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div style={{ marginLeft: 20, fontSize: 52, fontWeight: 700, letterSpacing: -1.5 }}>{PLATFORM_NAME.toLowerCase()}</div>
+            <BrandLockup height={64} />
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ fontSize: 62, fontWeight: 700, lineHeight: 1.08, letterSpacing: -1 }}>{BRAND.tagline}</div>
             <div style={{ marginTop: 22, fontSize: 30, color: "#C9CDD3", lineHeight: 1.35 }}>Verified companies and agents, inspections booked safely, and rent and documents in one place.</div>
           </div>
           <div style={{ display: "flex", alignItems: "center" }}>
-            <div style={{ fontSize: 24, background: "#FBB017", color: "#1F2125", padding: "12px 24px", borderRadius: 12, fontWeight: 700 }}>Join free</div>
+            <div style={{ fontSize: 24, background: BRAND.amber, color: BRAND.ink, padding: "12px 24px", borderRadius: 12, fontWeight: 700 }}>Join free</div>
             <div style={{ marginLeft: 20, fontSize: 24, color: "#C9CDD3" }}>Buy · Rent · Lease · Flatmates</div>
           </div>
         </div>

@@ -22,7 +22,7 @@ export function AuthShell({ eyebrow, title, intro, points, photo = "/stock/hero-
         <img src={photo} alt="" loading="lazy" decoding="async" />
         <div className="auth-art-inner">
           <Link href="/" className="auth-brand" aria-label={`${PLATFORM_NAME} home`}>
-            <Logo size={36} tone="light" />
+            <Logo height={34} tone="light" />
           </Link>
           <ul className="auth-points">{points.map((p) => <li key={p}>{p}</li>)}</ul>
         </div>

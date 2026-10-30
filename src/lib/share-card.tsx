@@ -1,5 +1,4 @@
 import { ImageResponse } from "next/og";
-import { PLATFORM_NAME } from "@/lib/labels";
 import { BRAND } from "@/lib/brand";
 import { withPublic } from "@/lib/db";
 import { readFileSync } from "node:fs";
@@ -34,12 +33,13 @@ export async function cardPhoto(listingId: string): Promise<string | null> {
 
 const AMBER = BRAND.amber, INK = BRAND.ink, MUTED = BRAND.grey;
 
-function Mark({ size = 44 }: { size?: number }) {
+function BrandLockup({ height, color = "#FFFFFF" }: { height: number; color?: string }) {
+  const l = BRAND.lockup, m = BRAND.mark;
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64">
-      <rect width="64" height="64" rx={BRAND.tileRadius} fill={AMBER} />
-      <path d={BRAND.roof} fill="none" stroke={INK} strokeWidth={BRAND.stroke} strokeLinecap="round" strokeLinejoin="round" />
-      <path d={BRAND.body} fill="none" stroke={INK} strokeWidth={BRAND.stroke} strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={Math.round((height * l.width) / l.height)} height={height} viewBox={`0 0 ${l.width} ${l.height}`}>
+      <path d={m.path} fill="none" stroke={color} strokeWidth={m.stroke} strokeLinejoin="miter" strokeMiterlimit={10} />
+      <rect x={m.door.x} y={m.door.y} width={m.door.w} height={m.door.h} fill={BRAND.door} />
+      <path transform={l.wordmarkTransform} fill={color} d={BRAND.wordmark} />
     </svg>
   );
 }
@@ -69,8 +69,7 @@ export function shareCard(o: { photo?: string | null; initials?: string; eyebrow
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center" }}>
-              <Mark />
-              <div style={{ marginLeft: 14, fontSize: 32, fontWeight: 700, letterSpacing: -1 }}>{PLATFORM_NAME.toLowerCase()}</div>
+              <BrandLockup height={46} />
             </div>
             <div style={{ fontSize: 24, background: AMBER, color: INK, padding: "10px 20px", borderRadius: 10, fontWeight: 700 }}>{o.cta}</div>
           </div>

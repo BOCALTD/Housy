@@ -1,11 +1,13 @@
 /**
  * Draws every icon file from the logo in src/lib/brand.ts, so the browser tab, home-screen and app icons always match the
  * logo on the site. Run after changing the logo:  npx tsx scripts/make-brand-icons.ts
- * Writes src/app/icon.svg, src/app/favicon.ico (16, 32, 48), src/app/apple-icon.png (180) and public/icons/*.png.
+ * Writes src/app/icon.svg, src/app/favicon.ico (16, 32, 48), src/app/apple-icon.png (180), public/icons/*.png and the logo
+ * files in public/brand (SVG for partners and the press, a PNG for emails).
  */
 import { writeFileSync } from "node:fs";
 import { chromium } from "playwright";
-import { BRAND, markSvg } from "../src/lib/brand";
+import { mkdirSync } from "node:fs";
+import { BRAND, lockupSvg, markSvg } from "../src/lib/brand";
 
 let browser: Awaited<ReturnType<typeof chromium.launch>>;
 
@@ -35,15 +37,27 @@ function ico(images: { size: number; data: Buffer }[]): Buffer {
 async function main() {
   browser = await chromium.launch();
   try {
-  writeFileSync("src/app/icon.svg", markSvg({ stroke: BRAND.strokeSmall }) + "\n");
-  const small = markSvg({ stroke: BRAND.strokeSmall });
-  writeFileSync("src/app/favicon.ico", ico(await Promise.all([16, 32, 48].map(async (size) => ({ size, data: await png(size <= 32 ? small : markSvg(), size) })))));
-  // Apple and maskable icons are full squares: the phone rounds or crops the corners itself. Maskable keeps the mark inside the
-  // central safe zone so no launcher shape cuts it.
-  writeFileSync("src/app/apple-icon.png", await png(markSvg({ tile: false, padding: 6 }), 180));
-  writeFileSync("public/icons/icon-192.png", await png(markSvg(), 192));
-  writeFileSync("public/icons/icon-512.png", await png(markSvg(), 512));
-  writeFileSync("public/icons/maskable-512.png", await png(markSvg({ tile: false, padding: 10 }), 512));
+    mkdirSync("public/brand", { recursive: true });
+    // Tab icons: the mark is drawn a little larger on the tile so it stays readable at 16 pixels.
+    const small = markSvg({ scale: 0.86 });
+    writeFileSync("src/app/icon.svg", small + "\n");
+    writeFileSync("src/app/favicon.ico", ico(await Promise.all([16, 32, 48].map(async (size) => ({ size, data: await png(size <= 32 ? small : markSvg(), size) })))));
+    // Apple and maskable icons are full squares: the phone rounds or crops the corners itself. Maskable keeps the mark inside
+    // the central safe zone so no launcher shape cuts it.
+    writeFileSync("src/app/apple-icon.png", await png(markSvg({ square: true, scale: 0.7 }), 180));
+    writeFileSync("public/icons/icon-192.png", await png(markSvg(), 192));
+    writeFileSync("public/icons/icon-512.png", await png(markSvg(), 512));
+    writeFileSync("public/icons/maskable-512.png", await png(markSvg({ square: true, scale: 0.56 }), 512));
+    // Logo files for emails, partners and the press.
+    writeFileSync("public/brand/housy-logo.svg", lockupSvg({ height: 73 }) + "\n");
+    writeFileSync("public/brand/housy-logo-white.svg", lockupSvg({ height: 73, color: "#FFFFFF" }) + "\n");
+    writeFileSync("public/brand/housy-mark.svg", markSvg({ size: 512 }) + "\n");
+    const lock = lockupSvg({ height: 72 });
+    const w = Number(/width="(\d+)"/.exec(lock)![1]);
+    const page = await browser.newPage({ viewport: { width: w, height: 72 } });
+    await page.setContent(`<html><body style="margin:0;background:transparent">${lock}</body></html>`);
+    writeFileSync("public/brand/housy-logo-email.png", await page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: w, height: 72 } }));
+    await page.close();
   } finally {
     await browser.close();
   }

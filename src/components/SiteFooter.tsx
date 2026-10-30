@@ -17,7 +17,7 @@ export function SiteFooter() {
       <div className="wrap">
         <div className="foot-grid">
           <div className="foot-brand">
-            <strong><Logo size={38} tone="light" /></strong>
+            <strong><Logo height={36} tone="light" /></strong>
             <p>Find property from verified companies and agents, check before you pay, and manage property portfolios in one place.</p>
             <InstallButton />
           </div>

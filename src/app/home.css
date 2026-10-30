@@ -927,6 +927,6 @@ body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none
   .rf-rail { gap: 0; }
   .rf-act { min-height: 48px; padding: 2px 0; }
   .rf-act svg { width: 24px; height: 24px; }
-  .rf-avatar { width: 42px; height: 42px; font-size: 14px; }
+  .rf-avatar { width: 44px; height: 44px; font-size: 14px; }
   .rf-avatar-wrap { margin-bottom: 14px; }
 }

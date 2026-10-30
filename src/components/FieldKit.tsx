@@ -173,7 +173,7 @@ export function FieldKit() {
   }, [download, load, sync]);
 
   // Keep a copy of this page on the device so it opens without a connection (an anonymous copy, as for public pages).
-  useEffect(() => { if (pack && "caches" in window) void caches.open("housy-v5-pages").then((c) => c.add(new Request("/field", { credentials: "omit" }))).catch(() => {}); }, [pack]);
+  useEffect(() => { if (pack && "caches" in window) void caches.open("housy-v6-pages").then((c) => c.add(new Request("/field", { credentials: "omit" }))).catch(() => {}); }, [pack]);
 
   async function removeAll() {
     if (!user) return;

@@ -360,3 +360,10 @@ What code and documents can do is done; the launch itself needs your accounts an
 - **Site outlines.** On an asset page, a company can draw the outline of an estate, development or plot (switch to Satellite to see the plots), with its area worked out. It appears on the public listing only when they tick "show this outline", because it shows the exact site; use it for estates and land, not occupied homes.
 - **Inspection directions and the day's route.** When an inspection is confirmed, the visitor gets the exact spot on a map with directions buttons (it is never shown before). Agents and managers have "The day's route": a person's confirmed inspections in time order on the map, with distances between stops and the whole round in Google Maps.
 - Not available: neighbourhood boundaries (there is no reliable open dataset for Nigerian neighbourhoods), live traffic.
+
+## Industry templates (business set-up)
+
+- **Business set-up** (`/app/setup`, company administrators) prepares the workspace for one of five kinds of business: a letting and property management agency, a sales and lettings brokerage, a property developer, a facility manager, or an institutional or government portfolio.
+- Each suggests departments, inspection checklists made for that work (move-in and move-out, site progress and snagging, building services and fire safety, annual asset verification and boundary checks...), reminders for the levies, renewals and permits that kind of business usually has, commission rules, and reminder timings.
+- Nothing is applied unseen. The administrator unticks what they do not want, enters when each reminder is next due and their own commission percentages (the usual market figure is shown only as a guide), and applies. No amount, rate or date is invented. Applying again adds only what is missing and never changes what exists.
+- The dashboard invites a new company to choose a set-up, then shows the first steps for the one chosen.

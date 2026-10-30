@@ -696,3 +696,12 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .chip-toggle input { width: 18px; height: 18px; accent-color: #FBB017; margin: 0; }
 .chip-toggle:has(input:checked) { border-color: #FBB017; background: color-mix(in srgb, #FBB017 12%, var(--surface)); }
 .chip-toggle:has(input:focus-visible) { outline: 3px solid #FBB017; outline-offset: 2px; }
+/* Business set-up: the kinds of business as cards, then the choices. */
+.setup-kinds { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 10px; }
+.setup-kind { display: grid; gap: 6px; align-content: start; height: 100%; padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; }
+.setup-kind span { color: var(--muted); font-size: .92rem; }
+.setup-kind.on { border: 2px solid #FBB017; background: color-mix(in srgb, #FBB017 9%, var(--surface)); }
+.setup-row { display: grid; gap: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.setup-row:first-of-type { border-top: 0; padding-top: 0; }
+@media (hover: hover) { .setup-kind:hover { border-color: #FBB017; } }
+.first-steps { margin: 10px 0 0; padding-left: 22px; display: grid; gap: 6px; }

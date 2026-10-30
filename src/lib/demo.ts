@@ -68,6 +68,7 @@ import { endSession, startSafetySession } from "./services/safety";
 import { openCase } from "./services/trust-cases";
 import { withPlatformAdmin as asAdmin } from "./db";
 import { createDemoCatalogue } from "./demo-catalogue";
+import { applyIndustryTemplate } from "./services/industry-setup";
 
 export const DEMO_PASSWORD = "demo-password-123";
 export const DEMO_USERS = [
@@ -224,6 +225,8 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await updateRefPrefix(alpha, "ALP");
   await addDepartment(alpha, { name: "[DEMO] Legal", code: "LEG" });
   await addDepartment(alpha, { name: "[DEMO] Property management", code: "PM" });
+  // Alpha started from the letting-agency set-up (departments and checklists; no dates or rates were entered for it).
+  await applyIndustryTemplate(alpha, "LETTING", { departments: ["LET", "ACC"], checklists: ["Move-in inspection", "Move-out inspection", "Quarterly tenancy inspection"], obligations: {}, commission: {}, reminders: false });
   const legal = (await listDepartments(alpha)).find((d) => d.code === "LEG")!;
   await setMemberDepartment(alpha, officer.membershipId, legal.id);
   const today = todayInLagos();

@@ -54,6 +54,7 @@ function groupsFor(r: Role, incoming: number): SideGroup[] {
       ["/app/verification", "Verification", "shield", can(r, "kyc.manage")],
       ["/app/import", "Bring in records", "folder", can(r, "import.manage")],
       ["/app/api-keys", "API keys", "key", can(r, "api.manage")],
+      ["/app/setup", "Business set-up", "sparkle", can(r, "settings.manage")],
       ["/app/settings", "Settings", "gear", can(r, "settings.manage")],
       ["/app/switch", "Switch company", "building", true],
     ]),

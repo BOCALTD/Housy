@@ -13,6 +13,7 @@ import { Flash, ShowMore, sp, type SP } from "@/components/ui";
 import { companyTrust } from "@/lib/services/kyc";
 import { TrustBadge } from "@/components/TrustBadge";
 import { myPromoEntries } from "@/lib/services/promotions";
+import { companyTemplate } from "@/lib/services/industry-setup";
 import { todayInLagos } from "@/lib/dates";
 
 export const metadata = { title: "Dashboard" };
@@ -28,6 +29,7 @@ export default async function DashboardPage({ searchParams: searchP }: { searchP
   const today = todayInLagos();
   const livePromos = (promos ?? []).filter((e) => e.status === "APPROVED" && e.campaign.active && e.campaign.startsOn <= today && e.campaign.endsOn >= today);
   const waitingPromos = (promos ?? []).filter((e) => e.status === "REQUESTED").length;
+  const template = await companyTemplate(member).catch(() => null);
   const escalated = calendar.items.filter((i) => i.state === "ESCALATED").length;
   const overdueDeadlines = calendar.items.filter((i) => i.state === "OVERDUE").length;
   const dueSoon = calendar.items.filter((i) => i.state === "DUE_SOON").length;
@@ -45,6 +47,18 @@ export default async function DashboardPage({ searchParams: searchP }: { searchP
           <span className="row"><TrustBadge t={trust} /> <span className="small">Verified companies get a badge on every listing and profile. {can(member.role, "kyc.manage") ? "Complete the checks to earn it." : "Ask your company administrator to complete the checks."}</span></span>
           {can(member.role, "kyc.manage") ? <Link className="btn primary" href="/app/verification">Verify the company</Link> : null}
         </div>
+      ) : null}
+
+      {can(member.role, "settings.manage") && !template ? (
+        <div className="card promo-status on">
+          <div className="promo-status-text"><p className="eyebrow">Get started</p><strong>Set up the workspace for your kind of business</strong><span className="small muted">Letting agency, brokerage, developer, facility manager or institution: departments, checklists, reminders and commission rules, in a minute.</span></div>
+          <a className="btn primary" href="/app/setup">Choose your set-up</a>
+        </div>
+      ) : template ? (
+        <details className="card inline">
+          <summary>First steps as a {template.name.toLowerCase()}</summary>
+          <ol className="first-steps">{template.firstSteps.map((f) => <li key={f.label}><a href={f.href}>{f.label}</a></li>)}</ol>
+        </details>
       ) : null}
 
       {promos ? (

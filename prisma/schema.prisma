@@ -69,6 +69,8 @@ model Company {
   // overdue before it is escalated to administrators.
   reminderLeadDays Int     @default(30) @map("reminder_lead_days")
   escalationDays   Int     @default(7) @map("escalation_days")
+  /// The industry template the company started from, or empty. See src/lib/industry-templates.ts.
+  industryTemplate String    @default("") @map("industry_template")
   /// Set by a platform administrator: the workspace is closed and the company's listings and profiles are hidden until restored.
   suspendedAt      DateTime? @map("suspended_at")
   suspendedReason  String    @default("") @map("suspended_reason")

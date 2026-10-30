@@ -69,7 +69,8 @@ export function scoreListing(c: Candidate, t: Taste, labels: { type?: (code: str
   if (t.purposes.size && share(t.purposes, c.purpose) === 0) return { score: 0, why };
   const city = c.city.trim().toLowerCase();
   const cs = share(t.cities, city);
-  if (cs > 0) { score += 3 * cs + 0.6; why.push(`In ${c.city}, where you have been looking`); }
+  const lead: string[] = []; // the strongest reasons come first
+  if (cs > 0) { score += 3 * cs + 0.6; lead.push(`In ${c.city}, where you have been looking`); }
   const ps = share(t.purposes, c.purpose);
   if (ps > 0) score += 1.5 * ps; else if (t.purposes.size) score -= 1.5;
   const ts = share(t.types, c.propertyType);
@@ -88,10 +89,10 @@ export function scoreListing(c: Candidate, t: Taste, labels: { type?: (code: str
     else if (r > 2 || r < 0.35) score -= 1;
   }
   const ag = share(t.agents, c.postedById), co = share(t.companies, c.companyId);
-  if (ag > 0 || co > 0) { score += 1.5 * Math.max(ag, co) + 0.4; why.push(ag > 0 ? "Listed by an agent you have looked at" : "From a company you have looked at"); }
+  if (ag > 0 || co > 0) { score += 1.5 * Math.max(ag, co) + 0.4; lead.push(ag > 0 ? "Listed by an agent you have looked at" : "From a company you have looked at"); }
   // Somewhere they have never looked, from no one they know of, is a weak fit however similar the home.
   if (cs === 0 && ag === 0 && co === 0) score *= 0.4;
-  return { score, why: why.slice(0, 2) };
+  return { score, why: [...lead, ...why].slice(0, 2) };
 }
 
 /** The best fits, at most `limit`, with a little freshness so new listings get a chance. */

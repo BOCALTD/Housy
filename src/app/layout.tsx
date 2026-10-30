@@ -1,3 +1,4 @@
+import { DemoStrip } from "@/components/DemoStrip";
 import { Suspense } from "react";
 import { AppToaster, UrlToasts } from "@/components/Toasts";
 import "./globals.css";
@@ -56,6 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <a className="skip-link" href="#main">Skip to main content</a>
+        <DemoStrip />
         <AppToaster />
         <Suspense fallback={null}><UrlToasts /></Suspense>
         <header className="top">

@@ -664,3 +664,7 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 @media (hover: hover) { .plan:hover { border-color: color-mix(in srgb, #FBB017 60%, var(--line)); } }
 @media (prefers-reduced-motion: no-preference) { .plan { transition: border-color .2s, transform .2s, box-shadow .2s; } @media (hover: hover) { .plan:hover { transform: translateY(-3px); } } }
 @media (min-width: 1180px) { .plans:has(> .plan:only-child) { grid-template-columns: minmax(0, 400px); } }
+/* Shown while demonstration data is loaded. */
+.demo-strip { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 6px 16px; background: #1F2125; color: #E7E9EC; font-size: 13px; text-align: center; }
+.demo-strip a { color: #FBB017; }
+.demo-strip-tag { padding: 1px 8px; border-radius: 999px; background: #FBB017; color: #1F2125; font-weight: 800; font-size: 11.5px; letter-spacing: .06em; }

@@ -50,7 +50,7 @@ Requirements: Node 20+, PostgreSQL 16.
    npm run dev
    ```
 
-   Set `SEED_DEMO_DATA=true` before seeding to add labelled demonstration data. You can also use the `/setup` page instead of the seed script.
+   To see the platform full of sample content, run `npm run db:seed:demo` instead of `npm run db:seed` (or tick the demonstration box on the `/setup` page). It adds six sample companies and their agents, about 30 published properties in Lagos, Abuja, Port Harcourt, Ibadan and Enugu with several photographs each, ten property reels (short videos), promotions, completed sales, client reviews, flatmate profiles and a full company workspace. A dark strip at the top of every page says the data is a sample. Sign in as `demo.alpha@example.test`, `demo.lekki@example.test` (company), `demo.kemi.agent@example.test` (agent) or `demo.seeker@example.test` (person looking for property), password `demo-password-123`. Never load it on the live site.
 
 4. Open http://localhost:3000.
 
@@ -344,3 +344,9 @@ What code and documents can do is done; the launch itself needs your accounts an
 - Anything else goes to the **verification team** under Platform admin → Identity and business checks, with the reason: details did not match (the record's name is shown masked), no record found, the provider was unavailable, a passport (no provider checks passports), or no agreement. The team decides by hand as before, can try the automatic check again after an outage, and can revoke any automatic verification.
 - Address, photo, phone and professional licence checks are always done by a person.
 - Providers: **Dojah** (`DOJAH_APP_ID`, `DOJAH_SECRET_KEY`: NIN, CAC, TIN) and **Youverify** (`YOUVERIFY_TOKEN`: NIN, voter's card, driver's licence). Set either or both; `KYC_PROVIDERS` sets the order. If one is down, the next is tried, then a person. Only the names and company details needed for the comparison are read; photos, dates of birth and phone numbers in the provider's reply are not stored. The launch checklist shows whether automatic checks are on, and warns about sandbox keys.
+
+## Sample photographs and videos
+
+- `prisma/demo-media/photos`: about 90 photographs (exteriors, living rooms, bedrooms, kitchens, bathrooms, offices and warehouses) from Unsplash, under the Unsplash Licence; ids in `CREDITS.md`. They are stand-ins and do not show the sample properties.
+- `prisma/demo-media/reels`: the property reels, vertical MP4 clips made from those photographs with slow zooms, cross-fades and the property's name, price and area. Rebuild them after changing the catalogue with `npx tsx scripts/make-demo-reels.ts` (needs ffmpeg).
+- The catalogue itself (companies, agents, properties, reviews) is in `src/lib/demo-catalogue-data.ts`.

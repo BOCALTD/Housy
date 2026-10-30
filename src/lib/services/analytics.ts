@@ -72,7 +72,9 @@ export async function companyAnalytics(ctx: Ctx, now = new Date()): Promise<Anal
     if (can(r, "maintenance.request")) {
       const open = await tx.workOrder.findMany({ where: { companyId: c, status: { in: [...OPEN_WORK] } }, select: { status: true, targetDate: true, priority: true }, take: 5000 });
       const done = await tx.workOrder.findMany({ where: { companyId: c, completedOn: { gte: plus(-90) } }, select: { createdAt: true, completedOn: true, actualCostKobo: true }, take: 5000 });
-      const spans = done.filter((w) => w.completedOn).map((w) => ((w.completedOn as Date).getTime() - w.createdAt.getTime()) / day);
+      // The completion date has no time of day, so count whole days from the date the job was reported (Lagos time); never below zero.
+      const reportedDay = (d: Date) => Date.parse(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(d)}T00:00:00Z`);
+      const spans = done.filter((w) => w.completedOn).map((w) => Math.max(0, ((w.completedOn as Date).getTime() - reportedDay(w.createdAt)) / day));
       const by = new Map<string, number>();
       for (const w of open) by.set(w.status, (by.get(w.status) ?? 0) + 1);
       out.maintenance = {

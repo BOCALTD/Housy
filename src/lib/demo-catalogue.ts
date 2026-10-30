@@ -180,7 +180,8 @@ async function createMarketHistory(adminId: string, firms: Map<string, { owner: 
   const now = Date.now();
   for (const m of MARKET_HISTORY) {
     for (let k = 0; k < HISTORY_PER_CITY; k++) {
-      const owner = firms.get(m.firms[k % m.firms.length])?.owner;
+      // Spread every bedroom band across the companies, so no figure rests on one company (market-rules MIN_COMPANIES).
+      const owner = firms.get(m.firms[(k + Math.floor(k / 6)) % m.firms.length])?.owner;
       if (!owner) continue;
       const purpose = k % 2 === 0 ? "SALE" : "RENT";
       const beds = (2 + (Math.floor(k / 2) % 3)) as 2 | 3 | 4;

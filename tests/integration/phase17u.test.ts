@@ -50,7 +50,9 @@ test("suggestions follow what a person does, say why, and can be cleared or turn
   const city = `Suggestville ${uid()}`;
   const seen = await listed(co, admin.id, city, "4,000,000");
   const similar = await listed(co, admin.id, city, "4,200,000");
-  const elsewhere = await listed(co, admin.id, `Faraway ${uid()}`, "4,000,000");
+  const other = await newCompany("sugg2");
+  const elsewhere = await listed(other, admin.id, `Faraway ${uid()}`, "4,000,000");
+  const sameAgentElsewhere = await listed(co, admin.id, `Afar ${uid()}`, "4,100,000");
   const me = await registerSeeker({ name: "Ada Seeker", email: `s${uid()}@example.test`, password: "a long enough password" });
 
   assert.equal(await suggestedListings(me.userId), null, "nothing done yet, nothing suggested");
@@ -65,7 +67,8 @@ test("suggestions follow what a person does, say why, and can be cleared or turn
   const ids = picks.map((p) => p.id);
   assert.ok(ids.includes(similar.id), "a similar home in the same place is suggested");
   assert.ok(!ids.includes(seen.id), "the one already asked about is not suggested again");
-  assert.ok(!ids.includes(elsewhere.id));
+  assert.ok(!ids.includes(elsewhere.id), "somewhere else, from someone they never looked at");
+  assert.match(picks.find((p) => p.id === sameAgentElsewhere.id)?.why.join(" ") ?? "", /agent you have looked at|company you have looked at/, "the same agent's other homes may be suggested, saying so");
   assert.match(picks.find((p) => p.id === similar.id)!.why[0], /where you have been looking/);
 
   await clearSignals(me.userId);
@@ -75,6 +78,6 @@ test("suggestions follow what a person does, say why, and can be cleared or turn
   assert.equal((await mySignals(me.userId)).count, 0, "nothing is recorded when suggestions are off");
   assert.equal(await suggestedListings(me.userId), null);
 
-  const other = await registerSeeker({ name: "Other Person", email: `o${uid()}@example.test`, password: "a long enough password" });
-  assert.equal(await withUser(other.userId, (tx) => tx.userSignal.count({ where: { userId: me.userId } })), 0, "one person cannot read another's history");
+  const stranger = await registerSeeker({ name: "Other Person", email: `o${uid()}@example.test`, password: "a long enough password" });
+  assert.equal(await withUser(stranger.userId, (tx) => tx.userSignal.count({ where: { userId: me.userId } })), 0, "one person cannot read another's history");
 });

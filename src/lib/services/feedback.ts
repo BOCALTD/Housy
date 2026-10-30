@@ -46,9 +46,10 @@ export async function snoozeFeedback(userId: string, now = new Date()) {
 const score = (label: string, required: boolean) => z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)),
   required ? z.number({ error: `Give a ${label} rating` }).int().min(1, "Choose 1 to 5").max(5, "Choose 1 to 5")
     : z.number().int().min(1).max(5).optional());
+const optionalScore = (label: string) => score(label, false).optional();
 const ratingSchema = z.object({
   overall: score("overall", true),
-  ease: score("ease", false), trust: score("trust", false), support: score("support", false),
+  ease: optionalScore("ease"), trust: optionalScore("trust"), support: optionalScore("support"),
   suggestion: z.string().trim().max(2000, "Keep it under 2000 characters").default(""),
   anonymous: z.union([z.boolean(), z.string()]).optional().transform((v) => v === true || v === "on" || v === "true"),
 });

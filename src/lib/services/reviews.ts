@@ -24,10 +24,12 @@ const SYSTEM_USER = "system";
 const score = (label: string, required: boolean) => z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)),
   required ? z.number({ error: `Give an overall rating` }).int().min(1, "Choose 1 to 5").max(5, "Choose 1 to 5")
     : z.number().int().min(1, `${label}: choose 1 to 5`).max(5, `${label}: choose 1 to 5`).optional());
+// Optional ratings may be left out altogether (zod 4 types a preprocessed field's input as unknown, so say so outright).
+const optionalScore = (label: string) => score(label, false).optional();
 const reviewSchema = z.object({
   overall: score("Overall", true),
-  communication: score("Communication", false), professionalism: score("Professionalism", false), accuracy: score("Listing accuracy", false),
-  responsiveness: score("Responsiveness", false), serviceQuality: score("Service quality", false), handling: score("Transaction handling", false),
+  communication: optionalScore("Communication"), professionalism: optionalScore("Professionalism"), accuracy: optionalScore("Listing accuracy"),
+  responsiveness: optionalScore("Responsiveness"), serviceQuality: optionalScore("Service quality"), handling: optionalScore("Transaction handling"),
   body: z.string().trim().max(2000, "Keep the review under 2000 characters").default(""),
 });
 export type ReviewInput = z.input<typeof reviewSchema>;

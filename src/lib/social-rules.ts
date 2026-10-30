@@ -50,7 +50,7 @@ export interface FeedReel {
   id: string; authorId: string; companyId: string; city: string; publishedAt: Date;
   engagement: number;      // from countedEngagement
 }
-export interface Viewer { followedAuthors: Set<string>; followedCompanies: Set<string>; cities: Set<string> }
+export interface Viewer { followedAuthors: Set<string>; followedCompanies: Set<string>; cities: Set<string>; /** Agents whose reels or homes they keep watching, without following. */ watchedAuthors?: Set<string> }
 
 export interface Ranked { id: string; score: number; why: string[] }
 
@@ -61,6 +61,7 @@ export function rankFeed(reels: FeedReel[], now: Date, viewer?: Viewer | null): 
     const why: string[] = [];
     let score = base;
     if (viewer?.followedAuthors.has(r.authorId) || viewer?.followedCompanies.has(r.companyId)) { score += 5 * decay(r.publishedAt, now) + 1; why.push("You follow them"); }
+    else if (viewer?.watchedAuthors?.has(r.authorId)) { score += 2.5 * decay(r.publishedAt, now); why.push("From an agent you have been watching"); }
     if (viewer && r.city && viewer.cities.has(r.city.toLowerCase())) { score += 1.5 * decay(r.publishedAt, now); why.push(`Near ${r.city}`); }
     if (!why.length && r.engagement > 0) why.push("Popular right now");
     return { id: r.id, score: Math.round(score * 1e9) / 1e9, why, t: r.publishedAt.getTime() };

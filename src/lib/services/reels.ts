@@ -212,8 +212,9 @@ async function viewerProfile(userId: string): Promise<Viewer & { any: boolean }>
   if (touched.length) for (const r of await withPublic((tx) => tx.reel.findMany({ where: { id: { in: touched }, status: "PUBLISHED" }, select: { city: true } }))) if (r.city) cities.add(r.city.toLowerCase());
   // What this person watches, likes and looks at elsewhere on the platform (their own signals) also shapes their reels.
   const t = await reelTaste(userId).catch(() => null);
-  if (t) { for (const c of t.cities) if (c) cities.add(c); for (const a of t.authors) if (a && a !== userId) followedAuthors.add(a); }
-  return { followedAuthors, followedCompanies, cities, any: followedAuthors.size + followedCompanies.size + cities.size > 0 };
+  const watchedAuthors = new Set<string>();
+  if (t) { for (const c of t.cities) if (c) cities.add(c); for (const a of t.authors) if (a && a !== userId && !followedAuthors.has(a)) watchedAuthors.add(a); }
+  return { followedAuthors, followedCompanies, cities, watchedAuthors, any: followedAuthors.size + followedCompanies.size + cities.size + watchedAuthors.size > 0 };
 }
 
 /** What is engaging people, from the recorded engagement only. */

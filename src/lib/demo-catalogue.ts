@@ -110,10 +110,15 @@ export async function createDemoCatalogue(adminId: string, o: { password: string
   }
 
   // ---------- Completed deals and the reviews clients left afterwards ----------
+  const usedAssets = new Set<string>();
   for (const [k, r] of DEMO_REVIEWS.entries()) {
     const firm = firms.get(r.company)!;
     const agent = firm.agents[0];
-    const property = listed.find((x) => x.firm === r.company && x.index !== undefined && DEMO_LISTINGS[x.index].listing.purpose === "SALE") ?? listed.find((x) => x.firm === r.company)!;
+    // One deal per property: a property can only be agreed in one deal at a time.
+    const free = listed.filter((x) => x.firm === r.company && !usedAssets.has(x.assetId));
+    const property = free.find((x) => DEMO_LISTINGS[x.index].listing.purpose === "SALE") ?? free[0];
+    if (!property) continue;
+    usedAssets.add(property.assetId);
     const client = await createClient(agent, { name: `[DEMO] ${r.client}`, email: r.email, city: DEMO_COMPANIES.find((c) => c.key === r.company)!.city });
     const deal = await createDeal(agent, { clientId: client.id, assetId: property.assetId, type: "SALE", asking: String(property.priceKobo / 100n), title: `[DEMO] Sale to ${r.client}` });
     const offer = await recordOffer(agent, deal.id, { side: "CLIENT", amount: String((property.priceKobo * 95n) / 10000n) });

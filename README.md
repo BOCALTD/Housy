@@ -403,3 +403,10 @@ All of these are worked out by rules from the platform's own records, work with 
 - **Posting a reel** (`/reels/new`): agents pick a song (search and filter by style, listen first), where in the song to start, and the volumes of the song and the clip's own sound, then preview both together before uploading.
 - **Mixing**: the server lays the song under the clip with ffmpeg (installed by `deploy/ubuntu/install.sh`; set `FFMPEG_PATH`/`FFPROBE_PATH` if it is elsewhere), copying the picture without re-encoding. Where ffmpeg is missing or the result would pass 4 MB, the clip is kept as it is and the player plays the song alongside it, in step. Every reel shows the song's title and artist.
 - The demo seeds four original instrumentals made with `npx tsx scripts/make-demo-music.ts`; replace them with licensed tracks before launch.
+
+## Logo, link previews, opening loader and welcome slides
+
+- **Logo in the browser tab**: `src/app/favicon.ico` (16 to 64 px), `icon.svg` and `apple-icon.png`; the installed app uses `public/icons`.
+- **Link previews** (WhatsApp, Facebook, X, LinkedIn, Telegram): `opengraph-image.tsx` draws the logo, name and promise beside a property photo; pages for properties, reels, agents and companies draw their own. Set `NEXT_PUBLIC_APP_URL` to the live address so previews use full links.
+- **Opening loader** (`BootLoader`): once per visit, a magnifying glass circles a turning globe while the counter follows the page's real loading from 0% to 100%; at 100% it turns green, clicks, and two doors swing open. It never takes more than 6 seconds, is skipped for the rest of the visit, and is not shown without JavaScript or to automated browsers. `/?boot=1` shows it again.
+- **Welcome slides** (`FirstVisitIntro`): for first-time visitors to the home page who are not signed in, four slides with moving pictures tell the idea behind the platform and how it works, with Skip and Next at the top right; the last leads to creating an account. Shown once per browser; `/?intro=1` shows them again. With reduced motion turned on, the pictures stay still.

@@ -20,13 +20,21 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { CompareBar } from "@/components/Compare";
 import { ServiceWorker } from "@/components/Pwa";
 import { HeaderNav } from "@/components/HeaderNav";
+import { BootLoader } from "@/components/BootLoader";
+import { FirstVisitIntro } from "@/components/FirstVisitIntro";
+import "./intro.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: { default: PLATFORM_NAME, template: `%s · ${PLATFORM_NAME}` },
-  description: "Discover verified property and manage property portfolios in one place.",
-  openGraph: { type: "website", siteName: PLATFORM_NAME, title: PLATFORM_NAME, description: "Discover verified property and manage property portfolios in one place." },
-  twitter: { card: "summary_large_image", title: PLATFORM_NAME },
+  description: "Find verified homes, land and commercial property in Nigeria, book inspections safely, and manage rent, tenants and documents in one place.",
+  applicationName: PLATFORM_NAME,
+  keywords: ["property in Nigeria", "houses for rent in Lagos", "land for sale", "verified agents", "flatmates", "property management"],
+  openGraph: {
+    type: "website", siteName: PLATFORM_NAME, locale: "en_NG", url: "/", title: `${PLATFORM_NAME}: find property you can trust`,
+    description: "Verified companies and agents, inspections booked safely, and rent and documents in one place.",
+  },
+  twitter: { card: "summary_large_image", title: `${PLATFORM_NAME}: find property you can trust`, description: "Verified companies and agents, inspections booked safely, and rent and documents in one place." },
   appleWebApp: { capable: true, title: PLATFORM_NAME, statusBarStyle: "default" },
 };
 
@@ -57,6 +65,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <a className="skip-link" href="#main">Skip to main content</a>
+        <BootLoader />
+        <Suspense fallback={null}><FirstVisitIntro signedIn={!!session} name={PLATFORM_NAME} /></Suspense>
         <DemoStrip />
         <AppToaster />
         <Suspense fallback={null}><UrlToasts /></Suspense>

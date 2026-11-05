@@ -24,7 +24,8 @@ export function PromoSlides({ slides }: { slides: PromoSlide[] }) {
   }, [slides.length, calm]);
 
   useEffect(() => {
-    if (calm || paused || hover || slides.length < 2) return;
+    // Plays for everyone (with "reduce motion" on it changes slide without the sliding); only Pause or keyboard focus holds it.
+    if (paused || hover || slides.length < 2) return;
     const id = window.setInterval(() => go(i + 1), 6000);
     return () => window.clearInterval(id);
   }, [calm, paused, hover, i, go, slides.length]);
@@ -33,10 +34,10 @@ export function PromoSlides({ slides }: { slides: PromoSlide[] }) {
 
   return (
     <section className="slides" aria-roledescription="carousel" aria-label="Properties on promotion"
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onFocus={() => setHover(true)} onBlur={() => setHover(false)}>
+      onFocus={(e) => setHover(e.target.matches(":focus-visible"))} onBlur={() => setHover(false)}>
       <div className="slides-head">
         <span className="slides-badge">Festive offers</span>
-        {!calm && slides.length > 1 ? <button type="button" className="slides-pause" onClick={() => setPaused((p) => !p)} aria-pressed={paused}>{paused ? "Play" : "Pause"}</button> : null}
+        {slides.length > 1 ? <button type="button" className="slides-pause" onClick={() => setPaused((p) => !p)} aria-pressed={paused}>{paused ? "Play" : "Pause"}</button> : null}
       </div>
       <div className="slides-track" ref={track} onScroll={onScroll} aria-live={paused || calm ? "polite" : "off"}>
         {slides.map((s, n) => (

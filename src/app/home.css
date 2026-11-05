@@ -821,6 +821,7 @@ details.fold-card[open] > summary { margin-bottom: 12px; }
 
 /* ---------- Reels: full-screen vertical feed ---------- */
 main:has(.rf-page) { padding: 0; }
+.frame-main:has(.rf-page) { padding-bottom: 0; }
 main:has(.rf-page) > .wrap { max-width: none; padding: 0; }
 body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none; }
 .rf-page { position: relative; background: #0B0C0E; }
@@ -837,9 +838,9 @@ body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none
 .rf-tabs a { flex: 0 0 auto; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; background: rgba(255, 255, 255, .14); }
 .rf-tabs a[aria-current="page"] { background: #fff; color: #111; }
 
-.rf { --rf-top: 64px; height: calc(100dvh - var(--rf-top)); overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; background: #0B0C0E; color: #fff; position: relative; }
+.rf { --rf-top: 64px; height: calc(100dvh - var(--rf-top) - var(--rf-bottom, 0px)); overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; background: #0B0C0E; color: #fff; position: relative; }
 .rf::-webkit-scrollbar { display: none; }
-.rf-slide { position: relative; height: calc(100dvh - var(--rf-top)); width: min(100%, calc((100dvh - var(--rf-top)) * 9 / 16 + 120px)); margin-inline: auto; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; background: #000; }
+.rf-slide { position: relative; height: calc(100dvh - var(--rf-top) - var(--rf-bottom, 0px)); width: min(100%, calc((100dvh - var(--rf-top) - var(--rf-bottom, 0px)) * 9 / 16 + 120px)); margin-inline: auto; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; background: #000; }
 .rf-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
 @media (min-width: 720px) { .rf-video { object-fit: contain; } }
 .rf-slide::after { content: ""; position: absolute; inset: auto 0 0 0; height: 45%; background: linear-gradient(0deg, rgba(0, 0, 0, .78), transparent); pointer-events: none; }

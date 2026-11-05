@@ -1,18 +1,19 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { CopyButton } from "@/components/CopyButton";
+
+import { useActionState } from "react";
 import { createApiKeyAction, type NewKeyState } from "./actions";
 
 export function NewKeyForm({ scopes }: { scopes: { id: string; label: string }[] }) {
   const [state, run, pending] = useActionState<NewKeyState, FormData>(createApiKeyAction, {});
-  const [copied, setCopied] = useState(false);
   if (state.key) {
     return (
       <div className="stack" role="status">
         <p><strong>Key “{state.name}” is ready.</strong> Copy it now. It will not be shown again; if it is lost, revoke it and make a new one.</p>
         <code className="secret-box">{state.key}</code>
         <div className="row">
-          <button className="btn primary" type="button" onClick={() => { void navigator.clipboard?.writeText(state.key!).then(() => setCopied(true)); }}>{copied ? "Copied" : "Copy key"}</button>
+          <CopyButton text={state.key!} label="Copy key" className="btn primary" done="Copied" />
           <a className="btn" href="/app/api-keys">Done</a>
         </div>
       </div>

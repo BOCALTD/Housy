@@ -137,9 +137,9 @@ async function main() {
   await step("Phone: the menu opens", async () => {
     await m.goto(BASE + "/browse", { waitUntil: "load" });
     await m.waitForTimeout(1500);
-    await m.getByRole("button", { name: /menu/i }).first().click({ timeout: 5000 });
-    await m.waitForTimeout(600);
-    const links = await m.locator("nav a:visible").count();
+    await m.locator(".menu-btn, button:has-text('Menu')").first().click({ timeout: 5000 });
+    await m.waitForTimeout(700);
+    const links = await m.locator(".rail a:visible, nav a:visible").count();
     await record(m, "phone menu", links >= 3, `${links} menu links visible after tapping Menu`);
   });
   await step("Phone: reels swipe", async () => {

@@ -1,17 +1,18 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { CopyButton } from "@/components/CopyButton";
+
+import { useActionState } from "react";
 import { CheckList } from "@/components/CheckList";
 import { inviteAction, reissueAction, type InviteState } from "./actions";
 
 function LinkBox({ state, done }: { state: InviteState; done: string }) {
-  const [copied, setCopied] = useState(false);
   return (
     <div className="stack" role="status">
       <p><strong>Invitation for {state.who} is ready.</strong> Send them this link. It works once, for 14 days, and is not shown again.</p>
       <code className="secret-box">{state.link}</code>
       <div className="row">
-        <button className="btn primary" type="button" onClick={() => { void navigator.clipboard?.writeText(state.link!).then(() => setCopied(true)); }}>{copied ? "Copied" : "Copy link"}</button>
+        <CopyButton text={state.link!} label="Copy link" className="btn primary" done="Copied" />
         <a className="btn" href={done}>Done</a>
       </div>
     </div>

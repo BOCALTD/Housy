@@ -22,7 +22,7 @@ export function PasswordInput({ name, id, autoComplete, minLength, required = tr
   return (
     <span className="pw">
       <input
-        ref={noPrefill ? ref : undefined} readOnly={noPrefill || undefined}
+        ref={noPrefill ? ref : undefined}
         name={name} id={id} type={show ? "text" : "password"} required={required} minLength={minLength} autoComplete={autoComplete}
         autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-describedby={describedBy} aria-invalid={invalid || undefined}
         {...(onChange ? { value: value ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value) } : {})}

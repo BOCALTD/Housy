@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
+import { copyText } from "./CopyButton";
+
 import { useEffect, useId, useRef, useState } from "react";
 import { shareCodeAction } from "@/app/share-actions";
 import { shareAction as countReelShare } from "@/app/reels/actions";
@@ -93,7 +96,8 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
   async function copy(what: "link" | "all") {
     const u = await link();
     try {
-      await navigator.clipboard.writeText(what === "link" ? u : `${text}\n${u}`);
+      if (!(await copyText(what === "link" ? u : `${text}\n${u}`))) throw new Error("blocked");
+      toast.success(what === "link" ? "Link copied" : "Text and link copied");
       setStatus(what === "link" ? "Link copied" : "Text and link copied: paste them with the photos");
       await done();
     } catch { setStatus("Copying is blocked here. Press and hold the link to copy it."); }

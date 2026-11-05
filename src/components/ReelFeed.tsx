@@ -54,7 +54,13 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
 
   // The feed fills the screen below the site header, whatever its height on this device.
   useEffect(() => {
-    const set = () => { const h = (document.querySelector("header.top") as HTMLElement | null)?.offsetHeight ?? 64; box.current?.style.setProperty("--rf-top", `${h}px`); };
+    const set = () => {
+      const h = (document.querySelector("header.bar") as HTMLElement | null)?.offsetHeight ?? 64;
+      const tabs = document.querySelector(".tabbar") as HTMLElement | null;
+      const b = tabs && getComputedStyle(tabs).display !== "none" ? tabs.offsetHeight : 0;
+      box.current?.style.setProperty("--rf-top", `${h}px`);
+      box.current?.style.setProperty("--rf-bottom", `${b}px`);
+    };
     set(); window.addEventListener("resize", set);
     return () => window.removeEventListener("resize", set);
   }, []);

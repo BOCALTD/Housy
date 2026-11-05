@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { CopyButton } from "@/components/CopyButton";
+
+import { useActionState } from "react";
 import { makeFeedAction, removeFeedAction, type FeedState } from "@/app/calendar-actions";
 
 /** Turn on a private calendar feed of the person's inspections, shown once, with how to add it to common calendar apps. */
 export function CalendarFeed({ since }: { since: string | null }) {
   const [made, make, making] = useActionState<FeedState, FormData>(makeFeedAction, {});
   const [gone, remove, removing] = useActionState<FeedState, FormData>(removeFeedAction, {});
-  const [copied, setCopied] = useState(false);
   const active = !gone.removed && (!!made.https || !!since);
   if (made.https && !gone.removed) {
     return (
@@ -16,7 +17,7 @@ export function CalendarFeed({ since }: { since: string | null }) {
         <code className="secret-box">{made.https}</code>
         <div className="row">
           <a className="btn primary" href={made.webcal}>Add to Apple or Outlook calendar</a>
-          <button className="btn" type="button" onClick={() => { void navigator.clipboard?.writeText(made.https!).then(() => setCopied(true)); }}>{copied ? "Copied" : "Copy link"}</button>
+          <CopyButton text={made.https!} label="Copy link" className="btn" done="Copied" />
         </div>
         <details className="inline"><summary>Google Calendar</summary>
           <p className="small">On a computer, open Google Calendar, choose <strong>Other calendars → + → From URL</strong>, paste the link and press <strong>Add calendar</strong>. Google refreshes it every few hours.</p>

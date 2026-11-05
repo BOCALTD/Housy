@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CopyField } from "@/components/CopyButton";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { myReferrals } from "@/lib/services/referrals";
@@ -27,8 +28,10 @@ export default async function ReferralsPage({ searchParams: searchP }: { searchP
       <div className="stack" style={{ gap: 6 }}><h1>Refer and earn</h1><p className="muted">Share your link. A reward opens only when the person you referred does what the campaign asks, within its time limit. <Link href="/rewards">My rewards</Link></p></div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <section className="card stack"><h2>Your link</h2>
-        <p><code>{origin}/r/{r.code}</code></p>
-        <p className="small muted">For a company, add <code>?for=company</code>. The link counts visits, nothing more: it does not record who visited. It is remembered for the campaign&apos;s window in one first-party cookie.</p>
+        <CopyField value={`${origin}/r/${r.code}`} label="Your referral link" />
+        <p className="small muted">Inviting a company? Copy this one instead:</p>
+        <CopyField value={`${origin}/r/${r.code}?for=company`} label="Your referral link for companies" />
+        <p className="small muted"> The link counts visits, nothing more: it does not record who visited. It is remembered for the campaign&apos;s window in one first-party cookie.</p>
       </section>
       <section className="stats" aria-label="Summary">
         <div className="stat"><b>{r.clicks}</b><span>Link visits</span></div>

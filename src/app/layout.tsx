@@ -13,18 +13,26 @@ import { asPerson } from "@/lib/services/collab";
 import { feedbackDue } from "@/lib/services/feedback";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { snoozeAction } from "./feedback/actions";
-import { logoutAction } from "./auth-actions";
 import { NavigationLoader } from "@/components/NavigationLoader";
 import { BackToTop } from "@/components/BackToTop";
 import { SiteFooter } from "@/components/SiteFooter";
 import { CompareBar } from "@/components/Compare";
 import { ServiceWorker } from "@/components/Pwa";
-import { HeaderNav } from "@/components/HeaderNav";
+import { Frame, type FrameNotice } from "@/components/Frame";
+import { getMember } from "@/lib/auth";
+import { ROLE_LABELS, can } from "@/lib/permissions";
+import { myNotifications } from "@/lib/services/notifications";
+import { asCompany, pendingIncoming } from "@/lib/services/collab";
+import { portalCount } from "@/lib/services/portals";
+import { waitingFlatmateRequests } from "@/lib/services/flatmates";
+import { accountSection, adminSection, exploreSection, workspaceSection, type NavSection } from "@/lib/nav";
+import { markAllNoticesReadAction } from "./frame-actions";
 import { BootLoader } from "@/components/BootLoader";
-import { Logo } from "@/components/Logo";
 import { HydrationFlag } from "@/components/HydrationFlag";
+import { AmountFormat } from "@/components/AmountFormat";
 import { FirstVisitIntro } from "@/components/FirstVisitIntro";
 import "./intro.css";
+import "./frame.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -50,11 +58,36 @@ export const viewport: Viewport = {
   ],
 };
 
+/** What the frame needs for a signed-in person: counts for the badges, the latest notices for the bell, and their company role. */
+async function frameData(uid: string, inCompany: boolean) {
+  const zero = () => 0;
+  const [unread, unreadMsgs, rate, notes, incoming, portals, flatmateWaiting, member] = await Promise.all([
+    unreadCount(uid).catch(zero), unreadConversationCount(asPerson(uid)).catch(zero), feedbackDue(uid).catch(() => false),
+    myNotifications(uid, 8).catch(() => []), pendingIncoming(asPerson(uid)).catch(zero), portalCount(uid).catch(zero),
+    waitingFlatmateRequests(uid).catch(zero), inCompany ? getMember().catch(() => null) : Promise.resolve(null),
+  ]);
+  return { unread, unreadMsgs, rate, notes, incoming, portals, flatmateWaiting, member };
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
-  const unread = session ? await unreadCount(session.user.id).catch(() => 0) : 0;
-  const unreadMsgs = session ? await unreadConversationCount(asPerson(session.user.id)).catch(() => 0) : 0;
-  const rate = session ? await feedbackDue(session.user.id).catch(() => false) : false;
+  const uid = session?.user.id;
+  const zero = () => 0;
+  const d = uid ? await frameData(uid, !!session?.companyId) : null;
+  const unread = d?.unread ?? 0, unreadMsgs = d?.unreadMsgs ?? 0, rate = d?.rate ?? false, member = d?.member ?? null;
+  const incoming = d?.incoming ?? 0, portals = d?.portals ?? 0, flatmateWaiting = d?.flatmateWaiting ?? 0, notes = d?.notes ?? [];
+  const sections: NavSection[] = [exploreSection()];
+  if (session) sections.push(accountSection({ incoming, portals, flatmateWaiting, unreadMessages: unreadMsgs, unreadNotices: unread }));
+  if (member) {
+    const companyIncoming = can(member.role, "collab.view") ? await pendingIncoming(asCompany(member)).catch(zero) : 0;
+    sections.push({ ...workspaceSection(member.role, companyIncoming), label: `Workspace · ${member.companyName}` });
+  }
+  if (session?.user.isPlatformAdmin) sections.push(adminSection());
+  const notices: FrameNotice[] = notes.map((n) => ({ id: n.id, title: n.title, body: n.body.slice(0, 140), link: n.link, at: n.createdAt.toISOString(), unread: !n.readAt }));
+  const user = session ? {
+    name: session.user.name, email: session.user.email, isAdmin: session.user.isPlatformAdmin,
+    roleLabel: member ? `${ROLE_LABELS[member.role]} · ${member.companyName}` : session.user.isPlatformAdmin ? "Platform administrator" : "Personal account",
+  } : null;
   return (
     <html lang="en-NG">
       <head>
@@ -70,58 +103,33 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <a className="skip-link" href="#main">Skip to main content</a>
         <HydrationFlag />
+        <AmountFormat />
         <BootLoader />
         <Suspense fallback={null}><FirstVisitIntro signedIn={!!session} name={PLATFORM_NAME} /></Suspense>
         <DemoStrip />
         <AppToaster />
         <Suspense fallback={null}><UrlToasts /></Suspense>
-        <header className="top">
-          <div className="wrap">
-            <Link href="/" className="brand" aria-label={`${PLATFORM_NAME} home`}>
-              <Logo height={30} />
-            </Link>
-            <HeaderNav>
-              <Link href="/">Find property</Link>
-              <Link href="/directory">Agents and companies</Link>
-              {session ? (
-                <>
-                  {session.companyId ? <Link href="/app">Workspace</Link> : null}
-                  <Link href="/referrals">Earn</Link>
-                  <Link href="/messages">Messages{unreadMsgs > 0 ? ` (${unreadMsgs})` : ""}</Link>
-                  <Link href="/me">My account{unread > 0 ? ` (${unread})` : ""}</Link>
-                  {session.user.isPlatformAdmin ? <Link href="/admin">Platform admin</Link> : null}
-                  <form action={logoutAction}>
-                    <button className="btn ghost small" type="submit">Sign out</button>
-                  </form>
-                </>
-              ) : (
-                <>
-                  {/* One way in: sign in, and from there create an account if you have none. */}
-                  <Link href="/login" className="btn primary small">Sign in</Link>
-                </>
-              )}
-            </HeaderNav>
-          </div>
-        </header>
-        {rate ? (
-          <aside className="rate-banner" aria-label="Rate the platform">
-            <div className="wrap">
-              <span>How is {PLATFORM_NAME} serving you? Tell us what to improve.</span>
-              <span className="row">
-                <Link className="btn primary" href="/feedback">Rate now</Link>
-                <form action={snoozeAction}><button className="btn" type="submit">Remind me later</button></form>
-              </span>
-            </div>
-          </aside>
-        ) : null}
-        <NavigationLoader />
-        <BackToTop />
-        <ServiceWorker />
-        <CompareBar />
-        <main id="main" tabIndex={-1}>
-          <div className="wrap">{children}</div>
-        </main>
-        <SiteFooter />
+        <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction}>
+          {rate ? (
+            <aside className="rate-banner" aria-label="Rate the platform">
+              <div className="wrap">
+                <span>How is {PLATFORM_NAME} serving you? Tell us what to improve.</span>
+                <span className="row">
+                  <Link className="btn primary" href="/feedback">Rate now</Link>
+                  <form action={snoozeAction}><button className="btn" type="submit">Remind me later</button></form>
+                </span>
+              </div>
+            </aside>
+          ) : null}
+          <NavigationLoader />
+          <BackToTop />
+          <ServiceWorker />
+          <CompareBar />
+          <main id="main" tabIndex={-1}>
+            <div className="wrap">{children}</div>
+          </main>
+          <SiteFooter />
+        </Frame>
       </body>
     </html>
   );

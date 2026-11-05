@@ -7,7 +7,7 @@
  */
 import { chromium, devices, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 const STRICT = process.env.REAL_STRICT === "true";
@@ -22,14 +22,17 @@ async function newContext(browser: Browser, kind: "desktop" | "wide" | "phone"):
   const base = kind === "phone" ? devices["Pixel 7"] : { viewport: kind === "wide" ? { width: 1920, height: 1080 } : { width: 1366, height: 768 } };
   const ctx = await browser.newContext({ ...base, locale: "en-NG", timezoneId: "Africa/Lagos" });
   // A real visitor: navigator.webdriver is false, so the loader and the welcome slides behave as they do for people.
-  await ctx.addInitScript(() => Object.defineProperty(navigator, "webdriver", { get: () => false }));
+  // Given as text: a function here would be compiled with helpers (__name) that do not exist in the page.
+  await ctx.addInitScript({ content: "Object.defineProperty(navigator, 'webdriver', { get: function () { return false; } });" });
   return ctx;
 }
 
 function watch(page: Page, label: string) {
-  page.on("pageerror", (e) => problems.push(`${label}: script error: ${e.message.slice(0, 300)}`));
-  page.on("console", (m) => { if (m.type() === "error") problems.push(`${label}: console: ${m.text().slice(0, 300)}`); });
-  page.on("requestfailed", (r) => { if (!r.url().includes("tile.openstreetmap")) problems.push(`${label}: failed to load ${r.url().replace(BASE, "")} (${r.failure()?.errorText})`); });
+  const where = () => page.url().replace(BASE, "") || "/";
+  page.on("pageerror", (e) => problems.push(`${label} ${where()}: script error: ${e.message.slice(0, 300)}`));
+  page.on("console", (m) => { if (m.type() === "error") problems.push(`${label} ${where()}: console: ${m.text().slice(0, 300)}`); });
+  // Prefetches and media cancelled by navigating away are normal; only report real failures.
+  page.on("requestfailed", (r) => { if (!r.url().includes("tile.openstreetmap") && r.failure()?.errorText !== "net::ERR_ABORTED") problems.push(`${label}: failed to load ${r.url().replace(BASE, "")} (${r.failure()?.errorText})`); });
   page.on("response", (r) => { if (r.status() >= 400 && r.url().startsWith(BASE)) problems.push(`${label}: ${r.status()} for ${r.url().replace(BASE, "")}`); });
 }
 
@@ -71,15 +74,15 @@ async function main() {
     await record(p, "home content", len > 300, `${len} characters of content`);
   });
   await step("Home slideshow moves on its own", async () => {
-    const hero = p.locator(".hero, .hx, section").first();
-    const a = createHash("md5").update(await hero.screenshot({ timeout: 8000 })).digest("hex");
+    const text = () => p.locator(".hx-slide").first().innerText({ timeout: 5000 }).catch(() => "");
+    const a = await text();
     await p.waitForTimeout(8000);
-    const b = createHash("md5").update(await hero.screenshot({ timeout: 8000 })).digest("hex");
-    await record(p, "home slideshow", a !== b, a !== b ? "the top of the page changed over 8 seconds" : "nothing moved in 8 seconds");
+    const b = await text();
+    await record(p, "home slideshow", !!a && a !== b, a !== b ? "the headline changed by itself within 8 seconds" : "the headline did not change in 8 seconds");
   });
 
   // 2. Guest pages that must never be blank.
-  for (const path of ["/directory?kind=agents", "/directory?kind=companies", "/directory?kind=developers", "/browse", "/map", "/reels", "/flatmates", "/market", "/field", "/pricing"]) {
+  for (const path of ["/artisans", "/directory?kind=agents", "/directory?kind=companies", "/directory?kind=developers", "/browse", "/map", "/reels", "/flatmates", "/market", "/field", "/pricing"]) {
     await step(`Guest page ${path}`, async () => {
       const res = await p.goto(BASE + path, { waitUntil: "load", timeout: 30000 });
       await p.waitForTimeout(1200);
@@ -146,6 +149,40 @@ async function main() {
     await m.goto(BASE + "/reels", { waitUntil: "load" });
     await m.waitForTimeout(1500);
     await record(m, "phone reels", (await textLen(m)) > 20, "reels page open");
+  });
+
+  // 6. Signed in (the demo home seeker): chat, the bell, profile and settings.
+  await step("Signed in: chat sends a message", async () => {
+    const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const lines = out.trim().split("\n");
+    const seeker = lines[2];
+    const chat = lines.find((l) => /^\/messages\/[0-9a-f-]{36}$/.test(l));
+    const ctx = await newContext(browser, "desktop");
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    const s = await ctx.newPage(); watch(s, "signed-in");
+    if (!chat) { rows.push({ step: "chat", ok: false, note: "no conversation to open in the demo data" }); }
+    else {
+      await s.goto(BASE + chat, { waitUntil: "load" });
+      await s.waitForTimeout(1200);
+      const msg = `Hello from the real-browser check ${Date.now()}`;
+      const box = s.locator(".composer textarea");
+      await box.click(); await box.pressSequentially(msg, { delay: 5 }); await box.press("Enter");
+      const sent = await s.locator(".bubble-text", { hasText: msg }).first().waitFor({ timeout: 8000 }).then(() => true).catch(() => false);
+      await s.waitForTimeout(1500);
+      const failedNow = await s.locator(".bubble.failed").count();
+      await record(s, "chat send", sent && failedNow === 0, `message shown: ${sent}; failed bubbles: ${failedNow}`);
+    }
+    await s.goto(BASE + "/me/settings", { waitUntil: "load" });
+    await s.waitForTimeout(800);
+    const settings = await s.getByRole("heading", { name: /use housy as/i }).isVisible().catch(() => false);
+    await record(s, "profile and settings", settings, settings ? "Profile and settings opened with the switch" : "the settings page did not show the switch");
+    const bell = s.locator(".bell-btn");
+    if (await bell.count()) {
+      await bell.click(); await s.waitForTimeout(500);
+      const open = await s.locator(".bell-panel").isVisible().catch(() => false);
+      await record(s, "notification bell", open, open ? "the bell opened its panel" : "the bell did not open");
+    } else rows.push({ step: "notification bell", ok: false, note: "no bell in the top bar" });
+    await ctx.close();
   });
 
   await browser.close();

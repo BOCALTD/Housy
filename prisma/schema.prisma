@@ -5788,3 +5788,38 @@ model ClientViewLink {
   @@index([companyId, clientId])
   @@map("client_view_links")
 }
+
+/// A blog article by the platform team. Public once published (lib/services/blog.ts).
+model BlogPost {
+  id             String     @id @default(uuid())
+  slug           String     @unique
+  title          String
+  /// The short description shown on cards, in search results and in link previews.
+  excerpt        String
+  /// Simple text formatting: paragraphs, ## headings, - lists, **bold**, [links](/path) and > quotes.
+  body           String
+  category       String     @default("")
+  tags           String[]   @default([])
+  status         String     @default("DRAFT")
+  featured       Boolean    @default(false)
+  authorId       String     @map("author_id")
+  authorName     String     @map("author_name")
+  coverType      String?    @map("cover_type")
+  coverAlt       String     @default("") @map("cover_alt")
+  readingMinutes Int        @default(1) @map("reading_minutes")
+  publishedAt    DateTime?  @map("published_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  cover          BlogCover?
+
+  @@index([status, publishedAt])
+  @@map("blog_posts")
+}
+
+model BlogCover {
+  postId String   @id @map("post_id")
+  bytes  Bytes
+  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("blog_covers")
+}

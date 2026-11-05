@@ -137,6 +137,8 @@ test("no route hands out data without checking who is asking", () => {
     "app/api/map/nearby/route.ts": "public map data (schools, markets and so on) around a published property's blurred position; read-only; rate limited",
     "app/api/map/travel/route.ts": "travel time from a point the visitor chose to a published property's blurred position; nothing stored; rate limited",
     "app/c/[token]/doc/[id]/route.ts": "a document shared through a client link: the secret in the link is the key (stored as a hash, expires, can be closed); only that property's documents",
+    "app/blog/[slug]/cover/route.ts": "the cover picture of a published blog post; the database returns nothing for drafts",
+    "app/blog/feed.xml/route.ts": "the published blog posts as an RSS feed; read-only",
     "app/calendar/[token]/route.ts": "a private calendar feed: the secret in the link is the key (stored as a hash, replaceable, rate limited)",
     "app/partners/[id]/logo/route.ts": "logos of active partners only; the database hides the rest",
     "app/photos/[id]/route.ts": "pictures of published listings; the database returns nothing for any other listing",

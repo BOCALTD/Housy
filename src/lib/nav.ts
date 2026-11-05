@@ -20,6 +20,7 @@ export function exploreSection(): NavSection {
       { href: "/market", label: "Market prices", icon: "chart" },
       { href: "/compare", label: "Compare", icon: "grid" },
       { href: "/calculators", label: "Calculators", icon: "money" },
+      { href: "/blog", label: "Blog and guides", icon: "book" },
     ] },
     { label: "Professionals", items: [
       { href: "/directory?kind=agents", label: "Agents", icon: "person" },
@@ -155,6 +156,7 @@ export function adminSection(): NavSection {
       { href: "/admin/cases", label: "Trust and Safety cases", icon: "shield" },
       { href: "/admin/kyc", label: "Identity and business checks", icon: "key" },
       { href: "/admin/flatmate-checks", label: "Flatmate ID checks", icon: "people" },
+      { href: "/admin/blog", label: "Blog", icon: "book" },
       { href: "/admin/sign-in-locks", label: "Sign-in locks", icon: "lock" },
       { href: "/admin/moderation", label: "Message reports", icon: "chat" },
       { href: "/admin/reviews", label: "Review moderation", icon: "star" },

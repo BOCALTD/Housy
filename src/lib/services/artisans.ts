@@ -2,6 +2,7 @@ import { z } from "zod";
 import { prisma, withPublic, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { normalisePhone } from "../account-type-rules";
+import { namesOverlap } from "../crm-rules";
 import { RATEABLE, cleanTrades, rankArtisans, tradeLabel, TRADE_KEYS } from "../artisan-rules";
 import { assertCan, type Ctx } from "./context";
 import { notify } from "./notifications";
@@ -161,14 +162,28 @@ export async function updateArtisanRequest(ctx: Ctx, id: string, status: string,
 // ---------- After a deal closes ----------
 
 /** Called when a deal completes: the client (if they have a Housy account) is offered the company's artisans. */
+/**
+ * After a deal closes, offer the company's artisans to the client if they have a Housy account. The account is found by the
+ * client's email; failing that, by their phone number in international form (so 0803… and +234 803… are the same, and a
+ * number from Ghana or the UK is read with its own country code), but only when exactly one account has that number and
+ * the names agree, because phone numbers on Housy are not confirmed by text message.
+ */
 export async function offerArtisansAfterDeal(tx: Tx, companyId: string, deal: { id: string; clientId: string; title: string }) {
-  const client = await tx.client.findFirst({ where: { id: deal.clientId, companyId }, select: { emailNorm: true, email: true } });
-  const email = (client?.emailNorm || client?.email || "").trim().toLowerCase();
-  if (!email) return null;
-  const user = await tx.user.findUnique({ where: { email }, select: { id: true } });
+  const client = await tx.client.findFirst({ where: { id: deal.clientId, companyId }, select: { name: true, emailNorm: true, email: true, phoneNorm: true } });
+  if (!client) return null;
+  const email = (client.emailNorm || client.email || "").trim().toLowerCase();
+  let user = email ? await tx.user.findUnique({ where: { email }, select: { id: true } }) : null;
+  let byPhone = false;
+  if (!user && /^\d{8,15}$/.test(client.phoneNorm)) {
+    const holders = await tx.user.findMany({ where: { phone: `+${client.phoneNorm}` }, select: { id: true, name: true }, take: 2 });
+    if (holders.length === 1 && namesOverlap(holders[0].name, client.name)) { user = { id: holders[0].id }; byPhone = true; }
+  }
   if (!user) return null;
   const offer = await tx.artisanOffer.upsert({ where: { dealId_userId: { dealId: deal.id, userId: user.id } }, create: { companyId, userId: user.id, dealId: deal.id }, update: {} });
-  await notify(tx, user.id, { kind: "artisan.offer", title: "Moving in? Artisans are ready when you need them", body: `Need an electrician, plumber, painter or carpenter for ${deal.title}? Ask, and the company arranges a trusted artisan.`, link: "/me/artisans" });
+  // Matched by phone: say less in the notification, in case the number has changed hands.
+  await notify(tx, user.id, byPhone
+    ? { kind: "artisan.offer", title: "Moving in? Artisans are ready when you need them", body: "The company you dealt with can arrange a trusted electrician, plumber, painter or carpenter. Ask from Artisans for my home.", link: "/me/artisans" }
+    : { kind: "artisan.offer", title: "Moving in? Artisans are ready when you need them", body: `Need an electrician, plumber, painter or carpenter for ${deal.title}? Ask, and the company arranges a trusted artisan.`, link: "/me/artisans" });
   return offer.id;
 }
 

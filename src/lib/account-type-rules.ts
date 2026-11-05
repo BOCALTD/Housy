@@ -1,3 +1,4 @@
+import { toE164 } from "./phone-rules";
 /**
  * The three ways in: a personal account (people looking for property), an agent, or a company. Each signs up with what that
  * kind of account needs, and signs in on its own tab so it lands in the right place. Pure, tested on its own.
@@ -31,11 +32,8 @@ export function isFreeMail(email: string): boolean {
 }
 
 /** A Nigerian phone number in a form we can store: 0803 123 4567, +234 803 123 4567 or 234803... become +2348031234567. */
-export function normalisePhone(raw: string): string | null {
-  const d = raw.replace(/[\s().-]/g, "");
-  const m = /^(?:\+?234|0)([789][01]\d{8})$/.exec(d);
-  if (m) return `+234${m[1]}`;
-  return /^\+[1-9]\d{7,14}$/.test(d) ? d : null;
+export function normalisePhone(raw: string, country = "NG"): string | null {
+  return toE164(raw, country);
 }
 
 /** A CAC registration number as people write it: RC 1234567, BN 1234567, IT 12345 (optional at sign-up, checked in verification). */

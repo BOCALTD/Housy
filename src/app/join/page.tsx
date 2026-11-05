@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { visitorCountry } from "@/lib/countries";
+import { PhoneField } from "@/components/PhoneField";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { AuthShell } from "@/components/AuthShell";
 import { NewPassword } from "@/components/PasswordInput";
@@ -14,6 +17,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
   const searchParams = await searchP;
   const raw = sp(searchParams, "as");
   const next = safeLocalPath(sp(searchParams, "next") ?? "", "");
+  const country = visitorCountry(await headers());
   const signIn = (t: string) => `/login?as=${t}${next ? `&next=${encodeURIComponent(next)}` : ""}`;
 
   // First, choose the kind of account; each one asks only for what it needs.
@@ -53,7 +57,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
                 <input name="email" id="email" type="email" required autoComplete="off" inputMode="email" placeholder="you@yourcompany.com" autoCapitalize="off" spellCheck={false} />
               </Field>
               <label className="check"><input type="checkbox" name="noCompanyDomain" /><span>Our company does not have its own email domain yet (we use Gmail, Yahoo or similar). The company check is then done by hand.</span></label>
-              <Field label="Company phone (optional)"><input name="phone" id="phone" type="tel" inputMode="tel" maxLength={30} autoComplete="off" placeholder="0803 123 4567" /></Field>
+              <PhoneField label="Company phone (optional)" country={country} />
             </fieldset>
             <fieldset className="auth-group">
               <legend>You, the administrator</legend>
@@ -66,7 +70,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
             <Field label="Your full name" hint="As clients will see it on your profile."><input name="name" id="name" required maxLength={120} autoComplete="name" /></Field>
             <Field label="Business or trading name (optional)" hint="Leave blank if you trade under your own name."><input name="tradingName" id="tradingName" maxLength={160} autoComplete="off" /></Field>
             <Field label="Email"><input name="email" id="email" type="email" required autoComplete="off" inputMode="email" autoCapitalize="off" spellCheck={false} /></Field>
-            <Field label="Phone" hint="Clients reach you through the platform; your number is used for verification."><input name="phone" id="phone" type="tel" required inputMode="tel" maxLength={30} autoComplete="off" placeholder="0803 123 4567" /></Field>
+            <PhoneField label="Phone" required country={country} hint="Clients reach you through the platform; your number is used for verification." />
             <NewPassword />
             <p className="small muted auth-note">Employed by an agency? Ask its administrator to invite you, so you join the company&apos;s workspace and your listings carry its name.</p>
           </>
@@ -74,7 +78,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
           <>
             <Field label="Your full name"><input name="name" id="name" required maxLength={120} autoComplete="name" /></Field>
             <Field label="Email"><input name="email" id="email" type="email" required autoComplete="off" inputMode="email" autoCapitalize="off" spellCheck={false} /></Field>
-            <Field label="Phone (optional)" hint="Only shared with an agent when you book an inspection."><input name="phone" id="phone" type="tel" inputMode="tel" maxLength={30} autoComplete="off" placeholder="0803 123 4567" /></Field>
+            <PhoneField label="Phone (optional)" country={country} hint="Only shared with an agent when you book an inspection." />
             <NewPassword />
           </>
         )}

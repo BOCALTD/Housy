@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PhoneField } from "@/components/PhoneField";
 import { getSession, requireUser } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 import { profileFor } from "@/lib/services/profile";
@@ -76,7 +77,7 @@ export default async function SettingsPage() {
               <p className="muted small">You keep this account. You get an agent workspace for your listings, clients and deals, and can switch back to your personal side with one tap.</p>
               <div className="fields">
                 <label className="field">Trading name (optional)<input name="tradingName" maxLength={80} placeholder="e.g. Ada Homes" /></label>
-                <label className="field">Phone clients can call<input name="phone" type="tel" required autoComplete="tel" placeholder="0803 123 4567" /></label>
+                <PhoneField label="Phone clients can call" required />
               </div>
               <button className="btn primary" type="submit">Create my agent workspace</button>
             </form>

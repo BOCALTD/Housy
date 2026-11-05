@@ -1,4 +1,5 @@
 // Pure rules for the CRM (master prompt Phase 8). No database access here, so they can be tested alone.
+import { toE164 } from "./phone-rules";
 
 export const CLIENT_KINDS = ["INDIVIDUAL", "ORGANISATION"] as const;
 export const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"] as const;
@@ -8,14 +9,21 @@ export const FINANCING = ["UNKNOWN", "CASH", "MORTGAGE_APPROVED", "MORTGAGE_PEND
 export const MATCH_STATUSES = ["SUGGESTED", "SENT", "INTERESTED", "REJECTED"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
-/** Digits only, in Nigerian international form where that is clear: 0803... and +234803... both become 234803... */
-export function normalisePhone(raw: string): string {
+/**
+ * Digits only, in international form, for matching: 0803... and +234803... both become 234803...; a number without its country
+ * code is read in `country` (024 123 4567 in Ghana becomes 233241234567). Anything that is not a valid number keeps its digits.
+ */
+export function normalisePhone(raw: string, country = "NG"): string {
   const digits = raw.replace(/\D+/g, "");
   if (!digits) return "";
-  if (digits.startsWith("234") && digits.length >= 12) return digits;
-  if (digits.startsWith("0") && digits.length === 11) return `234${digits.slice(1)}`;
-  if (digits.length === 10 && /^[789]/.test(digits)) return `234${digits}`;
-  return digits;
+  const e = toE164(raw, country);
+  return e ? e.slice(1) : digits;
+}
+
+/** Whether two ways of writing a person's name share a real name (three letters or more, titles ignored), for phone matches. */
+export function namesOverlap(a: string, b: string): boolean {
+  const wa = new Set(normaliseName(a).split(" ").filter((w) => w.length >= 3));
+  return normaliseName(b).split(" ").some((w) => w.length >= 3 && wa.has(w));
 }
 
 export function normaliseEmail(raw: string): string {

@@ -4,6 +4,7 @@ import { listClients, CLIENT_KINDS } from "@/lib/services/crm";
 import { can } from "@/lib/permissions";
 import { humanize } from "@/lib/labels";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { PhoneField } from "@/components/PhoneField";
 import { createClientAction } from "../actions";
 
 export const metadata = { title: "Clients" };
@@ -42,7 +43,7 @@ export default async function ClientsPage({ searchParams: searchP }: { searchPar
                 <Field label="Type"><select name="kind" defaultValue="INDIVIDUAL"><EnumOptions values={CLIENT_KINDS} /></select></Field>
                 <Field label="Name"><input name="name" required /></Field>
                 <Field label="Email"><input name="email" type="email" /></Field>
-                <Field label="Phone"><input name="phone" inputMode="tel" /></Field>
+                <PhoneField label="Phone" autoComplete="off" placeholder="Number as dialled in that country" />
                 <Field label="City"><input name="city" /></Field>
                 <Field label="Address"><input name="address" /></Field>
                 {can(member.role, "crm.assign") ? <Field label="Owner" hint="Leave on yourself unless you are handing the client to someone."><select name="ownerId" defaultValue=""><option value="">Me</option>{d.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></Field> : null}

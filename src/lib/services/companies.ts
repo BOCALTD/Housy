@@ -16,7 +16,7 @@ const personName = z.string().trim().min(2, "Enter your full name").max(120);
 const phoneField = (required: boolean) => z.string().trim().max(30).default("").transform((v, ctx) => {
   if (!v) { if (required) ctx.addIssue({ code: "custom", message: "Enter a phone number clients can reach you on" }); return ""; }
   const p = normalisePhone(v);
-  if (!p) { ctx.addIssue({ code: "custom", message: "Enter a valid phone number, for example 0803 123 4567" }); return z.NEVER; }
+  if (!p) { ctx.addIssue({ code: "custom", message: "Enter a valid phone number: choose its country, then type it as you would dial it there" }); return z.NEVER; }
   return p;
 });
 

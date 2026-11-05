@@ -1,7 +1,7 @@
 "use server";
 
 import { requireMember } from "@/lib/auth";
-import { act, optStr, str, withNotice } from "@/lib/forms";
+import { act, optStr, phoneFrom, str, withNotice } from "@/lib/forms";
 import {
   addBranch, addClientActivity, addLeadSource, addRequirement, addTeam, archiveClient, assignLead, completeFollowUp, createClient, createLead, createLeadFromEnquiry,
   dismissDuplicate, mergeClients, reassignClient, setLeadSourceActive, setLeadStatus, setMatchStatus, setMemberPlacement, setRequirementActive, setTeamLead,
@@ -13,7 +13,7 @@ const flag = (form: FormData, name: string) => form.get(name) === "on";
 
 function clientFields(form: FormData) {
   return {
-    kind: (optStr(form, "kind") ?? "INDIVIDUAL") as never, name: str(form, "name"), email: str(form, "email"), phone: str(form, "phone"), address: str(form, "address"),
+    kind: (optStr(form, "kind") ?? "INDIVIDUAL") as never, name: str(form, "name"), email: str(form, "email"), phone: phoneFrom(form), address: str(form, "address"),
     city: str(form, "city"), notes: str(form, "notes"), confidential: flag(form, "confidential"), marketingConsent: flag(form, "marketingConsent"), notDuplicate: flag(form, "notDuplicate"),
     ownerId: optStr(form, "ownerId"),
   };

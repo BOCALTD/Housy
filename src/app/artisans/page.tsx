@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { artisanCompanies, myArtisanApplications } from "@/lib/services/artisans";
 import { TRADES, tradeLabel } from "@/lib/artisan-rules";
 import { TradePicker } from "@/components/TradePicker";
+import { PhoneField } from "@/components/PhoneField";
 import { applyArtisanAction, submitArtisanIdAction } from "./actions";
 import { ID_TYPES, myFlatmateCheck } from "@/lib/services/flatmates";
 import { IdCheckForm } from "@/components/IdCheckForm";
@@ -78,7 +79,7 @@ export default async function ArtisansPage() {
             <div className="fields">
               <label className="field">Company to register with<select name="companyId" required defaultValue=""><option value="" disabled>Choose a company</option>{companies.map((c) => <option key={c.companyId} value={c.companyId}>{c.displayName}</option>)}</select></label>
               <label className="field">Your name<input name="name" required minLength={2} maxLength={80} defaultValue={session.user.name} autoComplete="name" /></label>
-              <label className="field">Phone<input name="phone" type="tel" required autoComplete="tel" placeholder="0803 123 4567" /></label>
+              <PhoneField label="Phone" required />
               <label className="field">Years of experience<input name="years" inputMode="numeric" maxLength={2} placeholder="5" /></label>
             </div>
             <TradePicker />

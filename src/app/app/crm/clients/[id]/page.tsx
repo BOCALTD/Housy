@@ -8,6 +8,7 @@ import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { formatKobo } from "@/lib/money";
 import { humanize } from "@/lib/labels";
+import { PhoneField } from "@/components/PhoneField";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { createDealAction } from "../../../deals/actions";
 import {
@@ -51,7 +52,7 @@ export default async function ClientPage({ params: paramsP, searchParams: search
                 <Field label="Type"><select name="kind" defaultValue={c.kind}><EnumOptions values={CLIENT_KINDS} /></select></Field>
                 <Field label="Name"><input name="name" defaultValue={c.name} required /></Field>
                 <Field label="Email"><input name="email" type="email" defaultValue={c.email} /></Field>
-                <Field label="Phone"><input name="phone" defaultValue={c.phone} /></Field>
+                <PhoneField label="Phone" defaultValue={c.phone} autoComplete="off" placeholder="Number as dialled in that country" />
                 <Field label="City"><input name="city" defaultValue={c.city} /></Field>
                 <Field label="Address"><input name="address" defaultValue={c.address} /></Field>
               </div>

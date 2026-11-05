@@ -18,7 +18,7 @@ export async function registerSeeker(input: { name: string; email: string; passw
     phone: z.string().trim().max(30).default("").transform((v, ctx) => {
       if (!v) return "";
       const p = normalisePhone(v);
-      if (!p) { ctx.addIssue({ code: "custom", message: "Enter a valid phone number, for example 0803 123 4567, or leave it blank" }); return z.NEVER; }
+      if (!p) { ctx.addIssue({ code: "custom", message: "Enter a valid phone number: choose its country, then type it as you would dial it there, or leave it blank" }); return z.NEVER; }
       return p;
     }),
   }).parse(input);

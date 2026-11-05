@@ -333,3 +333,8 @@ body:has(.ai-page:not(.ai-in-workspace)) .site-footer { display: none; }
 .star-pick label:has(input:focus-visible) { outline: 3px solid #FBB017; border-radius: 10px; }
 @media (hover: hover) { .star-pick label:hover, .star-pick label:hover ~ label { color: #FFC23D; } }
 @media (prefers-reduced-motion: no-preference) { .star-pick label:has(input:checked) { animation: toast-pop .4s var(--ease-spring, ease); } }
+
+/* Phone with country code */
+.phone-field { display: grid; gap: 6px; }
+.phone-row { display: grid; grid-template-columns: minmax(96px, 132px) minmax(0, 1fr); gap: 8px; }
+.phone-cc { min-width: 0; text-overflow: ellipsis; }

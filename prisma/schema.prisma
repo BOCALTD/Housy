@@ -59,6 +59,7 @@ model User {
   artisanOffers   ArtisanOffer[]
   flatmateCheck   FlatmateCheck?
 
+  @@index([phone])
   @@map("users")
 }
 

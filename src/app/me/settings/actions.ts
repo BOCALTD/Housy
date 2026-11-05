@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireUser, setActiveCompany } from "@/lib/auth";
-import { act, str, withNotice } from "@/lib/forms";
+import { act, phoneFrom, str, withNotice } from "@/lib/forms";
 import { becomeAgent, checkModeTarget, removeProfileImage, saveProfileImage, takeBreak, updateAbout, type BreakLength } from "@/lib/services/profile";
 
 const BACK = "/me/settings";
@@ -54,7 +54,7 @@ export async function switchModeAction(form: FormData) {
 export async function becomeAgentAction(form: FormData) {
   return act(BACK, async () => {
     const u = await requireUser();
-    const companyId = await becomeAgent(u.id, { tradingName: str(form, "tradingName"), phone: str(form, "phone") });
+    const companyId = await becomeAgent(u.id, { tradingName: str(form, "tradingName"), phone: phoneFrom(form) });
     await setActiveCompany(companyId);
     revalidatePath("/", "layout");
     return withNotice("/app/profile", "Your agent workspace is ready. Finish your public profile and verification so clients can find you.");

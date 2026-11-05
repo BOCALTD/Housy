@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 import { safeLocalPath } from "@/lib/security";
 import { prisma } from "@/lib/db";
 import { createSession, destroySession, getSession, setActiveCompany, verifyPassword, hashPassword } from "@/lib/auth";
-import { act, str, withNotice } from "@/lib/forms";
+import { act, phoneFrom, str, withNotice } from "@/lib/forms";
 import { endBreak } from "@/lib/services/profile";
 import { rateLimit } from "@/lib/ratelimit";
 import { acceptInvitation, membershipKinds, myCompanies, registerAgent, registerCompany } from "@/lib/services/companies";
@@ -59,7 +59,7 @@ export async function joinAction(form: FormData) {
     if (as === "company") {
       const { userId, companyId } = await registerCompany({
         companyName: str(form, "companyName"), name, email, password: confirmedPassword(form),
-        businessType: str(form, "businessType") as never, contactPhone: str(form, "phone"), cacNumber: str(form, "cacNumber"), noCompanyDomain: form.get("noCompanyDomain") === "on",
+        businessType: str(form, "businessType") as never, contactPhone: phoneFrom(form), cacNumber: str(form, "cacNumber"), noCompanyDomain: form.get("noCompanyDomain") === "on",
       });
       await captureReferral({ id: userId, name, email: email.toLowerCase(), companyId }, "COMPANY", await takeReferral());
       await recordConsent(userId, LEGAL_VERSION);
@@ -67,13 +67,13 @@ export async function joinAction(form: FormData) {
       return "/app?notice=" + encodeURIComponent("Your company workspace is ready. Start with Business set-up.");
     }
     if (as === "agent") {
-      const { userId, companyId } = await registerAgent({ name, email, password: confirmedPassword(form), phone: str(form, "phone"), tradingName: str(form, "tradingName") });
+      const { userId, companyId } = await registerAgent({ name, email, password: confirmedPassword(form), phone: phoneFrom(form), tradingName: str(form, "tradingName") });
       await captureReferral({ id: userId, name, email: email.toLowerCase(), companyId }, "COMPANY", await takeReferral());
       await recordConsent(userId, LEGAL_VERSION);
       await createSession(userId, companyId);
       return "/app/profile?notice=" + encodeURIComponent("Your agent account is ready. Finish your profile so clients can find you.");
     }
-    const { userId } = await registerSeeker({ name, email, password: confirmedPassword(form), phone: str(form, "phone") });
+    const { userId } = await registerSeeker({ name, email, password: confirmedPassword(form), phone: phoneFrom(form) });
     await captureReferral({ id: userId, name, email: email.toLowerCase() }, "SEEKER", await takeReferral());
     await recordConsent(userId, LEGAL_VERSION);
     await createSession(userId, null);

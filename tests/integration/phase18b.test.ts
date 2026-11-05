@@ -152,3 +152,28 @@ test("artisans are ranked for the client, verified, and rated after the job", as
   // The company can read but never change a rating.
   await assert.rejects(withTenant(co.companyId, co.userId, (tx) => tx.artisanReview.updateMany({ where: { requestId: r.id }, data: { stars: 5 } }).then((x) => { if (x.count === 0) throw new Error("blocked"); })), /blocked/);
 });
+
+test("a client with no matching email is found by phone, in any country, only when the names agree", async () => {
+  const { normalisePhone } = await import("../../src/lib/crm-rules");
+  const co = await newCompany("artisans-phone");
+  const n = String(Math.floor(1000000 + Math.random() * 8999999));
+  // Signed up in Ghana as +233 24 …; the agent typed the local form 024 … with Ghana chosen.
+  const gh = await registerSeeker({ name: "Kwame Mensah", email: `kwame${uid()}@example.test`, password: "a long enough password", phone: `+23324${n}` });
+  const mk = (name: string, phone: string, country: string) => withTenant(co.companyId, co.userId, (tx) => tx.client.create({ data: { companyId: co.companyId, ref: `CL-${uid()}`, name, email: "", emailNorm: "", phone, phoneNorm: normalisePhone(phone, country), ownerId: co.membershipId, createdById: co.userId } }));
+  const c1 = await mk("Mr Kwame A. Mensah", `024 ${n.slice(0, 3)} ${n.slice(3)}`, "GH");
+  const offer = await withTenant(co.companyId, co.userId, (tx) => offerArtisansAfterDeal(tx, co.companyId, { id: randomUUID(), clientId: c1.id, title: "Flat in Accra" }));
+  assert.ok(offer, "found by phone across the two ways of writing it");
+  const note = await withUser(gh.userId, (tx) => tx.notification.findFirst({ where: { userId: gh.userId, kind: "artisan.offer" } }));
+  assert.ok(note && !note.body.includes("Flat in Accra"), "a phone match does not name the property");
+
+  // Same number, a different name: not offered.
+  const c2 = await mk("Ama Owusu", `+233 24 ${n}`, "NG");
+  assert.equal(await withTenant(co.companyId, co.userId, (tx) => offerArtisansAfterDeal(tx, co.companyId, { id: randomUUID(), clientId: c2.id, title: "Shop" })), null);
+
+  // Two accounts share a number: nobody is guessed.
+  const m = String(Math.floor(1000000 + Math.random() * 8999999));
+  await registerSeeker({ name: "Chidi Eze", email: `c1${uid()}@example.test`, password: "a long enough password", phone: `0803${m}` });
+  await registerSeeker({ name: "Chidi Eze", email: `c2${uid()}@example.test`, password: "a long enough password", phone: `+234803${m}` });
+  const c3 = await mk("Chidi Eze", `0803${m}`, "NG");
+  assert.equal(await withTenant(co.companyId, co.userId, (tx) => offerArtisansAfterDeal(tx, co.companyId, { id: randomUUID(), clientId: c3.id, title: "Duplex" })), null);
+});

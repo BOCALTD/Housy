@@ -2,10 +2,21 @@ import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 import "./zod-messages";
 import { Prisma } from "@prisma/client";
+import { toE164 } from "./phone-rules";
 
 export function str(form: FormData, name: string): string {
   const v = form.get(name);
   return typeof v === "string" ? v.trim() : "";
+}
+
+/**
+ * A phone number from a PhoneField: the number read in the country chosen beside it, in international form (+233241234567).
+ * When it cannot be read, the number is passed on as typed, so the service gives its usual message.
+ */
+export function phoneFrom(form: FormData, name = "phone"): string {
+  const raw = str(form, name);
+  if (!raw) return "";
+  return toE164(raw, str(form, `${name}Country`) || "NG") ?? raw;
 }
 
 export function optStr(form: FormData, name: string): string | undefined {

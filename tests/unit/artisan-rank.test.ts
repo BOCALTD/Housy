@@ -5,7 +5,8 @@ import { areaNames, fairStars, rankArtisans, servesPlace } from "../../src/lib/a
 const base = { yearsExperience: null, verified: false, stars: 0, reviews: 0, jobsDone: 0 };
 
 test("areas are matched by whole place names", () => {
-  assert.deepEqual(areaNames("Lekki, Ajah and VI / Ikoyi"), ["lekki", "ajah", "ikoyi"]);
+  assert.deepEqual(areaNames("Lekki, Ajah and VI / Ikoyi"), ["lekki", "ajah", "vi", "ikoyi"]);
+  assert.equal(servesPlace("VI, Ikoyi", "Plot 5, Adeola Odeku, VI, Lagos"), true);
   assert.equal(servesPlace("Lekki, Ajah", "12 Admiralty Way, Lekki Phase 1, Lagos"), true);
   assert.equal(servesPlace("Ikeja", "Lekki, Lagos"), false);
   assert.equal(servesPlace("Yaba", "Yabatech road, Lagos"), false, "part of a word is not a match");

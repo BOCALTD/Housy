@@ -41,9 +41,9 @@ export type RankInput = { id: string; trades: string[]; areas: string; yearsExpe
 export type Ranked<T> = T & { score: number; reasons: string[]; tradeMatch: boolean; areaMatch: boolean };
 
 const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s,]/g, " ");
-/** The places an artisan says they work in ("Lekki, Ajah, VI") as lower-case names of at least three letters. */
+/** The places an artisan says they work in ("Lekki, Ajah, VI") as lower-case names of at least two letters. */
 export function areaNames(areas: string): string[] {
-  return [...new Set(words(areas).split(/[,/]| and /).map((a) => a.trim().replace(/\s+/g, " ")).filter((a) => a.length >= 3))];
+  return [...new Set(areas.toLowerCase().split(/[,/;]|\band\b|&/).map((a) => a.replace(/[^a-z0-9\s]/g, " ").trim().replace(/\s+/g, " ")).filter((a) => a.length >= 2))];
 }
 /** Whether any of the artisan's areas is named in the property's place (city, state or address). */
 export function servesPlace(areas: string, place: string): boolean {

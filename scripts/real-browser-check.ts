@@ -124,6 +124,17 @@ async function main() {
     const type = await p.locator('input[name="password"], input[autocomplete="new-password"]').first().getAttribute("type");
     await record(p, "signup password eye", type === "text", `after tapping the eye the box type is "${type}"`);
   });
+  await step("Sign up: the confirmation says at once whether the passwords match", async () => {
+    const first = p.locator('input[name="password"]').first();
+    const confirm = p.locator('input[name="passwordConfirm"]').first();
+    await first.fill(""); await first.pressSequentially("Secret-pass-123", { delay: 5 });
+    await confirm.click(); await confirm.pressSequentially("Secret-pass-12X", { delay: 5 });
+    const bad = (await p.locator("#pw-match").textContent()) ?? "";
+    await confirm.press("Backspace"); await confirm.pressSequentially("3", { delay: 5 });
+    const good = (await p.locator("#pw-match").textContent()) ?? "";
+    const ok = /do not match/i.test(bad) && /passwords match/i.test(good);
+    await record(p, "signup password match", ok, `wrong: "${bad.trim()}"; right: "${good.trim()}"`);
+  });
 
   // 4. Desktop width.
   const wide = await newContext(browser, "wide");

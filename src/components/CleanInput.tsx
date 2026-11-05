@@ -13,6 +13,8 @@ export function useNoPrefill<T extends HTMLInputElement>() {
     const el = ref.current;
     if (!el) return;
     let touched = false;
+    // Read-only only once the script is running: without it the box must still take typing.
+    if (document.activeElement !== el) el.readOnly = true;
     const unlock = () => { touched = true; el.readOnly = false; };
     el.addEventListener("focus", unlock);
     el.addEventListener("pointerdown", unlock);
@@ -25,5 +27,5 @@ export function useNoPrefill<T extends HTMLInputElement>() {
 
 export function CleanInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const ref = useNoPrefill<HTMLInputElement>();
-  return <input {...props} ref={ref} readOnly autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} data-lpignore="true" data-1p-ignore="" data-form-type="other" />;
+  return <input {...props} ref={ref} autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} data-lpignore="true" data-1p-ignore="" data-form-type="other" />;
 }

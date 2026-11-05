@@ -1,3 +1,4 @@
+import { secureCookies } from "@/lib/cookie-security";
 import { NextResponse } from "next/server";
 import { countClick } from "@/lib/services/referrals";
 import { isCodeShape } from "@/lib/reward-rules";
@@ -15,7 +16,7 @@ export async function GET(req: Request, { params: paramsP }: { params: Promise<{
   const to = new URL(shared ? landingPath(shared) : q.get("for") === "company" ? "/join?as=company" : "/join", req.url);
   const res = NextResponse.redirect(to, 302);
   if (isCodeShape(code) && (await countClick(code))) {
-    res.cookies.set("ref", `${code}.${Date.now()}`, { path: "/", maxAge: 30 * 864e2, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+    res.cookies.set("ref", `${code}.${Date.now()}`, { path: "/", maxAge: 30 * 864e2, httpOnly: true, sameSite: "lax", secure: await secureCookies() });
   }
   return res;
 }

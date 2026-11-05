@@ -25,8 +25,10 @@ export function FirstVisitIntro({ signedIn, name, preview }: { signedIn: boolean
     const forced = params.get("intro") === "1";
     let seen = false;
     try { seen = !!localStorage.getItem(KEY); } catch { /* storage blocked: show it, it can be skipped */ }
-    if (forced || (!signedIn && path === "/" && !seen && !navigator.webdriver)) setOpen(true);
-  }, [signedIn, path, params]);
+    // After the opening doors, on the home page, for anyone who has not been through the slides on this device (signed in
+    // or not). The doors sit above the slides, so the slides are what they open onto.
+    if (forced || (path === "/" && !seen && !navigator.webdriver)) setOpen(true);
+  }, [path, params]);
 
   const close = useCallback(() => {
     try { localStorage.setItem(KEY, new Date().toISOString()); } catch { /* fine */ }
@@ -73,9 +75,15 @@ export function FirstVisitIntro({ signedIn, name, preview }: { signedIn: boolean
         <p className="intro-text">{s.text(name)}</p>
         {last ? (
           <div className="intro-cta">
-            <Link className="btn primary intro-go" href="/join" onClick={close}>Create my free account</Link>
-            <Link className="btn intro-ghost" href="/login" onClick={close}>I already have an account</Link>
-            <button type="button" className="intro-link intro-later" onClick={close}>Look around first</button>
+            {signedIn ? (
+              <button type="button" className="btn primary intro-go" onClick={close}>Start exploring</button>
+            ) : (
+              <>
+                <Link className="btn primary intro-go" href="/join" onClick={close}>Create my free account</Link>
+                <Link className="btn intro-ghost" href="/login" onClick={close}>I already have an account</Link>
+                <button type="button" className="intro-link intro-later" onClick={close}>Look around first</button>
+              </>
+            )}
           </div>
         ) : null}
       </section>

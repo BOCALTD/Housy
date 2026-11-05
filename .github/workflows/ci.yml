@@ -114,6 +114,11 @@ jobs:
           DEVICE_STRICT: ${{ vars.DEVICE_STRICT || 'true' }}
         run: scripts/ci-run.sh "Device check" scripts/device-check.sh
 
+      - name: Real-browser check (loader on, signed out, typing, menus, map, messages)
+        env:
+          REAL_STRICT: ${{ vars.REAL_STRICT || 'false' }}
+        run: scripts/ci-run.sh "Real-browser check" scripts/real-browser-check.sh
+
       - name: Save device screenshots and report
         if: always()
         uses: actions/upload-artifact@v4

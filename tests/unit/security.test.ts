@@ -1,3 +1,4 @@
+import { secureFor } from "../../src/lib/cookie-rules";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -175,7 +176,17 @@ test("session and reset cookies are not readable by scripts", () => {
   const auth = readFileSync(join(SRC, "lib/auth.ts"), "utf8");
   assert.match(auth, /httpOnly: true/);
   assert.match(auth, /sameSite: "lax"/);
-  assert.match(auth, /secure: process\.env\.NODE_ENV === "production"/);
+  assert.match(auth, /secure: await secureCookies\(\)/);
+});
+
+test("cookies are Secure over https and still work over plain http", () => {
+  assert.equal(secureFor("https", undefined, "production"), true);
+  assert.equal(secureFor("http", "https://housy.ng", "production"), false); // reached by http: a Secure cookie would be dropped
+  assert.equal(secureFor("https, http", undefined, undefined), true);
+  assert.equal(secureFor(null, "https://housy.ng", "development"), true);
+  assert.equal(secureFor(null, "http://203.0.113.5", "production"), false);
+  assert.equal(secureFor(null, undefined, "production"), true);
+  assert.equal(secureFor(null, undefined, "development"), false);
 });
 
 test("security headers are set for every page", () => {

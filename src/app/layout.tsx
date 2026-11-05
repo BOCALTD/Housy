@@ -22,6 +22,7 @@ import { ServiceWorker } from "@/components/Pwa";
 import { HeaderNav } from "@/components/HeaderNav";
 import { BootLoader } from "@/components/BootLoader";
 import { Logo } from "@/components/Logo";
+import { HydrationFlag } from "@/components/HydrationFlag";
 import { FirstVisitIntro } from "@/components/FirstVisitIntro";
 import "./intro.css";
 
@@ -57,6 +58,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en-NG">
       <head>
+        {/* Says so on screen if the app's scripts never start (public/health.js). */}
+        <script src="/health.js" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
@@ -66,6 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <a className="skip-link" href="#main">Skip to main content</a>
+        <HydrationFlag />
         <BootLoader />
         <Suspense fallback={null}><FirstVisitIntro signedIn={!!session} name={PLATFORM_NAME} /></Suspense>
         <DemoStrip />

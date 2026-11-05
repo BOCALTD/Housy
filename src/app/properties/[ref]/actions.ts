@@ -1,4 +1,5 @@
 "use server";
+import { secureCookies } from "@/lib/cookie-security";
 
 import { recordSignal } from "@/lib/services/signals";
 import { cookies, headers } from "next/headers";
@@ -24,7 +25,7 @@ async function visitorKey() {
   if (existing) return existing;
   const id = randomUUID();
   (await cookies()).set(VISITOR_COOKIE, id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
-    secure: process.env.NODE_ENV === "production" });
+    secure: await secureCookies() });
   return id;
 }
 
@@ -57,7 +58,7 @@ export async function recommendationEventAction(input: { providerId: string; lis
     if (input.event === "DECLINED") prefs.declinedAt = Date.now();
     else prefs.laterAt = Date.now();
     (await cookies()).set(PREF_COOKIE, JSON.stringify(prefs), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
-      secure: process.env.NODE_ENV === "production" });
+      secure: await secureCookies() });
   }
   return { ok: true };
 }

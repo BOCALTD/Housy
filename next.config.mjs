@@ -37,6 +37,9 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // The development server (npm run dev) only serves its scripts to addresses it trusts. Opened from another device or the
+  // server's IP, the page would load but nothing would respond. Private networks are trusted; add others in DEV_ORIGINS.
+  allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.16.*.*", "*.local", ...(process.env.DEV_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean)],
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["@prisma/client", "bcryptjs"],

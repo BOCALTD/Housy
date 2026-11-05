@@ -1,0 +1,164 @@
+/**
+ * Uses the site the way a person does, in a normal (not automated-looking) Chrome: the opening loader runs, the doors open,
+ * the welcome slides follow, and then it types, taps and opens things. The device check proves pages render and fit; this
+ * proves they respond. Every step records what happened, browser errors, failed downloads and a screenshot.
+ *
+ * Usage: BASE_URL=http://localhost:3100 tsx scripts/real-browser-check.ts   (REAL_STRICT=true fails the run on any failure)
+ */
+import { chromium, devices, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+
+const BASE = process.env.BASE_URL ?? "http://localhost:3100";
+const STRICT = process.env.REAL_STRICT === "true";
+const OUT = "device-report/real";
+mkdirSync(OUT, { recursive: true });
+
+type Row = { step: string; ok: boolean; note: string; shot?: string };
+const rows: Row[] = [];
+const problems: string[] = [];
+
+async function newContext(browser: Browser, kind: "desktop" | "wide" | "phone"): Promise<BrowserContext> {
+  const base = kind === "phone" ? devices["Pixel 7"] : { viewport: kind === "wide" ? { width: 1920, height: 1080 } : { width: 1366, height: 768 } };
+  const ctx = await browser.newContext({ ...base, locale: "en-NG", timezoneId: "Africa/Lagos" });
+  // A real visitor: navigator.webdriver is false, so the loader and the welcome slides behave as they do for people.
+  await ctx.addInitScript(() => Object.defineProperty(navigator, "webdriver", { get: () => false }));
+  return ctx;
+}
+
+function watch(page: Page, label: string) {
+  page.on("pageerror", (e) => problems.push(`${label}: script error: ${e.message.slice(0, 300)}`));
+  page.on("console", (m) => { if (m.type() === "error") problems.push(`${label}: console: ${m.text().slice(0, 300)}`); });
+  page.on("requestfailed", (r) => { if (!r.url().includes("tile.openstreetmap")) problems.push(`${label}: failed to load ${r.url().replace(BASE, "")} (${r.failure()?.errorText})`); });
+  page.on("response", (r) => { if (r.status() >= 400 && r.url().startsWith(BASE)) problems.push(`${label}: ${r.status()} for ${r.url().replace(BASE, "")}`); });
+}
+
+let n = 0;
+async function record(page: Page, step: string, ok: boolean, note: string) {
+  const file = `${String(++n).padStart(2, "0")}-${step.replace(/[^a-z0-9]+/gi, "-").toLowerCase().slice(0, 50)}.jpg`;
+  try { await page.screenshot({ path: `${OUT}/${file}`, type: "jpeg", quality: 70, timeout: 10000 }); } catch { /* best effort */ }
+  rows.push({ step, ok, note, shot: file });
+  console.log(`${ok ? "PASS" : "FAIL"}  ${step}: ${note}`);
+}
+const hydrated = (page: Page) => page.evaluate(() => document.documentElement.dataset.hydrated === "1").catch(() => false);
+const textLen = (page: Page) => page.evaluate(() => (document.querySelector("main")?.innerText ?? document.body.innerText).trim().length).catch(() => 0);
+const step = async (name: string, fn: () => Promise<void>) => { try { await fn(); } catch (e) { rows.push({ step: name, ok: false, note: `crashed: ${(e as Error).message.split("\n")[0].slice(0, 200)}` }); console.log(`FAIL  ${name}: ${(e as Error).message.split("\n")[0]}`); } };
+
+async function main() {
+  const browser = await chromium.launch({ args: ["--disable-blink-features=AutomationControlled"] });
+
+  // 1. First visit: loader, doors, welcome slides.
+  const desk = await newContext(browser, "desktop");
+  const p = await desk.newPage(); watch(p, "desktop");
+  await step("First visit: loader opens onto the welcome slides", async () => {
+    await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+    const sawLoader = await p.locator("#boot").isVisible().catch(() => false);
+    await p.waitForFunction(() => document.documentElement.classList.contains("boot-off"), null, { timeout: 15000 }).catch(() => {});
+    const intro = await p.locator(".intro").waitFor({ state: "visible", timeout: 6000 }).then(() => true).catch(() => false);
+    await record(p, "loader then intro", sawLoader && intro, `loader shown: ${sawLoader}; welcome slides after the doors: ${intro}; scripts running: ${await hydrated(p)}`);
+  });
+  await step("Welcome slides: Next and Skip", async () => {
+    const next = p.getByRole("button", { name: /next/i }).first();
+    let moved = false;
+    if (await next.isVisible().catch(() => false)) { const before = await p.locator(".intro-copy").innerText().catch(() => ""); await next.click(); await p.waitForTimeout(700); moved = before !== (await p.locator(".intro-copy").innerText().catch(() => "")); }
+    await p.getByRole("button", { name: /skip/i }).first().click({ timeout: 3000 }).catch(() => {});
+    await p.waitForTimeout(500);
+    const gone = !(await p.locator(".intro").isVisible().catch(() => false));
+    await record(p, "intro next and skip", moved && gone, `Next changed the slide: ${moved}; Skip closed it: ${gone}`);
+  });
+  await step("Home page shows content", async () => {
+    const len = await textLen(p);
+    await record(p, "home content", len > 300, `${len} characters of content`);
+  });
+  await step("Home slideshow moves on its own", async () => {
+    const hero = p.locator(".hero, .hx, section").first();
+    const a = createHash("md5").update(await hero.screenshot({ timeout: 8000 })).digest("hex");
+    await p.waitForTimeout(8000);
+    const b = createHash("md5").update(await hero.screenshot({ timeout: 8000 })).digest("hex");
+    await record(p, "home slideshow", a !== b, a !== b ? "the top of the page changed over 8 seconds" : "nothing moved in 8 seconds");
+  });
+
+  // 2. Guest pages that must never be blank.
+  for (const path of ["/directory?kind=agents", "/directory?kind=companies", "/directory?kind=developers", "/browse", "/map", "/reels", "/flatmates", "/market", "/field", "/pricing"]) {
+    await step(`Guest page ${path}`, async () => {
+      const res = await p.goto(BASE + path, { waitUntil: "load", timeout: 30000 });
+      await p.waitForTimeout(1200);
+      const len = await textLen(p);
+      await record(p, `guest ${path}`, (res?.status() ?? 0) < 400 && len > 150, `status ${res?.status()}, ${len} characters, scripts running: ${await hydrated(p)}`);
+    });
+  }
+  await step("Map draws its tiles and pins", async () => {
+    await p.goto(BASE + "/map", { waitUntil: "load" });
+    await p.waitForTimeout(6000);
+    const tiles = await p.locator(".leaflet-tile-loaded").count();
+    const pins = await p.locator(".leaflet-marker-icon, .leaflet-interactive").count();
+    await record(p, "map tiles", tiles > 0, `${tiles} map tiles loaded, ${pins} pins or shapes`);
+  });
+
+  // 3. Typing, showing a password, a wrong-password message.
+  await step("Sign in: typing into the boxes", async () => {
+    await p.goto(BASE + "/login", { waitUntil: "load" });
+    await p.waitForTimeout(1500);
+    const email = p.locator('input[type="email"], input[name="email"]').first();
+    const pass = p.locator('input[type="password"], input[name="password"]').first();
+    await email.click(); await email.pressSequentially("someone@example.com", { delay: 15 });
+    await pass.click(); await pass.pressSequentially("wrong-password-123", { delay: 15 });
+    const ev = await email.inputValue(), pv = await pass.inputValue();
+    await record(p, "login typing", ev === "someone@example.com" && pv === "wrong-password-123", `email box holds "${ev}", password box holds ${pv.length} characters`);
+  });
+  await step("Sign in: wrong password shows a message", async () => {
+    await p.getByRole("button", { name: /^sign in$/i }).first().click();
+    const msg = await p.locator('[data-sonner-toast], [role="alert"], .flash.error, .toast').first().waitFor({ state: "visible", timeout: 8000 }).then(() => true).catch(() => false);
+    await record(p, "login wrong password message", msg, msg ? "a message appeared" : "no message within 8 seconds");
+  });
+  await step("Sign up: the eye shows the password", async () => {
+    await p.goto(BASE + "/join?as=personal", { waitUntil: "load" });
+    await p.waitForTimeout(1200);
+    const pass = p.locator('input[type="password"]').first();
+    await pass.click(); await pass.pressSequentially("Secret-pass-1", { delay: 10 });
+    const eye = p.locator('button[aria-label*="password" i], button[aria-label*="show" i], .pw-toggle').first();
+    await eye.click({ timeout: 3000 });
+    const type = await p.locator('input[name="password"], input[autocomplete="new-password"]').first().getAttribute("type");
+    await record(p, "signup password eye", type === "text", `after tapping the eye the box type is "${type}"`);
+  });
+
+  // 4. Desktop width.
+  const wide = await newContext(browser, "wide");
+  const w = await wide.newPage(); watch(w, "wide");
+  await step("Desktop 1920 px: page uses the width", async () => {
+    await w.goto(BASE + "/browse", { waitUntil: "load" });
+    const used = await w.evaluate(() => Math.round((document.querySelector("main .wrap, main") as HTMLElement).getBoundingClientRect().width));
+    await record(w, "desktop width", used >= 1500, `content is ${used} px wide on a 1920 px screen`);
+  });
+
+  // 5. Phone: menu opens.
+  const phone = await newContext(browser, "phone");
+  const m = await phone.newPage(); watch(m, "phone");
+  await step("Phone: the menu opens", async () => {
+    await m.goto(BASE + "/browse", { waitUntil: "load" });
+    await m.waitForTimeout(1500);
+    await m.getByRole("button", { name: /menu/i }).first().click({ timeout: 5000 });
+    await m.waitForTimeout(600);
+    const links = await m.locator("nav a:visible").count();
+    await record(m, "phone menu", links >= 3, `${links} menu links visible after tapping Menu`);
+  });
+  await step("Phone: reels swipe", async () => {
+    await m.goto(BASE + "/reels", { waitUntil: "load" });
+    await m.waitForTimeout(1500);
+    await record(m, "phone reels", (await textLen(m)) > 20, "reels page open");
+  });
+
+  await browser.close();
+
+  const failed = rows.filter((r) => !r.ok);
+  const uniq = [...new Set(problems)].slice(0, 80);
+  const md = [`# Real-browser check (${new Date().toISOString()})`, "", `${rows.length - failed.length} of ${rows.length} steps passed.`, "",
+    "| Step | Result | What happened | Screenshot |", "| --- | --- | --- | --- |",
+    ...rows.map((r) => `| ${r.step} | ${r.ok ? "pass" : "**FAIL**"} | ${r.note.replace(/\|/g, "/")} | ${r.shot ? `[${r.shot}](${r.shot})` : ""} |`),
+    "", "## Browser errors and failed downloads", "", ...(uniq.length ? uniq.map((u) => `- ${u}`) : ["None."])].join("\n");
+  writeFileSync(`${OUT}/report.md`, md + "\n");
+  for (const f of failed) console.log(`::${STRICT ? "error" : "warning"}::Real-browser check: ${f.step}: ${f.note}`);
+  for (const u of uniq.slice(0, 20)) console.log(`::warning::${u}`);
+  if (STRICT && failed.length) process.exit(1);
+}
+main().catch((e) => { console.error(e); process.exit(STRICT ? 1 : 0); });

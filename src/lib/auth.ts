@@ -9,6 +9,7 @@ import { can, type Action, type Role } from "./permissions";
 const SESSION_COOKIE = "sid";
 const SESSION_DAYS = 14;
 
+import { secureCookies } from "./cookie-security";
 export { hashPassword, verifyPassword } from "./auth-hash";
 
 export async function createSession(userId: string, companyId: string | null) {
@@ -18,7 +19,7 @@ export async function createSession(userId: string, companyId: string | null) {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: await secureCookies(),
     path: "/",
     expires: expiresAt,
   });

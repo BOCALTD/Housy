@@ -1,7 +1,7 @@
 "use server";
 
 import { requireMember } from "@/lib/auth";
-import { act, optStr, str, withNotice } from "@/lib/forms";
+import { act, messageFor, optStr, str, withNotice } from "@/lib/forms";
 import { addParty, createAsset, setAssetBoundary, setAssetPosition, updateAssetStatus, uploadDocument } from "@/lib/services/assets";
 import { createLease, recordPayment } from "@/lib/services/leases";
 import { createTask, updateTaskStatus } from "@/lib/services/tasks";
@@ -194,4 +194,17 @@ export async function makeCoverPhotoAction(form: FormData) {
     await makeCoverPhoto(member, id, str(form, "photoId"));
     return withNotice(assetPath(id), "Cover photograph changed.");
   });
+}
+
+/** One picture from the multi-photo uploader (components/PhotoUploader.tsx). Reports back instead of reloading the page. */
+export async function uploadListingPhotoAction(form: FormData): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const member = await requireMember("listing.manage");
+    const file = form.get("file");
+    if (!(file instanceof File) || file.size === 0) return { ok: false, error: "That file is empty" };
+    await addListingPhoto(member, str(form, "assetId"), { type: file.type, bytes: new Uint8Array(await file.arrayBuffer()) }, str(form, "caption"), str(form, "kind") === "FLOOR_PLAN" ? "FLOOR_PLAN" : "PHOTO");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: messageFor(e) };
+  }
 }

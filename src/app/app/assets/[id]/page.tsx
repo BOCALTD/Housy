@@ -11,6 +11,7 @@ import { FREQUENCIES } from "@/lib/services/leases";
 import { TASK_KINDS, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/services/tasks";
 import { PURPOSES } from "@/lib/services/listings";
 import { MAX_LISTING_PHOTOS, listingPhotosFor } from "@/lib/services/listing-photos";
+import { PhotoUploader } from "@/components/PhotoUploader";
 import { listTeam } from "@/lib/services/companies";
 import { conditionHistory } from "@/lib/services/inspections";
 import SaveDocument from "@/components/SaveDocument";
@@ -25,7 +26,7 @@ import { can } from "@/lib/permissions";
 import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import {
   addPartyAction, createLeaseAction, createTaskAction, listingStatusAction, recordPaymentAction,
-  addListingPhotoAction, makeCoverPhotoAction, removeListingPhotoAction, saveListingAction, setBoundaryAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
+  addListingPhotoAction, uploadListingPhotoAction, makeCoverPhotoAction, removeListingPhotoAction, saveListingAction, setBoundaryAction, setPositionAction, updateStatusAction, updateTaskAction, uploadDocumentAction,
 } from "../actions";
 
 import { CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, parseAmenities } from "@/lib/listing-rules";
@@ -331,7 +332,9 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                       ))}
                     </ul>
                   ) : <p className="muted">No pictures yet.</p>}
+                  <PhotoUploader assetId={asset.id} remaining={MAX_LISTING_PHOTOS - listingPhotos.length} max={MAX_LISTING_PHOTOS} upload={uploadListingPhotoAction} />
                   {listingPhotos.length < MAX_LISTING_PHOTOS ? (
+                    <details className="disclose"><summary>Add one picture with a caption</summary>
                     <form action={addListingPhotoAction} className="stack">
                       {hidden}
                       <Field label="Picture" hint="JPG, PNG or WEBP, up to 4 MB."><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required /></Field>
@@ -339,6 +342,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                       <Field label="This picture is"><select name="kind" defaultValue="PHOTO"><option value="PHOTO">A photograph</option><option value="FLOOR_PLAN">A floor plan</option></select></Field>
                       <button className="btn" type="submit">Add photograph</button>
                     </form>
+                    </details>
                   ) : null}
                 </div>
               </details>

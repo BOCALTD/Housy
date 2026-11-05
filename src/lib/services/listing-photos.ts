@@ -3,7 +3,7 @@ import { logActivity } from "../audit";
 import { validateUpload } from "../storage";
 import { assertCan, type Ctx } from "./context";
 
-export const MAX_LISTING_PHOTOS = 8;
+export const MAX_LISTING_PHOTOS = 20;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /** Editing what the public sees sends a published listing back to review, the same rule as editing its text. */

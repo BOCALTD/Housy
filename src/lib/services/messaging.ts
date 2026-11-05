@@ -180,7 +180,7 @@ export async function respondInspection(a: Actor, requestId: string, decision: "
 // ---------- Reading ----------
 
 export const THREAD_PAGE = 40;
-export const INBOX_PAGE = 15;
+export const INBOX_PAGE = 60;
 
 export async function listConversations(a: Actor, page = 1) {
   return run(a, async (tx) => {
@@ -196,6 +196,7 @@ export async function listConversations(a: Actor, page = 1) {
       return {
         id: c.id, subject: c.subject, lastMessageAt: c.lastMessageAt,
         others: c.members.filter((m) => m.userId !== a.userId).map((m) => m.name),
+        otherIds: c.members.filter((m) => m.userId !== a.userId).map((m) => m.userId),
         preview: last ? (last.kind === "TEXT" ? last.body : last.kind === "PROPERTY" ? "Shared a property" : last.kind === "INSPECTION_REQUEST" ? "Asked to arrange an inspection" : "Answered an inspection request") : "",
         lastFromMe: last?.senderId === a.userId,
         unread: !!last && last.senderId !== a.userId && (!seen || seen < c.lastMessageAt),
@@ -239,6 +240,19 @@ export async function getConversation(a: Actor, id: string, before?: Date) {
       answered, iBlocked: blocked, cannotReply: blocked || unblockedByThem, reported,
       seenUpTo: othersSeen.length ? new Date(Math.min(...othersSeen.map((d) => d.getTime()))) : null,
     };
+  });
+}
+
+/** New messages since a moment (an open chat checks every few seconds), marked read, and how far the others have read. */
+export async function messagesSince(a: Actor, id: string, after: Date) {
+  return run(a, async (tx) => {
+    const c = await tx.conversation.findUnique({ where: { id }, include: { members: true } });
+    const me = c?.members.find((m) => m.userId === a.userId);
+    if (!c || !me) throw new Error("Conversation not found");
+    const messages = await tx.message.findMany({ where: { conversationId: id, createdAt: { gt: after } }, orderBy: { createdAt: "asc" }, take: 100 });
+    if (messages.some((m) => m.senderId !== a.userId)) await tx.conversationMember.update({ where: { id: me.id }, data: { lastReadAt: new Date() } });
+    const seen = c.members.filter((m) => m.userId !== a.userId).map((o) => o.lastReadAt).filter((x): x is Date => !!x);
+    return { messages, seenUpTo: seen.length ? new Date(Math.min(...seen.map((d) => d.getTime()))) : null };
   });
 }
 

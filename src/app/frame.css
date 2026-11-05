@@ -233,3 +233,24 @@
 .chip-choice input:focus-visible + span { outline: 3px solid #FBB017; outline-offset: 2px; }
 @media (hover: hover) { .mode-card:not(.on) button:hover { border-color: #FBB017; } .pm-btn:hover { background: rgba(17, 18, 20, .85); } }
 @media (prefers-reduced-motion: no-preference) { .mode-card button { transition: border-color .2s, box-shadow .2s, transform .2s; } .mode-card:not(.on) button:active { transform: scale(.98); } }
+
+/* Multi-photo uploader */
+.uploader { display: grid; gap: 12px; }
+.drop { display: grid; justify-items: center; gap: 6px; width: 100%; min-height: 150px; padding: 22px; border-radius: 18px; border: 2px dashed color-mix(in srgb, #FBB017 70%, var(--line)); background: radial-gradient(400px 120px at 50% 0%, rgba(251, 176, 23, .14), transparent 70%), var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; text-align: center; }
+.drop svg { color: #C98500; }
+.drop strong { font: 700 18px var(--font-display); }
+.drop span { color: var(--muted); font-size: 14px; }
+.drop.over { border-style: solid; background: color-mix(in srgb, #FBB017 18%, var(--surface)); }
+.drop:disabled { cursor: not-allowed; opacity: .7; }
+.up-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.up-list li { position: relative; display: grid; gap: 4px; padding: 6px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.up-list img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; }
+.up-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.up-state { font-size: 13px; font-weight: 600; color: var(--muted); }
+.up-done .up-state { color: #15803D; }
+.up-failed .up-state { color: #B42318; }
+.up-bar { height: 4px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.up-bar i { display: block; height: 100%; width: 0; background: #FBB017; }
+.up-preparing .up-bar i { width: 35%; } .up-sending .up-bar i { width: 75%; } .up-done .up-bar i { width: 100%; background: #16A34A; } .up-failed .up-bar i { width: 100%; background: #E5484D; }
+@media (prefers-reduced-motion: no-preference) { .up-bar i { transition: width .5s ease; } .up-sending .up-bar i { animation: up-pulse 1s ease-in-out infinite alternate; } @keyframes up-pulse { to { opacity: .55; } } }
+@media (hover: hover) { .drop:not(:disabled):hover { border-color: #FBB017; background: color-mix(in srgb, #FBB017 12%, var(--surface)); } }

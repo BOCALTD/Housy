@@ -51,9 +51,10 @@ export async function removeProfileImage(userId: string, kind: ProfileImageKind)
 
 /** For the public picture route: a profile picture is shown wherever the person appears (messages, reviews, their profile). */
 export async function profileImage(userId: string, kind: ProfileImageKind) {
-  const m = await prisma.userMedia.findUnique({ where: { userId }, select: kind === "avatar" ? { avatar: true, avatarType: true } : { cover: true, coverType: true } });
-  const bytes = kind === "avatar" ? m?.avatar : m?.cover;
-  const type = kind === "avatar" ? m?.avatarType : m?.coverType;
+  const found = kind === "avatar"
+    ? await prisma.userMedia.findUnique({ where: { userId }, select: { avatar: true, avatarType: true } }).then((m) => ({ bytes: m?.avatar, type: m?.avatarType }))
+    : await prisma.userMedia.findUnique({ where: { userId }, select: { cover: true, coverType: true } }).then((m) => ({ bytes: m?.cover, type: m?.coverType }));
+  const { bytes, type } = found;
   // A person on a break shows no pictures.
   if (!bytes || !type) return null;
   const u = await prisma.user.findUnique({ where: { id: userId }, select: { breakStartedAt: true } });

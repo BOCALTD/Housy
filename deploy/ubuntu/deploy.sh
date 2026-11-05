@@ -19,7 +19,9 @@ git -C "$DIR" checkout --quiet "$REF"
 cd "$DIR"
 SHA=$(git rev-parse --short HEAD)
 echo "Installing (commit $SHA)"
-if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+# The env file sets NODE_ENV=production, which would make npm skip the build tools (TypeScript, type definitions) and the build
+# would fail; they are needed to build, so they are always installed here.
+if [ -f package-lock.json ]; then npm ci --include=dev --no-audit --no-fund; else npm install --include=dev --no-audit --no-fund; fi
 echo "Preparing the database (runtime role, migrations, privileges)"
 npm run db:setup
 echo "Building"

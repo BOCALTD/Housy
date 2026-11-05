@@ -20,6 +20,7 @@ test("write, publish, read and unpublish a post", async () => {
   await assert.rejects(savePost(admin.id, "Admin", null, { ...input, publish: true }), /cover picture/);
   await assert.rejects(savePost(admin.id, "Admin", null, { ...input, category: "nonsense" }), /category/);
   await assert.rejects(savePost(admin.id, "Admin", null, input, { type: "image/gif", bytes: PNG }), /JPEG, PNG or WebP/);
+  await assert.rejects(savePost(admin.id, "Admin", null, input, { type: "image/png", bytes: new Uint8Array(Buffer.from("<svg onload=alert(1)>")) }), /not the picture type/);
   const draft = await savePost(admin.id, "Admin", null, input);
   assert.equal(draft.status, "DRAFT");
   assert.deepEqual(draft.tags, ["renting", "lagos"]);

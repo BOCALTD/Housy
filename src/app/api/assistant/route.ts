@@ -5,6 +5,8 @@ import { sameOriginRequest } from "@/lib/security";
 import { assistantReply, type ChatTurn } from "@/lib/services/assistant-chat";
 import { viewerKeyFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
+import { rateLimit } from "@/lib/ratelimit";
+import { messageFor } from "@/lib/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,11 @@ export async function POST(req: Request) {
   const h = await headers();
   const ua = h.get("user-agent") ?? "";
   if (isBot(ua)) return NextResponse.json({ error: "Not available" }, { status: 403 });
+  // A person types a few questions a minute; anything faster is a script.
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  if (!(await rateLimit(`assistant:${ip}`, 20, 60_000)) || !(await rateLimit(`assistant-day:${ip}`, 400, 864e5))) {
+    return NextResponse.json({ error: "That is a lot of questions in a short time. Wait a minute and ask again." }, { status: 429 });
+  }
   let body: { messages?: ChatTurn[]; workspace?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
   const messages = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
@@ -27,6 +34,6 @@ export async function POST(req: Request) {
     const a = await assistantReply({ userId: session?.user.id ?? null, companyId: member?.companyId ?? null, visitorKey, name: session?.user.name ?? null, member }, messages);
     return NextResponse.json(a, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Something went wrong" }, { status: 400 });
+    return NextResponse.json({ error: messageFor(e) }, { status: 400 });
   }
 }

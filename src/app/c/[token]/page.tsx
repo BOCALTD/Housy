@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { viewClientLink } from "@/lib/services/client-files";
+import { rateLimit } from "@/lib/ratelimit";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { ShowMore } from "@/components/ui";
@@ -12,7 +14,10 @@ const ICONS: Record<string, string> = { documents: "📄", inspections: "🧭", 
 /** What a client sees from the private link their agent or company sent: read-only, only the parts that were shared. */
 export default async function ClientView({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const v = await viewClientLink(token).catch(() => null);
+  // Links are long random secrets; the limit stops anyone trying many of them quickly.
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const allowed = await rateLimit(`clientlink:${ip}`, 60, 60_000);
+  const v = allowed ? await viewClientLink(token).catch(() => null) : null;
   if (!v) {
     return (
       <section className="card art-empty" style={{ maxWidth: 560, margin: "40px auto" }}>

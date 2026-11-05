@@ -10,7 +10,7 @@
  * Honest limit: this is the WebKit and Chromium engines with phone-sized screens, touch input and
  * phone user agents. It is close to, but not the same as, real iOS Safari or real Android hardware.
  */
-import { chromium, webkit, devices, type Browser, type Page } from "@playwright/test";
+import { chromium, firefox, webkit, devices, type Browser, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
@@ -20,7 +20,7 @@ const OUT = "device-report";
 
 // "every" profiles open every signed-in page; the others open the public pages and one page of each main kind (the screenshot list),
 // which keeps the whole check inside the CI time limit as the app grows.
-const PROFILES: { name: string; device: string; engine: "chromium" | "webkit"; shots: boolean; every: boolean }[] = [
+const PROFILES: { name: string; device: string; engine: "chromium" | "webkit" | "firefox"; shots: boolean; every: boolean }[] = [
   { name: "Desktop Chrome", device: "Desktop Chrome", engine: "chromium", shots: true, every: true },
   { name: "Pixel 7 (Android)", device: "Pixel 7", engine: "chromium", shots: true, every: true },
   { name: "iPhone SE (small iPhone)", device: "iPhone SE", engine: "webkit", shots: true, every: false },
@@ -28,6 +28,7 @@ const PROFILES: { name: string; device: string; engine: "chromium" | "webkit"; s
   { name: "iPhone 14 Pro Max (large iPhone)", device: "iPhone 14 Pro Max", engine: "webkit", shots: false, every: false },
   { name: "Galaxy S9+ (small Android)", device: "Galaxy S9+", engine: "chromium", shots: false, every: false },
   { name: "iPad (tablet)", device: "iPad (gen 7)", engine: "webkit", shots: false, every: false },
+  { name: "Desktop Firefox", device: "Desktop Firefox", engine: "firefox", shots: false, every: false },
 ];
 // Stop opening new pages after this many minutes, so the report is still written and published.
 const DEADLINE = Date.now() + Number(process.env.DEVICE_BUDGET_MIN ?? 45) * 60_000;
@@ -39,7 +40,7 @@ async function shot(page: import("@playwright/test").Page, opts: Parameters<impo
 }
 
 // Pages that get a screenshot on the profiles that take them.
-const SHOT_PATTERNS = ["/properties/:id?shared=1", "/", "/?intro=1", "/reels", "/reels/new", "/admin/music", "/market", "/market/:id", "/field", "/app/reports/accounting", "/pricing", "/join", "/join?as=personal", "/join?as=agent", "/join?as=company", "/login?as=company", "/admin/sign-in-locks", "/app/bookings/route", "/app/setup", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline", "/map", "/app/map", "/me", "/admin", "/app/crm", "/app/deals", "/app/projects/:id", "/app/valuations/:id", "/app/team", "/app/settings", "/app/reports", "/app/analytics", "/app/files", "/app/correspondence", "/flatmates", "/flatmates/profile", "/flatmates/matches", "/flatmates/requests", "/flatmates/p/:id", "/messages/:id"];
+const SHOT_PATTERNS = ["/properties/:id?shared=1", "/", "/?intro=1", "/reels", "/reels/new", "/admin/music", "/market", "/market/:id", "/field", "/app/reports/accounting", "/pricing", "/join", "/join?as=personal", "/join?as=agent", "/join?as=company", "/login?as=company", "/admin/sign-in-locks", "/app/bookings/route", "/app/setup", "/login", "/me/privacy", "/admin/companies/:id", "/admin/reference", "/trust", "/app/bookings", "/app/bookings/:id", "/me/inspections/:id", "/admin/cases/:id", "/calculators", "/compare", "/browse", "/browse/buy", "/properties/:id", "/faq", "/how-it-works", "/reviews", "/safety", "/about", "/app/verification", "/me/verification", "/admin/kyc", "/app", "/app/assets", "/app/maintenance", "/app/inventory", "/app/inspections", "/app/compliance", "/app/assets/:id", "/app/leases/:id", "/app/maintenance/:id", "/app/handover-inventory/:id", "/app/portals", "/portal", "/portal/owner/:id", "/portal/vendor/:id", "/portal/vendor/:id/jobs/:id", "/portal/provider/:id", "/offline", "/map", "/app/map", "/me", "/admin", "/app/crm", "/app/deals", "/app/projects/:id", "/app/valuations/:id", "/app/team", "/app/settings", "/app/reports", "/app/analytics", "/app/files", "/app/correspondence", "/flatmates", "/flatmates/profile", "/flatmates/matches", "/flatmates/requests", "/flatmates/p/:id", "/messages/:id", "/app/crm/files", "/app/crm/files/:id", "/app/artisans", "/me/artisans", "/admin/blog", "/me/settings"];
 
 interface Issue { kind: string; page: string; profile: string; detail: string; items: string[] }
 const issues: Issue[] = [];
@@ -160,13 +161,13 @@ async function main() {
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
   const marketCity = (await (await fetch(`${BASE}/market`)).text()).match(/href="(\/market\/[a-z0-9-]+)"/)?.[1];
-  const publicPages = ["/", "/?intro=1", "/pricing", "/login", "/login?as=agent", "/login?as=company", "/forgot", "/support", "/join", "/join?as=personal", "/join?as=agent", "/join?as=company", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", "/offline", "/market", "/field", "/reels", ...(marketCity ? [marketCity] : []), ...(prop ? [`/${prop}`] : [])];
+  const publicPages = ["/", "/?intro=1", "/pricing", "/login", "/login?as=agent", "/login?as=company", "/forgot", "/support", "/join", "/join?as=personal", "/join?as=agent", "/join?as=company", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", "/offline", "/market", "/field", "/reels", "/blog", "/legal", "/legal/terms", "/legal/privacy", "/legal/delete-account", "/artisans", "/directory?kind=agents", "/assistant", ...(marketCity ? [marketCity] : []), ...(prop ? [`/${prop}`] : [])];
   // A visitor with no account who opened a shared property: the sign-up invitation and the locked photos.
   const guestPages = prop ? [`/${prop}?shared=1`] : [];
   const pages = [...publicPages.map((p) => ({ p, auth: false, guest: false })), ...guestPages.map((p) => ({ p, auth: false, guest: true })), ...signedIn.map((p) => ({ p, auth: true, guest: false }))];
   mkdirSync(`${OUT}/screens`, { recursive: true });
 
-  const browsers: Record<string, Browser> = { chromium: await chromium.launch(), webkit: await webkit.launch() };
+  const browsers: Record<string, Browser> = { chromium: await chromium.launch(), webkit: await webkit.launch(), firefox: await firefox.launch() };
   const rows: string[] = new Array(PROFILES.length).fill("");
   // Profiles run three at a time: one after another the check outgrew the CI time limit.
   const runProfile = async (prof: (typeof PROFILES)[number], index: number) => {

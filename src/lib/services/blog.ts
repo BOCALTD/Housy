@@ -95,6 +95,10 @@ export async function savePost(adminId: string, authorName: string, id: string |
   if (cover) {
     if (!(COVER_TYPES as readonly string[]).includes(cover.type)) throw new Error("The cover must be a JPEG, PNG or WebP picture");
     if (cover.bytes.byteLength > MAX_COVER_BYTES) throw new Error("The cover is over 2 MB. Use a smaller picture");
+    // The file must really be the picture type it claims (checked from its first bytes, not from its name or the browser's word).
+    const MAGIC: Record<string, number[]> = { "image/jpeg": [0xff, 0xd8, 0xff], "image/png": [0x89, 0x50, 0x4e, 0x47], "image/webp": [0x52, 0x49, 0x46, 0x46] };
+    const m = MAGIC[cover.type];
+    if (!m || !m.every((x, i) => cover.bytes[i] === x) || (cover.type === "image/webp" && String.fromCharCode(...cover.bytes.slice(8, 12)) !== "WEBP")) throw new Error("The cover is not the picture type it claims to be");
   }
   const slug = slugify(d.slug || d.title);
   return withPlatformAdmin(adminId, async (tx) => {

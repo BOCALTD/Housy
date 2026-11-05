@@ -146,7 +146,7 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
           )}
         </div>
       </aside>
-      <a href="#" className="frame-scrim" aria-hidden="true" tabIndex={-1} onClick={(e) => { e.preventDefault(); setOpen(false); }} />
+      <a href="#" className="frame-scrim" aria-label="Close the menu" tabIndex={-1} onClick={(e) => { e.preventDefault(); setOpen(false); }} />
 
       <div className="frame-main">
         <header className="bar">

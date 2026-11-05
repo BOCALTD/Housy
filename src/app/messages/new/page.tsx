@@ -18,7 +18,7 @@ export default async function NewMessagePage({ searchParams: searchP }: { search
   const collab = sp(searchParams, "collab");
   return (
     <div className="stack-lg">
-      <div className="stack" style={{ gap: 6 }}><h1>Message {target.name}</h1><p className="muted"><Link href="/messages">Back to messages</Link></p></div>
+      <div className="stack" style={{ gap: 6 }}><h1 className="chat-own-h1">Message {target.name}</h1><p className="muted"><Link href="/messages">Back to messages</Link></p></div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <form action={startAction} className="card stack">
         <input type="hidden" name="toUserId" value={to} />{collab ? <input type="hidden" name="collaborationId" value={collab} /> : null}

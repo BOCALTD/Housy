@@ -17,7 +17,7 @@ export default async function MessagesPage({ searchParams: searchP }: { searchPa
     const found = await searchMessages(actor, q);
     return (
       <div className="chat-results">
-        <h2>Messages with “{q}”</h2>
+        <h1 className="chat-own-h1">Messages with “{q}”</h1>
         {found.length === 0 ? <p className="muted">Nothing found.</p> : (
           <ul className="chat-rows">{found.slice(0, 40).map((m) => (
             <li key={m.id}><Link className="chat-row" href={`/messages/${m.conversationId}`}><span className="chat-row-text"><span className="chat-row-top"><strong>{m.senderName}</strong><time>{formatDate(m.createdAt)}</time></span><span className="chat-row-bottom"><span>{m.body.slice(0, 160)}</span></span></span></Link></li>

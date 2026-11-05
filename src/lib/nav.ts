@@ -105,6 +105,7 @@ function workspaceGroups(r: Role, incoming: number): SideGroup[] {
     ]),
     g("Clients and sales", [
       ["/app/crm", "Clients", "people", can(r, "crm.view")],
+      ["/app/crm/files", "Client files", "folder", can(r, "crm.view")],
       ["/app/deals", "Deals", "handshake", can(r, "crm.view")],
       ["/app/sales", "Sales", "money", can(r, "crm.view")],
       ["/app/commissions", "Commissions", "money", can(r, "crm.view")],

@@ -230,6 +230,8 @@ model Asset {
   correspondence      Correspondence[]
   files               PhysicalFile[]
 
+  clientFiles ClientAsset[]
+  clientViewLinks ClientViewLink[]
   @@unique([companyId, ref])
   @@index([companyId, status])
   @@map("assets")
@@ -2671,6 +2673,8 @@ model Client {
   activities       ClientActivity[]
   requirements     PropertyRequirement[]
 
+  files       ClientAsset[]
+  viewLinks   ClientViewLink[]
   @@unique([companyId, ref])
   @@index([companyId, ownerId])
   @@index([companyId, emailNorm])
@@ -5742,4 +5746,45 @@ model FlatmateCheck {
 
   @@index([status])
   @@map("flatmate_checks")
+}
+
+// ---------- Client files ----------
+
+/// A property in a client's file (as owner, buyer, tenant or landlord). Deals with the client add their property automatically.
+model ClientAsset {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  clientId    String   @map("client_id")
+  assetId     String   @map("asset_id")
+  /// OWNER, BUYER, TENANT or LANDLORD
+  role        String   @default("OWNER")
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, assetId])
+  @@index([companyId, assetId])
+  @@map("client_assets")
+}
+
+/// A read-only link a client can open to follow one property: the sections chosen, until it expires or is revoked.
+model ClientViewLink {
+  id           String    @id @default(uuid())
+  companyId    String    @map("company_id")
+  clientId     String    @map("client_id")
+  assetId      String    @map("asset_id")
+  tokenHash    String    @unique @map("token_hash")
+  sections     String[]  @default([])
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  views        Int       @default(0)
+  lastViewedAt DateTime? @map("last_viewed_at")
+  createdById  String    @map("created_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, clientId])
+  @@map("client_view_links")
 }

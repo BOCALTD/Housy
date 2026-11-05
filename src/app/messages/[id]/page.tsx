@@ -55,7 +55,7 @@ export default async function ConversationPage({ params: paramsP, searchParams: 
         </Link>
         <span className="avatar">{other && avatars.get(other.userId) ? <img src={avatars.get(other.userId)} alt="" /> : initials}</span>
         <div className="chat-head-text">
-          <strong>{title}</strong>
+          <h1 className="chat-title">{title}</h1>
           <span>{room ? `Flatmate room${roomInfo ? ` · ${roomInfo.members.length} people` : ""}` : t.conversation.subject || "Private chat"}</span>
         </div>
         <details className="chat-menu">

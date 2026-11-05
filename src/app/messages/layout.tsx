@@ -17,7 +17,7 @@ export default async function MessagesLayout({ children }: { children: React.Rea
     <div className="chat-shell">
       <aside className="chat-side" aria-label="Your chats">
         <div className="chat-side-head">
-          <h1>Chats</h1>
+          <h1 className="chat-side-h">Chats</h1><p className="chat-side-alt" aria-hidden="true">Chats</p>
           <Link href="/directory?kind=agents" className="chat-new" aria-label="Start a new chat with an agent">
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           </Link>

@@ -57,6 +57,7 @@
 .bar-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; cursor: pointer; }
 .bar-btn svg { width: 22px; height: 22px; }
 .menu-btn, .bar-mark { display: none; }
+.bar-mark { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
 .bar-back span { font-size: 15px; }
 .bar-title { margin: 0; font: 700 18px var(--font-display); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar-spacer { flex: 1; }
@@ -254,3 +255,8 @@
 .up-preparing .up-bar i { width: 35%; } .up-sending .up-bar i { width: 75%; } .up-done .up-bar i { width: 100%; background: #16A34A; } .up-failed .up-bar i { width: 100%; background: #E5484D; }
 @media (prefers-reduced-motion: no-preference) { .up-bar i { transition: width .5s ease; } .up-sending .up-bar i { animation: up-pulse 1s ease-in-out infinite alternate; } @keyframes up-pulse { to { opacity: .55; } } }
 @media (hover: hover) { .drop:not(:disabled):hover { border-color: #FBB017; background: color-mix(in srgb, #FBB017 12%, var(--surface)); } }
+
+.chat-side-alt { display: none; margin: 0; font-size: 24px; font-weight: 800; }
+.chat-shell:has(.chat-pane, .chat-own-h1) .chat-side-h { display: none; }
+.chat-shell:has(.chat-pane, .chat-own-h1) .chat-side-alt { display: block; }
+.chat-title { margin: 0; font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

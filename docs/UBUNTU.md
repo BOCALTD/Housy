@@ -2,7 +2,7 @@
 
 Everything here is written for **Ubuntu 22.04 or 24.04** on one server you control (a VPS or your own machine). The files are in `deploy/ubuntu/`.
 
-> **Honest status.** These scripts were written and syntax-checked, but **not yet run on a real Ubuntu server**. Expect to fix small things on the first run. Do the first install on a spare server and read each script before running it.
+> **Tested.** Every change to these scripts runs them on a fresh Ubuntu 24.04 machine in CI (`.github/workflows/ubuntu-install.yml`): install.sh, a first deploy, the pages through nginx, loopback-only app and database, services, timers, a job, a backup, the firewall, and a second deploy as an update. Ubuntu 22.04 is expected to work but is not tested in CI.
 
 ## What you get
 

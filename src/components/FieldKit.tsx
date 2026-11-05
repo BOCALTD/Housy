@@ -189,7 +189,7 @@ export function FieldKit() {
   const waiting = Object.values(outbox).filter((o) => o.state === "waiting").length;
   const current = list.find((i) => i.id === open) ?? null;
 
-  if (!ready) return <div className="card"><p className="muted">Opening the field kit…</p></div>;
+  if (!ready) return <div className="card stack"><h1>Field kit</h1><p className="muted" role="status">Opening the field kit…</p></div>;
 
   return (
     <div className="stack-lg fk">

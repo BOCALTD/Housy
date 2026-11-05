@@ -68,7 +68,10 @@ install -m 0755 "$HERE/job.sh" /usr/local/bin/housy-job
 sed "s/your-domain.example/$DOMAIN/" "$HERE/nginx-housy.conf" > /etc/nginx/sites-available/housy
 ln -sf /etc/nginx/sites-available/housy /etc/nginx/sites-enabled/housy
 rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
+# Start nginx if it is not running yet (a fresh install may leave it stopped), otherwise load the new site.
+nginx -t
+systemctl enable nginx
+if systemctl is-active --quiet nginx; then systemctl reload nginx; else systemctl start nginx; fi
 systemctl daemon-reload
 systemctl enable housy-notifications.timer housy-push.timer housy-billing.timer housy-backup.timer
 

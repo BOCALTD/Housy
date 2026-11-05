@@ -29,7 +29,7 @@
 .art-empty-ico { font-size: 44px; width: 90px; height: 90px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #FFE3A3, #FBB017); }
 .art-offer { border-color: color-mix(in srgb, #FBB017 45%, var(--line)); }
 .art-edit > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; }
-.trade-picker .chip-choice span { min-height: 40px; font-size: 13.5px; }
+.trade-picker .chip-choice span { min-height: 44px; font-size: 13.5px; }
 @media (max-width: 760px) { .art-hero { grid-template-columns: minmax(0, 1fr); } .list-rows > li { flex-wrap: wrap; } }
 @media (prefers-reduced-motion: no-preference) {
   .art-trades li { animation: float-chip 6s ease-in-out infinite; }

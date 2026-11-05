@@ -9,6 +9,8 @@ export default async function AssistantPage() {
   const session = await getSession();
   return (
     <div className="ai-page">
+      {/* The chat fills the screen; the page title is for screen readers and search engines. */}
+      <h1 className="sr-only">Ask Housy, the property assistant</h1>
       <AssistantChat name={session?.user.name ?? null} starters={STARTERS.public} />
     </div>
   );

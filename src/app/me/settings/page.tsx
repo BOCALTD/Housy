@@ -1,46 +1,97 @@
 import Link from "next/link";
-import { requireUser, getMember } from "@/lib/auth";
-import { ROLE_LABELS } from "@/lib/permissions";
-import { myCompanies } from "@/lib/services/companies";
+import { getSession, requireUser } from "@/lib/auth";
+import { ROLE_LABELS, type Role } from "@/lib/permissions";
+import { profileFor } from "@/lib/services/profile";
 import { logoutAction } from "@/app/auth-actions";
 import { Icon } from "@/components/Icons";
+import { ProfileMedia } from "@/components/ProfileMedia";
+import { becomeAgentAction, removeProfileImageAction, switchModeAction, takeBreakAction, updateAboutAction, uploadProfileImageAction } from "./actions";
 
 export const metadata = { title: "Profile and settings" };
 export const dynamic = "force-dynamic";
 
 const ROWS: { href: string; title: string; text: string; icon: keyof typeof Icon }[] = [
   { href: "/me/verification", title: "Verification", text: "Prove who you are so agents and companies trust your enquiries.", icon: "shield" },
-  { href: "/me/security", title: "Security", text: "Password, two-step sign-in and the devices signed in to your account.", icon: "lock" },
+  { href: "/me/security", title: "Password and security", text: "Password, two-step sign-in and the devices signed in to your account.", icon: "lock" },
   { href: "/me/notification-settings", title: "Notifications and email", text: "Choose which alerts and emails you get.", icon: "bell" },
-  { href: "/me/privacy", title: "Privacy and my data", text: "Download your data, control suggestions, or delete your account.", icon: "doc" },
+  { href: "/me/privacy", title: "Privacy and my data", text: "Download your data and control suggestions.", icon: "doc" },
   { href: "/me/plan", title: "Plan and billing", text: "Your plan, invoices and payments.", icon: "money" },
+  { href: "/?intro=1", title: "Welcome tour", text: "See the four welcome slides again.", icon: "sparkle" },
 ];
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const [member, companies] = await Promise.all([getMember(), myCompanies(user.id).catch(() => [])]);
-  const initials = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
+  const [p, session] = await Promise.all([profileFor(user.id), getSession()]);
+  const activeCompany = session?.companyId ?? null;
+  const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
+  const modes = [
+    { to: "personal", title: "Me", text: "Look for property, chat, save homes and find flatmates.", on: !activeCompany, icon: "person" as const },
+    ...(p.agentBusiness ? [{ to: p.agentBusiness.companyId, title: "Agent", text: p.agentBusiness.company.name, on: activeCompany === p.agentBusiness.companyId, icon: "handshake" as const }] : []),
+    ...p.companies.map((c) => ({ to: c.companyId, title: c.company.name, text: ROLE_LABELS[c.role as Role] ?? c.role, on: activeCompany === c.companyId, icon: "building" as const })),
+  ];
   return (
     <div className="stack-lg">
       <section className="profile-hero">
-        <div className="profile-cover" aria-hidden="true" />
+        <div className="profile-cover" style={p.coverUrl ? { backgroundImage: `url(${p.coverUrl})` } : undefined}>
+          <ProfileMedia kind="cover" label={p.coverUrl ? "Change cover" : "Add a cover photo"} hasImage={!!p.coverUrl} action={uploadProfileImageAction} remove={removeProfileImageAction} />
+        </div>
         <div className="profile-row">
-          <span className="profile-avatar" aria-hidden="true">{initials}</span>
+          <div className="profile-avatar-wrap">
+            <span className="profile-avatar" aria-hidden="true">{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : initials}</span>
+            <ProfileMedia kind="avatar" label={p.avatarUrl ? "Change photo" : "Add a photo"} hasImage={!!p.avatarUrl} action={uploadProfileImageAction} remove={removeProfileImageAction} />
+          </div>
           <div className="profile-id">
-            <h1>{user.name}</h1>
-            <p className="muted">{user.email}</p>
-            <p className="profile-role">{member ? `${ROLE_LABELS[member.role]} at ${member.companyName}` : "Personal account"}</p>
+            <h1>{p.name}</h1>
+            <p className="muted">{p.email}</p>
+            {p.bio ? <p className="profile-bio">{p.bio}</p> : null}
+            <p className="profile-role">{modes.find((m) => m.on)?.title === "Me" ? "Using Housy as yourself" : `Working as ${modes.find((m) => m.on)?.title ?? "yourself"}`}</p>
           </div>
         </div>
       </section>
 
-      {companies.length > 0 ? (
-        <section className="card stack">
-          <h2>Your workspaces</h2>
-          <p className="muted">You use Housy as yourself and as a member of {companies.length === 1 ? "a company" : `${companies.length} companies`}.</p>
-          <div className="row"><Link className="btn primary" href="/app">Open the workspace</Link><Link className="btn" href="/app/switch">Switch company</Link></div>
-        </section>
-      ) : null}
+      <section className="card stack" aria-labelledby="mode-h">
+        <div className="stack" style={{ gap: 4 }}>
+          <h2 id="mode-h">Use Housy as</h2>
+          <p className="muted">One account, every hat you wear. Switch any time; nothing is lost.</p>
+        </div>
+        <div className="mode-grid">
+          {modes.map((m) => {
+            const I = Icon[m.icon];
+            return (
+              <form key={m.to} action={switchModeAction} className={`mode-card${m.on ? " on" : ""}`}>
+                <input type="hidden" name="to" value={m.to} />
+                <button type="submit" disabled={m.on} aria-pressed={m.on}>
+                  <span className="mode-ico"><I /></span>
+                  <span className="mode-text"><strong>{m.title}</strong><span>{m.text}</span></span>
+                  <span className="mode-state">{m.on ? "In use" : "Switch"}</span>
+                </button>
+              </form>
+            );
+          })}
+        </div>
+        {!p.agentBusiness ? (
+          <details className="disclose">
+            <summary>Work as an agent too</summary>
+            <form action={becomeAgentAction} className="stack" style={{ marginTop: 12 }}>
+              <p className="muted small">You keep this account. You get an agent workspace for your listings, clients and deals, and can switch back to your personal side with one tap.</p>
+              <div className="fields">
+                <label className="field">Trading name (optional)<input name="tradingName" maxLength={80} placeholder="e.g. Ada Homes" /></label>
+                <label className="field">Phone clients can call<input name="phone" type="tel" required autoComplete="tel" placeholder="0803 123 4567" /></label>
+              </div>
+              <button className="btn primary" type="submit">Create my agent workspace</button>
+            </form>
+          </details>
+        ) : null}
+      </section>
+
+      <section className="card stack" aria-labelledby="about-h">
+        <h2 id="about-h">About you</h2>
+        <form action={updateAboutAction} className="stack">
+          <label className="field">Name<input name="name" required minLength={2} maxLength={80} defaultValue={p.name} autoComplete="name" /></label>
+          <label className="field">Bio<textarea name="bio" maxLength={280} rows={3} defaultValue={p.bio} placeholder="A line about you: what you are looking for, or what you do." /></label>
+          <button className="btn primary" type="submit">Save profile</button>
+        </form>
+      </section>
 
       <section className="card settings-list" aria-label="Settings">
         {ROWS.map((r) => {
@@ -55,10 +106,38 @@ export default async function SettingsPage() {
         })}
       </section>
 
-      <section className="card stack">
-        <h2>Sign out</h2>
-        <p className="muted">Sign out of Housy on this device. Your saved homes, chats and alerts stay in your account.</p>
-        <form action={logoutAction}><button className="btn danger-soft" type="submit">Sign out</button></form>
+      <section className="card stack" aria-labelledby="leave-h">
+        <h2 id="leave-h">Sign out, take a break or leave</h2>
+        <div className="leave-grid">
+          <div className="leave-card">
+            <h3>Sign out</h3>
+            <p className="muted small">Sign out on this device. Everything stays in your account.</p>
+            <form action={logoutAction}><button className="btn" type="submit">Sign out</button></form>
+          </div>
+          <details className="leave-card">
+            <summary><h3>Take a break</h3><span className="muted small">Hide your profile and pause emails. Signing in again ends the break.</span></summary>
+            <form action={takeBreakAction} className="stack" style={{ marginTop: 10 }}>
+              <fieldset className="choice-row">
+                <legend className="small muted">For how long?</legend>
+                {[["week", "A week"], ["month", "A month"], ["quarter", "Three months"], ["open", "Until I come back"]].map(([v, l], i) => (
+                  <label key={v} className="chip-choice"><input type="radio" name="length" value={v} defaultChecked={i === 1} /><span>{l}</span></label>
+                ))}
+              </fieldset>
+              <ul className="check-list small">
+                <li>Your profile, photo and listings in the directory are hidden.</li>
+                <li>Emails stop, except security and billing.</li>
+                <li>You are signed out on every device. Your chats, saved homes and data are kept.</li>
+              </ul>
+              <label className="check"><input type="checkbox" name="confirm" value="yes" required /><span>I want to take a break</span></label>
+              <button className="btn" type="submit">Start my break</button>
+            </form>
+          </details>
+          <div className="leave-card danger-zone">
+            <h3>Delete account</h3>
+            <p className="muted small">Removes your account for good. You confirm with your password.</p>
+            <Link className="btn danger-soft" href="/me/privacy#delete">Delete my account…</Link>
+          </div>
+        </div>
       </section>
     </div>
   );

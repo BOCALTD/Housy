@@ -27,6 +27,7 @@ import { portalCount } from "@/lib/services/portals";
 import { waitingFlatmateRequests } from "@/lib/services/flatmates";
 import { accountSection, adminSection, exploreSection, workspaceSection, type NavSection } from "@/lib/nav";
 import { markAllNoticesReadAction } from "./frame-actions";
+import { avatarUrlFor } from "@/lib/services/profile";
 import { BootLoader } from "@/components/BootLoader";
 import { HydrationFlag } from "@/components/HydrationFlag";
 import { AmountFormat } from "@/components/AmountFormat";
@@ -66,7 +67,8 @@ async function frameData(uid: string, inCompany: boolean) {
     myNotifications(uid, 8).catch(() => []), pendingIncoming(asPerson(uid)).catch(zero), portalCount(uid).catch(zero),
     waitingFlatmateRequests(uid).catch(zero), inCompany ? getMember().catch(() => null) : Promise.resolve(null),
   ]);
-  return { unread, unreadMsgs, rate, notes, incoming, portals, flatmateWaiting, member };
+  const avatarUrl = await avatarUrlFor(uid).catch(() => null);
+  return { unread, unreadMsgs, rate, notes, incoming, portals, flatmateWaiting, member, avatarUrl };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -85,7 +87,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (session?.user.isPlatformAdmin) sections.push(adminSection());
   const notices: FrameNotice[] = notes.map((n) => ({ id: n.id, title: n.title, body: n.body.slice(0, 140), link: n.link, at: n.createdAt.toISOString(), unread: !n.readAt }));
   const user = session ? {
-    name: session.user.name, email: session.user.email, isAdmin: session.user.isPlatformAdmin,
+    name: session.user.name, email: session.user.email, isAdmin: session.user.isPlatformAdmin, avatarUrl: d?.avatarUrl ?? null,
     roleLabel: member ? `${ROLE_LABELS[member.role]} · ${member.companyName}` : session.user.isPlatformAdmin ? "Platform administrator" : "Personal account",
   } : null;
   return (

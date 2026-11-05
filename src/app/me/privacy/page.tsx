@@ -40,7 +40,7 @@ export default async function PrivacyPage({ searchParams }: { searchParams?: Pro
         <p>A file with your account, companies you belong to, profiles, saved searches, follows, notifications and settings, messages you sent, reviews you wrote, inspections, safety sessions, reports and identity checks. Identity document files and full ID numbers are left out for security; ask support for those.</p>
         <p><a className="btn primary" href="/me/privacy/export" download>Download my data (JSON)</a></p>
       </section>
-      <section className="card stack">
+      <section id="delete" className="card stack">
         <h2>Delete your account</h2>
         <details className="inline"><summary>What deleting does</summary>
           <ul className="check-list small">

@@ -36,6 +36,11 @@ model User {
   phone           String       @default("")
   /// Suggestions from what this person looks at (user_signals). They can turn it off.
   personalise     Boolean      @default(true)
+  /// A line or two about them, shown on their profile.
+  bio             String       @default("")
+  /// "Take a break": profile hidden and emails paused until they sign in again (or until breakUntil).
+  breakStartedAt  DateTime?    @map("break_started_at")
+  breakUntil      DateTime?    @map("break_until")
   isPlatformAdmin Boolean      @default(false) @map("is_platform_admin")
   createdAt       DateTime     @default(now()) @map("created_at")
   /// Two-step sign-in: the secret is stored encrypted; it only counts once mfaEnabledAt is set. mfaLastStep stops a code being used twice.
@@ -47,8 +52,22 @@ model User {
   signals         UserSignal[]
   passwordResets  PasswordReset[]
   mfaRecoveries   MfaRecovery[]
+  media           UserMedia?
 
   @@map("users")
+}
+
+/// Profile photo and cover photo, resized in the browser (which also drops location data) and checked again on the server.
+model UserMedia {
+  userId     String   @id @map("user_id")
+  avatar     Bytes?
+  avatarType String?  @map("avatar_type")
+  cover      Bytes?
+  coverType  String?  @map("cover_type")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_media")
 }
 
 model Session {

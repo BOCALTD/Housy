@@ -4,7 +4,8 @@ import { headers } from "next/headers";
 import { safeLocalPath } from "@/lib/security";
 import { prisma } from "@/lib/db";
 import { createSession, destroySession, getSession, setActiveCompany, verifyPassword, hashPassword } from "@/lib/auth";
-import { act, str } from "@/lib/forms";
+import { act, str, withNotice } from "@/lib/forms";
+import { endBreak } from "@/lib/services/profile";
 import { rateLimit } from "@/lib/ratelimit";
 import { acceptInvitation, membershipKinds, myCompanies, registerAgent, registerCompany } from "@/lib/services/companies";
 import { accountTypeOf, landingFor, signInRefusal } from "@/lib/account-type-rules";
@@ -109,9 +110,10 @@ export async function loginAction(form: FormData) {
     const pick = as === "agent" ? kinds.find((k) => k.role === "AGENT" || k.businessType === "INDEPENDENT_AGENT")
       : as === "company" ? kinds.find((k) => k.role !== "AGENT" && k.businessType !== "INDEPENDENT_AGENT") : kinds[0];
     await createSession(user.id, pick?.companyId ?? null);
-    const next = safeLocalPath(str(form, "next"), "");
-    if (next) return next;
-    return landingFor(as, user.isPlatformAdmin);
+    // Signing in ends a break: the profile shows again and emails resume.
+    const back = await endBreak(user.id);
+    const next = safeLocalPath(str(form, "next"), "") || landingFor(as, user.isPlatformAdmin);
+    return back ? withNotice(next, "Welcome back. Your profile is visible again and your emails have resumed.") : next;
   });
 }
 

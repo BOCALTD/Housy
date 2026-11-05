@@ -103,7 +103,9 @@ export async function directory(opts: { kind: DirectoryKind; q?: string; page?: 
     let rows: DirectoryRow[];
     let more: boolean;
     if (opts.kind === "agents") {
-      const where: Prisma.AgentProfileWhereInput = { listed: true, ...(q ? { OR: [{ displayName: { contains: q, mode: "insensitive" } }, { companyName: { contains: q, mode: "insensitive" } }, { headline: { contains: q, mode: "insensitive" } }] } : {}) };
+      // People on a break are hidden until they come back.
+      const away = (await tx.user.findMany({ where: { breakStartedAt: { not: null } }, select: { id: true } })).map((u) => u.id);
+      const where: Prisma.AgentProfileWhereInput = { listed: true, ...(away.length ? { userId: { notIn: away } } : {}), ...(q ? { OR: [{ displayName: { contains: q, mode: "insensitive" } }, { companyName: { contains: q, mode: "insensitive" } }, { headline: { contains: q, mode: "insensitive" } }] } : {}) };
       const found = await tx.agentProfile.findMany({ where, orderBy: [{ followerCount: "desc" }, { displayName: "asc" }], skip, take: PAGE_SIZE + 1 });
       more = found.length > PAGE_SIZE;
       rows = found.slice(0, PAGE_SIZE).map((p) => ({ kind: "AGENT", targetId: p.userId, name: p.displayName, sub: p.companyName, blurb: p.headline, followers: p.followerCount, following: false, acceptsMessages: p.acceptsMessages }));

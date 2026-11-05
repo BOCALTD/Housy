@@ -90,7 +90,9 @@ export async function processOutbox(o: { now?: Date; driver?: EmailDriver | null
   for (const item of due) {
     const claimed = await system((tx) => tx.emailOutbox.updateMany({ where: { id: item.id, status: { in: ["QUEUED", "FAILED"] } }, data: { status: "SENDING", nextAttemptAt: now } }));
     if (claimed.count === 0) continue;
-    const user = await prisma.user.findUnique({ where: { id: item.userId }, select: { id: true, email: true, name: true } });
+    const user = await prisma.user.findUnique({ where: { id: item.userId }, select: { id: true, email: true, name: true, breakStartedAt: true } });
+    // On a break: only essential email (security, billing) goes out; the rest is dropped, not saved up for their return.
+    if (user?.breakStartedAt && item.category !== "ESSENTIAL") { await system((tx) => tx.emailOutbox.update({ where: { id: item.id }, data: { status: "SKIPPED", skipReason: "on a break" } })); await log(item.userId, item.kind, "SKIPPED", "on a break"); sum.skipped++; continue; }
     const prefRow = await system((tx) => tx.notificationPref.findUnique({ where: { userId: item.userId } }));
     const pref: PrefView = prefRow ? { emailActivity: prefRow.emailActivity, emailAlerts: prefRow.emailAlerts, emailPromotional: prefRow.emailPromotional, digest: prefRow.digest, quietStart: prefRow.quietStart, quietEnd: prefRow.quietEnd } : DEFAULT_PREFS;
     const sentLast24h = await system((tx) => tx.emailOutbox.count({ where: { userId: item.userId, status: "SENT", category: { not: "ESSENTIAL" }, template: { not: "digest" }, sentAt: { gte: new Date(now.getTime() - 864e5) } } }));

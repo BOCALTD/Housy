@@ -48,7 +48,7 @@ export const getSession = cache(async () => {
   return session;
 });
 
-export async function setActiveCompany(companyId: string) {
+export async function setActiveCompany(companyId: string | null) {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return;
   await prisma.session.update({ where: { tokenHash: hashToken(token) }, data: { companyId } });

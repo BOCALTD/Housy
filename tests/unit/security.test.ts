@@ -125,6 +125,7 @@ test("permission invariants hold for every action", () => {
 test("no route hands out data without checking who is asking", () => {
   const PUBLIC_BY_DESIGN: Record<string, string> = {
     "app/r/[code]/route.ts": "referral link: counts a visit and redirects to a fixed page",
+    "app/u/[id]/[kind]/route.ts": "a profile or cover photo, shown wherever the person appears; nothing while they are on a break",
     "app/ads/click/[ref]/route.ts": "an advert click: the service decides whether to charge; the visitor always reaches the property",
     "app/api/webhooks/paystack/route.ts": "verified by the provider's signature",
     "app/reels/[id]/video/route.ts": "the service returns only clips the viewer may see",

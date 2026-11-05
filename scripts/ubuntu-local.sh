@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run Housy on your own Ubuntu computer (22.04 or 24.04), at http://localhost:3000. No domain or certificate needed.
+# Run Housy on your own Ubuntu computer (22.04 or 24.04, also Ubuntu on Windows / WSL), at http://localhost:3000. No domain or certificate needed.
 #
 #   bash scripts/ubuntu-local.sh            set everything up the first time, then start Housy
 #   bash scripts/ubuntu-local.sh --demo     the same, with clearly labelled sample companies, homes and reels to explore
@@ -32,7 +32,13 @@ if ! command -v psql >/dev/null; then
   sudo apt-get update -y
   sudo apt-get install -y postgresql-16
 fi
-sudo systemctl enable --now postgresql
+# Start PostgreSQL. Ubuntu on Windows (WSL) may run without systemd; then the classic service command starts it.
+if [ -d /run/systemd/system ]; then
+  sudo systemctl enable --now postgresql
+else
+  sudo service postgresql start
+  echo "(Ubuntu without systemd, e.g. on Windows: PostgreSQL does not start by itself after a restart; this script starts it each time.)"
+fi
 for i in $(seq 1 20); do sudo -u postgres psql -qtAc "select 1" >/dev/null 2>&1 && break; sleep 1; done
 echo "Node $(node -v), $(psql --version)"
 

@@ -10,6 +10,8 @@ ROOT=/opt/housy
 STAMP=$(date -u +%Y%m%d-%H%M%S)
 DIR=$ROOT/releases/$STAMP
 set -a; . /etc/housy/housy.env; set +a
+# Work from the app folder: started from someone's home folder, the housy user could not even read the current directory.
+cd "$ROOT"
 
 echo "Fetching $REF"
 git clone --quiet "$REPO" "$DIR"

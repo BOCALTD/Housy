@@ -1,0 +1,67 @@
+name: Ubuntu server install
+
+# Runs deploy/ubuntu/install.sh and deploy.sh on a fresh Ubuntu 24.04 machine exactly as on a real server, then checks the app
+# through nginx, the scheduled jobs and a backup. Proves the server scripts work before anyone runs them for real.
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/ubuntu/**", ".github/workflows/ubuntu-install.yml", "scripts/db-setup.mjs", "prisma/**", "package.json", "package-lock.json"]
+  workflow_dispatch:
+
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: What the machine has before
+        run: |
+          node -v || true; psql --version || true; nginx -v 2>&1 || true
+          free -h; df -h /
+
+      - name: One-time setup (install.sh)
+        run: sudo bash deploy/ubuntu/install.sh housy-ci.example.com ci@example.com
+
+      - name: Settings the owner fills in
+        run: |
+          sudo sed -i 's|^SUPPORT_EMAIL=.*|SUPPORT_EMAIL="help@housy-ci.example.com"|; s|^LEGAL_ENTITY_NAME=.*|LEGAL_ENTITY_NAME="Housy CI Ltd"|' /etc/housy/housy.env
+          sudo grep -c "GENERATED" /etc/housy/housy.env && { echo "placeholders left in the env file"; exit 1; } || true
+
+      - name: Deploy this commit (deploy.sh)
+        run: |
+          sudo install -m 0755 -o housy deploy/ubuntu/deploy.sh /opt/housy/deploy.sh
+          sudo -u housy bash /opt/housy/deploy.sh "$GITHUB_SHA" "https://github.com/${GITHUB_REPOSITORY}.git"
+
+      - name: The app answers through nginx
+        run: |
+          curl -fsS http://127.0.0.1:3000/api/health; echo
+          for p in / /browse /blog /legal/privacy /login /join /sitemap.xml /robots.txt; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: housy-ci.example.com' "http://127.0.0.1$p")
+            echo "$p $code"; [ "$code" = 200 ] || exit 1
+          done
+          # The app itself must not be reachable except on the loopback.
+          ss -ltnp | grep ':3000' | grep -q '127.0.0.1:3000' || { echo "app is not loopback-only"; exit 1; }
+          ss -ltnp | grep ':5432' | grep -vq '0.0.0.0:5432' || { echo "database is listening publicly"; exit 1; }
+
+      - name: Services, timers, a job and a backup
+        run: |
+          systemctl is-active housy nginx postgresql fail2ban
+          systemctl list-timers 'housy-*' --no-pager
+          sudo -u housy housy-job notifications
+          sudo housy-backup
+          sudo ufw status verbose
+
+      - name: Deploy again (an update), then check the page cache writes
+        run: |
+          sudo -u housy bash /opt/housy/deploy.sh "$GITHUB_SHA" "https://github.com/${GITHUB_REPOSITORY}.git"
+          curl -fsS -H 'Host: housy-ci.example.com' http://127.0.0.1/blog -o /dev/null
+          sleep 2
+          if sudo journalctl -u housy --no-pager | grep -E "EROFS|EACCES|read-only file system"; then echo "the app could not write its cache"; exit 1; fi
+          ls -1 /opt/housy/releases | wc -l
+
+      - name: Logs if anything failed
+        if: failure()
+        run: |
+          sudo journalctl -u housy --no-pager | tail -150
+          sudo tail -50 /var/log/nginx/error.log || true

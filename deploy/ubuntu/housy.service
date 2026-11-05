@@ -18,7 +18,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/housy/shared
+# Next.js keeps its page cache (blog, sitemap, refreshed pages) inside the release folder.
+ReadWritePaths=/opt/housy/shared /opt/housy/releases
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true

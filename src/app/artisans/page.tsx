@@ -3,7 +3,9 @@ import { getSession } from "@/lib/auth";
 import { artisanCompanies, myArtisanApplications } from "@/lib/services/artisans";
 import { TRADES, tradeLabel } from "@/lib/artisan-rules";
 import { TradePicker } from "@/components/TradePicker";
-import { applyArtisanAction } from "./actions";
+import { applyArtisanAction, submitArtisanIdAction } from "./actions";
+import { ID_TYPES, myFlatmateCheck } from "@/lib/services/flatmates";
+import { IdCheckForm } from "@/components/IdCheckForm";
 
 export const metadata = { title: "Artisans", description: "Electricians, plumbers, painters, carpenters and more, registered with property companies on Housy and offered to their clients when they move in." };
 export const dynamic = "force-dynamic";
@@ -12,7 +14,7 @@ const STATUS: Record<string, string> = { PENDING: "Waiting for the company", APP
 
 export default async function ArtisansPage() {
   const session = await getSession();
-  const [companies, mine] = await Promise.all([artisanCompanies(), session ? myArtisanApplications(session.user.id) : Promise.resolve([])]);
+  const [companies, mine, check] = await Promise.all([artisanCompanies(), session ? myArtisanApplications(session.user.id) : Promise.resolve([]), session ? myFlatmateCheck(session.user.id).catch(() => null) : Promise.resolve(null)]);
   return (
     <div className="stack-lg">
       <section className="art-hero">
@@ -33,7 +35,7 @@ export default async function ArtisansPage() {
       <section className="steps-3">
         <div className="step"><span>1</span><h3>Register with a company</h3><p className="muted">Choose the property company you work with. They check you and add you to their artisans.</p></div>
         <div className="step"><span>2</span><h3>Their clients move in</h3><p className="muted">When a client&apos;s rent or purchase closes, Housy offers them that company&apos;s artisans.</p></div>
-        <div className="step"><span>3</span><h3>The company arranges the job</h3><p className="muted">The client says what is needed; the company sends the right artisan. Your number is never shown publicly.</p></div>
+        <div className="step"><span>3</span><h3>Get chosen, get rated</h3><p className="muted">Clients see the artisans who do their trade in their area first. Verified IDs and good ratings move you up. Your number is never shown publicly.</p></div>
       </section>
 
       {mine.length ? (
@@ -43,6 +45,24 @@ export default async function ArtisansPage() {
             <li key={a.id}><div><strong>{a.companyName}</strong><span className="muted small"> · {a.trades.map(tradeLabel).join(", ")}</span>{a.decisionNote ? <p className="small muted">{a.decisionNote}</p> : null}</div>
               <span className={`pill ${a.status === "APPROVED" ? "ok" : a.status === "DECLINED" ? "bad" : "warn"}`}>{STATUS[a.status] ?? a.status}</span></li>
           ))}</ul>
+        </section>
+      ) : null}
+
+      {session && (mine.length || check) ? (
+        <section className="card stack art-verify" id="verify">
+          <div className="row between">
+            <div><h2>Verified artisan badge</h2><p className="muted small">Pass the Housy ID check and clients see <strong>✓ ID verified</strong> next to your name. Verified artisans are shown higher to clients who need your trade.</p></div>
+            {check?.status === "VERIFIED" ? <span className="pill ok">✓ ID verified</span> : check?.status === "PENDING" ? <span className="pill warn">Being checked</span> : null}
+          </div>
+          {check?.status === "VERIFIED" ? <p className="small muted">Your badge shows to every company&apos;s clients you are offered to.</p>
+            : check?.status === "PENDING" ? <p className="small muted">A Housy reviewer is comparing your ID and selfie. You will get a notification with the result.</p>
+            : (
+              <>
+                {check?.status === "REJECTED" && check.note ? <p className="flash error" role="alert">Last time: {check.note}</p> : null}
+                <p className="small muted">A photo of a government ID and a selfie. Only Housy reviewers see them, and they are deleted 30 days after the decision. Clients never see your ID.</p>
+                <IdCheckForm types={ID_TYPES} action={submitArtisanIdAction} />
+              </>
+            )}
         </section>
       ) : null}
 

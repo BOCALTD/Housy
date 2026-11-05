@@ -2,7 +2,7 @@ import { z } from "zod";
 import { prisma, withPublic, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { normalisePhone } from "../account-type-rules";
-import { cleanTrades, tradeLabel, TRADE_KEYS } from "../artisan-rules";
+import { RATEABLE, cleanTrades, rankArtisans, tradeLabel, TRADE_KEYS } from "../artisan-rules";
 import { assertCan, type Ctx } from "./context";
 import { notify } from "./notifications";
 
@@ -17,6 +17,28 @@ async function tellManagers(companyId: string, n: { kind: string; title: string;
     const managers = await tx.membership.findMany({ where: { companyId, status: "ACTIVE", role: { in: ["COMPANY_SUPER_ADMIN", "MANAGER"] } }, select: { userId: true }, take: 20 });
     for (const m of managers) await notify(tx, m.userId, n);
   });
+}
+
+/** Whether these people passed the Housy ID check (only "verified" is readable by others). */
+async function idVerified(userIds: (string | null)[]): Promise<Set<string>> {
+  const ids = [...new Set(userIds.filter((x): x is string => !!x))];
+  if (!ids.length) return new Set();
+  const rows = await withPublic((tx) => tx.flatmateCheck.findMany({ where: { userId: { in: ids }, status: "VERIFIED" }, select: { userId: true } }));
+  return new Set(rows.map((r) => r.userId));
+}
+
+/** Ratings, jobs done and ID verification for a company's artisans, read in the company's own context. */
+async function artisanStats(companyId: string, artisans: { id: string; userId: string | null }[]) {
+  const ids = artisans.map((a) => a.id);
+  const [ratings, done, verified] = await Promise.all([
+    withTenant(companyId, "system", (tx) => tx.artisanReview.groupBy({ by: ["contractorId"], where: { companyId, contractorId: { in: ids } }, _avg: { stars: true }, _count: { _all: true } })),
+    withTenant(companyId, "system", (tx) => tx.artisanRequest.groupBy({ by: ["contractorId"], where: { companyId, contractorId: { in: ids }, status: "DONE" }, _count: { _all: true } })),
+    idVerified(artisans.map((a) => a.userId)),
+  ]);
+  return new Map(artisans.map((a) => {
+    const r = ratings.find((x) => x.contractorId === a.id);
+    return [a.id, { stars: Math.round((r?._avg.stars ?? 0) * 10) / 10, reviews: r?._count._all ?? 0, jobsDone: done.find((x) => x.contractorId === a.id)?._count._all ?? 0, verified: !!a.userId && verified.has(a.userId) }];
+  }));
 }
 
 // ---------- Registering with a company ----------
@@ -75,7 +97,12 @@ export async function artisanDesk(ctx: Ctx) {
       tx.contractor.findMany({ where: { companyId: ctx.companyId }, orderBy: [{ active: "desc" }, { name: "asc" }] }),
       tx.artisanRequest.findMany({ where: { companyId: ctx.companyId, status: { in: ["OPEN", "ARRANGED"] } }, orderBy: { createdAt: "asc" }, include: { user: { select: { name: true } } } }),
     ]);
-    return { applications, roster, requests };
+    const reviews = await tx.artisanReview.findMany({ where: { companyId: ctx.companyId }, orderBy: { createdAt: "desc" }, take: 30, select: { id: true, contractorId: true, stars: true, body: true, createdAt: true } });
+    return { applications, roster, requests, reviews };
+  }).then(async (d) => {
+    const stats = await artisanStats(ctx.companyId, d.roster.map((c) => ({ id: c.id, userId: c.userId })));
+    const appVerified = await idVerified(d.applications.map((a) => a.userId));
+    return { ...d, stats, applications: d.applications.map((a) => ({ ...a, verified: appVerified.has(a.userId) })) };
   });
 }
 
@@ -149,23 +176,70 @@ export async function offerArtisansAfterDeal(tx: Tx, companyId: string, deal: { 
 async function offeredArtisans(companyId: string) {
   return withTenant(companyId, "system", (tx) => tx.contractor.findMany({
     where: { companyId, offerToClients: true, active: true },
-    select: { id: true, companyId: true, name: true, trades: true, areas: true, bio: true, yearsExperience: true },
+    select: { id: true, companyId: true, name: true, trades: true, areas: true, bio: true, yearsExperience: true, userId: true },
     orderBy: { name: "asc" }, take: 40,
   }));
 }
 
-export async function myArtisanCorner(userId: string) {
-  const { offers, requests } = await withUser(userId, async (tx) => ({
+/** The property a deal was about, as one line of place words, for matching artisans' areas. */
+async function dealPlace(companyId: string, dealId: string | null): Promise<string> {
+  if (!dealId) return "";
+  const d = await withTenant(companyId, "system", (tx) => tx.deal.findFirst({ where: { id: dealId, companyId }, select: { asset: { select: { address: true, city: true, state: true } } } })).catch(() => null);
+  return d ? [d.asset.address, d.asset.city, d.asset.state].filter(Boolean).join(", ") : "";
+}
+
+/**
+ * What a client sees: each offer with the company's artisans ranked for them (the trade they pick, then who works where the
+ * property is, then ID verification, ratings and jobs done), and their requests with a way to rate each arranged job.
+ */
+export async function myArtisanCorner(userId: string, want: { trade?: string } = {}) {
+  const trade = want.trade && (TRADE_KEYS as string[]).includes(want.trade) ? want.trade : undefined;
+  const { offers, requests, rated } = await withUser(userId, async (tx) => ({
     offers: await tx.artisanOffer.findMany({ where: { userId, dismissedAt: null }, orderBy: { createdAt: "desc" } }),
     requests: await tx.artisanRequest.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 30 }),
+    rated: await tx.artisanReview.findMany({ where: { userId }, select: { requestId: true, stars: true } }),
   }));
   const companies = [...new Set([...offers.map((o) => o.companyId), ...requests.map((r) => r.companyId)])];
-  const artisans = (await Promise.all([...new Set(offers.map((o) => o.companyId))].map(offeredArtisans))).flat();
+  const byCompany = new Map(await Promise.all([...new Set(offers.map((o) => o.companyId))].map(async (cid) => {
+    const list = await offeredArtisans(cid);
+    return [cid, { list, stats: await artisanStats(cid, list) }] as const;
+  })));
   const names = new Map((await withPublic((tx) => tx.companyProfile.findMany({ where: { companyId: { in: companies } }, select: { companyId: true, displayName: true } }))).map((p) => [p.companyId, p.displayName]));
+  const artisanNames = new Map([...byCompany.values()].flatMap((c) => c.list.map((a) => [a.id, a.name] as const)));
+  const outOffers = await Promise.all(offers.map(async (o) => {
+    const c = byCompany.get(o.companyId);
+    const place = await dealPlace(o.companyId, o.dealId);
+    const ranked = rankArtisans((c?.list ?? []).map((a) => ({ id: a.id, name: a.name, trades: a.trades, areas: a.areas, bio: a.bio, yearsExperience: a.yearsExperience, ...(c!.stats.get(a.id) ?? { stars: 0, reviews: 0, jobsDone: 0, verified: false }) })), { trade, place });
+    return { ...o, companyName: names.get(o.companyId) ?? "Your agent", place, artisans: ranked };
+  }));
+  const ratedMap = new Map(rated.map((r) => [r.requestId, r.stars]));
   return {
-    offers: offers.map((o) => ({ ...o, companyName: names.get(o.companyId) ?? "Your agent", artisans: artisans.filter((a) => a.companyId === o.companyId) })),
-    requests: requests.map((r) => ({ ...r, companyName: names.get(r.companyId) ?? "Your agent" })),
+    trade,
+    offers: outOffers,
+    requests: requests.map((r) => ({ ...r, companyName: names.get(r.companyId) ?? "Your agent", artisanName: r.contractorId ? artisanNames.get(r.contractorId) ?? null : null, myStars: ratedMap.get(r.id) ?? null, canRate: !ratedMap.has(r.id) && !!r.contractorId && (RATEABLE as readonly string[]).includes(r.status) })),
   };
+}
+
+const rateSchema = z.object({
+  requestId: z.string().min(1),
+  stars: z.coerce.number().int({ error: "Choose 1 to 5 stars" }).min(1, { error: "Choose 1 to 5 stars" }).max(5, { error: "Choose 1 to 5 stars" }),
+  body: z.string().trim().max(600).default(""),
+});
+
+/** Rate an artisan job the company arranged: once per request, by the client who asked. The company is told. */
+export async function rateArtisanJob(userId: string, input: z.input<typeof rateSchema>) {
+  const d = rateSchema.parse(input);
+  const r = await withUser(userId, async (tx) => {
+    const req = await tx.artisanRequest.findFirst({ where: { id: d.requestId, userId } });
+    if (!req) throw new Error("Request not found");
+    if (!req.contractorId || !(RATEABLE as readonly string[]).includes(req.status)) throw new Error("You can rate the job once the company has arranged an artisan");
+    if (await tx.artisanReview.findUnique({ where: { requestId: req.id }, select: { id: true } })) throw new Error("You have already rated this job");
+    const own = await withTenant(req.companyId, "system", (t) => t.contractor.findFirst({ where: { id: req.contractorId!, companyId: req.companyId }, select: { id: true } }));
+    if (!own) throw new Error("That artisan is no longer with the company");
+    return tx.artisanReview.create({ data: { requestId: req.id, companyId: req.companyId, userId, contractorId: req.contractorId, stars: d.stars, body: d.body } });
+  });
+  await tellManagers(r.companyId, { kind: "artisan.rated", title: `A client rated an artisan job ${"★".repeat(r.stars)}`, body: d.body.slice(0, 120) || "No comment", link: "/app/artisans#reviews" });
+  return r;
 }
 
 const requestSchema = z.object({

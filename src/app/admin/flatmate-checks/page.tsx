@@ -3,7 +3,7 @@ import { ID_TYPES, flatmateCheckQueue } from "@/lib/services/flatmates";
 import { formatDateTime } from "@/lib/dates";
 import { decideCheckAction } from "./actions";
 
-export const metadata = { title: "Flatmate ID checks" };
+export const metadata = { title: "ID checks" };
 export const dynamic = "force-dynamic";
 
 export default async function FlatmateChecksPage() {
@@ -12,7 +12,7 @@ export default async function FlatmateChecksPage() {
   return (
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
-        <h1>Flatmate ID checks</h1>
+        <h1>ID checks</h1>
         <p className="muted">Compare the selfie with the photo on the ID, and check the ID looks genuine and readable. The pictures are deleted 30 days after your decision. Do not copy or save them.</p>
       </div>
       {rows.length === 0 ? <section className="card"><p className="muted">Nothing waiting.</p></section> : rows.map((r) => (

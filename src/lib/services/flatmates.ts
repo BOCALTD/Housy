@@ -414,8 +414,8 @@ export async function decideFlatmateCheck(adminId: string, userId: string, appro
     const r = await tx.flatmateCheck.updateMany({ where: { userId, status: "PENDING" }, data: { status: approve ? "VERIFIED" : "REJECTED", note, decidedAt: new Date(), decidedById: adminId } });
     if (!r.count) throw new Error("That check is no longer waiting");
     await notify(tx, userId, approve
-      ? { kind: "flatmate.verified", title: "You are verified for flatmates", body: "Your profile now shows the verified badge.", link: "/flatmates/matches" }
-      : { kind: "flatmate.check_rejected", title: "Your flatmate ID check needs another look", body: note, link: "/flatmates/profile#verify" });
+      ? { kind: "flatmate.verified", title: "Your ID is verified", body: "The verified badge now shows on your flatmate profile and, if you are an artisan, to the clients you are offered to.", link: "/me" }
+      : { kind: "flatmate.check_rejected", title: "Your ID check needs another look", body: note, link: (await tx.flatmateProfile.count({ where: { userId } })) ? "/flatmates/profile#verify" : "/artisans#verify" });
   });
 }
 

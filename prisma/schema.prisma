@@ -55,6 +55,7 @@ model User {
   media           UserMedia?
   artisanApplications ArtisanApplication[]
   artisanRequests ArtisanRequest[]
+  artisanReviews  ArtisanReview[]
   artisanOffers   ArtisanOffer[]
   flatmateCheck   FlatmateCheck?
 
@@ -117,6 +118,7 @@ model Company {
   assets      Asset[]
   artisanApplications ArtisanApplication[]
   artisanRequests ArtisanRequest[]
+  artisanReviews  ArtisanReview[]
   artisanOffers ArtisanOffer[]
 
   @@map("companies")
@@ -5822,4 +5824,21 @@ model BlogCover {
   post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("blog_covers")
+}
+
+/// A client's rating of an artisan job the company arranged (one per request).
+model ArtisanReview {
+  id           String   @id @default(uuid())
+  requestId    String   @unique @map("request_id")
+  companyId    String   @map("company_id")
+  userId       String   @map("user_id")
+  contractorId String   @map("contractor_id")
+  stars        Int
+  body         String   @default("")
+  createdAt    DateTime @default(now()) @map("created_at")
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, contractorId])
+  @@map("artisan_reviews")
 }

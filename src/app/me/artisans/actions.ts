@@ -2,7 +2,7 @@
 
 import { requireUser } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import { dismissArtisanOffer, requestArtisan } from "@/lib/services/artisans";
+import { dismissArtisanOffer, rateArtisanJob, requestArtisan } from "@/lib/services/artisans";
 
 export async function requestArtisanAction(form: FormData) {
   return act("/me/artisans", async () => {
@@ -17,5 +17,13 @@ export async function dismissOfferAction(form: FormData) {
     const u = await requireUser();
     await dismissArtisanOffer(u.id, str(form, "offerId"));
     return "/me/artisans";
+  });
+}
+
+export async function rateJobAction(form: FormData) {
+  return act("/me/artisans#requests", async () => {
+    const u = await requireUser();
+    await rateArtisanJob(u.id, { requestId: str(form, "requestId"), stars: str(form, "stars"), body: str(form, "body") });
+    return withNotice("/me/artisans#requests", "Thank you. Your rating helps other clients choose.");
   });
 }

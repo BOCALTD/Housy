@@ -95,3 +95,60 @@ test("flatmate ID check: submit, admin verifies, verified-only matching", async 
   assert.equal((await myMatches(a.userId, { space: "DUPLEX" })).rows.length, 0, "space filter");
   assert.equal(m.stats.verified, 1);
 });
+
+test("artisans are ranked for the client, verified, and rated after the job", async () => {
+  const { submitFlatmateCheck, decideFlatmateCheck } = await import("../../src/lib/services/flatmates");
+  const { rateArtisanJob } = await import("../../src/lib/services/artisans");
+  const { newPlatformAdmin } = await import("./helpers");
+  const admin = await newPlatformAdmin();
+  const co = await newCompany("artisans-rank");
+  await saveCompanyProfile(co, { kind: "COMPANY", displayName: `Rank Homes ${uid()}`, tagline: "", listed: true });
+  const join = async (name: string, trades: string[], areas: string) => {
+    const u = await registerSeeker({ name, email: `${name.split(" ")[0].toLowerCase()}${uid()}@example.test`, password: "a long enough password" });
+    await applyAsArtisan(u.userId, { companyId: co.companyId, name, phone: "0803 444 5555", trades, areas, years: "4", bio: "" });
+    const app = (await artisanDesk(co)).applications.find((a) => a.userId === u.userId)!;
+    return { userId: u.userId, id: (await decideApplication(co, app.id, true, ""))! };
+  };
+  const painter = await join("Pat Painter", ["painter"], "Lekki");
+  const sparky = await join("Seyi Sparks", ["electrician"], "Ikeja");
+  // Seyi passes the Housy ID check.
+  const JPG = { type: "image/jpeg", bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]) };
+  await submitFlatmateCheck(sparky.userId, "NIN", JPG, JPG);
+  await decideFlatmateCheck(admin.id, sparky.userId, true, "");
+  assert.equal((await artisanDesk(co)).stats.get(sparky.id)?.verified, true);
+
+  const email = `rank${uid()}@example.test`;
+  const client = await registerSeeker({ name: "Rank Client", email, password: "a long enough password" });
+  const c = await withTenant(co.companyId, co.userId, (tx) => tx.client.create({ data: { companyId: co.companyId, ref: `CL-${uid()}`, name: "Rank Client", email, emailNorm: email, ownerId: co.membershipId, createdById: co.userId } }));
+  const offerId = (await withTenant(co.companyId, co.userId, (tx) => offerArtisansAfterDeal(tx, co.companyId, { id: randomUUID(), clientId: c.id, title: "Flat" })))!;
+
+  const forSparks = await myArtisanCorner(client.userId, { trade: "electrician" });
+  const ranked = forSparks.offers[0].artisans;
+  assert.equal(ranked[0].id, sparky.id, "the electrician comes first when an electrician is needed");
+  assert.equal(ranked[0].verified, true);
+  assert.ok(ranked[0].reasons.includes("ID verified"));
+  assert.equal(ranked[1].tradeMatch, false);
+  assert.equal((ranked[0] as Record<string, unknown>).userId, undefined, "no account ids go to clients");
+
+  const r = await requestArtisan(client.userId, { offerId, trade: "electrician", contractorId: sparky.id, note: "Sockets", address: "", preferredOn: "" });
+  await assert.rejects(rateArtisanJob(client.userId, { requestId: r.id, stars: 5 }), /once the company has arranged/);
+  await updateArtisanRequest(co, r.id, "DONE", "Done on Friday", sparky.id);
+  const stranger = await registerSeeker({ name: "Not Them", email: `nt${uid()}@example.test`, password: "a long enough password" });
+  await assert.rejects(rateArtisanJob(stranger.userId, { requestId: r.id, stars: 1 }), /not found/);
+  await assert.rejects(rateArtisanJob(client.userId, { requestId: r.id, stars: 9 }), /1 to 5/);
+  await rateArtisanJob(client.userId, { requestId: r.id, stars: 4, body: "Tidy and on time" });
+  await assert.rejects(rateArtisanJob(client.userId, { requestId: r.id, stars: 5 }), /already rated/);
+
+  const after = await myArtisanCorner(client.userId, { trade: "electrician" });
+  const s1 = after.offers[0].artisans.find((a) => a.id === sparky.id)!;
+  assert.equal(s1.stars, 4);
+  assert.equal(s1.reviews, 1);
+  assert.equal(s1.jobsDone, 1);
+  assert.equal(after.requests[0].myStars, 4);
+  assert.equal(after.requests[0].canRate, false);
+  const desk = await artisanDesk(co);
+  assert.equal(desk.reviews[0].body, "Tidy and on time");
+  assert.equal(desk.stats.get(painter.id)?.reviews, 0);
+  // The company can read but never change a rating.
+  await assert.rejects(withTenant(co.companyId, co.userId, (tx) => tx.artisanReview.updateMany({ where: { requestId: r.id }, data: { stars: 5 } }).then((x) => { if (x.count === 0) throw new Error("blocked"); })), /blocked/);
+});

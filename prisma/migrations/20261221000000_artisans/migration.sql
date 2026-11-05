@@ -5,8 +5,8 @@ ALTER TABLE "contractors" ADD COLUMN "bio" TEXT NOT NULL DEFAULT '';
 ALTER TABLE "contractors" ADD COLUMN "years_experience" INTEGER;
 ALTER TABLE "contractors" ADD COLUMN "offer_to_clients" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "contractors" ADD COLUMN "user_id" TEXT;
--- A client may read the artisans a company chose to offer (the service shows names, trades and areas, never phone or email).
-CREATE POLICY offered_read ON "contractors" FOR SELECT USING (offer_to_clients AND active);
+-- Clients never read contractors directly: the service reads the offered ones in the company's own context and passes on only
+-- names, trades and areas (never phone or email).
 
 CREATE TABLE "artisan_applications" (
     "id" TEXT NOT NULL,

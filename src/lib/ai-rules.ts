@@ -14,6 +14,7 @@ export const AI_FEATURES = {
   SUMMARY: "Correspondence summary",
   REPORT: "Question about your portfolio",
   CHECK: "Missing-information check",
+  CHAT: "Conversation with the assistant",
 } as const;
 export type AiFeature = keyof typeof AI_FEATURES;
 

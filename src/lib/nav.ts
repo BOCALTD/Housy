@@ -13,6 +13,7 @@ export function exploreSection(): NavSection {
     { label: "Explore", items: [
       { href: "/", label: "Home", icon: "home" },
       { href: "/browse", label: "Find property", icon: "search" },
+      { href: "/assistant", label: "Ask Housy", icon: "sparkle" },
       { href: "/map", label: "Map search", icon: "map" },
       { href: "/reels", label: "Property reels", icon: "play" },
       { href: "/flatmates", label: "Flatmates", icon: "people" },

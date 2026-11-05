@@ -53,7 +53,7 @@ test("photographs: strangers cannot add or remove, bad files are refused, the nu
 
   const ids: string[] = [];
   for (let i = 0; i < MAX_LISTING_PHOTOS; i++) ids.push(await addListingPhoto(admin, asset.id, { type: "image/png", bytes: png(i) }, `Picture ${i}`));
-  await assert.rejects(addListingPhoto(admin, asset.id, { type: "image/png", bytes: png(99) }, ""), /up to 8/);
+  await assert.rejects(addListingPhoto(admin, asset.id, { type: "image/png", bytes: png(99) }, ""), /up to 20/);
   await assert.rejects(removeListingPhoto(other, asset.id, ids[0]), /Create the listing first|not found/i);
 
   await makeCoverPhoto(admin, asset.id, ids[3]);

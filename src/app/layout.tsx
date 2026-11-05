@@ -28,6 +28,8 @@ import { waitingFlatmateRequests } from "@/lib/services/flatmates";
 import { accountSection, adminSection, exploreSection, workspaceSection, type NavSection } from "@/lib/nav";
 import { markAllNoticesReadAction } from "./frame-actions";
 import { avatarUrlFor } from "@/lib/services/profile";
+import { AssistantLauncher } from "@/components/AssistantLauncher";
+import { STARTERS } from "@/lib/assistant-knowledge";
 import { BootLoader } from "@/components/BootLoader";
 import { HydrationFlag } from "@/components/HydrationFlag";
 import { AmountFormat } from "@/components/AmountFormat";
@@ -134,6 +136,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
           <SiteFooter />
         </Frame>
+        <AssistantLauncher name={session?.user.name ?? null} workspace={!!member && can(member.role, "ai.use")} starters={member && can(member.role, "ai.use") ? STARTERS.workspace : STARTERS.public} />
       </body>
     </html>
   );

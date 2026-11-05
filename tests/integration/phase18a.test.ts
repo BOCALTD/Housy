@@ -6,7 +6,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { prisma, withUser } from "../../src/lib/db";
+import { prisma, withTenant } from "../../src/lib/db";
 import { registerSeeker, saveAgentProfile, directory } from "../../src/lib/services/community";
 import { becomeAgent, checkModeTarget, endBreak, onBreak, profileFor, profileImage, removeProfileImage, saveProfileImage, takeBreak, updateAbout } from "../../src/lib/services/profile";
 import { newCompany } from "./helpers";
@@ -29,7 +29,7 @@ test("a personal account becomes an agent and switches between the two", async (
   assert.equal(await checkModeTarget(me.userId, null), null, "personal is always allowed");
   const other = await newCompany("notmine");
   await assert.rejects(checkModeTarget(me.userId, other.companyId), /not an active member/);
-  const agent = await withUser(me.userId, (tx) => tx.agentProfile.findFirst({ where: { userId: me.userId } }));
+  const agent = await withTenant(companyId, me.userId, (tx) => tx.agentProfile.findFirst({ where: { userId: me.userId } }));
   assert.ok(agent, "an agent profile is created");
 });
 

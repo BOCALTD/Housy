@@ -5,11 +5,30 @@
 
 export interface AiRequest { system: string; user: string; maxTokens: number; signal?: AbortSignal }
 export type AiReply = { ok: true; text: string } | { ok: false; error: string };
-export interface AiProvider { name: string; complete(req: AiRequest): Promise<AiReply> }
+export interface AiChatRequest { system: string; messages: { role: "user" | "assistant"; content: string }[]; maxTokens: number; signal?: AbortSignal }
+export interface AiProvider { name: string; complete(req: AiRequest): Promise<AiReply>; chat?(req: AiChatRequest): Promise<AiReply> }
 
 export function anthropicProvider(apiKey: string, model: string, fetchImpl: typeof fetch = fetch): AiProvider {
+  const call = async (system: string, messages: { role: "user" | "assistant"; content: string }[], maxTokens: number, signal?: AbortSignal): Promise<AiReply> => {
+    try {
+      const res = await fetchImpl("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model, max_tokens: Math.min(2000, Math.max(50, maxTokens)), system, messages }),
+        signal,
+      });
+      if (!res.ok) return { ok: false, error: `The AI service answered ${res.status}` };
+      const j = (await res.json()) as { content?: { type?: string; text?: string }[] };
+      const text = (j.content ?? []).filter((c) => c.type === "text" && typeof c.text === "string").map((c) => c.text).join("\n").trim();
+      return text ? { ok: true, text } : { ok: false, error: "The AI service sent an empty answer" };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error && e.name === "AbortError" ? "The AI service took too long" : "The AI service could not be reached" };
+    }
+  };
   return {
     name: "anthropic",
+    /** A conversation: earlier turns go with the new question, so follow-ups make sense. */
+    chat: (req) => call(req.system, req.messages, req.maxTokens, req.signal),
     async complete(req) {
       try {
         const res = await fetchImpl("https://api.anthropic.com/v1/messages", {

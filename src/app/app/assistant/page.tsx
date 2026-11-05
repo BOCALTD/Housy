@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { askPortfolio, pendingSuggestions, type SummaryPayload } from "@/lib/services/ai-assist";
+import { pendingSuggestions, type SummaryPayload } from "@/lib/services/ai-assist";
+import { AssistantChat } from "@/components/AssistantChat";
+import { STARTERS } from "@/lib/assistant-knowledge";
 import { aiAuditForCompany } from "@/lib/services/ai";
-import { AI_FEATURES, REPORTS, type AiFeature } from "@/lib/ai-rules";
+import { AI_FEATURES, type AiFeature } from "@/lib/ai-rules";
 import { aiProvider } from "@/lib/services/ai";
 import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/dates";
@@ -16,10 +18,8 @@ export const dynamic = "force-dynamic";
 export default async function AssistantPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const member = await requireMember("ai.use");
-  const q = (sp(searchParams, "q") ?? "").slice(0, 300);
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
-  const [answer, pending, audit] = await Promise.all([
-    q.trim().length >= 4 ? askPortfolio(member, q).catch((e: Error) => ({ error: e.message })) : Promise.resolve(null),
+  const [pending, audit] = await Promise.all([
     pendingSuggestions(member),
     can(member.role, "ai.audit") ? aiAuditForCompany(member, page) : Promise.resolve(null),
   ]);
@@ -31,19 +31,8 @@ export default async function AssistantPage({ searchParams: searchP }: { searchP
         <p className="muted">{connected ? "An AI service helps read your questions, documents and letters. Only the text you ask about is sent to it." : "No AI service is connected, so the assistant uses the platform's built-in rules."} It suggests; you decide. Nothing it suggests changes a record until a reviewer accepts it, and it never writes valuations, legal or financial figures.</p></div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 
-      <section className="card stack" aria-labelledby="ask-h">
-        <h2 id="ask-h">Ask about your portfolio</h2>
-        <form className="stack" role="search"><Field label="Your question" hint={`For example: How much rent is overdue? Which leases end in 60 days? Topics: ${Object.values(REPORTS).map((r) => r.label.toLowerCase()).join(", ")}.`}><input name="q" defaultValue={q} required minLength={4} maxLength={300} /></Field><button className="btn primary" type="submit">Ask</button></form>
-        {answer && "error" in answer ? <div className="flash error" role="alert">{answer.error}</div> : null}
-        {answer && !("error" in answer) ? (
-          <div className="stack" aria-live="polite">
-            <h3>{answer.title}</h3>
-            <p>{answer.summary}</p>
-            {answer.rows.length ? <div className="table-wrap"><table><thead><tr>{answer.columns.map((c) => <th key={c}>{c}</th>)}</tr></thead><tbody>{answer.rows.slice(0, 12).map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody></table></div> : null}
-            {answer.rows.length > 12 ? <details className="inline"><summary>Show {answer.rows.length - 12} more rows</summary><div className="table-wrap"><table><tbody>{answer.rows.slice(12).map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody></table></div></details> : null}
-            <p className="small muted">{answer.limits} {answer.source === "AI" ? "An AI service chose the report." : answer.notice || "Chosen by the built-in rules."}</p>
-          </div>
-        ) : null}
+      <section className="ai-page ai-in-workspace" aria-label="Ask the assistant">
+        <AssistantChat workspace name={member.userName} starters={STARTERS.workspace} />
       </section>
 
       <section className="card stack" aria-labelledby="rev-h">

@@ -145,18 +145,27 @@ export async function offerArtisansAfterDeal(tx: Tx, companyId: string, deal: { 
   return offer.id;
 }
 
+/** Artisans a company offers to its clients: names, trades and areas only, read in the company's own context. */
+async function offeredArtisans(companyId: string) {
+  return withTenant(companyId, "system", (tx) => tx.contractor.findMany({
+    where: { companyId, offerToClients: true, active: true },
+    select: { id: true, companyId: true, name: true, trades: true, areas: true, bio: true, yearsExperience: true },
+    orderBy: { name: "asc" }, take: 40,
+  }));
+}
+
 export async function myArtisanCorner(userId: string) {
-  return withUser(userId, async (tx) => {
-    const offers = await tx.artisanOffer.findMany({ where: { userId, dismissedAt: null }, orderBy: { createdAt: "desc" } });
-    const companies = [...new Set(offers.map((o) => o.companyId))];
-    const artisans = companies.length ? await tx.contractor.findMany({ where: { companyId: { in: companies }, offerToClients: true, active: true }, select: { id: true, companyId: true, name: true, trades: true, areas: true, bio: true, yearsExperience: true } }) : [];
-    const names = new Map((await tx.companyProfile.findMany({ where: { companyId: { in: companies } }, select: { companyId: true, displayName: true } })).map((p) => [p.companyId, p.displayName]));
-    const requests = await tx.artisanRequest.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 30 });
-    return {
-      offers: offers.map((o) => ({ ...o, companyName: names.get(o.companyId) ?? "Your agent", artisans: artisans.filter((a) => a.companyId === o.companyId) })),
-      requests: requests.map((r) => ({ ...r, companyName: names.get(r.companyId) ?? "Your agent" })),
-    };
-  });
+  const { offers, requests } = await withUser(userId, async (tx) => ({
+    offers: await tx.artisanOffer.findMany({ where: { userId, dismissedAt: null }, orderBy: { createdAt: "desc" } }),
+    requests: await tx.artisanRequest.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 30 }),
+  }));
+  const companies = [...new Set([...offers.map((o) => o.companyId), ...requests.map((r) => r.companyId)])];
+  const artisans = (await Promise.all([...new Set(offers.map((o) => o.companyId))].map(offeredArtisans))).flat();
+  const names = new Map((await withPublic((tx) => tx.companyProfile.findMany({ where: { companyId: { in: companies } }, select: { companyId: true, displayName: true } }))).map((p) => [p.companyId, p.displayName]));
+  return {
+    offers: offers.map((o) => ({ ...o, companyName: names.get(o.companyId) ?? "Your agent", artisans: artisans.filter((a) => a.companyId === o.companyId) })),
+    requests: requests.map((r) => ({ ...r, companyName: names.get(r.companyId) ?? "Your agent" })),
+  };
 }
 
 const requestSchema = z.object({
@@ -173,7 +182,7 @@ export async function requestArtisan(userId: string, input: z.input<typeof reque
   const r = await withUser(userId, async (tx) => {
     const offer = await tx.artisanOffer.findFirst({ where: { id: d.offerId, userId } });
     if (!offer) throw new Error("You can ask for artisans after a deal with the company closes");
-    if (d.contractorId && !(await tx.contractor.findFirst({ where: { id: d.contractorId, companyId: offer.companyId, offerToClients: true, active: true }, select: { id: true } }))) throw new Error("Choose one of the artisans shown");
+    if (d.contractorId && !(await offeredArtisans(offer.companyId)).some((a) => a.id === d.contractorId)) throw new Error("Choose one of the artisans shown");
     const open = await tx.artisanRequest.count({ where: { userId, status: "OPEN" } });
     if (open >= 10) throw new Error("You have 10 requests waiting. Wait for the company to reply before asking again.");
     return tx.artisanRequest.create({ data: { companyId: offer.companyId, userId, dealId: offer.dealId, contractorId: d.contractorId || null, trade: d.trade, note: d.note, address: d.address, preferredOn: d.preferredOn } });

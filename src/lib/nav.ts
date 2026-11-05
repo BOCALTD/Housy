@@ -25,6 +25,7 @@ export function exploreSection(): NavSection {
       { href: "/directory?kind=companies", label: "Companies", icon: "building" },
       { href: "/directory?kind=developers", label: "Developers", icon: "home" },
       { href: "/awards", label: "Top agents", icon: "star" },
+      { href: "/artisans", label: "Artisans", icon: "wrench" },
     ] },
     { label: "Help", items: [
       { href: "/how-it-works", label: "How it works", icon: "sparkle" },
@@ -42,6 +43,7 @@ export function accountSection(c: { incoming: number; portals: number; flatmateW
       { href: "/me/settings", label: "Profile and settings", icon: "gear" },
       { href: "/me/inspections", label: "Inspections", icon: "calendar" },
       { href: "/me/saved", label: "Saved and alerts", icon: "heart" },
+      { href: "/me/artisans", label: "Artisans for my home", icon: "wrench" },
       { href: "/me/notifications", label: "Notifications", icon: "bell" },
       { href: "/messages", label: "Messages", icon: "chat" },
     ] },
@@ -94,6 +96,7 @@ function workspaceGroups(r: Role, incoming: number): SideGroup[] {
       ["/app/inspections", "Inspections", "clipboard", true],
       ["/field", "Field kit (works offline)", "clipboard", can(r, "inspection.conduct")],
       ["/app/maintenance", "Maintenance", "wrench", true],
+      ["/app/artisans", "Artisans", "wrench", can(r, "maintenance.manage")],
       ["/app/inventory", "Inventory", "box", true],
       ["/app/compliance", "Compliance", "shield", true],
       ["/app/projects", "Projects", "home", can(r, "project.view")],

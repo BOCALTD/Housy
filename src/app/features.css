@@ -1,0 +1,40 @@
+/* ---------- Shared building blocks for the newer pages ---------- */
+.list-rows { list-style: none; margin: 0; padding: 0; display: grid; }
+.list-rows > li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--line); }
+.list-rows > li:last-child { border-bottom: 0; }
+.list-rows > li > div { min-width: 0; }
+.list-rows p { margin: 4px 0 0; }
+.steps-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.step { position: relative; padding: 20px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); overflow: hidden; }
+.step > span { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #FFC23D, #F29F05); color: #1A1A1A; font: 800 18px var(--font-display); margin-bottom: 10px; }
+.step h3 { margin: 0 0 6px; }
+.step::after { content: ""; position: absolute; right: -30px; top: -30px; width: 110px; height: 110px; border-radius: 50%; background: radial-gradient(circle, rgba(251, 176, 23, .18), transparent 70%); }
+
+/* ---------- Artisans ---------- */
+.art-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 24px; align-items: center; padding: clamp(22px, 4vw, 44px); border-radius: 24px; color: #fff; overflow: hidden;
+  background: radial-gradient(600px 300px at 90% 0%, rgba(251, 176, 23, .4), transparent 70%), radial-gradient(400px 260px at 0% 100%, rgba(46, 144, 250, .25), transparent 70%), linear-gradient(130deg, #1F2125, #2B2E34 60%, #1A1C20); box-shadow: var(--shadow-2); }
+.art-hero h1 { color: #fff; margin: 6px 0 10px; font-size: clamp(28px, 4vw, 44px); }
+.art-hero p { color: rgba(255, 255, 255, .9); }
+.art-hero .eyebrow { color: #FFD36B; }
+.art-hero .hl { font-style: normal; color: #FBB017; }
+.art-trades { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.art-trades li { padding: 8px 14px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); font-size: 14px; font-weight: 600; backdrop-filter: blur(6px); }
+.art-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.art-card { display: grid; gap: 6px; justify-items: start; padding: 16px; border-radius: 18px; border: 1px solid var(--line); background: linear-gradient(180deg, color-mix(in srgb, #FBB017 9%, var(--surface)), var(--surface)); }
+.art-card p { margin: 0; }
+.art-avatar { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; background: linear-gradient(135deg, #1F2125, #3A3D44); color: #FBB017; font: 800 18px var(--font-display); }
+.art-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.art-tags em { font-style: normal; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, #FBB017 20%, transparent); color: var(--primary-text); font-size: 13px; font-weight: 600; }
+.art-empty { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 34px; }
+.art-empty-ico { font-size: 44px; width: 90px; height: 90px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #FFE3A3, #FBB017); }
+.art-offer { border-color: color-mix(in srgb, #FBB017 45%, var(--line)); }
+.art-edit > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; }
+.trade-picker .chip-choice span { min-height: 40px; font-size: 13.5px; }
+@media (max-width: 760px) { .art-hero { grid-template-columns: minmax(0, 1fr); } .list-rows > li { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: no-preference) {
+  .art-trades li { animation: float-chip 6s ease-in-out infinite; }
+  .art-trades li:nth-child(3n) { animation-delay: -2s; } .art-trades li:nth-child(3n+1) { animation-delay: -4s; }
+  @keyframes float-chip { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+  .art-card, .step { transition: transform .25s, box-shadow .25s; }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) { .art-card:hover, .step:hover { transform: translateY(-3px); box-shadow: var(--shadow-2); } }

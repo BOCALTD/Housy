@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { offerArtisansAfterDeal } from "./artisans";
 import type { Prisma } from "@prisma/client";
 import { withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
@@ -226,6 +227,8 @@ export async function completeDeal(ctx: Ctx, dealId: string, noteInput = "") {
     await tx.deal.update({ where: { id: dealId }, data: { stage: "COMPLETED", status: "COMPLETED", completedAt: new Date(), completedById: ctx.userId } });
     await event(tx, ctx, dealId, { kind: "STAGE", summary: "Completed", reason: note, fromStage: "LEGAL", toStage: "COMPLETED", fromStatus: "OPEN", toStatus: "COMPLETED" });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "deal", entityId: dealId, action: "deal.completed", detail: { agreedKobo: String(deal.agreedKobo) } });
+    // Moving in: the client is offered the company's artisans (electrician, plumber, painter...).
+    await offerArtisansAfterDeal(tx, ctx.companyId, { id: dealId, clientId: deal.clientId, title: deal.title });
   });
 }
 

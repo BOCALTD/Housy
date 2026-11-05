@@ -53,6 +53,9 @@ model User {
   passwordResets  PasswordReset[]
   mfaRecoveries   MfaRecovery[]
   media           UserMedia?
+  artisanApplications ArtisanApplication[]
+  artisanRequests ArtisanRequest[]
+  artisanOffers   ArtisanOffer[]
 
   @@map("users")
 }
@@ -111,6 +114,9 @@ model Company {
   memberships Membership[]
   invitations Invitation[]
   assets      Asset[]
+  artisanApplications ArtisanApplication[]
+  artisanRequests ArtisanRequest[]
+  artisanOffers ArtisanOffer[]
 
   @@map("companies")
 }
@@ -1471,6 +1477,15 @@ model Contractor {
   email       String      @default("")
   notes       String      @default("")
   active      Boolean     @default(true)
+  /// Artisan details: standard trades (lib/artisan-rules.ts), areas served, a short bio.
+  trades      String[]    @default([])
+  areas       String      @default("")
+  bio         String      @default("")
+  yearsExperience Int?    @map("years_experience")
+  /// Offered to the company's clients after a deal closes (name, trades and areas only).
+  offerToClients Boolean  @default(false) @map("offer_to_clients")
+  /// The artisan's own Housy account, when they registered themselves.
+  userId      String?     @map("user_id")
   createdById String      @map("created_by_id")
   createdAt   DateTime    @default(now()) @map("created_at")
   workOrders  WorkOrder[]
@@ -5631,4 +5646,71 @@ model MusicMedia {
   track   MusicTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
 
   @@map("music_media")
+}
+
+// ---------- Artisans ----------
+
+/// An artisan asking to join a company's artisans.
+model ArtisanApplication {
+  id              String    @id @default(uuid())
+  companyId       String    @map("company_id")
+  userId          String    @map("user_id")
+  name            String
+  phone           String
+  trades          String[]  @default([])
+  areas           String    @default("")
+  yearsExperience Int?      @map("years_experience")
+  bio             String    @default("")
+  /// PENDING, APPROVED or DECLINED
+  status          String    @default("PENDING")
+  decisionNote    String    @default("") @map("decision_note")
+  decidedById     String?   @map("decided_by_id")
+  decidedAt       DateTime? @map("decided_at")
+  contractorId    String?   @map("contractor_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@map("artisan_applications")
+}
+
+/// A client asking the company for an artisan (an electrician, a plumber...). The company arranges it.
+model ArtisanRequest {
+  id           String    @id @default(uuid())
+  companyId    String    @map("company_id")
+  userId       String    @map("user_id")
+  contractorId String?   @map("contractor_id")
+  dealId       String?   @map("deal_id")
+  trade        String
+  note         String    @default("")
+  address      String    @default("")
+  preferredOn  DateTime? @map("preferred_on") @db.Date
+  /// OPEN, ARRANGED, DONE or CANCELLED
+  status       String    @default("OPEN")
+  companyNote  String    @default("") @map("company_note")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([userId])
+  @@map("artisan_requests")
+}
+
+/// After a deal closes, the client is offered the company's artisans.
+model ArtisanOffer {
+  id          String    @id @default(uuid())
+  companyId   String    @map("company_id")
+  userId      String    @map("user_id")
+  dealId      String    @map("deal_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  dismissedAt DateTime? @map("dismissed_at")
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, userId])
+  @@index([userId])
+  @@map("artisan_offers")
 }

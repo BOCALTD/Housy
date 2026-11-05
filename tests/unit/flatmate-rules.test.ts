@@ -89,3 +89,25 @@ test("answers are checked, and names are shortened", () => {
   assert.equal(publicName("[DEMO] Seyi Seeker"), "Seyi S.");
   assert.equal(publicName("Tunde"), "Tunde");
 });
+
+test("space, furnishing and must-haves: overlap helps, a clash hurts, not answering is neutral", () => {
+  const m = match;
+  const mk = (over: Partial<Profile>): Profile => ({ ...base, ...over });
+  const same = m(mk({ spaces: ["FLAT_2"], amenities: ["POWER", "WATER"] }), other({ spaces: ["FLAT_2", "MINI_FLAT"], amenities: ["POWER", "WATER"] }));
+  const clash = m(mk({ spaces: ["ROOM"], furnishing: "FURNISHED" }), other({ spaces: ["DUPLEX"], furnishing: "UNFURNISHED" }));
+  const unsaid = m(mk({}), other());
+  assert.equal(unsaid.score, 100);
+  assert.ok(same.score >= 95, `overlap keeps a high score (${same.score})`);
+  assert.ok(clash.score < unsaid.score - 10, `a space and furnishing clash costs points (${clash.score})`);
+  assert.ok(clash.bad.includes("Want different kinds of space"));
+  const mustSpace = m(mk({ spaces: ["ROOM"], must: ["space"] }), other({ spaces: ["DUPLEX"] }));
+  assert.ok(mustSpace.score <= 39 && mustSpace.dealbreaker);
+});
+
+test("verified only: neither side sees an unverified person", () => {
+  const ex = excluded;
+  const me: Profile = { ...base, verifiedOnly: true, verified: true };
+  assert.equal(ex(me, other({ verified: false })), "verification");
+  assert.equal(ex(me, other({ verified: true })), null);
+  assert.equal(ex({ ...base, verified: false }, other({ verifiedOnly: true, verified: true })), "verification");
+});

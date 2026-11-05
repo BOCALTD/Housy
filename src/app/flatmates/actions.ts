@@ -6,6 +6,7 @@ import { FACTORS } from "@/lib/flatmate-rules";
 import {
   acceptFlatmateRequest, addToFlatmateRoom, declineFlatmateRequest, deleteFlatmateProfile, endFlatmateMatch, hideFlatmate, leaveFlatmateRoom,
   saveFlatmateProfile, sendFlatmateRequest, setFlatmateStatus, withdrawFlatmateRequest,
+  submitFlatmateCheck,
 } from "@/lib/services/flatmates";
 
 export async function saveProfileAction(form: FormData) {
@@ -18,6 +19,8 @@ export async function saveProfileAction(form: FormData) {
       showGender: str(form, "showGender") === "on",
       answers: Object.fromEntries(FACTORS.map((f) => [f.key, str(form, `a_${f.key}`)])),
       must: form.getAll("must").map(String), occupation: str(form, "occupation"), about: str(form, "about"), roomListingRef: str(form, "roomListingRef").toUpperCase(),
+      spaces: form.getAll("spaces").map(String), spaceOther: str(form, "spaceOther"), furnishing: str(form, "furnishing") || "ANY",
+      amenities: form.getAll("amenities").map(String), verifiedOnly: str(form, "verifiedOnly") === "on",
       adult: str(form, "adult") === "on",
     });
     return withNotice("/flatmates/matches", "Profile saved. Here are your matches.");
@@ -96,5 +99,15 @@ export async function leaveRoomAction(form: FormData) {
     const user = await requireUser();
     await leaveFlatmateRoom(user.id, str(form, "roomId"));
     return withNotice("/flatmates/requests", "You left the chat room.");
+  });
+}
+
+export async function submitCheckAction(form: FormData) {
+  return act("/flatmates/profile#verify", async () => {
+    const user = await requireUser();
+    const doc = form.get("doc"), selfie = form.get("selfie");
+    if (!(doc instanceof File) || !(selfie instanceof File)) throw new Error("Add both the ID photo and the selfie");
+    await submitFlatmateCheck(user.id, str(form, "idType"), { type: doc.type, bytes: new Uint8Array(await doc.arrayBuffer()) }, { type: selfie.type, bytes: new Uint8Array(await selfie.arrayBuffer()) });
+    return withNotice("/flatmates/profile#verify", "Sent. A reviewer will check your ID and selfie, usually within a day.");
   });
 }

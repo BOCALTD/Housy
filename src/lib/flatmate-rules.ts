@@ -38,7 +38,44 @@ export const FACTORS: Factor[] = [
 export const FACTOR_KEYS = FACTORS.map((f) => f.key);
 export const MUST_MAX = 3;
 /** Questions a person may mark as "must match". */
-export const MUST_KEYS = ["smoking", "schedule", "personality", "cleanliness", "guests", "noise", "drinking", "pets", "inclusive", "budget", "moveIn"];
+export const MUST_KEYS = ["smoking", "schedule", "personality", "cleanliness", "guests", "noise", "drinking", "pets", "inclusive", "budget", "moveIn", "space"];
+
+/** The kind of space someone offers or wants: not only a room. "OTHER" comes with their own words. */
+export const SPACES = {
+  ROOM: "A room in a shared flat",
+  SELF_CONTAINED: "Self-contained",
+  MINI_FLAT: "Mini flat (room and parlour)",
+  FLAT_1: "1-bedroom flat",
+  FLAT_2: "2-bedroom flat",
+  FLAT_3: "3-bedroom flat or bigger",
+  APARTMENT: "Serviced apartment",
+  DELUXE: "Deluxe or executive room",
+  STUDIO: "Studio",
+  DUPLEX: "Duplex or terrace",
+  HOSTEL: "Hostel or lodge",
+  SHORT_LET: "Short let",
+  OTHER: "Something else",
+} as const;
+export type Space = keyof typeof SPACES;
+export const FURNISHING = { ANY: "Either is fine", FURNISHED: "Furnished", UNFURNISHED: "Unfurnished" } as const;
+export type Furnishing = keyof typeof FURNISHING;
+export const AMENITIES = {
+  POWER: "24-hour power (or a good backup)",
+  WATER: "Running water",
+  SECURITY: "Security or a gated estate",
+  PARKING: "Parking",
+  INTERNET: "Internet",
+  OWN_BATH: "My own bathroom",
+  KITCHEN: "A proper kitchen",
+  AC: "Air conditioning",
+  QUIET: "A quiet street",
+  TRANSPORT: "Near public transport",
+} as const;
+export type Amenity = keyof typeof AMENITIES;
+export function cleanList<T extends string>(input: unknown, allowed: Record<T, string>, max = 8): T[] {
+  const list = Array.isArray(input) ? input : [];
+  return [...new Set(list.map((x) => String(x)).filter((x): x is T => x in allowed))].slice(0, max);
+}
 
 export const INTENTS = { HAVE_ROOM: "I have a room and need a flatmate", NEED_ROOM: "I need a room", TEAM_UP: "I want to find a place together" } as const;
 export type Intent = keyof typeof INTENTS;
@@ -64,7 +101,32 @@ export type Profile = {
   genderPref: GenderPref;
   answers: Answers;
   must: string[];
+  spaces?: string[];
+  furnishing?: string;
+  amenities?: string[];
+  /** Their flatmate ID check is verified. */
+  verified?: boolean;
+  /** They only want verified people. */
+  verifiedOnly?: boolean;
 };
+
+/** Spaces: any overlap is a match; someone who has not said is a fair match. */
+function spaces(a: Profile, b: Profile): number {
+  const x = a.spaces ?? [], y = b.spaces ?? [];
+  if (!x.length || !y.length) return 0.75;
+  return x.some((s) => y.includes(s)) ? 1 : 0.15;
+}
+function furnishing(a: Profile, b: Profile): number {
+  const x = a.furnishing ?? "ANY", y = b.furnishing ?? "ANY";
+  return x === "ANY" || y === "ANY" || x === y ? 1 : 0.2;
+}
+/** Must-have amenities: the share both want (people who listed none are a fair match). */
+function amenities(a: Profile, b: Profile): number {
+  const x = new Set(a.amenities ?? []), y = new Set(b.amenities ?? []);
+  if (!x.size || !y.size) return 0.75;
+  const both = [...x].filter((k) => y.has(k)).length;
+  return 0.4 + 0.6 * (both / Math.max(x.size, y.size));
+}
 
 export const BANDS = [
   { min: 85, label: "Perfectly matched", tone: "perfect" },
@@ -158,6 +220,10 @@ export function parts(a: Profile, b: Profile): Part[] {
   out.push({ key: "budget", label: "Budget", weight: 2, similarity: budget(a, b) });
   out.push({ key: "moveIn", label: "Move-in date", weight: 1.5, similarity: moveIn(a.moveIn, b.moveIn) });
   out.push({ key: "age", label: "Age", weight: 1, similarity: age(a, b) });
+  // The newer questions only count when both people answered them, so not answering is neutral.
+  if (a.spaces?.length && b.spaces?.length) out.push({ key: "space", label: "Kind of space", weight: 3, similarity: spaces(a, b) });
+  out.push({ key: "furnishing", label: "Furnishing", weight: 0.5, similarity: furnishing(a, b) });
+  if (a.amenities?.length && b.amenities?.length) out.push({ key: "amenities", label: "Must-haves", weight: 0.75, similarity: amenities(a, b) });
   return out;
 }
 
@@ -171,6 +237,7 @@ export function excluded(a: Profile, b: Profile): string | null {
   if (norm(a.city) !== norm(b.city)) return "city";
   if (a.intent === "HAVE_ROOM" && b.intent === "HAVE_ROOM") return "both have rooms";
   if (!genderOk(a.genderPref, a.gender, b.gender) || !genderOk(b.genderPref, b.gender, a.gender)) return "gender preference";
+  if ((a.verifiedOnly && !b.verified) || (b.verifiedOnly && !a.verified)) return "verification";
   return null;
 }
 
@@ -194,13 +261,16 @@ export function match(a: Profile, b: Profile): Match {
     if (p.key === "budget") return good ? "Budgets overlap" : "Budgets far apart";
     if (p.key === "moveIn") return good ? "Moving in around the same time" : "Move-in dates far apart";
     if (p.key === "age") return good ? "Similar age" : "Different age groups";
+    if (p.key === "space") return good ? "Want the same kind of space" : "Want different kinds of space";
+    if (p.key === "furnishing") return good ? "Agree on furnishing" : "Different on furnishing";
+    if (p.key === "amenities") return good ? "Same must-haves" : "Different must-haves";
     const f = FACTORS.find((x) => x.key === p.key)!;
     return good ? f.good : f.bad;
   };
   const good = ps.filter((p) => p.similarity >= 0.9 && p.weight >= 1).sort((x, y) => y.weight - x.weight).map((p) => say(p, true)).filter((x): x is string => !!x).slice(0, 4);
   const bad = ps.filter((p) => p.similarity <= 0.4).sort((x, y) => y.weight - x.weight).map((p) => say(p, false)).filter((x): x is string => !!x).slice(0, 3);
   // One step apart is not a clash, but worth a conversation before moving in.
-  const TOPIC: Record<string, string> = { schedule: "sleep hours", personality: "how much company you like", cleanliness: "tidiness", guests: "guests", noise: "noise", drinking: "drinking", pets: "pets", workFromHome: "time at home", cooking: "cooking", smoking: "smoking", budget: "budget", moveIn: "move-in date", age: "age" };
+  const TOPIC: Record<string, string> = { schedule: "sleep hours", personality: "how much company you like", cleanliness: "tidiness", guests: "guests", noise: "noise", drinking: "drinking", pets: "pets", workFromHome: "time at home", cooking: "cooking", smoking: "smoking", budget: "budget", moveIn: "move-in date", age: "age", space: "the kind of space", furnishing: "furnishing", amenities: "must-haves" };
   const mixed = ps.filter((p) => p.similarity > 0.4 && p.similarity < 0.9 && p.weight >= 1 && TOPIC[p.key]).sort((x, y) => y.weight - x.weight).map((p) => `A little different on ${TOPIC[p.key]}`).slice(0, 3);
   return { mixed, score, band: band(score), dealbreaker: clash ? (clash.key === "inclusive" ? "A must-match answer differs" : `Must-match: ${say(clash, false)}`) : null, good, bad };
 }

@@ -10,8 +10,8 @@ import { parseNaira } from "../portal-rules";
 import { rateLimit } from "../ratelimit";
 import { hasContactDetails } from "../subscription-rules";
 import {
-  AGE_BANDS, FACTORS, GENDER_PREFS, GENDERS, INTENTS, MUST_KEYS, MUST_MAX, ROOM_MAX, checkAnswers, excluded, match, publicName,
-  type AgeBand, type Answers, type Gender, type GenderPref, type Intent, type Profile,
+  AGE_BANDS, AMENITIES, FACTORS, FURNISHING, GENDER_PREFS, GENDERS, INTENTS, MUST_KEYS, MUST_MAX, ROOM_MAX, SPACES, checkAnswers, cleanList, excluded, match, parts, publicName,
+  type Amenity, type Furnishing, type Space, type AgeBand, type Answers, type Gender, type GenderPref, type Intent, type Profile,
 } from "../flatmate-rules";
 import { notify } from "./notifications";
 import { sendMessage } from "./messaging";
@@ -21,23 +21,39 @@ type Row = {
   userId: string; status: string; displayName: string; intent: string; country: string; city: string; areas: string;
   budgetMinKobo: bigint; budgetMaxKobo: bigint; moveInFrom: Date; stayMonths: number | null; ageBand: string; agePref: string;
   gender: string; genderPref: string; showGender: boolean; answers: unknown; mustMatch: string; occupation: string; about: string;
-  roomListingRef: string; updatedAt: Date;
+  roomListingRef: string; updatedAt: Date; spaces: string[]; spaceOther: string; furnishing: string; amenities: string[]; verifiedOnly: boolean;
 };
 
-const asProfile = (r: Row): Profile => ({
+const asProfile = (r: Row, verified = false): Profile => ({
   userId: r.userId, intent: r.intent as Intent, country: r.country, city: r.city, budgetMinKobo: r.budgetMinKobo, budgetMaxKobo: r.budgetMaxKobo,
   moveIn: r.moveInFrom, ageBand: r.ageBand as AgeBand, agePref: r.agePref === "SIMILAR" ? "SIMILAR" : "ANY", gender: r.gender as Gender,
   genderPref: r.genderPref as GenderPref, answers: (r.answers ?? {}) as Answers, must: r.mustMatch ? r.mustMatch.split(",").filter(Boolean) : [],
+  spaces: r.spaces, furnishing: r.furnishing, amenities: r.amenities, verified, verifiedOnly: r.verifiedOnly,
 });
 
+const SHORT: Record<string, string> = { smoking: "Smoking", schedule: "Daily rhythm", personality: "Personality", cleanliness: "Tidiness", guests: "Guests", noise: "Noise", drinking: "Drinking", pets: "Pets", workFromHome: "Time at home", cooking: "Kitchen", budget: "Budget", moveIn: "Move-in", age: "Age", space: "Space", furnishing: "Furnishing", amenities: "Must-haves" };
+/** The biggest parts of a match as bars (the inclusiveness answer is never shown, even as a bar). */
+function breakdown(a: Profile, b: Profile) {
+  return parts(a, b).filter((x) => x.key !== "inclusive" && x.weight >= 1 && SHORT[x.key]).sort((x, y) => y.weight - x.weight).slice(0, 6).map((x) => ({ label: SHORT[x.key], value: Math.round(x.similarity * 100) }));
+}
+
+/** Whose flatmate ID check is verified, among these people. */
+async function verifiedSet(tx: Tx, ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await tx.flatmateCheck.findMany({ where: { userId: { in: ids }, status: "VERIFIED" }, select: { userId: true } });
+  return new Set(rows.map((r) => r.userId));
+}
+
 /** What other people may see of a profile. Gender only if the person chose to show it; the household-inclusiveness answer never. */
-function publicView(r: Row) {
+function publicView(r: Row, verified = false) {
   const answers = (r.answers ?? {}) as Answers;
   return {
     userId: r.userId, displayName: r.displayName, intent: r.intent as Intent, city: r.city, areas: r.areas, country: r.country,
     budgetMinKobo: r.budgetMinKobo, budgetMaxKobo: r.budgetMaxKobo, moveInFrom: r.moveInFrom, stayMonths: r.stayMonths,
     ageBand: r.ageBand as AgeBand, gender: r.showGender && r.gender !== "UNSAID" ? (r.gender as Gender) : null, occupation: r.occupation, about: r.about,
-    roomListingRef: r.roomListingRef, updatedAt: r.updatedAt,
+    roomListingRef: r.roomListingRef, updatedAt: r.updatedAt, verified,
+    spaces: r.spaces.map((k) => (k === "OTHER" && r.spaceOther ? r.spaceOther : SPACES[k as Space] ?? k)), furnishing: r.furnishing === "ANY" ? "" : FURNISHING[r.furnishing as Furnishing] ?? "",
+    amenities: r.amenities.map((k) => AMENITIES[k as Amenity] ?? k),
     lifestyle: FACTORS.filter((f) => f.shown).map((f) => ({ key: f.key, question: f.question, answer: f.options.find((o) => o.code === answers[f.key])?.label ?? "" })).filter((x) => x.answer),
   };
 }
@@ -66,6 +82,11 @@ const profileSchema = z.object({
   occupation: z.string().trim().max(80).default(""),
   about: z.string().trim().max(800, "Keep the description under 800 characters").default(""),
   roomListingRef: z.string().trim().max(40).default(""),
+  spaces: z.array(z.string()).default([]),
+  spaceOther: z.string().trim().max(60).default(""),
+  furnishing: z.string().default("ANY"),
+  amenities: z.array(z.string()).default([]),
+  verifiedOnly: z.boolean().default(false),
   adult: z.boolean(),
 });
 
@@ -87,13 +108,16 @@ export async function saveFlatmateProfile(userId: string, input: z.input<typeof 
   const stay = d.stayMonths ? Number.parseInt(d.stayMonths, 10) : null;
   if (stay !== null && (!Number.isInteger(stay) || stay < 1 || stay > 60)) throw new Error("Stay length is 1 to 60 months");
   // Contact details are shared in the chat room after a match, never on the profile.
-  for (const t of [d.about, d.occupation, d.areas, d.displayName]) if (hasContactDetails(t) || /https?:\/\//i.test(t)) throw new Error("Leave phone numbers, emails and links out of your profile. You can share them in the chat room once you match.");
+  const spaces = cleanList(d.spaces, SPACES, 6), amenities = cleanList(d.amenities, AMENITIES, 10);
+  if (spaces.includes("OTHER") && !d.spaceOther) throw new Error("Say what kind of space you mean by \"something else\"");
+  for (const t of [d.about, d.occupation, d.areas, d.displayName, d.spaceOther]) if (hasContactDetails(t) || /https?:\/\//i.test(t)) throw new Error("Leave phone numbers, emails and links out of your profile. You can share them in the chat room once you match.");
   const answers = Object.fromEntries(FACTORS.map((f) => [f.key, d.answers[f.key]]));
   const data = {
     displayName: d.displayName, intent: d.intent, country: d.country, city: d.city, areas: d.areas, budgetMinKobo: min, budgetMaxKobo: max,
     moveInFrom: moveIn, stayMonths: stay, ageBand: d.ageBand, agePref: d.agePref, gender: d.gender, genderPref: d.genderPref, showGender: d.showGender,
     answers, mustMatch: [...new Set(d.must)].filter((m) => MUST_KEYS.includes(m)).slice(0, MUST_MAX).join(","), occupation: d.occupation, about: d.about,
     roomListingRef: /^PROP-[A-Z0-9]+$/.test(d.roomListingRef) ? d.roomListingRef : "",
+    spaces, spaceOther: spaces.includes("OTHER") ? d.spaceOther : "", furnishing: d.furnishing in FURNISHING ? d.furnishing : "ANY", amenities, verifiedOnly: d.verifiedOnly,
   };
   await withUser(userId, async (tx) => {
     const existing = await tx.flatmateProfile.findUnique({ where: { userId } });
@@ -131,10 +155,10 @@ async function blockedIds(tx: Tx, userId: string): Promise<Set<string>> {
 }
 
 /** People who could share with me, best match first. */
-export async function myMatches(userId: string, opts: { minScore?: number; page?: number } = {}) {
+export async function myMatches(userId: string, opts: { minScore?: number; page?: number; verified?: boolean; space?: string; sort?: "best" | "newest" | "soonest" } = {}) {
   return withUser(userId, async (tx) => {
     const me = await tx.flatmateProfile.findUnique({ where: { userId } });
-    if (!me || me.status !== "ACTIVE") return { me, rows: [], total: 0, pages: 1 };
+    if (!me || me.status !== "ACTIVE") return { me, meVerified: false, stats: { scanned: 0, eligible: 0, verified: 0, perfect: 0, excellent: 0, pending: 0 }, rows: [], total: 0, pages: 1 };
     const others = await tx.flatmateProfile.findMany({
       where: { status: "ACTIVE", country: me.country, city: { equals: me.city, mode: "insensitive" }, userId: { not: userId } },
       orderBy: { updatedAt: "desc" }, take: 1000,
@@ -144,17 +168,21 @@ export async function myMatches(userId: string, opts: { minScore?: number; page?
     const blockedMe = await tx.$queryRaw<{ id: string }[]>`SELECT u AS id FROM unnest(${others.map((o) => o.userId)}::text[]) u WHERE msg_blocked(${userId}, u)`;
     for (const b of blockedMe) skip.add(b.id);
     const requests = await tx.flatmateRequest.findMany({ where: { OR: [{ fromUserId: userId }, { toUserId: userId }] } });
-    const mine = asProfile(me);
-    const scored = others
-      .filter((o) => !skip.has(o.userId) && !excluded(mine, asProfile(o)))
+    const verified = await verifiedSet(tx, [userId, ...others.map((o) => o.userId)]);
+    const mine = asProfile(me, verified.has(userId));
+    const eligible = others.filter((o) => !skip.has(o.userId) && !excluded(mine, asProfile(o, verified.has(o.userId))));
+    let scored = eligible
       .map((o) => {
         const r = requests.find((q) => (q.fromUserId === userId && q.toUserId === o.userId) || (q.toUserId === userId && q.fromUserId === o.userId));
-        return { profile: publicView(o), match: match(mine, asProfile(o)), request: r ? { id: r.id, status: r.status, mine: r.fromUserId === userId, roomId: r.roomId } : null };
-      })
-      .filter((x) => x.match.score >= (opts.minScore ?? 0))
-      .sort((a, b) => b.match.score - a.match.score);
+        const theirs = asProfile(o, verified.has(o.userId));
+        return { profile: publicView(o, verified.has(o.userId)), match: match(mine, theirs), bars: breakdown(mine, theirs), request: r ? { id: r.id, status: r.status, mine: r.fromUserId === userId, roomId: r.roomId } : null };
+      });
+    // The engine room's figures are about everyone eligible, before the filters below.
+    const stats = { scanned: others.length, eligible: scored.length, verified: scored.filter((x) => x.profile.verified).length, perfect: scored.filter((x) => x.match.score >= 85).length, excellent: scored.filter((x) => x.match.score >= 65 && x.match.score < 85).length, pending: requests.filter((q) => q.toUserId === userId && q.status === "PENDING").length };
+    scored = scored.filter((x) => x.match.score >= (opts.minScore ?? 0) && (!opts.verified || x.profile.verified) && (!opts.space || x.profile.spaces.length === 0 || (others.find((o) => o.userId === x.profile.userId)?.spaces ?? []).includes(opts.space)));
+    scored.sort(opts.sort === "newest" ? (a, b) => b.profile.updatedAt.getTime() - a.profile.updatedAt.getTime() : opts.sort === "soonest" ? (a, b) => a.profile.moveInFrom.getTime() - b.profile.moveInFrom.getTime() : (a, b) => b.match.score - a.match.score);
     const page = Math.max(1, opts.page ?? 1);
-    return { me, rows: scored.slice((page - 1) * PAGE, page * PAGE), total: scored.length, pages: Math.max(1, Math.ceil(scored.length / PAGE)) };
+    return { me, meVerified: verified.has(userId), stats, rows: scored.slice((page - 1) * PAGE, page * PAGE), total: scored.length, pages: Math.max(1, Math.ceil(scored.length / PAGE)) };
   });
 }
 
@@ -167,10 +195,11 @@ export async function flatmateView(userId: string, otherUserId: string) {
     if ((await blockedIds(tx, userId)).has(otherUserId)) return null;
     const blocked = await tx.$queryRaw<{ b: boolean }[]>`SELECT msg_blocked(${userId}, ${otherUserId}) AS b`;
     if (blocked[0]?.b) return null;
-    const why = excluded(asProfile(me), asProfile(other));
+    const v = await verifiedSet(tx, [userId, otherUserId]);
+    const why = excluded(asProfile(me, v.has(userId)), asProfile(other, v.has(otherUserId)));
     if (why) return null;
     const r = await tx.flatmateRequest.findFirst({ where: { OR: [{ fromUserId: userId, toUserId: otherUserId }, { fromUserId: otherUserId, toUserId: userId }] } });
-    return { profile: publicView(other), match: match(asProfile(me), asProfile(other)), request: r ? { id: r.id, status: r.status, mine: r.fromUserId === userId, roomId: r.roomId, note: r.note } : null };
+    return { profile: publicView(other, v.has(otherUserId)), match: match(asProfile(me, v.has(userId)), asProfile(other, v.has(otherUserId))), request: r ? { id: r.id, status: r.status, mine: r.fromUserId === userId, roomId: r.roomId, note: r.note } : null };
   });
 }
 
@@ -330,4 +359,70 @@ export async function roomForConversation(userId: string, conversationId: string
 /** For the menu badge: requests waiting for this person's answer. */
 export async function waitingFlatmateRequests(userId: string) {
   return withUser(userId, (tx) => tx.flatmateRequest.count({ where: { toUserId: userId, status: "PENDING" } }));
+}
+
+// ---------- Flatmate ID check ----------
+
+export const ID_TYPES = { NIN: "National ID (NIN slip or card)", PASSPORT: "International passport", DRIVER: "Driver's licence", VOTER: "Voter's card", OTHER: "Another government ID" } as const;
+const IMG: Record<string, number[]> = { "image/jpeg": [0xff, 0xd8, 0xff], "image/png": [0x89, 0x50, 0x4e, 0x47], "image/webp": [0x52, 0x49, 0x46, 0x46] };
+function checkImg(f: { type: string; bytes: Uint8Array }, what: string) {
+  const m = IMG[f.type];
+  if (!m) throw new Error(`The ${what} must be a JPG, PNG or WEBP picture`);
+  if (!f.bytes.byteLength || f.bytes.byteLength > 3.5 * 1024 * 1024) throw new Error(`The ${what} must be a picture under 3.5 MB`);
+  if (!m.every((b, i) => f.bytes[i] === b)) throw new Error(`The ${what} is not the picture type it claims to be`);
+}
+
+/** Ask for the flatmate ID check: a photo of a government ID and a selfie. A platform reviewer compares them. */
+export async function submitFlatmateCheck(userId: string, idType: string, doc: { type: string; bytes: Uint8Array }, selfie: { type: string; bytes: Uint8Array }) {
+  if (!(idType in ID_TYPES)) throw new Error("Choose the kind of ID");
+  checkImg(doc, "ID photo"); checkImg(selfie, "selfie");
+  if (!(await rateLimit(`fmcheck:${userId}`, 3, 24 * 3600 * 1000))) throw new Error("You can send the ID check three times a day. Try again tomorrow.");
+  await withUser(userId, async (tx) => {
+    const now = await tx.flatmateCheck.findUnique({ where: { userId }, select: { status: true } });
+    if (now?.status === "VERIFIED") throw new Error("You are already verified");
+    const data = { status: "PENDING", idType, doc: Buffer.from(doc.bytes), docType: doc.type, selfie: Buffer.from(selfie.bytes), selfieType: selfie.type, note: "", submittedAt: new Date(), decidedAt: null, decidedById: null };
+    await tx.flatmateCheck.upsert({ where: { userId }, create: { userId, ...data }, update: data });
+  });
+}
+
+export async function myFlatmateCheck(userId: string) {
+  return withUser(userId, (tx) => tx.flatmateCheck.findUnique({ where: { userId }, select: { status: true, idType: true, note: true, submittedAt: true, decidedAt: true } }));
+}
+
+export async function flatmateCheckQueue(adminId: string) {
+  return withPlatformAdmin(adminId, async (tx) => {
+    const rows = await tx.flatmateCheck.findMany({ where: { status: "PENDING" }, orderBy: { submittedAt: "asc" }, take: 50, select: { userId: true, idType: true, submittedAt: true, user: { select: { name: true, email: true } } } });
+    const profiles = await tx.flatmateProfile.findMany({ where: { userId: { in: rows.map((r) => r.userId) } }, select: { userId: true, displayName: true, city: true } });
+    return rows.map((r) => ({ ...r, profile: profiles.find((p) => p.userId === r.userId) ?? null }));
+  });
+}
+
+/** One of the two pictures, for the reviewer only. */
+export async function flatmateCheckImage(adminId: string, userId: string, which: "doc" | "selfie") {
+  return withPlatformAdmin(adminId, async (tx) => {
+    const r = which === "doc"
+      ? await tx.flatmateCheck.findUnique({ where: { userId }, select: { doc: true, docType: true } }).then((x) => ({ bytes: x?.doc, type: x?.docType }))
+      : await tx.flatmateCheck.findUnique({ where: { userId }, select: { selfie: true, selfieType: true } }).then((x) => ({ bytes: x?.selfie, type: x?.selfieType }));
+    return r.bytes && r.type ? { bytes: Buffer.from(r.bytes), type: r.type } : null;
+  });
+}
+
+export async function decideFlatmateCheck(adminId: string, userId: string, approve: boolean, noteRaw: string) {
+  const note = z.string().trim().max(400).parse(noteRaw);
+  if (!approve && note.length < 5) throw new Error("Say why, so the person can fix it");
+  await withPlatformAdmin(adminId, async (tx) => {
+    const r = await tx.flatmateCheck.updateMany({ where: { userId, status: "PENDING" }, data: { status: approve ? "VERIFIED" : "REJECTED", note, decidedAt: new Date(), decidedById: adminId } });
+    if (!r.count) throw new Error("That check is no longer waiting");
+    await notify(tx, userId, approve
+      ? { kind: "flatmate.verified", title: "You are verified for flatmates", body: "Your profile now shows the verified badge.", link: "/flatmates/matches" }
+      : { kind: "flatmate.check_rejected", title: "Your flatmate ID check needs another look", body: note, link: "/flatmates/profile#verify" });
+  });
+}
+
+/** The ID pictures are kept only while needed: deleted 30 days after the decision (run by the daily job). */
+export async function purgeFlatmateCheckImages(adminId: string, now = new Date()) {
+  return withPlatformAdmin(adminId, async (tx) => {
+    const r = await tx.flatmateCheck.updateMany({ where: { decidedAt: { lt: new Date(now.getTime() - 30 * 864e5) }, OR: [{ doc: { not: null } }, { selfie: { not: null } }] }, data: { doc: null, selfie: null } });
+    return r.count;
+  });
 }

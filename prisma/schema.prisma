@@ -56,6 +56,7 @@ model User {
   artisanApplications ArtisanApplication[]
   artisanRequests ArtisanRequest[]
   artisanOffers   ArtisanOffer[]
+  flatmateCheck   FlatmateCheck?
 
   @@map("users")
 }
@@ -5531,6 +5532,14 @@ model FlatmateProfile {
   occupation       String   @default("")
   about            String   @default("")
   roomListingRef   String   @default("") @map("room_listing_ref")
+  /// Kinds of space offered or wanted (flatmate-rules.ts SPACES), with their own words for "something else".
+  spaces           String[] @default([])
+  spaceOther       String   @default("") @map("space_other")
+  /// ANY, FURNISHED or UNFURNISHED
+  furnishing       String   @default("ANY")
+  amenities        String[] @default([])
+  /// Only show (and be shown to) people whose flatmate ID check is verified.
+  verifiedOnly     Boolean  @default(false) @map("verified_only")
   adultConfirmedAt DateTime @map("adult_confirmed_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
@@ -5713,4 +5722,24 @@ model ArtisanOffer {
   @@unique([dealId, userId])
   @@index([userId])
   @@map("artisan_offers")
+}
+
+/// The flatmate ID check: an ID photo and a selfie, reviewed by the platform. Images are deleted 30 days after the decision.
+model FlatmateCheck {
+  userId      String    @id @map("user_id")
+  /// PENDING, VERIFIED or REJECTED
+  status      String    @default("PENDING")
+  idType      String    @map("id_type")
+  doc         Bytes?
+  docType     String?   @map("doc_type")
+  selfie      Bytes?
+  selfieType  String?   @map("selfie_type")
+  note        String    @default("")
+  submittedAt DateTime  @default(now()) @map("submitted_at")
+  decidedAt   DateTime? @map("decided_at")
+  decidedById String?   @map("decided_by_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("flatmate_checks")
 }

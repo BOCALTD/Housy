@@ -61,3 +61,37 @@ test("a client without a Housy account is simply not offered", async () => {
   const c = await withTenant(co.companyId, co.userId, (tx) => tx.client.create({ data: { companyId: co.companyId, ref: `CL-${uid()}`, name: "Offline Person", email: `nobody${uid()}@example.test`, emailNorm: "", ownerId: co.membershipId, createdById: co.userId } }));
   assert.equal(await withTenant(co.companyId, co.userId, (tx) => offerArtisansAfterDeal(tx, co.companyId, { id: randomUUID(), clientId: c.id, title: "Shop" })), null);
 });
+
+test("flatmate ID check: submit, admin verifies, verified-only matching", async () => {
+  const { submitFlatmateCheck, myFlatmateCheck, flatmateCheckQueue, decideFlatmateCheck, flatmateCheckImage, saveFlatmateProfile, myMatches } = await import("../../src/lib/services/flatmates");
+  const { newPlatformAdmin } = await import("./helpers");
+  const admin = await newPlatformAdmin();
+  const city = `Engine City ${uid()}`;
+  const answers = { smoking: "NON_SMOKER", smokeOk: "NO_SMOKE", schedule: "REGULAR", personality: "INTROVERT", cleanliness: "TIDY", guests: "SOMETIMES", noise: "QUIET", drinking: "SOCIAL", pets: "LIKE_PETS", workFromHome: "SOMETIMES", cooking: "SOMETIMES", inclusive: "FINE" };
+  const prof = (name: string, intent: string, extra: Record<string, unknown> = {}) => ({ displayName: name, intent, country: "NG", city, areas: "", budgetMin: "50000", budgetMax: "150000", moveInFrom: new Date(Date.now() + 10 * 864e5).toISOString().slice(0, 10), stayMonths: "", ageBand: "25-34", agePref: "ANY" as const, gender: "UNSAID", genderPref: "ANY", showGender: false, answers, must: [], occupation: "", about: "", roomListingRef: "", adult: true, ...extra });
+  const a = await registerSeeker({ name: "Amaka Verified", email: `a${uid()}@example.test`, password: "a long enough password" });
+  const b = await registerSeeker({ name: "Bayo Unverified", email: `b${uid()}@example.test`, password: "a long enough password" });
+  await saveFlatmateProfile(a.userId, prof("Amaka", "NEED_ROOM", { spaces: ["FLAT_2", "MINI_FLAT"], amenities: ["POWER"], verifiedOnly: true }) as never);
+  await saveFlatmateProfile(b.userId, prof("Bayo", "HAVE_ROOM", { spaces: ["FLAT_2"], amenities: ["POWER", "WATER"] }) as never);
+  await assert.rejects(saveFlatmateProfile(b.userId, prof("Bayo", "HAVE_ROOM", { spaces: ["OTHER"] }) as never), /something else/);
+  // Amaka only wants verified people and is not verified herself: nobody either way.
+  assert.equal((await myMatches(a.userId)).rows.length, 0);
+  assert.equal((await myMatches(b.userId)).rows.length, 0, "a verified-only person is hidden from the unverified");
+  const JPG = { type: "image/jpeg", bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]) };
+  await assert.rejects(submitFlatmateCheck(a.userId, "NIN", { type: "image/png", bytes: JPG.bytes }, JPG), /not the picture type/);
+  for (const u of [a.userId, b.userId]) await submitFlatmateCheck(u, "NIN", JPG, JPG);
+  assert.equal((await myFlatmateCheck(a.userId))?.status, "PENDING");
+  const queue = await flatmateCheckQueue(admin.id);
+  assert.ok(queue.some((q) => q.userId === a.userId));
+  assert.ok(await flatmateCheckImage(admin.id, a.userId, "selfie"));
+  await assert.rejects(decideFlatmateCheck(admin.id, b.userId, false, ""), /say why/i);
+  for (const u of [a.userId, b.userId]) await decideFlatmateCheck(admin.id, u, true, "");
+  const m = await myMatches(a.userId);
+  assert.equal(m.rows.length, 1);
+  assert.equal(m.rows[0].profile.verified, true);
+  assert.equal(m.meVerified, true);
+  assert.ok(m.rows[0].bars.length > 0 && m.rows[0].bars.every((x) => x.value >= 0 && x.value <= 100));
+  assert.ok(m.rows[0].profile.spaces.includes("2-bedroom flat"));
+  assert.equal((await myMatches(a.userId, { space: "DUPLEX" })).rows.length, 0, "space filter");
+  assert.equal(m.stats.verified, 1);
+});

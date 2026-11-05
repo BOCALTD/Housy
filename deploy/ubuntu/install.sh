@@ -9,6 +9,8 @@ EMAIL=${2:?usage: install.sh DOMAIN ADMIN_EMAIL}
 HERE=$(cd "$(dirname "$0")" && pwd)
 
 export DEBIAN_FRONTEND=noninteractive
+# Retry slow or dropped package downloads instead of stopping half way.
+echo 'Acquire::Retries "5"; Acquire::http::Timeout "60"; Acquire::https::Timeout "60";' > /etc/apt/apt.conf.d/80housy-retries
 apt-get update -y
 apt-get install -y curl ca-certificates gnupg git ufw nginx certbot python3-certbot-nginx fail2ban unattended-upgrades openssl ffmpeg
 

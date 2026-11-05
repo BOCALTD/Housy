@@ -88,7 +88,7 @@ if $LAN; then
 fi
 
 say "Installing the app's packages"
-npm ci --include=dev --no-audit --no-fund
+npm ci --include=dev --no-audit --no-fund --fetch-retries=6 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=180000
 
 say "Preparing the database (secure app role, migrations)"
 npm run db:setup

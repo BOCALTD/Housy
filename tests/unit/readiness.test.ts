@@ -5,7 +5,7 @@ import { adminMfaMissing, readinessChecks, readinessSummary } from "../../src/li
 const good = {
   NODE_ENV: "production", DATABASE_URL: "postgresql://u:p@127.0.0.1/estate", APP_DB_PASSWORD: "a".repeat(30), MFA_ENCRYPTION_KEY: "m".repeat(40),
   REQUIRE_ADMIN_MFA: "true", SETUP_TOKEN: "s".repeat(30), NEXT_PUBLIC_APP_URL: "https://housy.example.ng", NEXT_PUBLIC_PLATFORM_NAME: "Housy",
-  RESEND_API_KEY: "re_x", EMAIL_FROM: "Housy <no-reply@housy.ng>", PAYSTACK_SECRET_KEY: "sk_live_abc", CRON_SECRET: "c".repeat(30), UNSUBSCRIBE_SECRET: "u".repeat(30), SUPPORT_EMAIL: "help@housy.ng",
+  RESEND_API_KEY: "re_x", EMAIL_FROM: "Housy <no-reply@housy.ng>", PAYSTACK_SECRET_KEY: "sk_live_abc", CRON_SECRET: "c".repeat(30), UNSUBSCRIBE_SECRET: "u".repeat(30), SUPPORT_EMAIL: "help@housy.ng", LEGAL_ENTITY_NAME: "Housy Technologies Ltd",
   VAPID_PUBLIC_KEY: "B".repeat(87), VAPID_PRIVATE_KEY: "p".repeat(43),
   NEXT_PUBLIC_MAP_TILES: "https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=abc",
   DOJAH_APP_ID: "app", DOJAH_SECRET_KEY: "sk_live_x",

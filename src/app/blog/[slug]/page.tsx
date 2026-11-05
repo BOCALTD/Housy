@@ -30,7 +30,7 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
   if (!r) notFound();
   const { post: p, related, newer, older } = r;
   const blocks = parseBody(p.body);
-  const toc = blocks.filter((b): b is Extract<typeof b, { t: "h2" }> => b.t === "h2");
+  const toc = blocks.flatMap((b) => (b.t === "h2" ? [{ id: b.id, text: b.text }] : []));
   const cat = BLOG_CATEGORIES[p.category as keyof typeof BLOG_CATEGORIES] ?? "Housy";
   return (
     <article className="blog-post" itemScope itemType="https://schema.org/BlogPosting">

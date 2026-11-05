@@ -45,3 +45,16 @@ test("starter guides meet the publishing rules", () => {
     for (const b of parseBody(s.body)) if ("parts" in b) for (const p of b.parts) if (p.t === "a") assert.ok(p.href.startsWith("/"), p.href);
   }
 });
+
+test("legal pages render, link only to safe places, and name every required policy", async () => {
+  const { legalDocs } = await import("../../src/lib/legal");
+  const docs = legalDocs();
+  assert.deepEqual(docs.map((d) => d.slug), ["terms", "privacy", "cookies", "community", "delete-account"]);
+  for (const d of docs) {
+    const blocks = parseBody(d.body);
+    assert.ok(blocks.filter((b) => b.t === "h2").length >= 3, d.slug);
+    for (const b of blocks) for (const p of ("parts" in b ? b.parts : "items" in b ? b.items.flat() : [])) if (p.t === "a") assert.ok(p.href.startsWith("/") || p.href.startsWith("mailto:"), p.href);
+  }
+  assert.match(docs[1].body, /Nigeria Data Protection Act 2023/);
+  assert.match(docs[0].body, /18 or over/);
+});

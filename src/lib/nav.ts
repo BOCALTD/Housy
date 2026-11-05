@@ -34,6 +34,7 @@ export function exploreSection(): NavSection {
       { href: "/trust", label: "Trust and safety", icon: "shield" },
       { href: "/faq", label: "Questions and answers", icon: "chat" },
       { href: "/support", label: "Contact and support", icon: "bell" },
+      { href: "/legal", label: "Legal and privacy", icon: "lock" },
     ] },
   ] };
 }

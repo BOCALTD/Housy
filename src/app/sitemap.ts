@@ -9,7 +9,7 @@ export const revalidate = 3600;
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
   const at = (path: string, lastModified?: Date | null, priority = 0.5): MetadataRoute.Sitemap[number] => ({ url: `${base}${path}`, lastModified: lastModified ?? undefined, priority });
-  const fixed = ["/", "/browse", "/browse/buy", "/browse/rent", "/browse/land", "/browse/short-let", "/map", "/reels", "/market", "/directory", "/flatmates", "/calculators", "/blog", "/compare", "/pricing", "/how-it-works", "/about", "/trust", "/safety", "/faq", "/reviews", "/completed", "/awards", "/support", "/join", "/login"]
+  const fixed = ["/", "/browse", "/browse/buy", "/browse/rent", "/browse/land", "/browse/short-let", "/map", "/reels", "/market", "/directory", "/flatmates", "/calculators", "/blog", "/compare", "/pricing", "/how-it-works", "/about", "/trust", "/safety", "/faq", "/reviews", "/completed", "/awards", "/support", "/join", "/login", "/legal", "/legal/terms", "/legal/privacy", "/legal/cookies", "/legal/community", "/legal/delete-account"]
     .map((p) => at(p, null, p === "/" ? 1 : 0.7));
   try {
     const [listings, agents, companies, reels, market, posts] = await Promise.all([

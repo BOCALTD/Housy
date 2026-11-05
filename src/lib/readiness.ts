@@ -75,6 +75,9 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
   add("support", "Support contact shown to users", has(env.SUPPORT_EMAIL) ? "ok" : "warn",
     has(env.SUPPORT_EMAIL) ? "Set." : "SUPPORT_EMAIL is not set, so the support page has no address to show.");
 
+  add("legal", "Operator named on the legal pages", has(env.LEGAL_ENTITY_NAME) ? "ok" : "warn",
+    has(env.LEGAL_ENTITY_NAME) ? "Set." : "LEGAL_ENTITY_NAME is not set, so the Terms and Privacy policy do not say which company runs the service. App stores and the data protection law expect it (add LEGAL_ADDRESS and PRIVACY_EMAIL too).");
+
   add("ai", "Assistant (optional)", has(env.ANTHROPIC_API_KEY) ? "ok" : "ok",
     has(env.ANTHROPIC_API_KEY) ? "Connected." : "Not connected. The assistant runs on its built-in rules, which is fine.");
 

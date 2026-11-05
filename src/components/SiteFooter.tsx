@@ -8,6 +8,7 @@ const COLS: { title: string; links: [string, string][] }[] = [
   { title: "Professionals", links: [["/directory?kind=companies", "Companies"], ["/directory?kind=agents", "Agents"], ["/directory?kind=developers", "Developers"], ["/awards", "Top agents"], ["/join?as=company", "Register a company"], ["/join?as=agent", "Join as an agent"], ["/pricing", "Plans and pricing"], ["/api/v1/openapi", "Developer API"]] },
   { title: "Help", links: [["/how-it-works", "How it works"], ["/blog", "Blog and guides"], ["/?intro=1", "Welcome tour"], ["/trust", "Trust and Safety Centre"], ["/safety", "Safety and verification"], ["/faq", "Questions and answers"], ["/reviews", "Reviews"], ["/support", "Contact and support"]] },
   { title: "Earn and share", links: [["/referrals", "Refer and earn"], ["/vacancies", "Report a vacancy"], ["/about", "About us"], ["/support", "Partner with us"]] },
+  { title: "Legal", links: [["/legal/terms", "Terms of use"], ["/legal/privacy", "Privacy policy"], ["/legal/cookies", "Cookie notice"], ["/legal/community", "Community guidelines"], ["/legal/delete-account", "Delete your account"]] },
 ];
 
 export function SiteFooter() {

@@ -87,6 +87,9 @@ export async function deleteMyAccount(userId: string, password: string, confirm:
     await tx.flatmateHide.deleteMany({ where: { userId } });
     await tx.flatmateProfile.deleteMany({ where: { userId } });
   }));
+  await step("profile and cover photos", () => withUser(userId, (tx) => tx.userMedia.deleteMany({ where: { userId } })));
+  await step("flatmate ID check", () => withUser(userId, (tx) => tx.flatmateCheck.deleteMany({ where: { userId } })));
+  await step("reels taken down", () => system((tx) => tx.reel.updateMany({ where: { authorId: userId, status: { not: "REMOVED" } }, data: { status: "REMOVED" } })));
   await step("push devices", () => withUser(userId, (tx) => tx.pushSubscription.deleteMany({ where: { userId } })));
   await step("calendar link", () => withUser(userId, (tx) => tx.calendarFeed.deleteMany({ where: { userId } })));
   await step("notifications", () => withUser(userId, (tx) => tx.notification.deleteMany({ where: { userId } })));
@@ -110,8 +113,13 @@ export async function deleteMyAccount(userId: string, password: string, confirm:
     prisma.session.deleteMany({ where: { userId } }),
     prisma.passwordReset.deleteMany({ where: { userId } }),
     prisma.mfaRecovery.deleteMany({ where: { userId } }),
-    prisma.user.update({ where: { id: userId }, data: { name: "Deleted user", email: `deleted-${userId}@deleted.invalid`, passwordHash: await hashPassword(randomBytes(32).toString("base64url")), mfaSecret: null, mfaEnabledAt: null, mfaLastStep: null } }),
+    prisma.user.update({ where: { id: userId }, data: { name: "Deleted user", bio: "", email: `deleted-${userId}@deleted.invalid`, passwordHash: await hashPassword(randomBytes(32).toString("base64url")), mfaSecret: null, mfaEnabledAt: null, mfaLastStep: null } }),
   ]);
   await system((tx) => logActivity(tx, { companyId: null, actorId: userId, entityType: "user", entityId: userId, action: "privacy.account_deleted", detail: { steps: done } }));
   return done;
+}
+
+/** Keep a record that the person agreed to the terms and privacy policy, and which version, when they signed up. */
+export async function recordConsent(userId: string, version: string) {
+  await system((tx) => logActivity(tx, { companyId: null, actorId: userId, entityType: "user", entityId: userId, action: "legal.accepted", detail: { version, terms: "/legal/terms", privacy: "/legal/privacy", adult: true } })).catch(() => undefined);
 }

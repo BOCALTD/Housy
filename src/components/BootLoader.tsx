@@ -6,8 +6,8 @@ import { Logo } from "./Logo";
  * counter climbs from 0% to 100% as the page actually loads. At 100% it turns green, clicks, and two doors swing open onto the
  * site (or onto the welcome slides for a first-time visitor). It is drawn by the server so it appears before anything else,
  * runs on a few lines of plain script, and never blocks: it finishes within 6 seconds whatever happens, is skipped for the
- * rest of the visit, and is not shown at all without JavaScript or to automated browsers. The script only switches classes
- * on <html>, so the page React hydrates is exactly the page the server sent.
+ * rest of the visit, and is not shown at all without JavaScript or to automated browsers. The script switches classes on <html> and
+ * moves the counter and ring, which are marked so React does not treat the new number as a mismatch.
  */
 export function BootLoader() {
   return (
@@ -17,7 +17,7 @@ export function BootLoader() {
         <div className="boot-door boot-door-r" aria-hidden="true"><span className="boot-knob" /></div>
         <div className="boot-core">
           <div className="boot-stage" aria-hidden="true">
-            <svg className="boot-ring" viewBox="0 0 120 120"><circle className="boot-ring-bg" cx="60" cy="60" r="56" /><circle id="boot-arc" className="boot-ring-fg" cx="60" cy="60" r="56" /></svg>
+            <svg className="boot-ring" viewBox="0 0 120 120"><circle className="boot-ring-bg" cx="60" cy="60" r="56" /><circle id="boot-arc" className="boot-ring-fg" cx="60" cy="60" r="56" suppressHydrationWarning /></svg>
             <svg className="boot-globe" viewBox="0 0 100 100">
               <defs><clipPath id="boot-clip"><circle cx="50" cy="50" r="34" /></clipPath><radialGradient id="boot-sea" cx="38%" cy="32%"><stop offset="0" stopColor="#3B4048" /><stop offset="1" stopColor="#1A1C20" /></radialGradient></defs>
               <circle cx="50" cy="50" r="34" fill="url(#boot-sea)" />
@@ -44,7 +44,8 @@ export function BootLoader() {
             </span></div>
             <svg className="boot-tick" viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
           </div>
-          <p className="boot-pct"><span id="boot-n">0</span>%</p>
+          {/* boot.js moves this number before React starts, so React is told to expect a different number here. */}
+          <p className="boot-pct"><span id="boot-n" suppressHydrationWarning>0</span>%</p>
           <p className="boot-name"><Logo height={30} tone="light" /></p>
           <p className="boot-sub">Searching for property you can trust</p>
         </div>

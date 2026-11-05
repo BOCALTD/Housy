@@ -96,7 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     roleLabel: member ? `${ROLE_LABELS[member.role]} · ${member.companyName}` : session.user.isPlatformAdmin ? "Platform administrator" : "Personal account",
   } : null;
   return (
-    <html lang="en-NG">
+    <html lang="en-NG" suppressHydrationWarning>
       <head>
         {/* Says so on screen if the app's scripts never start (public/health.js). */}
         <script src="/health.js" />

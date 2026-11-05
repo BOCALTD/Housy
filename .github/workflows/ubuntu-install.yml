@@ -20,6 +20,11 @@ jobs:
           node -v || true; psql --version || true; nginx -v 2>&1 || true
           free -h; df -h /
 
+      - name: Use the main Ubuntu package mirror (the test machine's own mirror is sometimes very slow)
+        run: |
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
+          grep -rh "^URIs" /etc/apt/sources.list.d/ 2>/dev/null | sort -u || true
+
       - name: One-time setup (install.sh)
         run: sudo bash deploy/ubuntu/install.sh housy-ci.example.com ci@example.com
 

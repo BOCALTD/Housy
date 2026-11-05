@@ -5,7 +5,7 @@ name: Ubuntu server install
 on:
   push:
     branches: [main]
-    paths: ["deploy/ubuntu/**", ".github/workflows/ubuntu-install.yml", "scripts/db-setup.mjs", "prisma/**", "package.json", "package-lock.json"]
+    paths: ["deploy/ubuntu/**", "scripts/ubuntu-local.sh", ".github/workflows/ubuntu-install.yml", "scripts/db-setup.mjs", "prisma/**", "package.json", "package-lock.json"]
   workflow_dispatch:
 
 jobs:
@@ -70,3 +70,31 @@ jobs:
         run: |
           sudo journalctl -u housy --no-pager | tail -150
           sudo tail -50 /var/log/nginx/error.log || true
+
+  # scripts/ubuntu-local.sh: Housy on someone's own Ubuntu computer at http://localhost:3000, run as a normal user.
+  local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use the main Ubuntu package mirror
+        run: sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
+      - name: Set up with sample data (first run)
+        run: bash scripts/ubuntu-local.sh --demo --no-start
+      - name: Start and open the pages
+        run: |
+          (set -a; . ./.env; set +a; NODE_ENV=production npx next start -H 127.0.0.1 -p 3000 > /tmp/housy.log 2>&1 &)
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"ok":true' && break; sleep 2; done
+          curl -fsS http://127.0.0.1:3000/api/health; echo
+          for p in / /browse /reels /map /blog /directory?kind=agents /login /join /artisans /flatmates; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:3000$p"); echo "$p $code"; [ "$code" = 200 ] || exit 1
+          done
+          curl -s http://127.0.0.1:3000/browse | grep -qi "demo\|sample" || { echo "sample listings not shown"; exit 1; }
+      - name: Run again (keeps the database and settings)
+        run: |
+          pkill -f "next start" || true
+          bash scripts/ubuntu-local.sh --no-start | tee /tmp/second.log
+          grep -q "Keeping your existing .env" /tmp/second.log
+      - name: Logs if anything failed
+        if: failure()
+        run: tail -100 /tmp/housy.log || true

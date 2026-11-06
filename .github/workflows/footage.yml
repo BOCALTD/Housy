@@ -11,15 +11,14 @@ jobs:
       - run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg fonts-dejavu-core && pip install pillow
       - run: |
           mkdir -p out
-          python3 scan.py woman-driving man-driving driving car-interior taxi traffic motorcycle motorbike scooter bicycle street city-street crowd people-walking pedestrian crosswalk woman-phone man-phone smartphone texting black-woman black-man african-american african young-woman friends couple keys moving apartment real-estate handshake door happy
-          python3 sheets.py
+          python3 probe.py https://mixkit.co/free-stock-video/african/ https://mixkit.co/free-stock-video/african-american/ https://mixkit.co/free-stock-video/black-woman/ https://mixkit.co/free-stock-video/black/ https://mixkit.co/free-stock-video/phone/ https://mixkit.co/free-stock-video/smartphone/ https://mixkit.co/free-stock-video/woman/ https://mixkit.co/free-stock-video/people/ https://mixkit.co/free-stock-video/city/ https://mixkit.co/free-stock-video/discover/african-woman/ https://mixkit.co/free-stock-video/discover/black-woman-phone/ "https://mixkit.co/search/?q=african" https://www.pexels.com/search/videos/nigerian%20woman/ https://pixabay.com/videos/search/african%20woman/ https://www.videvo.net/search/african/ https://mazwai.com/ https://coverr.co/s?q=african https://www.pexels.com/api/v3/search/videos?query=lagos
       - name: Publish
         run: |
           cp -r out /tmp/out
           git config user.name "ci"; git config user.email "ci@example.invalid"
-          git checkout --orphan guide-footage-out
+          git checkout --orphan guide-probe-out
           git rm -rf -q --cached . > /dev/null 2>&1 || true
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -r /tmp/out/* . && rm -rf rows
+          cp -r /tmp/out/* . ; rm -rf rows
           git add -A && git commit -q -m "Guide footage contact sheets"
-          git push -q -f origin guide-footage-out
+          git push -q -f origin guide-probe-out

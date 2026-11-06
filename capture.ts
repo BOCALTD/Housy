@@ -42,6 +42,8 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
   const ctx = await b.newContext({ ...devices["Pixel 7"], locale: "en-NG", timezoneId: "Africa/Lagos" });
   await ctx.addInitScript({ content: "Object.defineProperty(navigator,'webdriver',{get:function(){return false;}});" + CLEAN });
   const p = await ctx.newPage();
+  p.on("pageerror", (e) => log.push(`PAGEERROR ${p.url().replace(BASE, "")}: ${e.message.slice(0, 400)}`));
+  p.on("console", (m) => { if (m.type() === "error") log.push(`CONSOLE ${p.url().replace(BASE, "")}: ${m.text().slice(0, 400)}`); });
   const email = `tolu.${Date.now().toString(36)}@example.com`;
 
   await step("first visit", async () => {

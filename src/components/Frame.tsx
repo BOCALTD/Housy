@@ -22,7 +22,8 @@ const GUEST_TOP: [string, string, keyof typeof Icon][] = [
   ["/blog", "Blog", "book"], ["/flatmates", "Flatmates", "people"], ["/map", "Map", "map"],
 ];
 
-function initials(s: string) { return s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "•"; }
+/** Two letters from a name, skipping tags and symbols ("[DEMO] Seyi Seeker" → "SS"). */
+function initials(s: string) { return s.replace(/\[[^\]]*\]/g, " ").split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, "")).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "•"; }
 
 /** The link that matches the current page best: the longest path that the page starts with (query strings must match too). */
 function activeKey(path: string, search: string, sections: NavSection[]) {

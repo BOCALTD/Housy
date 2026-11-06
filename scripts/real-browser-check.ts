@@ -285,7 +285,7 @@ async function main() {
     await ctx.close();
   });
 
-  await step("Signed in on a desktop: Home is the website, the side menu stays inside the account", async () => {
+  await step("Signed in on a desktop: only Home drops the side menu; menu clicks keep it", async () => {
     const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const seeker = out.trim().split("\n")[2];
     const ctx = await newContext(browser, "desktop");
@@ -293,15 +293,24 @@ async function main() {
     const s = await ctx.newPage(); watch(s, "signed-in desktop");
     const railShown = async () => s.evaluate(() => { const r = document.getElementById("rail"); if (!r) return false; const b = r.getBoundingClientRect(); return getComputedStyle(r).visibility !== "hidden" && b.right > 10 && b.width > 40; });
     const results: string[] = []; let ok = true;
-    for (const [path, wantRail] of [["/", false], ["/browse", false], ["/blog", false], ["/me", true], ["/me/settings", true]] as const) {
+    for (const [path, wantRail] of [["/", false], ["/browse", true], ["/blog", true], ["/market", true], ["/me", true]] as const) {
       await s.goto(BASE + path, { waitUntil: "load" }); await s.waitForTimeout(400);
       const rail = await railShown(); const tabs = await s.locator(".topnav").isVisible().catch(() => false);
-      const account = await s.locator(".bar-account").isVisible().catch(() => false);
-      const good = wantRail ? rail && !tabs : !rail && tabs && account;
-      ok = ok && good; results.push(`${path}: side menu ${rail ? "shown" : "hidden"}, top tabs ${tabs ? "shown" : "hidden"}${good ? "" : " (wrong)"}`);
+      const good = wantRail ? rail && !tabs : !rail && tabs && (await s.locator(".bar-account").isVisible().catch(() => false));
+      ok = ok && good; results.push(`${path}: side menu ${rail ? "shown" : "hidden"}${good ? "" : " (wrong)"}`);
     }
-    await s.goto(BASE + "/", { waitUntil: "load" }); await s.waitForTimeout(400);
-    await record(s, "home is home when signed in", ok, results.join("; "));
+    // Clicking a side-menu link: it lights up straight away and the menu is still there on arrival.
+    await s.goto(BASE + "/me", { waitUntil: "load" }); await s.waitForTimeout(400);
+    const link = s.locator('#rail a.rail-link[href="/market"]').first();
+    if (await link.count()) {
+      await s.evaluate(() => document.querySelector('#rail a.rail-link[href="/market"]')?.closest("details")?.setAttribute("open", ""));
+      await link.click();
+      const lit = await s.waitForFunction(() => !!document.querySelector('#rail a.rail-link.active[href="/market"]'), null, { timeout: 1500 }).then(() => true).catch(() => false);
+      await s.waitForURL(/\/market/, { timeout: 15000 }); await s.waitForTimeout(500);
+      const kept = await railShown(); ok = ok && lit && kept;
+      results.push(`menu click to Market prices: lit at once ${lit}, menu kept ${kept}`);
+    } else results.push("no Market prices link in this menu");
+    await record(s, "side menu stays on menu clicks", ok, results.join("; "));
     await ctx.close();
   });
 

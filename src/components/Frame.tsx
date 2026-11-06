@@ -11,11 +11,6 @@ import { ThemeSwitch, type Theme } from "./ThemeSwitch";
 
 export type FrameUser = { name: string; email: string; roleLabel: string; avatarUrl?: string | null; isAdmin: boolean; home?: string };
 
-/**
- * Pages that belong inside someone's account. Only these get the side menu; everything else is the public website and keeps
- * the website header for everyone, signed in or not (you do not carry the furniture out of the house).
- */
-export const ACCOUNT_AREA = /^\/(?:app|me|admin|messages|setup|billing|feedback|portal|referrals|rewards|vacancies|field|reviews\/write|flatmates\/(?:profile|matches|requests))(?:\/|$)/;
 export type FrameNotice = { id: string; title: string; body: string; link: string; at: string; unread: boolean };
 
 const TOP_LEVEL = /^\/(?:|browse|map|reels|flatmates|market|directory|me|app|admin|messages|login|join|compare|calculators|awards|blog)$/;
@@ -98,18 +93,42 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
   const [bell, setBell] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
   const guest = !user;
-  // The public website (header and top tabs) for visitors everywhere, and for signed-in people outside their account.
-  const site = guest || !ACCOUNT_AREA.test(path);
+  // Visitors always get the website header. Signed-in people keep their side menu everywhere except the homepage.
+  const site = guest || path === "/";
   const home = user?.home ?? "/me";
   // Wide screens: the side menu folds to a strip of icons and back; remembered in a cookie so the next page starts the same way.
   const [mini, setMini] = useState(collapsed);
   const fold = (v: boolean) => { setMini(v); document.cookie = `rail=${v ? "mini" : "full"}; path=/; max-age=31536000; samesite=lax`; };
-  const guestOn = (href: string) => href === "/" ? path === "/" : href === active || (href === "/browse" && (path.startsWith("/properties") || path === "/browse")) || (href === "/flatmates" && path.startsWith("/flatmates"));
-  const active = activeKey(path, search, sections);
+  const guestOn = (href: string) => href === "/" ? (pending ? pending.path === "/" : path === "/") : href === active || (href === "/browse" && (path.startsWith("/properties") || path === "/browse")) || (href === "/flatmates" && path.startsWith("/flatmates"));
+  const [pending, setPending] = useState<{ path: string; search: string } | null>(null);
+  const active = pending ? activeKey(pending.path, pending.search, sections) || activeKey(path, search, sections) : activeKey(path, search, sections);
   const current = sections.flatMap((s) => s.groups.flatMap((g) => g.items)).find((i) => i.href === active);
   const showBack = !TOP_LEVEL.test(path);
   const parent = path.split("/").slice(0, -1).join("/") || "/";
 
+  // A click on a link inside the site starts the "on its way" state; arriving at the new page ends it.
+  useEffect(() => {
+    const click = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+      const u = new URL(a.href, location.href);
+      if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
+      if (/^\/(api|c\/|r\/)/.test(u.pathname) || /\.(pdf|xml|csv|zip)$/i.test(u.pathname)) return;
+      setPending({ path: u.pathname, search: u.search.replace(/^\?/, "") });
+    };
+    document.addEventListener("click", click);
+    return () => document.removeEventListener("click", click);
+  }, []);
+  useEffect(() => { setPending(null); }, [path, search]);
+  useEffect(() => { if (!pending) return; const t = setTimeout(() => setPending(null), 12000); return () => clearTimeout(t); }, [pending]);
+  // Coming from the homepage into the rest of the site, the side menu slides in instead of appearing at once.
+  const wasSite = useRef(site);
+  const [railEnter, setRailEnter] = useState(false);
+  useEffect(() => {
+    if (wasSite.current && !site) { setRailEnter(true); const t = setTimeout(() => setRailEnter(false), 500); wasSite.current = site; return () => clearTimeout(t); }
+    wasSite.current = site;
+  }, [site]);
   useEffect(() => { setOpen(false); setBell(false); if (location.hash === "#rail") history.replaceState(null, "", location.pathname + location.search); }, [path, search]);
   useEffect(() => {
     document.body.classList.toggle("no-scroll", open);
@@ -135,7 +154,7 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
   ];
 
   return (
-    <div className={`frame${site ? " guest site" : ""}${!site && mini ? " mini" : ""}${open ? " drawer-open" : ""}`}>
+    <div className={`frame${site ? " guest site" : ""}${!site && mini ? " mini" : ""}${open ? " drawer-open" : ""}${railEnter ? " rail-enter" : ""}`}>
       <aside className="rail" id="rail" aria-label="Main menu">
         <div className="rail-head">
           <Link href="/" className="rail-logo" aria-label="Housy home"><span className="rail-logo-full"><Logo height={30} tone="light" /></span><span className="rail-logo-mark"><LogoMark size={36} tile /></span></Link>
@@ -208,7 +227,8 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
       </aside>
       <a href="#" className="frame-scrim" aria-label="Close the menu" tabIndex={-1} onClick={(e) => { e.preventDefault(); setOpen(false); }} />
 
-      <div className="frame-main">
+      <div className={`frame-main${pending ? " is-loading" : ""}`} aria-busy={pending ? true : undefined}>
+        <div className={`nav-progress${pending ? " on" : ""}`} aria-hidden="true" />
         <header className={`bar topbar${site ? " guest-bar" : ""}`}>
           <a href="#rail" className="bar-btn menu-btn" aria-label="Open menu" aria-expanded={open} onClick={(e) => { e.preventDefault(); setOpen(true); }}>
             <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M4 7h16M4 12h10M4 17h16" /></svg>

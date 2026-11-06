@@ -97,3 +97,16 @@ body::before { opacity: .6; }
 .price-verdict a { margin-left: 4px; }
 /* Signed in on the public site: bell and avatar join the header, so small phones drop the theme button (it is in Settings). */
 @media (max-width: 420px) { .guest-bar:has(.bell) .theme-switch { display: none; } }
+
+/* ---- Moving between pages: the clicked link lights up at once, a thin amber bar runs, the page eases in ---- */
+.nav-progress { position: fixed; z-index: 120; top: 0; left: 0; right: 0; height: 3px; pointer-events: none; opacity: 0; transform: scaleX(0); transform-origin: 0 50%; background: linear-gradient(90deg, #E3A93F, #F2C46B); box-shadow: 0 0 10px rgba(227, 169, 63, .6); }
+.nav-progress.on { opacity: 1; transform: scaleX(.6); }
+.frame-main > main { transition: opacity .18s ease; }
+.frame-main.is-loading > main { opacity: .6; }
+@media (prefers-reduced-motion: no-preference) {
+  .nav-progress.on { animation: nav-grow 6s cubic-bezier(.1, .75, .2, 1) both; }
+  @keyframes nav-grow { 0% { transform: scaleX(0); } 12% { transform: scaleX(.35); } 100% { transform: scaleX(.92); } }
+  .frame.rail-enter .rail { animation: rail-in .42s cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes rail-in { from { transform: translateX(-100%); opacity: .3; } to { transform: none; opacity: 1; } }
+  #main > * { animation-duration: .32s; }
+}

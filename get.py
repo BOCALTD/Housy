@@ -4,7 +4,7 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 os.makedirs("out/clips", exist_ok=True)
 MIX = open("mixkit.txt").read().split()
 def mix(vid):
-    for size in ("2160", "1080", "720"):
+    for size in ("1080", "720"):
         u = f"https://assets.mixkit.co/videos/{vid}/{vid}-{size}.mp4"
         try:
             data = urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=120).read()
@@ -26,7 +26,7 @@ for q in open("pexels.txt").read().strip().split("\n"):
         for v in d.get("videos", []):
             files = sorted([f for f in v["video_files"] if f.get("height")], key=lambda f: f["height"])
             small = next((f for f in files if f["height"] >= 360), files[0] if files else None)
-            big = [f for f in files if 1080 <= max(f["width"], f["height"]) <= 2160] or files[-1:]
+            big = [f for f in files if 1080 <= max(f["width"], f["height"]) <= 1920] or files[-1:]
             if small: found.append({"id": v["id"], "q": q, "url": v["url"], "user": v["user"]["name"], "w": v["width"], "h": v["height"], "dur": v["duration"], "small": small["link"], "big": big[-1]["link"] if big else small["link"]})
         print(q, page, len(found), flush=True)
 seen = {}; [seen.setdefault(f["id"], f) for f in found]

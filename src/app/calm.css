@@ -52,3 +52,6 @@ body::before { opacity: .6; }
 
 /* Narrow phones, signed in: the top bar has back, bell and profile already; the theme choice stays in Profile and settings. */
 @media (max-width: 420px) { .topbar:not(.guest-bar) .theme-switch { display: none; } }
+
+/* Reels use the full width (the page-width cap for ordinary pages was winning, leaving light strips at the sides). */
+.frame main:has(.rf-page) > .wrap { max-width: none; padding: 0; }

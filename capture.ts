@@ -7,6 +7,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 const BASE = "http://localhost:3100";
 const OUT = "../out/screens"; mkdirSync(OUT, { recursive: true });
 const log: string[] = [];
+const boxes: Record<string, { t: string; x: number; y: number; w: number; h: number }[]> = {};
 let n = 0;
 const CLEAN = `
   (function(){
@@ -17,7 +18,11 @@ const CLEAN = `
 async function shot(p: Page, name: string, full = false) {
   await p.waitForTimeout(350);
   const file = `${String(++n).padStart(3, "0")}-${name}.jpg`;
-  try { await p.screenshot({ path: `${OUT}/${file}`, type: "jpeg", quality: 92, fullPage: full, timeout: 20000 }); log.push(`${file}\t${p.url().replace(BASE, "")}`); }
+  try {
+    await p.screenshot({ path: `${OUT}/${file}`, type: "jpeg", quality: 92, fullPage: full, timeout: 20000 }); log.push(`${file}\t${p.url().replace(BASE, "")}`);
+    const BOX_JS = "(function(full){var out=[];var dpr=window.devicePixelRatio;var sy=full?window.scrollY:0;document.querySelectorAll('a,button,input,select,summary,label,textarea,h1,h2,h3,.chip,.badge,[role=button]').forEach(function(el){var r=el.getBoundingClientRect();if(r.width<4||r.height<4)return;var cs=getComputedStyle(el);if(cs.visibility==='hidden'||cs.display==='none')return;var t=(el.innerText||el.value||el.getAttribute('aria-label')||el.getAttribute('placeholder')||'').trim().replace(/\\s+/g,' ').slice(0,80);out.push({t:el.tagName.toLowerCase()+':'+t,x:Math.round(r.left*dpr),y:Math.round((r.top+sy)*dpr),w:Math.round(r.width*dpr),h:Math.round(r.height*dpr)});});return out;})";
+    boxes[file] = await p.evaluate(`${BOX_JS}(${full})`) as typeof boxes[string];
+  }
   catch (e) { log.push(`${file}\tFAILED ${(e as Error).message.split("\n")[0]}`); }
   console.log(file, p.url());
 }
@@ -138,5 +143,6 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
     }
   });
   writeFileSync("../out/log.txt", log.join("\n") + "\n");
+  writeFileSync("../out/boxes.json", JSON.stringify(boxes));
   await b.close();
 })();

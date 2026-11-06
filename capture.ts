@@ -28,6 +28,13 @@ async function typeIn(p: Page, sel: string, text: string, name: string, frames =
   const parts = frames; const step = Math.ceil(text.length / parts);
   for (let i = 0; i < text.length; i += step) { await el.pressSequentially(text.slice(i, i + step), { delay: 25 }); await shot(p, `${name}-t${i}`); }
 }
+async function go(p: Page, path: string) {
+  await p.goto(BASE + path, { waitUntil: "load" });
+  const t = Date.now();
+  await p.waitForFunction(() => document.documentElement.classList.contains("boot-off"), null, { timeout: 20000 }).catch(() => log.push(`loader still on at ${path}`));
+  log.push(`loader off after ${Date.now() - t} ms at ${path}`);
+  await p.waitForTimeout(700);
+}
 const step = async (name: string, fn: () => Promise<void>) => { try { await fn(); } catch (e) { log.push(`STEP FAILED ${name}: ${(e as Error).message.split("\n")[0]}`); console.log("FAILED", name, e); } };
 
 (async () => {
@@ -47,7 +54,7 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
     await p.waitForTimeout(800); await shot(p, "home"); await shot(p, "home-full", true);
   });
   await step("join", async () => {
-    await p.goto(BASE + "/join?as=personal", { waitUntil: "load" }); await shot(p, "join-empty"); await shot(p, "join-full", true);
+    await go(p, "/join?as=personal"); await shot(p, "join-empty"); await shot(p, "join-full", true);
     await typeIn(p, "#name", "Tolu Adeyemi", "join-name", 2);
     await typeIn(p, "#email", email, "join-email", 2);
     await typeIn(p, 'input[name="phone"]', "0803 456 7890", "join-phone", 2);
@@ -58,7 +65,7 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
     await p.locator("button.auth-submit").first().click(); await p.waitForLoadState("load"); await p.waitForTimeout(1500); await shot(p, "joined"); await shot(p, "joined-full", true);
   });
   await step("my search", async () => {
-    await p.goto(BASE + "/me/settings#my-search", { waitUntil: "load" }); await p.waitForTimeout(500);
+    await go(p, "/me/settings#my-search"); await p.waitForTimeout(500);
     await p.locator("#my-search").scrollIntoViewIfNeeded().catch(() => {}); await shot(p, "mysearch-empty");
     await typeIn(p, '#my-search input[name="city"]', "Lagos", "mysearch-city", 1);
     await p.locator('#my-search select[name="purpose"]').selectOption("RENT"); await shot(p, "mysearch-purpose");
@@ -68,12 +75,12 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
     await p.locator("#my-search").scrollIntoViewIfNeeded().catch(() => {}); await shot(p, "mysearch-saved");
   });
   await step("home picks", async () => {
-    await p.goto(BASE + "/", { waitUntil: "load" }); await p.waitForTimeout(1200); await shot(p, "home-signed-in"); await shot(p, "home-signed-in-full", true);
+    await go(p, "/"); await p.waitForTimeout(1200); await shot(p, "home-signed-in"); await shot(p, "home-signed-in-full", true);
     const h = p.getByText(/Homes that fit your search/i).first(); if (await h.count()) { await h.scrollIntoViewIfNeeded(); await p.waitForTimeout(500); await shot(p, "home-picks"); }
   });
   let ref = "";
   await step("search", async () => {
-    await p.goto(BASE + "/browse", { waitUntil: "load" }); await p.waitForTimeout(800); await shot(p, "browse-top");
+    await go(p, "/browse"); await p.waitForTimeout(800); await shot(p, "browse-top");
     const use = p.locator(".use-my-search").first(); if (await use.count()) { await use.scrollIntoViewIfNeeded(); await shot(p, "browse-use-my-search"); await use.click(); await p.waitForLoadState("load"); await p.waitForTimeout(800); }
     await shot(p, "browse-mine"); await shot(p, "browse-mine-full", true);
     await p.locator(".sort-links").first().scrollIntoViewIfNeeded().catch(() => {}); await shot(p, "browse-sort");
@@ -81,7 +88,7 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
     ref = ((await card.getAttribute("href")) ?? "").split("/")[2]?.split("?")[0] ?? "";
   });
   await step("property", async () => {
-    await p.goto(BASE + "/properties/" + ref, { waitUntil: "load" }); await p.waitForTimeout(1200); await shot(p, "property-top"); await shot(p, "property-full", true);
+    await go(p, "/properties/" + ref); await p.waitForTimeout(1200); await shot(p, "property-top"); await shot(p, "property-full", true);
     for (const t of [/verified/i, /reviews?/i]) { const el = p.getByText(t).first(); if (await el.count()) { await el.scrollIntoViewIfNeeded().catch(() => {}); await shot(p, "property-" + t.source.replace(/\W/g, "")); } }
   });
   await step("inspection", async () => {
@@ -95,29 +102,29 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
     await p.getByRole("button", { name: "Request inspection" }).first().click(); await p.waitForLoadState("load"); await p.waitForTimeout(1500); await shot(p, "inspect-sent"); await shot(p, "inspect-sent-full", true);
   });
   await step("my inspections", async () => {
-    await p.goto(BASE + "/me/inspections", { waitUntil: "load" }); await p.waitForTimeout(800); await shot(p, "inspections"); 
+    await go(p, "/me/inspections"); await p.waitForTimeout(800); await shot(p, "inspections"); 
     const one = p.locator("a[href^='/me/inspections/']").first();
     if (await one.count()) { await one.click(); await p.waitForLoadState("load"); await p.waitForTimeout(1000); await shot(p, "inspection-detail"); await shot(p, "inspection-detail-full", true);
       const safe = p.getByText(/safety|share.*trip|trusted contact/i).first(); if (await safe.count()) { await safe.scrollIntoViewIfNeeded(); await shot(p, "inspection-safety"); } }
   });
   await step("enquiry and messages", async () => {
-    await p.goto(BASE + "/properties/" + ref, { waitUntil: "load" });
+    await go(p, "/properties/" + ref);
     const m = p.locator("#enqMessage"); if (await m.count()) { await m.scrollIntoViewIfNeeded(); await shot(p, "enquiry");
       await p.getByRole("button", { name: "Send enquiry" }).first().click(); await p.waitForLoadState("load"); await p.waitForTimeout(1200); await shot(p, "enquiry-sent"); }
-    await p.goto(BASE + "/messages", { waitUntil: "load" }); await p.waitForTimeout(1000); await shot(p, "messages");
+    await go(p, "/messages"); await p.waitForTimeout(1000); await shot(p, "messages");
     const c = p.locator("a[href^='/messages/']").first(); if (await c.count()) { await c.click(); await p.waitForLoadState("load"); await p.waitForTimeout(1200); await shot(p, "chat");
       const box = p.locator("textarea, input[name='body']").last(); if (await box.count()) { await box.click(); await box.pressSequentially("Hello! Is the flat still available for Saturday?", { delay: 15 }); await shot(p, "chat-typed"); await p.keyboard.press("Enter"); await p.waitForTimeout(1500); await shot(p, "chat-sent"); } }
   });
   await step("reels", async () => {
-    await p.goto(BASE + "/reels", { waitUntil: "load" }); await p.waitForTimeout(2500); await shot(p, "reels");
+    await go(p, "/reels"); await p.waitForTimeout(2500); await shot(p, "reels");
     const f = p.locator(".rf-filter summary").first(); if (await f.count()) { await f.click(); await p.waitForTimeout(500); await shot(p, "reels-filter"); await p.keyboard.press("Escape"); }
     for (let i = 1; i <= 2; i++) { await p.mouse.wheel(0, 900); await p.waitForTimeout(1600); await shot(p, `reels-next-${i}`); }
   });
   for (const [path, name] of [["/map", "map"], ["/market", "market"], ["/flatmates", "flatmates"], ["/blog", "blog"], ["/directory?kind=agents", "agents"], ["/directory?kind=companies", "companies"], ["/me", "me"], ["/me/saved", "saved"], ["/safety", "safety"]] as const) {
-    await step(name, async () => { await p.goto(BASE + path, { waitUntil: "load" }); await p.waitForTimeout(name === "map" ? 3500 : 1000); await shot(p, name); await shot(p, name + "-full", true); });
+    await step(name, async () => { await go(p, path); await p.waitForTimeout(name === "map" ? 3500 : 1000); await shot(p, name); await shot(p, name + "-full", true); });
   }
-  await step("market area", async () => { await p.goto(BASE + "/market", { waitUntil: "load" }); const a = p.locator("a[href^='/market/']").first(); if (await a.count()) { await a.click(); await p.waitForLoadState("load"); await p.waitForTimeout(1000); await shot(p, "market-area"); await shot(p, "market-area-full", true); } });
-  await step("agent profile", async () => { await p.goto(BASE + "/directory?kind=agents", { waitUntil: "load" }); const a = p.locator(".dir-name a").first(); if (await a.count()) { await a.click(); await p.waitForLoadState("load"); await p.waitForTimeout(1000); await shot(p, "agent-profile"); await shot(p, "agent-profile-full", true); } });
+  await step("market area", async () => { await go(p, "/market"); const a = p.locator("a[href^='/market/']").first(); if (await a.count()) { await a.click(); await p.waitForLoadState("load"); await p.waitForTimeout(1000); await shot(p, "market-area"); await shot(p, "market-area-full", true); } });
+  await step("agent profile", async () => { await go(p, "/directory?kind=agents"); const a = p.locator(".dir-name a").first(); if (await a.count()) { await a.click(); await p.waitForLoadState("load"); await p.waitForTimeout(1000); await shot(p, "agent-profile"); await shot(p, "agent-profile-full", true); } });
   writeFileSync("../out/log.txt", log.join("\n") + "\n");
   await b.close();
 })();

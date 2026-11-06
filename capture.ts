@@ -12,7 +12,7 @@ const CLEAN = `
   (function(){
     var st=document.createElement('style'); st.textContent='.demo-strip{display:none!important} nextjs-portal{display:none!important}';
     function fix(root){ var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT); var t; while((t=w.nextNode())){ if(t.nodeValue.indexOf('[DEMO]')>=0) t.nodeValue=t.nodeValue.split('[DEMO] ').join('').split('[DEMO]').join(''); } }
-    document.addEventListener('DOMContentLoaded',function(){ document.head.appendChild(st); fix(document.body); new MutationObserver(function(){ fix(document.body); }).observe(document.body,{subtree:true,childList:true,characterData:true}); });
+    document.addEventListener('DOMContentLoaded',function(){ document.head.appendChild(st); var iv=setInterval(function(){ if(document.documentElement.dataset.hydrated!=='1') return; clearInterval(iv); fix(document.body); new MutationObserver(function(){ fix(document.body); }).observe(document.body,{subtree:true,childList:true,characterData:true}); },50); });
   })();`;
 async function shot(p: Page, name: string, full = false) {
   await p.waitForTimeout(350);
@@ -33,6 +33,7 @@ async function go(p: Page, path: string) {
   const t = Date.now();
   await p.waitForFunction(() => document.documentElement.classList.contains("boot-off"), null, { timeout: 20000 }).catch(() => log.push(`loader still on at ${path}`));
   log.push(`loader off after ${Date.now() - t} ms at ${path}`);
+  await p.waitForFunction(() => document.documentElement.dataset.hydrated === '1', null, { timeout: 15000 }).catch(() => {});
   await p.waitForTimeout(700);
 }
 const step = async (name: string, fn: () => Promise<void>) => { try { await fn(); } catch (e) { log.push(`STEP FAILED ${name}: ${(e as Error).message.split("\n")[0]}`); console.log("FAILED", name, e); } };

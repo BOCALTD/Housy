@@ -1,0 +1,123 @@
+001-boot.jpg	/
+002-intro-1.jpg	/
+003-intro-2.jpg	/
+004-intro-3.jpg	/
+005-intro-4.jpg	/
+006-home.jpg	/
+007-home-full.jpg	/
+loader off after 38 ms at /join?as=personal
+008-join-empty.jpg	/join?as=personal
+009-join-full.jpg	/join?as=personal
+010-join-name-t0.jpg	/join?as=personal
+011-join-name-t6.jpg	/join?as=personal
+012-join-email-t0.jpg	/join?as=personal
+013-join-email-t13.jpg	/join?as=personal
+014-join-phone-t0.jpg	/join?as=personal
+015-join-phone-t7.jpg	/join?as=personal
+016-join-pass-t0.jpg	/join?as=personal
+017-join-pass-t7.jpg	/join?as=personal
+018-join-confirm-partial-t0.jpg	/join?as=personal
+019-join-match.jpg	/join?as=personal
+020-join-agree.jpg	/join?as=personal
+021-joined.jpg	/me
+022-joined-full.jpg	/me
+loader off after 32 ms at /me/settings#my-search
+023-mysearch-empty.jpg	/me/settings#my-search
+024-mysearch-city-t0.jpg	/me/settings#my-search
+025-mysearch-purpose.jpg	/me/settings#my-search
+026-mysearch-budget-t0.jpg	/me/settings#my-search
+027-mysearch-budget-t4.jpg	/me/settings#my-search
+028-mysearch-beds-t0.jpg	/me/settings#my-search
+029-mysearch-saved.jpg	/me/settings#my-search?notice=Saved.%20Your%20home%20page%20and%20reels%20now%20start%20from%20this%20search.
+loader off after 78 ms at /
+030-home-signed-in.jpg	/
+031-home-signed-in-full.jpg	/
+032-home-picks.jpg	/
+loader off after 50 ms at /browse
+033-browse-top.jpg	/browse
+034-browse-use-my-search.jpg	/browse
+035-browse-mine.jpg	/browse?city=Lagos&purpose=RENT&maxPrice=15000000&minBeds=2
+036-browse-mine-full.jpg	/browse?city=Lagos&purpose=RENT&maxPrice=15000000&minBeds=2
+037-browse-sort.jpg	/browse?city=Lagos&purpose=RENT&maxPrice=15000000&minBeds=2
+038-browse-card.jpg	/browse?city=Lagos&purpose=RENT&maxPrice=15000000&minBeds=2
+loader off after 54 ms at /properties/PROP-466ZFS
+039-property-top.jpg	/properties/PROP-466ZFS
+040-property-full.jpg	/properties/PROP-466ZFS
+041-property-verified.jpg	/properties/PROP-466ZFS
+042-property-reviews.jpg	/properties/PROP-466ZFS
+043-inspect-open.jpg	/properties/PROP-466ZFS
+044-inspect-filled.jpg	/properties/PROP-466ZFS
+045-inspect-sent.jpg	/me/inspections/INS-SQ7TCM
+046-inspect-sent-full.jpg	/me/inspections/INS-SQ7TCM
+loader off after 36 ms at /me/inspections
+047-inspections.jpg	/me/inspections
+048-inspection-detail.jpg	/me/inspections/INS-SQ7TCM
+049-inspection-detail-full.jpg	/me/inspections/INS-SQ7TCM
+050-inspection-safety.jpg	/me/inspections/INS-SQ7TCM
+loader off after 62 ms at /properties/PROP-466ZFS
+051-enquiry.jpg	/properties/PROP-466ZFS
+052-enquiry-sent.jpg	/properties/PROP-466ZFS
+loader off after 33 ms at /messages
+053-messages.jpg	/messages
+loader off after 40 ms at /reels
+054-reels.jpg	/reels
+055-reels-filter.jpg	/reels
+056-reels-next-1.jpg	/reels
+057-reels-next-2.jpg	/reels
+loader off after 63 ms at /map
+058-map.jpg	/map?lat=9.0800&lng=8.6800&z=6
+059-map-full.jpg	/map?lat=9.0800&lng=8.6800&z=6
+loader off after 31 ms at /market
+060-market.jpg	/market
+061-market-full.jpg	/market
+loader off after 31 ms at /flatmates
+062-flatmates.jpg	/flatmates
+063-flatmates-full.jpg	/flatmates
+loader off after 54 ms at /blog
+064-blog.jpg	/blog
+065-blog-full.jpg	/blog
+loader off after 45 ms at /directory?kind=agents
+066-agents.jpg	/directory?kind=agents
+067-agents-full.jpg	/directory?kind=agents
+loader off after 25 ms at /directory?kind=companies
+068-companies.jpg	/directory?kind=companies
+069-companies-full.jpg	/directory?kind=companies
+loader off after 32 ms at /me
+070-me.jpg	/me
+071-me-full.jpg	/me
+loader off after 24 ms at /me/saved
+072-saved.jpg	/me/saved
+073-saved-full.jpg	/me/saved
+loader off after 29 ms at /safety
+074-safety.jpg	/safety
+075-safety-full.jpg	/safety
+loader off after 33 ms at /market
+076-market-area.jpg	/market/lekki
+077-market-area-full.jpg	/market/lekki
+loader off after 37 ms at /directory?kind=agents
+078-agent-profile.jpg	/agents/dff9d5f0-05d6-40f8-b8e1-4b09f111b173
+079-agent-profile-full.jpg	/agents/dff9d5f0-05d6-40f8-b8e1-4b09f111b173
+loader off after 66 ms at /
+DIFF /
+  server only: ["[DEMO] Black Friday","· [DEMO] Demonstration sale","Agent · [DEMO] Alpha Estates","Agent · [DEMO] Garden City Properties Ltd","Agent · [DEMO] Capital Realty Ltd","Agent · [DEMO] Lekki Prime Homes Ltd","Agent · [DEMO] Heritage Homes Developers Ltd","[DEMO] Clear communication from start to finish and the paperwork was ready on time.","[DEMO] S."]
+  client only: ["Black Friday","· Demonstration sale","Agent · Alpha Estates","Agent · Garden City Properties Ltd","Agent · Capital Realty Ltd","Agent · Lekki Prime Homes Ltd","Agent · Heritage Homes Developers Ltd","Clear communication from start to finish and the paperwork was ready on time.","S."]
+loader off after 40 ms at /browse
+DIFF /browse
+  server only: ["[DEMO] Black Friday"]
+  client only: ["Black Friday"]
+loader off after 48 ms at /reels
+DIFF /reels
+  server only: ["🎬 Ikeja GRA duplex: from the gate to the family lounge\nIkeja\nListed by Ada Bakare, [DEMO] Alpha Estates","[DEMO] Alpha Estates","🎬 Enugu duplex with hillside views\nEnugu\nListed by Segun Afolabi, [DEMO] Heritage Homes Developers Ltd","[DEMO] Heritage Homes Developers Ltd","🎬 Old GRA bungalow: garden and living spaces\nPort Harcourt\nListed by Grace Wike, [DEMO] Garden City Properties Ltd","[DEMO] Garden City Properties Ltd","🎬 Asokoro smart home at dusk\nAsokoro\nListed by Halima Yusuf, [DEMO] Capital Realty Ltd","[DEMO] Capital Realty Ltd","🎬 Wuse 2 serviced apartment in one minute\nWuse 2\nListed by Chuka Obi, [DEMO] Capital Realty Ltd","🎬 Maitama mansion: pool, chalet and gardens\nMaitama\nListed by Halima Yusuf, [DEMO] Capital Realty Ltd"]
+  client only: ["🎬 Ikeja GRA duplex: from the gate to the family lounge\nIkeja\nListed by Ada Bakare, Alpha Estates","Alpha Estates","🎬 Enugu duplex with hillside views\nEnugu\nListed by Segun Afolabi, Heritage Homes Developers Ltd","Heritage Homes Developers Ltd","🎬 Old GRA bungalow: garden and living spaces\nPort Harcourt\nListed by Grace Wike, Garden City Properties Ltd","Garden City Properties Ltd","🎬 Asokoro smart home at dusk\nAsokoro\nListed by Halima Yusuf, Capital Realty Ltd","Capital Realty Ltd","🎬 Wuse 2 serviced apartment in one minute\nWuse 2\nListed by Chuka Obi, Capital Realty Ltd","🎬 Maitama mansion: pool, chalet and gardens\nMaitama\nListed by Halima Yusuf, Capital Realty Ltd"]
+loader off after 27 ms at /directory?kind=agents
+DIFF /directory?kind=agents
+  server only: ["[DEMO] Alpha Estates","[DEMO] Garden City Properties Ltd","[DEMO] Capital Realty Ltd","[DEMO] Lekki Prime Homes Ltd","[DEMO] Heritage Homes Developers Ltd"]
+  client only: ["Alpha Estates","Garden City Properties Ltd","Capital Realty Ltd","Lekki Prime Homes Ltd","Heritage Homes Developers Ltd"]
+loader off after 40 ms at /directory?kind=companies
+DIFF /directory?kind=companies
+  server only: []
+  client only: []
+loader off after 40 ms at /me/settings
+DIFF /me/settings
+  server only: []
+  client only: []

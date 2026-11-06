@@ -4,7 +4,7 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 os.makedirs("out/clips", exist_ok=True)
 MIX = open("mixkit.txt").read().split()
 def mix(vid):
-    for size in ("1080", "720"):
+    for size in ("2160", "1080", "720"):
         u = f"https://assets.mixkit.co/videos/{vid}/{vid}-{size}.mp4"
         try:
             data = urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=120).read()

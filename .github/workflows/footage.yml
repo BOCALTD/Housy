@@ -11,15 +11,14 @@ jobs:
       - run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg fonts-dejavu-core && pip install pillow
       - run: |
           mkdir -p out
-          python3 scan.py range:31985-32060 range:44545-44570 range:41160-41185 range:24320-24335 range:46488-46500 range:47965-47980 man-driving-a-car-in-the-city driving-in-traffic car-passenger city-traffic motorcycle-taxi riding-a-motorcycle-in-the-city scooter-city people-crossing-the-street busy-street crowd-walking-city street-market house-keys real-estate-agent showing-a-house handshake new-home couple-new-house
-          python3 sheets.py
+          python3 probe2.py > out/probe2.txt; cat out/probe2.txt
       - name: Publish
         run: |
           cp -r out /tmp/out
           git config user.name "ci"; git config user.email "ci@example.invalid"
-          git checkout --orphan guide-footage-out
+          git checkout --orphan guide-probe-out
           git rm -rf -q --cached . > /dev/null 2>&1 || true
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -r /tmp/out/* . ; rm -rf rows
           git add -A && git commit -q -m "Guide footage contact sheets"
-          git push -q -f origin guide-footage-out
+          git push -q -f origin guide-probe-out

@@ -127,6 +127,23 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
   }
   await step("market area", async () => { await go(p, "/market"); const a = p.locator("a[href^='/market/']").first(); if (await a.count()) { await a.click(); await p.waitForLoadState("load"); await p.waitForTimeout(1000); await shot(p, "market-area"); await shot(p, "market-area-full", true); } });
   await step("agent profile", async () => { await go(p, "/directory?kind=agents"); const a = p.locator(".dir-name a").first(); if (await a.count()) { await a.click(); await p.waitForLoadState("load"); await p.waitForTimeout(1000); await shot(p, "agent-profile"); await shot(p, "agent-profile-full", true); } });
+  await step("hydration diff", async () => {
+    for (const path of ["/", "/browse", "/reels", "/directory?kind=agents", "/directory?kind=companies", "/me/settings"]) {
+      const html = await (await p.request.get(BASE + path)).text();
+      await go(p, path);
+      const diff = await p.evaluate((html) => {
+        const texts = (root: Node) => { const out: string[] = []; const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let t; while ((t = w.nextNode())) { const el = t.parentElement; if (!el || ["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"].includes(el.tagName)) continue; const v = (t.nodeValue || "").trim(); if (v) out.push(v); } return out; };
+        const server = texts(new DOMParser().parseFromString(html, "text/html").body);
+        const client = texts(document.body);
+        const sc = new Map<string, number>(); server.forEach((x) => sc.set(x, (sc.get(x) || 0) + 1));
+        const cc = new Map<string, number>(); client.forEach((x) => cc.set(x, (cc.get(x) || 0) + 1));
+        const onlyS = [...sc].filter(([k, n]) => (cc.get(k) || 0) < n).map(([k]) => k).slice(0, 25);
+        const onlyC = [...cc].filter(([k, n]) => (sc.get(k) || 0) < n).map(([k]) => k).slice(0, 25);
+        return { onlyS, onlyC };
+      }, html);
+      log.push(`DIFF ${path}\n  server only: ${JSON.stringify(diff.onlyS)}\n  client only: ${JSON.stringify(diff.onlyC)}`);
+    }
+  });
   writeFileSync("../out/log.txt", log.join("\n") + "\n");
   await b.close();
 })();

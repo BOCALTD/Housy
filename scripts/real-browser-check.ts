@@ -145,6 +145,23 @@ async function main() {
     await record(w, "desktop width", used >= 1500, `content is ${used} px wide on a 1920 px screen`);
   });
 
+  await step("Visitor on desktop: a website header, no side panel, no stray band, even promotion cards", async () => {
+    await w.goto(BASE + "/", { waitUntil: "load" });
+    const r = await w.evaluate(() => {
+      const rail = document.querySelector(".rail") as HTMLElement | null;
+      const railShown = !!rail && rail.getBoundingClientRect().right > 0 && getComputedStyle(rail).visibility !== "hidden";
+      const links = [...document.querySelectorAll(".topnav > a")].map((a) => a.textContent?.trim());
+      const spacer = document.querySelector(".bar-spacer") as HTMLElement | null;
+      const band = spacer ? getComputedStyle(spacer).backgroundColor : "none";
+      const offers = [...document.querySelectorAll(".offer")].map((o) => Math.round(o.getBoundingClientRect().height));
+      const tags = [...document.querySelectorAll(".offer-tag")].map((t) => Math.round(t.getBoundingClientRect().height));
+      return { railShown, links, band, offers, tags };
+    });
+    const ok = !r.railShown && ["Home", "Find property", "Agents", "Companies", "Blog"].every((l) => r.links.includes(l))
+      && (r.band === "rgba(0, 0, 0, 0)" || r.band === "transparent") && r.offers.every((h) => h < 620) && r.tags.every((h) => h < 40);
+    await record(w, "visitor header", ok, `side panel shown: ${r.railShown}; top links: ${r.links.join(", ")}; spacer colour: ${r.band}; promo card heights: ${r.offers.join(", ") || "none"}; label heights: ${r.tags.join(", ") || "none"}`);
+  });
+
   // 5. Phone: menu opens.
   const phone = await newContext(browser, "phone");
   const m = await phone.newPage(); watch(m, "phone");

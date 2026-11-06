@@ -141,11 +141,12 @@
 
 /* Promo cards */
 .offer { position: relative; display: grid; grid-template-rows: auto 1fr; border-radius: 16px; overflow: hidden; background: var(--surface); border: 2px solid color-mix(in srgb, var(--pr-a) 55%, var(--line)); box-shadow: var(--shadow-1); color: var(--ink); text-decoration: none; }
-.offer-img { position: relative; aspect-ratio: 16 / 10; background: var(--surface-2); display: grid; place-items: center; }
-.offer-img img { width: 100%; height: 100%; object-fit: cover; }
-.offer-img .burst { position: absolute; right: 10px; top: 10px; width: 78px; font-size: 22px; }
-.offer-body { display: grid; gap: 6px; padding: 14px 16px 16px; }
-.offer-tag { justify-self: start; padding: 3px 10px; border-radius: 999px; color: #fff; font-weight: 700; font-size: 12.5px; background: linear-gradient(135deg, var(--pr-a), var(--pr-b)); }
+/* The photo fills a fixed 16:10 frame whatever its shape: a tall photo used to stretch the whole card (and every card beside it). */
+.offer-img { position: relative; aspect-ratio: 16 / 10; min-height: 0; overflow: hidden; background: var(--surface-2); display: grid; place-items: center; }
+.offer-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.offer-img .burst { position: absolute; right: 10px; top: 10px; z-index: 1; width: 78px; font-size: 22px; }
+.offer-body { display: grid; gap: 6px; padding: 14px 16px 16px; align-content: start; }
+.offer-tag { justify-self: start; align-self: start; padding: 3px 10px; border-radius: 999px; color: #fff; font-weight: 700; font-size: 12.5px; background: linear-gradient(135deg, var(--pr-a), var(--pr-b)); }
 .offer s { color: var(--muted); }
 .offer b { font: 700 21px var(--font-display); color: var(--pr-b); }
 @media (prefers-color-scheme: dark) { .offer b { color: #FFB4A8; } }

@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 const pct = (n: number, d: number) => (d <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((n / d) * 100))));
 
 function Bar({ label, value, of, text, warn }: { label: string; value: number; of: number; text: string; warn?: boolean }) {
-  return <div className="barrow"><span className="small">{label}</span><div className={`bar${warn ? " warn" : ""}`} role="img" aria-label={`${label}: ${text}`}><span style={{ width: `${pct(value, of)}%` }} /></div><span className="small">{text}</span></div>;
+  return <div className="barrow"><span className="small">{label}</span><div className={`meter-bar${warn ? " warn" : ""}`} role="img" aria-label={`${label}: ${text}`}><span style={{ width: `${pct(value, of)}%` }} /></div><span className="small">{text}</span></div>;
 }
 
 export default async function AnalyticsPage() {

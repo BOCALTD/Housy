@@ -282,12 +282,13 @@ input[type="file"]::file-selector-button { min-height: 32px; margin-right: 10px;
 .reel-play-icon { font-size: 2rem; line-height: 1; }
 
 /* Simple horizontal bars for dashboards: a track and a fill, labelled in text so colour is never the only signal. */
-.bar { height: 10px; background: var(--line); border-radius: 999px; overflow: hidden; }
-.bar > span { display: block; height: 100%; background: var(--brand, #1f6f50); border-radius: 999px; }
-.bar.warn > span { background: #b45309; }
+/* Small progress bars (the page's top bar is .bar: a shared name once drew these as a green band across it). */
+.meter-bar { height: 10px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.meter-bar > span { display: block; height: 100%; background: var(--brand, #1f6f50); border-radius: 999px; }
+.meter-bar.warn > span { background: #b45309; }
 .barrow { display: grid; grid-template-columns: minmax(90px, 160px) 1fr auto; gap: 10px; align-items: center; }
 .barrow > span:last-child { font-variant-numeric: tabular-nums; }
-@media (max-width: 520px) { .barrow { grid-template-columns: 1fr auto; } .barrow .bar { grid-column: 1 / -1; order: 3; } }
+@media (max-width: 520px) { .barrow { grid-template-columns: 1fr auto; } .barrow .meter-bar { grid-column: 1 / -1; order: 3; } }
 
 .loader { min-height: 50vh; display: flex; align-items: center; justify-content: center; }
 @media (prefers-reduced-motion: no-preference) {

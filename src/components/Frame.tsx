@@ -13,6 +13,9 @@ export type FrameNotice = { id: string; title: string; body: string; link: strin
 
 const TOP_LEVEL = /^\/(?:|browse|map|reels|flatmates|market|directory|me|app|admin|messages|login|join|compare|calculators|awards|blog)$/;
 
+/** What a visitor sees across the top, like any website; everything else public is under More. */
+const GUEST_TOP: [string, string][] = [["/", "Home"], ["/browse", "Find property"], ["/directory?kind=agents", "Agents"], ["/directory?kind=companies", "Companies"], ["/blog", "Blog"]];
+
 function initials(s: string) { return s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "•"; }
 
 /** The link that matches the current page best: the longest path that the page starts with (query strings must match too). */
@@ -67,8 +70,10 @@ function Groups({ groups, active, defaultOpen }: { groups: SideGroup[]; active: 
 }
 
 /**
- * The frame every page sits in (the same pattern as Celia): a dark side panel with every section the person can use, a
+ * The frame every page sits in. Signed in (the same pattern as Celia): a dark side panel with every section the person can use, a
  * sticky top bar with Back, search, the notification bell and the profile, and on phones a drawer plus a bottom tab bar.
+ * A visitor who is not signed in gets an ordinary website header instead: the logo, a few main links, More, Sign in and
+ * Join free; the side panel is only the slide-out menu on smaller screens.
  * Everything still works before (or without) the page's script: the menu opens through #rail, and the bell and Back are
  * ordinary links.
  */
@@ -81,11 +86,22 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
   const [open, setOpen] = useState(false);
   const [bell, setBell] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDetailsElement>(null);
+  const guest = !user;
   const active = activeKey(path, search, sections);
   const current = sections.flatMap((s) => s.groups.flatMap((g) => g.items)).find((i) => i.href === active);
   const showBack = !TOP_LEVEL.test(path);
   const parent = path.split("/").slice(0, -1).join("/") || "/";
 
+  useEffect(() => { moreRef.current?.removeAttribute("open"); }, [path, search]);
+  useEffect(() => {
+    const d = moreRef.current;
+    if (!d) return;
+    const out = (e: MouseEvent) => { if (d.open && !d.contains(e.target as Node)) d.removeAttribute("open"); };
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") d.removeAttribute("open"); };
+    document.addEventListener("mousedown", out); document.addEventListener("keydown", k);
+    return () => { document.removeEventListener("mousedown", out); document.removeEventListener("keydown", k); };
+  }, []);
   useEffect(() => { setOpen(false); setBell(false); if (location.hash === "#rail") history.replaceState(null, "", location.pathname + location.search); }, [path, search]);
   useEffect(() => {
     document.body.classList.toggle("no-scroll", open);
@@ -111,7 +127,7 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
   ];
 
   return (
-    <div className={`frame${open ? " drawer-open" : ""}`}>
+    <div className={`frame${guest ? " guest" : ""}${open ? " drawer-open" : ""}`}>
       <aside className="rail" id="rail" aria-label="Main menu">
         <div className="rail-head">
           <Link href="/" className="rail-logo" aria-label="Housy home"><Logo height={30} tone="light" /></Link>
@@ -149,11 +165,29 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
       <a href="#" className="frame-scrim" aria-label="Close the menu" tabIndex={-1} onClick={(e) => { e.preventDefault(); setOpen(false); }} />
 
       <div className="frame-main">
-        <header className="bar">
+        <header className={`bar topbar${guest ? " guest-bar" : ""}`}>
           <a href="#rail" className="bar-btn menu-btn" aria-label="Open menu" aria-expanded={open} onClick={(e) => { e.preventDefault(); setOpen(true); }}>
             <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M4 7h16M4 12h10M4 17h16" /></svg>
           </a>
           <Link href="/" className="bar-mark" aria-label="Housy home"><LogoMark size={34} tile /></Link>
+          {guest ? <Link href="/" className="guest-logo" aria-label="Housy home"><Logo height={30} /></Link> : null}
+          {guest ? (
+            <nav className="topnav" aria-label="Main">
+              {GUEST_TOP.map(([href, label]) => {
+                const on = href === "/" ? path === "/" : href === active || (href === "/browse" && (path.startsWith("/properties") || path === "/browse"));
+                return <Link key={href} href={href} className={on ? "on" : ""} aria-current={on ? "page" : undefined}>{label}</Link>;
+              })}
+              <details className="topnav-more" ref={moreRef}>
+                <summary>More</summary>
+                <div className="more-panel">
+                  {sections.flatMap((sec) => sec.groups.flatMap((g) => g.items)).filter((i) => !GUEST_TOP.some(([h]) => h === i.href)).map((i) => {
+                    const Ico = i.icon ? Icon[i.icon] : null;
+                    return <Link key={i.href} href={i.href} className={i.href === active ? "on" : ""}>{Ico ? <Ico /> : null}<span>{i.label}</span></Link>;
+                  })}
+                </div>
+              </details>
+            </nav>
+          ) : null}
           {showBack ? (
             <a href={parent} className="bar-btn bar-back" aria-label="Go back" onClick={(e) => {
               if (window.history.length > 1 && document.referrer.startsWith(location.origin)) { e.preventDefault(); window.history.back(); }
@@ -162,8 +196,8 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
               <span>Back</span>
             </a>
           ) : null}
-          <p className="bar-title">{current?.label ?? ""}</p>
-          <span className="bar-spacer" />
+          {guest ? null : <p className="bar-title">{current?.label ?? ""}</p>}
+          <div className="bar-spacer" />
           <form action="/browse" className="bar-search" role="search">
             <Icon.search />
             <input name="q" type="search" placeholder="Search Lekki, Wuse 2, Ikeja GRA…" aria-label="Search property" enterKeyHint="search" />
@@ -203,7 +237,10 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
               <span className="avatar" aria-hidden="true">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : initials(user.name)}</span>
             </Link>
           ) : (
-            <Link href="/login" className="btn primary small bar-signin">Sign in</Link>
+            <>
+              <Link href="/login" className="btn small bar-signin bar-login">Sign in</Link>
+              <Link href="/join" className="btn primary small bar-signin">Join free</Link>
+            </>
           )}
         </header>
         {children}

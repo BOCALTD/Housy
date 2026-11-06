@@ -52,7 +52,7 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
     await p.waitForFunction(() => document.documentElement.classList.contains("boot-off"), null, { timeout: 15000 }).catch(() => {});
     await p.waitForTimeout(900); await shot(p, "intro-1");
     for (let i = 2; i <= 4; i++) { const nx = p.getByRole("button", { name: /next/i }).first(); if (!(await nx.isVisible().catch(() => false))) break; await nx.click(); await p.waitForTimeout(800); await shot(p, `intro-${i}`); }
-    await p.getByRole("button", { name: /skip|get started|start|done/i }).first().click({ timeout: 3000 }).catch(() => {});
+    await p.getByRole("button", { name: /^(close|skip)$/i }).first().click({ timeout: 3000 }).catch(() => {});
     await p.waitForTimeout(800); await shot(p, "home"); await shot(p, "home-full", true);
   });
   await step("join", async () => {
@@ -131,16 +131,8 @@ const step = async (name: string, fn: () => Promise<void>) => { try { await fn()
     for (const path of ["/", "/browse", "/reels", "/directory?kind=agents", "/directory?kind=companies", "/me/settings"]) {
       const html = await (await p.request.get(BASE + path)).text();
       await go(p, path);
-      const diff = await p.evaluate((html) => {
-        const texts = (root: Node) => { const out: string[] = []; const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let t; while ((t = w.nextNode())) { const el = t.parentElement; if (!el || ["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"].includes(el.tagName)) continue; const v = (t.nodeValue || "").trim(); if (v) out.push(v); } return out; };
-        const server = texts(new DOMParser().parseFromString(html, "text/html").body);
-        const client = texts(document.body);
-        const sc = new Map<string, number>(); server.forEach((x) => sc.set(x, (sc.get(x) || 0) + 1));
-        const cc = new Map<string, number>(); client.forEach((x) => cc.set(x, (cc.get(x) || 0) + 1));
-        const onlyS = [...sc].filter(([k, n]) => (cc.get(k) || 0) < n).map(([k]) => k).slice(0, 25);
-        const onlyC = [...cc].filter(([k, n]) => (sc.get(k) || 0) < n).map(([k]) => k).slice(0, 25);
-        return { onlyS, onlyC };
-      }, html);
+      const DIFF_JS = "(function(html){function texts(root){var out=[];var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);var t;while((t=w.nextNode())){var el=t.parentElement;if(!el||['SCRIPT','STYLE','NOSCRIPT','TEMPLATE'].indexOf(el.tagName)>=0)continue;var v=(t.nodeValue||'').trim();if(v)out.push(v);}return out;}var server=texts(new DOMParser().parseFromString(html,'text/html').body);var client=texts(document.body);var sc={},cc={};server.forEach(function(x){sc[x]=(sc[x]||0)+1});client.forEach(function(x){cc[x]=(cc[x]||0)+1});return {onlyS:Object.keys(sc).filter(function(k){return (cc[k]||0)<sc[k]}).slice(0,25),onlyC:Object.keys(cc).filter(function(k){return (sc[k]||0)<cc[k]}).slice(0,25)};})";
+      const diff = await p.evaluate(`${DIFF_JS}(${JSON.stringify(html)})`) as { onlyS: string[]; onlyC: string[] };
       log.push(`DIFF ${path}\n  server only: ${JSON.stringify(diff.onlyS)}\n  client only: ${JSON.stringify(diff.onlyC)}`);
     }
   });

@@ -81,12 +81,12 @@ body::before { opacity: .6; }
 .rf-filter-form .chip-choice input:checked + span { background: rgba(227, 169, 63, .28); border-color: #E3A93F; color: #fff; }
 /* Phones: the filter is a round button on the right of the top row (sound is on the left), clear of the tabs. */
 @media (max-width: 760px) {
-  .rf-filter { position: fixed; top: calc(var(--rf-top, 0px) + 10px); right: 12px; }
+  .rf-filter { position: fixed; z-index: 8; top: calc(var(--rf-top, 64px) + 10px); right: 12px; }
   .rf-page:has(.rf-post) .rf-filter { right: 64px; }
   .rf-filter > summary { width: 44px; height: 44px; padding: 0; justify-content: center; position: relative; }
   .rf-filter > summary span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .rf-filter.on > summary::after { content: ""; position: absolute; top: 8px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: #E3A93F; border: 2px solid #111; }
-  .rf-note { position: fixed; top: calc(var(--rf-top, 0px) + 128px); bottom: auto; font-size: 13px; padding: 8px 12px; }
+  .rf-note { position: fixed; top: calc(var(--rf-top, 64px) + 128px); bottom: auto; font-size: 13px; padding: 8px 12px; }
   .rf-nofit { inset: 34% 16px auto; }
 }
 .use-my-search { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px dashed var(--primary); color: var(--ink); text-decoration: none; justify-self: start; }

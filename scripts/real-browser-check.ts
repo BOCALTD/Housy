@@ -211,6 +211,16 @@ async function main() {
     await m.waitForTimeout(1500);
     await record(m, "phone reels", (await textLen(m)) > 20, "reels page open");
   });
+  await step("Phone: the reels filter can be tapped and opens", async () => {
+    const sum = m.locator(".rf-filter > summary").first();
+    const free = await sum.evaluate((el) => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!hit && (hit === el || el.contains(hit)); }).catch(() => false);
+    await sum.click({ timeout: 5000 }).catch(() => {});
+    await m.waitForTimeout(400);
+    const open = await m.locator(".rf-filter-form").isVisible().catch(() => false);
+    const readable = await m.locator(".rf-filter-form .chip-choice span").first().evaluate((el) => getComputedStyle(el).color !== getComputedStyle(el).backgroundColor).catch(() => false);
+    await record(m, "phone reels filter", free && open && readable, `button not covered: ${free}; panel opened: ${open}; choices readable: ${readable}`);
+    await m.keyboard.press("Escape").catch(() => {});
+  });
 
   // 6. Signed in (the demo home seeker): chat, the bell, profile and settings.
   await step("Signed in: chat sends a message", async () => {

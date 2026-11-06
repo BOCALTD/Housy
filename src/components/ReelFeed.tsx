@@ -64,6 +64,8 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
       const b = tabs && getComputedStyle(tabs).display !== "none" ? tabs.offsetHeight : 0;
       el.style.setProperty("--rf-top", `${top}px`);
       el.style.setProperty("--rf-bottom", `${b}px`);
+      // The filter and its note sit outside the feed, fixed to the screen, so they read the same offset from the page.
+      el.closest<HTMLElement>(".rf-page")?.style.setProperty("--rf-top", `${top}px`);
       if (window.scrollY) window.scrollTo({ top: 0 });
     };
     set();

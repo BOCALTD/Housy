@@ -257,6 +257,24 @@ async function main() {
     await ctx.close();
   });
 
+  await step("Signed in on a phone: the opening loader shows once and never comes back", async () => {
+    const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const seeker = out.trim().split("\n")[2];
+    const ctx = await newContext(browser, "phone");
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    const s = await ctx.newPage(); watch(s, "signed-in phone");
+    await s.goto(BASE + "/", { waitUntil: "load" });
+    await s.waitForFunction(() => document.documentElement.classList.contains("boot-off"), null, { timeout: 15000 }).catch(() => {});
+    const stuck: string[] = [];
+    for (const path of ["/", "/browse", "/reels", "/directory?kind=agents", "/me"]) {
+      await s.goto(BASE + path, { waitUntil: "load" });
+      const off = await s.waitForFunction(() => !document.getElementById("boot") || getComputedStyle(document.getElementById("boot")!).display === "none", null, { timeout: 4000 }).then(() => true).catch(() => false);
+      if (!off) stuck.push(path);
+    }
+    await record(s, "loader once signed in", stuck.length === 0, stuck.length ? `loader still covering: ${stuck.join(", ")}` : "no loader on later pages");
+    await ctx.close();
+  });
+
   await browser.close();
 
   const failed = rows.filter((r) => !r.ok);

@@ -1,5 +1,6 @@
 import { PLATFORM_NAME } from "@/lib/labels";
 import { Logo } from "./Logo";
+import { BootGuard } from "./BootGuard";
 
 /**
  * The opening loader, shown once per visit (per browser tab session): a magnifying glass circling a turning globe while the
@@ -53,6 +54,7 @@ export function BootLoader() {
       <noscript><style>{".boot{display:none!important}"}</style></noscript>
       {/* Runs straight away, before the page is interactive: a small plain script (public/boot.js), no framework. */}
       <script src="/boot.js" />
+      <BootGuard />
     </>
   );
 }

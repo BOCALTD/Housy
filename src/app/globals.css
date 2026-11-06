@@ -196,6 +196,8 @@ main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 /* Fields everywhere look the same, never overflow, and are at least 16px so iOS does not zoom the page on focus. */
 /* :where() keeps this base look at the lowest priority, so a box with its own design (search boxes with an icon) keeps its
    spacing; before, this rule won and the text ran under the magnifying glass. */
+/* Never wider than their box: this part keeps full priority, whatever other rules say about width. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea { max-width: 100%; min-width: 0; }
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
   max-width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; background: var(--surface); font-size: 16px; line-height: 1.35;
 }

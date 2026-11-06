@@ -49,3 +49,6 @@ body::before { opacity: .6; }
 .theme-choice button.on svg { color: var(--primary-text); }
 @media (hover: hover) { .theme-menu button:not(.on):hover, .theme-choice button:not(.on):hover { background: var(--surface-2); } }
 @media (max-width: 760px) { .theme-menu { position: fixed; left: auto; right: 12px; top: calc(var(--bar-h) + 8px); } }
+
+/* Narrow phones, signed in: the top bar has back, bell and profile already; the theme choice stays in Profile and settings. */
+@media (max-width: 420px) { .topbar:not(.guest-bar) .theme-switch { display: none; } }

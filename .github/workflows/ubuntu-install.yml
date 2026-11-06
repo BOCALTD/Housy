@@ -95,6 +95,16 @@ jobs:
           pkill -f "next start" || true
           bash scripts/ubuntu-local.sh --no-start | tee /tmp/second.log
           grep -q "Keeping your existing .env" /tmp/second.log
+          grep -q "Already built from this code" /tmp/second.log
+      - name: A busy port is reported before building, with the way out
+        run: |
+          python3 -m http.server 3000 --bind 127.0.0.1 >/dev/null 2>&1 &
+          sleep 2
+          if bash scripts/ubuntu-local.sh > /tmp/busy.log 2>&1; then echo "should have stopped"; exit 1; fi
+          cat /tmp/busy.log
+          grep -q "Port 3000 is already in use" /tmp/busy.log
+          grep -q -- "--port 3001" /tmp/busy.log
+          kill %1 || true
       - name: Logs if anything failed
         if: failure()
         run: tail -100 /tmp/housy.log || true

@@ -5,17 +5,46 @@
 #   bash scripts/ubuntu-local.sh --demo     the same, with clearly labelled sample companies, homes and reels to explore
 #   bash scripts/ubuntu-local.sh --lan      also open it to phones and laptops on your Wi-Fi (http://<this computer's IP>:3000)
 #   bash scripts/ubuntu-local.sh --no-start set up and build only
+#   bash scripts/ubuntu-local.sh --port 3001  use another port when 3000 is taken by another program
+#   bash scripts/ubuntu-local.sh --rebuild  install and build again even if nothing changed
 #
-# Safe to run again: it keeps your database and your .env file, applies new migrations, rebuilds and starts.
+# Safe to run again: it keeps your database and your .env file and applies new migrations. When the code has not changed
+# since the last build (no git pull), it skips installing and building and starts in seconds.
 # For a public website with your own domain and HTTPS, use deploy/ubuntu/install.sh instead (docs/UBUNTU.md).
 set -euo pipefail
-DEMO=false; LAN=false; START=true
-for a in "$@"; do case "$a" in --demo) DEMO=true ;; --lan) LAN=true ;; --no-start) START=false ;; *) echo "Unknown option: $a"; exit 1 ;; esac; done
+DEMO=false; LAN=false; START=true; PORT=3000; REBUILD=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --demo) DEMO=true ;; --lan) LAN=true ;; --no-start) START=false ;; --rebuild) REBUILD=true ;;
+    --port) shift; PORT="${1:-}"; [[ "$PORT" =~ ^[0-9]{2,5}$ ]] || { echo "Give a port number, for example --port 3001"; exit 1; } ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
+  esac
+  shift
+done
 cd "$(dirname "$0")/.."
 say() { printf '\n\033[1;33m== %s\033[0m\n' "$*"; }
 [ "$(id -u)" = 0 ] && { echo "Run this as your normal user, not with sudo (it asks for your password when it needs it)."; exit 1; }
 command -v sudo >/dev/null || { echo "This needs sudo."; exit 1; }
 
+# Check the port first, so a busy port is found before minutes of building, not after.
+if $START && command -v ss >/dev/null && ss -ltn "( sport = :$PORT )" | grep -q LISTEN; then
+  echo "Port $PORT is already in use by another program:"
+  sudo ss -ltnp "( sport = :$PORT )" | tail -n +2 || true
+  echo
+  echo "Either stop it:          sudo fuser -k $PORT/tcp   (then run this again)"
+  echo "or use another port:     bash scripts/ubuntu-local.sh --port $((PORT + 1))"
+  exit 1
+fi
+
+# Already built from this exact code, port and address: start straight away.
+STAMP="$(git rev-parse HEAD 2>/dev/null || echo nogit) port=$PORT lan=$LAN"
+if ! $REBUILD && [ -f .env ] && [ -f .next/BUILD_ID ] && [ -f .next/housy-build-stamp ] && [ "$(cat .next/housy-build-stamp)" = "$STAMP" ] && command -v node >/dev/null && command -v psql >/dev/null; then
+  FAST=true
+else
+  FAST=false
+fi
+
+if ! $FAST; then
 say "Installing what Housy needs (Node.js 20, PostgreSQL 16, git, ffmpeg)"
 export DEBIAN_FRONTEND=noninteractive
 sudo sh -c 'echo "Acquire::Retries \"5\";" > /etc/apt/apt.conf.d/80housy-retries'
@@ -32,6 +61,8 @@ if ! command -v psql >/dev/null; then
   sudo apt-get update -y
   sudo apt-get install -y postgresql-16
 fi
+fi # end of installing
+
 # Start PostgreSQL. Ubuntu on Windows (WSL) may run without systemd; then the classic service command starts it.
 if [ -d /run/systemd/system ]; then
   sudo systemctl enable --now postgresql
@@ -52,7 +83,7 @@ if [ ! -f .env ]; then
     sudo -u postgres psql -qc "CREATE ROLE estate_owner LOGIN CREATEDB CREATEROLE PASSWORD '$OWNER_PW'"
   fi
   sudo -u postgres psql -qtAc "select 1 from pg_database where datname='estate'" | grep -q 1 || sudo -u postgres psql -qc "CREATE DATABASE estate OWNER estate_owner"
-  HOSTURL="http://localhost:3000"
+  HOSTURL="http://localhost:$PORT"
   cat > .env <<EOF
 # Made by scripts/ubuntu-local.sh for this computer. Keep it private: it holds passwords.
 DATABASE_URL="postgresql://estate_owner:$OWNER_PW@127.0.0.1:5432/estate"
@@ -84,9 +115,15 @@ fi
 set -a; . ./.env; set +a
 if $LAN; then
   IP=$(hostname -I | awk '{print $1}')
-  export NEXT_PUBLIC_APP_URL="http://$IP:3000"
+  export NEXT_PUBLIC_APP_URL="http://$IP:$PORT"
+else
+  export NEXT_PUBLIC_APP_URL="http://localhost:$PORT"
 fi
 
+if $FAST; then
+  say "Already built from this code: starting straight away"
+  npm run db:setup >/dev/null
+else
 say "Installing the app's packages"
 npm ci --include=dev --no-audit --no-fund --fetch-retries=6 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=180000
 
@@ -97,6 +134,8 @@ SEED_DEMO_DATA=$DEMO npm run db:seed
 say "Building Housy (a few minutes the first time)"
 npx prisma generate
 NODE_ENV=production npx next build --webpack
+echo "$STAMP" > .next/housy-build-stamp
+fi
 
 URL="${NEXT_PUBLIC_APP_URL}"
 say "Ready"
@@ -104,9 +143,9 @@ echo "Open:      $URL"
 echo "Admin:     ${SEED_ADMIN_EMAIL}"
 if $NEW_ADMIN; then echo "Password:  ${SEED_ADMIN_PASSWORD}   (shown once here; it is also in .env until you change it)"; else echo "Password:  the one shown the first time (in .env as SEED_ADMIN_PASSWORD unless you changed it)"; fi
 $DEMO && echo "Sample sign-ins: demo.seeker@example.test, demo.kemi.agent@example.test, demo.lekki@example.test (password demo-password-123)"
-$LAN && echo "On your phone: connect to the same Wi-Fi and open $URL (allow port 3000 if a firewall is on: sudo ufw allow 3000/tcp)"
+$LAN && echo "On your phone: connect to the same Wi-Fi and open $URL (allow the port if a firewall is on: sudo ufw allow $PORT/tcp)"
 if $START; then
-  echo "Stop with Ctrl+C. Start again later with:  bash scripts/ubuntu-local.sh"
+  echo "Stop with Ctrl+C. Start again later with:  bash scripts/ubuntu-local.sh$([ "$PORT" != 3000 ] && echo " --port $PORT")$($LAN && echo " --lan")"
   if $LAN; then H=0.0.0.0; else H=127.0.0.1; fi
-  exec env NODE_ENV=production npx next start -H "$H" -p 3000
+  exec env NODE_ENV=production npx next start -H "$H" -p "$PORT"
 fi

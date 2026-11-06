@@ -33,7 +33,7 @@ test("best match is the default order, keeps every listing, and pages cleanly", 
   const made = [];
   for (let i = 0; i < 5; i++) made.push(await publish(admin, co, { price: `${2_000_000 + i * 100_000}` }));
   assert.ok(made.every((l) => l.confirmedAt), "approval counts as a confirmation");
-  const f = parseFilters((k) => (k === "city" ? CITY : null));
+  const f = parseFilters((k) => (k === "city" ? CITY : undefined));
   assert.equal(f.sort, "best");
   const page = await searchListingsPage(f, {});
   assert.equal(page.total, 5);

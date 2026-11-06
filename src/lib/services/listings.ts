@@ -124,7 +124,7 @@ export async function setListingStatus(ctx: Ctx, assetId: string, to: "PENDING_R
       throw new Error(`A listing that is ${listing.status.replace("_", " ").toLowerCase()} cannot move to ${to.replace("_", " ").toLowerCase()}`);
     }
     // Taken off the market (let, sold or withdrawn): the date is kept for the market's "time on the market" figures.
-    await tx.listing.update({ where: { id: listing.id }, data: { status: to, ...(to === "UNAVAILABLE" ? { offMarketAt: new Date() } : to === "PENDING_REVIEW" ? { offMarketAt: null } : {}), ...(to === "PUBLISHED" ? { confirmedAt: new Date(), confirmRemindedAt: null } : {}) } });
+    await tx.listing.update({ where: { id: listing.id }, data: { status: to, ...(to === "UNAVAILABLE" ? { offMarketAt: new Date() } : to === "PENDING_REVIEW" ? { offMarketAt: null } : {}) } });
     await logActivity(tx, {
       companyId: ctx.companyId, actorId: ctx.userId, entityType: "listing", entityId: listing.id,
       action: "listing.status_changed", detail: { from: listing.status, to },

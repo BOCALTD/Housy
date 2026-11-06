@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, SORTS, extraFilterCount, filtersToQuery, parseFilters, type Category } from "@/lib/listing-rules";
 import { searchListingsPage } from "@/lib/services/listings";
-import { priceVerdicts } from "@/lib/services/best-match";
+import { priceVerdicts, type MatchExtras } from "@/lib/services/best-match";
 import { getSearchPref, prefLabel, prefParams } from "@/lib/services/search-prefs";
 import { decorateListings } from "@/lib/services/promotions";
 import { verifiedCompanyIds } from "@/lib/services/kyc";
@@ -32,7 +32,10 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
   const decorated = await decorateListings(page.rows, f.sort === "newest");
   // Best match already carries its price verdicts; any other order gets them here, for the "Good price" badge.
   const verdicts = f.sort === "best" ? null : await priceVerdicts(page.rows).catch(() => null);
-  const rows = decorated.map((r) => ("verdict" in r ? r : { ...r, verdict: verdicts?.get(r.id) ?? null, matchWhy: [] as string[], alsoListed: [] as { publicRef: string; companyId: string }[] }));
+  const rows = decorated.map((r) => {
+    const m = r as unknown as Partial<MatchExtras>;
+    return { ...r, verdict: m.verdict !== undefined ? m.verdict : verdicts?.get(r.id) ?? null, matchWhy: m.matchWhy ?? [], alsoListed: m.alsoListed ?? [] };
+  });
   const session = await getSession();
   const myPref = session ? await getSearchPref(session.user.id).catch(() => null) : null;
   if (session && f.city) void recordSignal(session.user.id, { kind: "SEARCH", city: f.city, purpose: f.purpose ?? "" });

@@ -1,0 +1,64 @@
+name: Guide screens
+on: push
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      DATABASE_URL: postgresql://estate_app:app_ci_password_long_enough_123@localhost:5432/estate
+      MIGRATION_DATABASE_URL: postgresql://estate_owner:owner_ci_pw@localhost:5432/estate
+      SHADOW_DATABASE_URL: postgresql://estate_owner:owner_ci_pw@localhost:5432/estate_shadow
+      APP_DB_PASSWORD: app_ci_password_long_enough_123
+      SETUP_TOKEN: ci-setup-token-long-enough
+      SEED_ADMIN_EMAIL: admin@example.test
+      SEED_ADMIN_PASSWORD: ci-admin-password
+      SEED_DEMO_DATA: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { ref: main, path: app }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE estate_owner LOGIN PASSWORD 'owner_ci_pw' CREATEDB CREATEROLE;
+          CREATE DATABASE estate OWNER estate_owner;
+          CREATE DATABASE estate_shadow OWNER estate_owner;
+          SQL
+      - working-directory: app
+        run: |
+          npm install --no-audit --no-fund
+          npx prisma generate
+          npm run db:setup
+          npm run build
+          npx next start -p 3100 > ../server.log 2>&1 &
+          for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3100/ && break; sleep 1; done
+          npm run db:seed
+          npx playwright install --with-deps chromium
+          cp ../capture.ts scripts/guide-capture.ts
+          npx tsx scripts/guide-capture.ts
+      - name: Publish
+        if: always()
+        run: |
+          mkdir -p out; cp server.log out/ 2>/dev/null || true
+          cp -r out /tmp/out
+          git config user.name "ci"; git config user.email "ci@example.invalid"
+          git checkout --orphan guide-screens-out
+          git rm -rf -q --cached . > /dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r /tmp/out/* .
+          git add -A && git commit -q -m "Guide screens"
+          git push -q -f origin guide-screens-out

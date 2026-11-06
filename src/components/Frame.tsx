@@ -9,7 +9,13 @@ import type { NavSection } from "@/lib/nav";
 import type { SideGroup } from "./nav-types";
 import { ThemeSwitch, type Theme } from "./ThemeSwitch";
 
-export type FrameUser = { name: string; email: string; roleLabel: string; avatarUrl?: string | null; isAdmin: boolean };
+export type FrameUser = { name: string; email: string; roleLabel: string; avatarUrl?: string | null; isAdmin: boolean; home?: string };
+
+/**
+ * Pages that belong inside someone's account. Only these get the side menu; everything else is the public website and keeps
+ * the website header for everyone, signed in or not (you do not carry the furniture out of the house).
+ */
+export const ACCOUNT_AREA = /^\/(?:app|me|admin|messages|setup|billing|feedback|portal|referrals|rewards|vacancies|field|reviews\/write|flatmates\/(?:profile|matches|requests))(?:\/|$)/;
 export type FrameNotice = { id: string; title: string; body: string; link: string; at: string; unread: boolean };
 
 const TOP_LEVEL = /^\/(?:|browse|map|reels|flatmates|market|directory|me|app|admin|messages|login|join|compare|calculators|awards|blog)$/;
@@ -92,6 +98,9 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
   const [bell, setBell] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
   const guest = !user;
+  // The public website (header and top tabs) for visitors everywhere, and for signed-in people outside their account.
+  const site = guest || !ACCOUNT_AREA.test(path);
+  const home = user?.home ?? "/me";
   // Wide screens: the side menu folds to a strip of icons and back; remembered in a cookie so the next page starts the same way.
   const [mini, setMini] = useState(collapsed);
   const fold = (v: boolean) => { setMini(v); document.cookie = `rail=${v ? "mini" : "full"}; path=/; max-age=31536000; samesite=lax`; };
@@ -126,11 +135,11 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
   ];
 
   return (
-    <div className={`frame${guest ? " guest" : ""}${!guest && mini ? " mini" : ""}${open ? " drawer-open" : ""}`}>
+    <div className={`frame${site ? " guest site" : ""}${!site && mini ? " mini" : ""}${open ? " drawer-open" : ""}`}>
       <aside className="rail" id="rail" aria-label="Main menu">
         <div className="rail-head">
           <Link href="/" className="rail-logo" aria-label="Housy home"><span className="rail-logo-full"><Logo height={30} tone="light" /></span><span className="rail-logo-mark"><LogoMark size={36} tile /></span></Link>
-          {guest ? null : (
+          {site ? null : (
             <button type="button" className="rail-fold" onClick={() => fold(!mini)} aria-label={mini ? "Show the full menu" : "Fold the menu to icons"} aria-expanded={!mini} title={mini ? "Show the full menu" : "Fold the menu"}>
               <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" />{mini ? <path d="m13 10 2 2-2 2" /> : <path d="m16 10-2 2 2 2" />}</svg>
             </button>
@@ -143,9 +152,10 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
           <Icon.search />
           <input name="q" type="search" placeholder="Search area, estate or street" aria-label="Search property" enterKeyHint="search" />
         </form>
-        {guest ? (
+        {site ? (
           <nav className="rail-nav" aria-label="Sections">
             <ul className="rail-guest-list">
+              {user ? <li><Link href={home} className="rail-link rail-account"><Icon.person /><span>My account</span></Link></li> : null}
               {GUEST_TOP.map(([href, label, ico]) => {
                 const I = Icon[ico]; const on = guestOn(href);
                 return <li key={href}><Link href={href} className={`rail-link${on ? " active" : ""}`} aria-current={on ? "page" : undefined}><I /><span>{label}</span></Link></li>;
@@ -199,13 +209,13 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
       <a href="#" className="frame-scrim" aria-label="Close the menu" tabIndex={-1} onClick={(e) => { e.preventDefault(); setOpen(false); }} />
 
       <div className="frame-main">
-        <header className={`bar topbar${guest ? " guest-bar" : ""}`}>
+        <header className={`bar topbar${site ? " guest-bar" : ""}`}>
           <a href="#rail" className="bar-btn menu-btn" aria-label="Open menu" aria-expanded={open} onClick={(e) => { e.preventDefault(); setOpen(true); }}>
             <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M4 7h16M4 12h10M4 17h16" /></svg>
           </a>
           <Link href="/" className="bar-mark" aria-label="Housy home"><LogoMark size={34} tile /></Link>
-          {guest ? <Link href="/" className="guest-logo" aria-label="Housy home"><Logo height={30} /></Link> : null}
-          {guest ? (
+          {site ? <Link href="/" className="guest-logo" aria-label="Housy home"><Logo height={30} /></Link> : null}
+          {site ? (
             <nav className="topnav" aria-label="Main">
               {GUEST_TOP.map(([href, label]) => {
                 const on = guestOn(href);
@@ -221,7 +231,7 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
               <span>Back</span>
             </a>
           ) : null}
-          {guest ? null : <p className="bar-title">{current?.label ?? ""}</p>}
+          {site ? null : <p className="bar-title">{current?.label ?? ""}</p>}
           <div className="bar-spacer" />
           <form action="/browse" className="bar-search" role="search">
             <Icon.search />
@@ -258,6 +268,7 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
               ) : null}
             </div>
           ) : null}
+          {user && site ? <Link href={home} className="btn small bar-signin bar-account">My account</Link> : null}
           {user ? (
             <Link href="/me/settings" className="bar-avatar" aria-label="Your profile and settings">
               <span className="avatar" aria-hidden="true">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : initials(user.name)}</span>

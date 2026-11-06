@@ -95,3 +95,5 @@ body::before { opacity: .6; }
 .price-verdict { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); font-size: 15px; }
 .price-verdict.v-good { background: color-mix(in srgb, #10B981 14%, var(--surface)); }
 .price-verdict a { margin-left: 4px; }
+/* Signed in on the public site: bell and avatar join the header, so small phones drop the theme button (it is in Settings). */
+@media (max-width: 420px) { .guest-bar:has(.bell) .theme-switch { display: none; } }

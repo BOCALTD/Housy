@@ -285,6 +285,26 @@ async function main() {
     await ctx.close();
   });
 
+  await step("Signed in on a desktop: Home is the website, the side menu stays inside the account", async () => {
+    const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const seeker = out.trim().split("\n")[2];
+    const ctx = await newContext(browser, "desktop");
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    const s = await ctx.newPage(); watch(s, "signed-in desktop");
+    const railShown = async () => s.evaluate(() => { const r = document.getElementById("rail"); if (!r) return false; const b = r.getBoundingClientRect(); return getComputedStyle(r).visibility !== "hidden" && b.right > 10 && b.width > 40; });
+    const results: string[] = []; let ok = true;
+    for (const [path, wantRail] of [["/", false], ["/browse", false], ["/blog", false], ["/me", true], ["/me/settings", true]] as const) {
+      await s.goto(BASE + path, { waitUntil: "load" }); await s.waitForTimeout(400);
+      const rail = await railShown(); const tabs = await s.locator(".topnav").isVisible().catch(() => false);
+      const account = await s.locator(".bar-account").isVisible().catch(() => false);
+      const good = wantRail ? rail && !tabs : !rail && tabs && account;
+      ok = ok && good; results.push(`${path}: side menu ${rail ? "shown" : "hidden"}, top tabs ${tabs ? "shown" : "hidden"}${good ? "" : " (wrong)"}`);
+    }
+    await s.goto(BASE + "/", { waitUntil: "load" }); await s.waitForTimeout(400);
+    await record(s, "home is home when signed in", ok, results.join("; "));
+    await ctx.close();
+  });
+
   await browser.close();
 
   const failed = rows.filter((r) => !r.ok);

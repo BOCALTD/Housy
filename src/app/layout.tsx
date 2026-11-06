@@ -96,6 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const user = session ? {
     name: session.user.name, email: session.user.email, isAdmin: session.user.isPlatformAdmin, avatarUrl: d?.avatarUrl ?? null,
     roleLabel: member ? `${ROLE_LABELS[member.role]} · ${member.companyName}` : session.user.isPlatformAdmin ? "Platform administrator" : "Personal account",
+    home: member ? "/app" : session.user.isPlatformAdmin ? "/admin" : "/me",
   } : null;
   const jar = await cookies();
   const railMini = jar.get("rail")?.value === "mini";

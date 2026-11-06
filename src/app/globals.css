@@ -188,7 +188,9 @@ main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 .wrap { padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }
 
 /* Fields everywhere look the same, never overflow, and are at least 16px so iOS does not zoom the page on focus. */
-input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea {
+/* :where() keeps this base look at the lowest priority, so a box with its own design (search boxes with an icon) keeps its
+   spacing; before, this rule won and the text ran under the magnifying glass. */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
   max-width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; background: var(--surface); font-size: 16px; line-height: 1.35;
 }
 select { min-height: 42px; }

@@ -11,7 +11,7 @@ jobs:
       - run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg fonts-dejavu-core && pip install pillow
       - run: |
           mkdir -p out
-          python3 scan.py black-woman-driving african-woman-driving black-man-driving black-woman-car black-woman-passenger black-couple-car black-woman-phone black-man-phone black-woman-smartphone-street black-woman-walking-street black-woman-city african-american-woman-walking black-woman-motorcycle black-man-motorcycle black-woman-bicycle black-woman-scooter black-woman-taxi black-woman-keys black-woman-new-apartment black-couple-new-home black-real-estate-agent black-woman-handshake black-woman-happy black-friends-car black-woman-laptop black-woman-moving-boxes
+          python3 scan.py range:31985-32060 range:44545-44570 range:41160-41185 range:24320-24335 range:46488-46500 range:47965-47980 man-driving-a-car-in-the-city driving-in-traffic car-passenger city-traffic motorcycle-taxi riding-a-motorcycle-in-the-city scooter-city people-crossing-the-street busy-street crowd-walking-city street-market house-keys real-estate-agent showing-a-house handshake new-home couple-new-house
           python3 sheets.py
       - name: Publish
         run: |

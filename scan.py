@@ -1,8 +1,12 @@
 """Lists Mixkit free-licence clips for many searches (id, title, search) so a consistent cast can be chosen."""
 import re, sys, json, urllib.request, html, time
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"}
-Q = sys.argv[1:]
+Q = [a for a in sys.argv[1:] if not a.startswith("range:")]
 seen = {}
+for a in sys.argv[1:]:
+    if a.startswith("range:"):
+        lo, hi = map(int, a[6:].split("-"))
+        for i in range(lo, hi + 1): seen[str(i)] = {"id": str(i), "q": "near", "title": ""}
 for q in Q:
     for page in (1, 2):
         url = f"https://mixkit.co/free-stock-video/discover/{q}/" + (f"?page={page}" if page > 1 else "")
@@ -10,7 +14,7 @@ for q in Q:
             t = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40).read().decode("utf8", "replace")
         except Exception as e:
             print("fail", q, page, e, file=sys.stderr); continue
-        if q == Q[0] and page == 1: open("out/sample.html", "w").write(t)
+        if Q and q == Q[0] and page == 1: open("out/sample.html", "w").write(t)
         # Each card: the preview video then the title.
         for m in re.finditer(r'videos/(\d+)/\1-(?:360|720)\.mp4', t):
             vid = m.group(1)

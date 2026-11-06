@@ -155,11 +155,14 @@ async function main() {
       const band = spacer ? getComputedStyle(spacer).backgroundColor : "none";
       const offers = [...document.querySelectorAll(".offer")].map((o) => Math.round(o.getBoundingClientRect().height));
       const tags = [...document.querySelectorAll(".offer-tag")].map((t) => Math.round(t.getBoundingClientRect().height));
-      return { railShown, links, band, offers, tags };
+      const cols = [...document.querySelectorAll(".foot-grid > nav")].map((n) => Math.round(n.getBoundingClientRect().top));
+      const footerRows = new Set(cols).size;
+      const sections = document.querySelectorAll("main .sec, main .cta").length;
+      return { railShown, links, band, offers, tags, footerRows, sections };
     });
     const ok = !r.railShown && ["Home", "Find property", "Agents", "Companies", "Blog"].every((l) => r.links.includes(l))
-      && (r.band === "rgba(0, 0, 0, 0)" || r.band === "transparent") && r.offers.every((h) => h < 620) && r.tags.every((h) => h < 40);
-    await record(w, "visitor header", ok, `side panel shown: ${r.railShown}; top links: ${r.links.join(", ")}; spacer colour: ${r.band}; promo card heights: ${r.offers.join(", ") || "none"}; label heights: ${r.tags.join(", ") || "none"}`);
+      && (r.band === "rgba(0, 0, 0, 0)" || r.band === "transparent") && r.offers.every((h) => h < 620) && r.tags.every((h) => h < 40) && r.footerRows === 1;
+    await record(w, "visitor header", ok, `side panel shown: ${r.railShown}; top links: ${r.links.join(", ")}; spacer colour: ${r.band}; promo card heights: ${r.offers.join(", ") || "none"}; label heights: ${r.tags.join(", ") || "none"}; footer column rows: ${r.footerRows}; home sections: ${r.sections}`);
   });
 
   // 5. Phone: menu opens.

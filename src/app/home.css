@@ -187,7 +187,10 @@
 /* ---------- Footer ---------- */
 .site-footer { margin-top: 56px; background: #1F2125; color: #D6D9DE; }
 .site-footer .wrap { display: grid; gap: 28px; padding-top: 44px; padding-bottom: 28px; }
-.foot-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)); gap: 24px; }
+/* The brand and all five link columns in one row; narrower screens put the brand on its own row above the five. */
+.foot-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(5, minmax(0, 1fr)); gap: 24px 28px; align-items: start; }
+@media (max-width: 1360px) { .foot-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } .foot-brand { grid-column: 1 / -1; max-width: 640px; } }
+@media (max-width: 1180px) { .foot-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .foot-brand { display: grid; gap: 12px; align-content: start; }
 .foot-brand strong { font: 700 22px var(--font-display); color: #fff; display: flex; align-items: center; gap: 10px; }
 .foot-brand p { font-size: 14.5px; color: #B9BEC6; max-width: 36ch; }
@@ -197,7 +200,7 @@
 .site-footer a:hover { color: #FBB017; }
 .foot-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding-top: 18px; border-top: 1px solid #34383F; font-size: 13.5px; color: #A9AFB8; }
 @media (pointer: coarse) { .site-footer a { min-height: 44px; } }
-@media (max-width: 980px) { .foot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .foot-brand { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .foot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .foot-brand { grid-column: 1 / -1; } }
 
 /* ---------- Content pages (FAQ, how it works, safety, about) ---------- */
 .page-hero { position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 10px; padding: clamp(24px, 5vw, 52px); border-radius: 20px; color: #fff; background: #1F2125; }

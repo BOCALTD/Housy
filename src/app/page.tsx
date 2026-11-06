@@ -1,28 +1,21 @@
 import Link from "next/link";
-import { priceSuffix } from "@/lib/listing-rules";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { PromoSlides } from "@/components/PromoSlides";
 import { HomeHero } from "@/components/HomeHero";
 import { Carousel } from "@/components/Carousel";
 import { CountUp } from "@/components/CountUp";
-import { HowItWorks } from "@/components/HowItWorks";
 import { ListingCard } from "@/components/ListingCard";
 import { TrustBadge } from "@/components/TrustBadge";
 import { Icon } from "@/components/Icons";
-import { DoneCard } from "@/components/Done";
 import { SponsoredStrip } from "@/components/Sponsored";
 import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { PLATFORM_NAME } from "@/lib/labels";
-import { FAQS } from "@/lib/faq";
 import { countryName, visitorCountry } from "@/lib/countries";
 import { searchListingsRanked } from "@/lib/services/promotions";
-import { homeSections, KIND_LABEL, type Kind } from "@/lib/services/completed";
-import { cityCounts, latestReviews, publicPartners, purposeCounts, siteCounts } from "@/lib/services/home";
+import { cityCounts, latestReviews, publicPartners, siteCounts } from "@/lib/services/home";
 import { directory } from "@/lib/services/community";
-import { discover } from "@/lib/services/reels";
 import { trustMany } from "@/lib/services/kyc";
 import { sponsoredFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
@@ -39,16 +32,6 @@ const HERO = [
   { src: "/stock/hero-2.jpg", alt: "A white house with a swimming pool and palm trees" },
   { src: "/stock/hero-3.jpg", alt: "A contemporary villa with a pool" },
 ];
-const CATEGORIES = [
-  { href: "/browse/buy", img: "/stock/buy.jpg", title: "Buy a home", sub: "Houses, duplexes and flats", purpose: "SALE" },
-  { href: "/browse/rent", img: "/stock/rent.jpg", title: "Rent", sub: "Apartments and family homes", purpose: "RENT" },
-  { href: "/browse/commercial", img: "/stock/commercial.jpg", title: "Commercial", sub: "Offices, shops, hotels and halls", purpose: null },
-  { href: "/browse/land", img: "/stock/land.jpg", title: "Land", sub: "Plots and acreage", purpose: null },
-  { href: "/browse/warehouses", img: "/stock/warehouse.jpg", title: "Warehouses", sub: "Industrial and logistics", purpose: null },
-  { href: "/browse/shops", img: "/stock/shops.jpg", title: "Shops and offices", sub: "Retail and workspace", purpose: null },
-  { href: "/browse/short-let", img: "/stock/shortlet.jpg", title: "Short let", sub: "Furnished stays", purpose: null },
-  { href: "/browse/new-developments", img: "/stock/developments.jpg", title: "New developments", sub: "Off-plan and new estates", purpose: null },
-] as const;
 const COUNT_ICONS = [Icon.building, Icon.person, Icon.home, Icon.handshake, Icon.pin];
 const initials = (s: string) => s.replace(/\[[^\]]*\]/g, " ").split(/\s+/).filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 
@@ -108,27 +91,21 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
       <nav className="hx-actions" aria-label="Other ways to search">
         <Link className="hx-action" href="/find"><span className="hx-action-ico">{Icon.sparkle()}</span><span><strong>Describe it</strong><small>Type what you want in a sentence</small></span></Link>
         <Link className="hx-action" href="/map"><span className="hx-action-ico">{Icon.map()}</span><span><strong>Street map</strong><small>See properties around you</small></span></Link>
-        <Link className="hx-action" href="/reels"><span className="hx-action-ico">{Icon.play()}</span><span><strong>Property reels</strong><small>Short videos of homes</small></span></Link>
+        <Link className="hx-action" href="/flatmates"><span className="hx-action-ico">{Icon.people()}</span><span><strong>Find a flatmate</strong><small>Matched on how you live and your budget</small></span></Link>
       </nav>
     </HomeHero>
   );
 
 
-  const [counts, byPurpose, cities, reviews, partners, done, companies, agents, reels] = await Promise.all([
-    siteCounts(), purposeCounts(), cityCounts(country), latestReviews(9), publicPartners(), homeSections(),
+  const [counts, cities, reviews, partners, companies, agents] = await Promise.all([
+    siteCounts(), cityCounts(country), latestReviews(9), publicPartners(),
     directory({ kind: "companies" }).then((r) => r.rows.slice(0, 8)).catch(() => []),
     directory({ kind: "agents" }).then((r) => r.rows.slice(0, 8)).catch(() => []),
-    discover({ tab: "trending" }).then((r) => r.rows.slice(0, 8)).catch(() => []),
   ]);
   const trusts = new Map([...(await trustMany("COMPANY", companies.map((c) => c.targetId))), ...(await trustMany("AGENT", agents.map((a) => a.targetId)))]);
   const pros = [...companies, ...agents].sort((a, b) => (trusts.get(b.targetId)?.score ?? 0) - (trusts.get(a.targetId)?.score ?? 0)).slice(0, 10);
   const promoted = listings.filter((l) => l.promo);
   const featured = listings.filter((l) => !l.promo);
-  const slides = promoted.slice(0, 5).map((l) => ({
-    href: `/properties/${l.publicRef}`, title: l.title, place: `${l.city}, ${l.state}`, purpose: l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`,
-    name: l.promo!.campaignName, tagline: l.promo!.tagline, pct: l.promo!.pct, was: formatKobo(l.promo!.originalKobo) + priceSuffix(l.pricePeriod),
-    now: formatKobo(l.promo!.promoKobo) + priceSuffix(l.pricePeriod), save: formatKobo(l.promo!.originalKobo - l.promo!.promoKobo), ends: formatDate(l.promo!.endsOn), theme: l.promo!.theme, photo: l.coverPhotoId ? `/photos/${l.coverPhotoId}` : null,
-  }));
   const THEME: Record<string, string> = { RED: "t-red", GOLD: "t-gold", GREEN: "t-green", PURPLE: "t-purple", BLUE: "t-blue" };
   const countRows = [
     { n: counts.companies, label: "Registered companies" }, { n: counts.agents, label: "Listed agents" }, { n: counts.listings, label: "Properties listed" },
@@ -145,10 +122,9 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
         </section> : null}
       </div>
 
-      {slides.length ? (
+      {promoted.length ? (
         <section className="sec" aria-label="Offers">
           <SectionHead kicker="Hot offers" title="Promotions on now" text="Discounts set by the listing company, with the original price and the date the offer ends." />
-          <PromoSlides slides={slides} />
           <Carousel label="Offers ending soon" few={promoted.length <= 3}>
             {[...promoted].sort((a, b) => a.promo!.endsOn.getTime() - b.promo!.endsOn.getTime()).map((l) => (
               <Link key={l.id} href={`/properties/${l.publicRef}`} className={`offer ${THEME[l.promo!.theme] ?? "t-red"}`}>
@@ -170,19 +146,6 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
       ) : null}
       <SponsoredStrip items={sponsored} where="home" />
 
-      <section className="sec">
-        <SectionHead kicker="Browse" title="What are you looking for?" />
-        <div className="tiles">
-          {CATEGORIES.map((c) => (
-            <Link key={c.title} href={c.href} className="tile">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.img} alt="" loading="lazy" decoding="async" />
-              {c.purpose && byPurpose[c.purpose] ? <span className="tile-count">{byPurpose[c.purpose]} listed</span> : null}
-              <strong>{c.title}</strong><span>{c.sub}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
 
       {picked.length ? (
       <section className="sec" aria-labelledby="picks-h">
@@ -226,10 +189,6 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
       </section>
       ) : null}
 
-      <section className="sec">
-        <SectionHead kicker="How it works" title="Simple, checked and in one place" />
-        <HowItWorks />
-      </section>
 
       {pros.length ? (
       <section className="sec">
@@ -248,31 +207,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
       </section>
       ) : null}
 
-      {reels.length ? (
-      <section className="sec">
-        <SectionHead kicker="Reels" title="See it before you visit" text="Short videos of homes and neighbourhoods from agents." link={{ href: "/reels", label: "Watch reels" }} />
-        {(
-          <Carousel label="Property reels" few={reels.length <= 3}>
-            {reels.map((r) => (
-              <Link key={r.id} href={`/reels/${r.id}`} className="reel-tile" aria-label={`Watch: ${r.caption || "a property reel"} by ${r.authorName}`}>
-                <video src={`/reels/${r.id}/video#t=0.5`} preload="metadata" muted playsInline aria-hidden="true" tabIndex={-1} />
-                <span className="play" aria-hidden="true">{Icon.play()}</span>
-                <div><strong className="small">{r.caption || "Property reel"}</strong><span className="small">{r.authorName}{r.city ? ` · ${r.city}` : ""}</span></div>
-              </Link>
-            ))}
-          </Carousel>
-        )}
-      </section>
-      ) : null}
 
-      {(Object.keys(KIND_LABEL) as Kind[]).some((k) => done[k].length) ? (
-        <section className="sec">
-          <SectionHead kicker="Track record" title="Recently completed" text="Sales, lettings and leases recorded as completed by companies, with the company's confirmation." link={{ href: "/completed", label: "See all" }} />
-          <Carousel label="Recently completed" few>
-            {(Object.keys(KIND_LABEL) as Kind[]).flatMap((k) => done[k]).slice(0, 8).map((c) => <DoneCard key={c.id} c={c} />)}
-          </Carousel>
-        </section>
-      ) : null}
 
       {reviews.length ? (
       <section className="sec">
@@ -309,10 +244,6 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
       </section>
       ) : null}
 
-      <section className="faq-wrap">
-        <div className="stack"><p className="sec-kicker">Questions</p><h2>Frequently asked questions</h2><p className="muted">The things people ask before they trust a property platform.</p><Link className="btn" href="/faq">All questions</Link></div>
-        <div className="faq">{FAQS.slice(0, 6).map((f) => <details key={f.q}><summary>{f.q}</summary><p>{f.a}</p></details>)}</div>
-      </section>
 
       <section className="cta">
         {/* eslint-disable-next-line @next/next/no-img-element */}

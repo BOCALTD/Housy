@@ -8,10 +8,8 @@
 body::before {
   content: ""; position: fixed; inset: -20vmax; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(38vmax 38vmax at 12% 8%, rgba(251, 176, 23, .13), transparent 60%),
-    radial-gradient(30vmax 30vmax at 92% 18%, rgba(20, 184, 166, .09), transparent 60%),
-    radial-gradient(34vmax 34vmax at 70% 96%, rgba(236, 72, 153, .06), transparent 60%),
-    radial-gradient(26vmax 26vmax at 6% 84%, rgba(59, 130, 246, .07), transparent 60%);
+    radial-gradient(38vmax 38vmax at 12% 8%, rgba(251, 176, 23, .08), transparent 60%),
+    radial-gradient(30vmax 30vmax at 92% 18%, rgba(20, 184, 166, .05), transparent 60%);
 }
 @media (prefers-color-scheme: dark) { body::before { opacity: .7; } }
 

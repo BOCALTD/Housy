@@ -22,13 +22,17 @@ export default async function ReelsPage({ searchParams: searchP }: { searchParam
   const num = (v?: string) => { const n = Number((v ?? "").replace(/[^\d.]/g, "")); return Number.isFinite(n) && n > 0 ? n : undefined; };
   const fromUrl: ReelFilter = { city: (sp(searchParams, "city") ?? "").slice(0, 80) || undefined, purpose: sp(searchParams, "purpose") === "SALE" ? "SALE" : sp(searchParams, "purpose") === "RENT" ? "RENT" : undefined, maxNaira: num(sp(searchParams, "max")) };
   const pref = viewerId && !hasReelFilter(fromUrl) && sp(searchParams, "all") !== "1" ? await getSearchPref(viewerId).catch(() => null) : null;
-  const filter: ReelFilter | null = hasReelFilter(fromUrl) ? fromUrl : pref ? { city: pref.city || undefined, purpose: pref.purpose || undefined, maxNaira: pref.maxNaira ?? undefined } : null;
-  const filterLabel = pref && hasReelFilter(filter) ? `Your search: ${prefLabel(pref)}` : hasReelFilter(filter) ? [filter!.city, filter!.purpose === "SALE" ? "Buy" : filter!.purpose === "RENT" ? "Rent" : "", filter!.maxNaira ? `up to ₦${Math.round(filter!.maxNaira).toLocaleString("en-NG")}` : ""].filter(Boolean).join(" · ") : "";
-  const [feed, start, canPost] = await Promise.all([
+  let filter: ReelFilter | null = hasReelFilter(fromUrl) ? fromUrl : pref ? { city: pref.city || undefined, purpose: pref.purpose || undefined, maxNaira: pref.maxNaira ?? undefined } : null;
+  let filterLabel = pref && hasReelFilter(filter) ? `Your search: ${prefLabel(pref)}` : hasReelFilter(filter) ? [filter!.city, filter!.purpose === "SALE" ? "Buy" : filter!.purpose === "RENT" ? "Rent" : "", filter!.maxNaira ? `up to ₦${Math.round(filter!.maxNaira).toLocaleString("en-NG")}` : ""].filter(Boolean).join(" · ") : "";
+  const [first, start, canPost] = await Promise.all([
     discover({ viewerId, tab: viewerId ? tab : "trending", page: 0, filter }),
     sp(searchParams, "r") ? getReel(sp(searchParams, "r")!, viewerId).catch(() => null) : Promise.resolve(null),
     viewerId ? withPublic((tx) => tx.agentProfile.count({ where: { userId: viewerId, listed: true } })).then((n) => n > 0).catch(() => false) : Promise.resolve(false),
   ]);
+  // Nothing fits the saved search yet: show every reel rather than an empty screen, and say so.
+  const fellBack = !!pref && !hasReelFilter(fromUrl) && first.rows.length === 0;
+  const feed = fellBack ? await discover({ viewerId, tab: viewerId ? tab : "trending", page: 0, filter: null }) : first;
+  if (fellBack) { filter = null; filterLabel = ""; }
   // A shared or returned-to reel opens first.
   const rows = start && start.status === "PUBLISHED" ? [start, ...feed.rows.filter((r) => r.id !== start.id)] : feed.rows;
   return (
@@ -60,12 +64,13 @@ export default async function ReelsPage({ searchParams: searchP }: { searchParam
             <button className="btn primary" type="submit">Show reels</button>
             {hasReelFilter(filter) ? <Link className="btn" href={`/reels?all=1${tab !== "foryou" ? `&tab=${tab}` : ""}`}>Show all reels</Link> : null}
           </div>
-          {viewerId ? <p className="small muted">{pref ? "Starting from your saved search. " : ""}<Link href="/me/settings#my-search">{pref ? "Change my search" : "Save this as my search"}</Link></p> : null}
+          {viewerId ? <p className="small muted">{pref && !fellBack ? "Starting from your saved search. " : ""}<Link href="/me/settings#my-search">{pref ? "Change my search" : "Save this as my search"}</Link></p> : null}
         </form>
       </details>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+      {fellBack ? <p className="rf-note" role="status">No reels fit your saved search yet, so these are all reels. <Link href="/me/settings#my-search">Change my search</Link></p> : null}
       {rows.length === 0 && hasReelFilter(filter) ? (
-        <div className="rf-empty"><p><strong>No reels fit this filter yet.</strong></p><p className="small">Try a nearby area or a higher budget.</p><Link className="btn primary" href={`/reels?all=1${tab !== "foryou" ? `&tab=${tab}` : ""}`}>Show all reels</Link></div>
+        <div className="rf-nofit" role="status"><p><strong>No reels fit this filter yet.</strong></p><p className="small">Try a nearby area or a higher budget.</p><Link className="btn primary" href={`/reels?all=1${tab !== "foryou" ? `&tab=${tab}` : ""}`}>Show all reels</Link></div>
       ) : null}
       <ReelFeed key={`${tab}-${filterLabel}`} initial={rows} pages={feed.pages} tab={tab} signedIn={!!viewerId} canPost={canPost} filter={filter} />
     </div>

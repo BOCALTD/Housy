@@ -73,8 +73,10 @@ body::before { opacity: .6; }
 .rf-filter-purpose legend { width: 100%; margin-bottom: 6px; font-size: 14px; color: #E9EAEC; }
 .rf-filter-form .muted, .rf-filter-form .small { color: #B7BCC4; }
 .rf-filter-form a { color: #EDC57A; }
-.rf-empty { position: absolute; z-index: 6; inset: 30% 16px auto; margin-inline: auto; max-width: 360px; display: grid; gap: 8px; justify-items: center; text-align: center; padding: 22px; border-radius: 18px; background: rgba(18, 19, 22, .9); color: #fff; }
-@media (max-width: 760px) { .rf-filter { top: 60px; } }
+.rf-nofit { position: absolute; z-index: 6; inset: 30% 16px auto; margin-inline: auto; max-width: 360px; display: grid; gap: 8px; justify-items: center; text-align: center; padding: 22px; border-radius: 18px; background: rgba(18, 19, 22, .9); color: #fff; }
+.rf-note { position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); bottom: 20px; width: max-content; max-width: calc(100% - 32px); margin: 0; padding: 10px 14px; border-radius: 14px; background: rgba(12, 13, 15, .78); color: #fff; font-size: 14px; text-align: center; }
+.rf-note a { color: #EDC57A; }
+@media (max-width: 760px) { .rf-filter { top: 60px; } .rf-note { top: 112px; bottom: auto; } }
 .use-my-search { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px dashed var(--primary); color: var(--ink); text-decoration: none; justify-self: start; }
 .use-my-search span { color: var(--primary-text); }
 @media (hover: hover) { .use-my-search:hover { background: var(--surface-2); } }

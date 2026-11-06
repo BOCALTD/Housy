@@ -48,7 +48,7 @@ export default async function ReelsPage({ searchParams: searchP }: { searchParam
           </nav>
         ) : null}
       </div>
-      <details className="rf-filter" open={false}>
+      <details className={`rf-filter${hasReelFilter(filter) ? " on" : ""}`} open={false}>
         <summary aria-label="Filter reels by place, rent or buy and budget">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
           <span>{filterLabel || "Filter"}</span>

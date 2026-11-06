@@ -241,8 +241,8 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
         <form action={enquiryAction} className="stack">
           <input type="hidden" name="ref" value={listing.publicRef} />
           {adRef ? <input type="hidden" name="ad" value={adRef} /> : null}
-          <Field label="Your name"><input name="name" id="enqName" required autoComplete="name" /></Field>
-          <Field label="Phone or email"><input name="contact" id="enqContact" required /></Field>
+          <Field label="Your name"><input name="name" id="enqName" required autoComplete="name" defaultValue={session?.user.name ?? ""} /></Field>
+          <Field label="Phone or email"><input name="contact" id="enqContact" required autoComplete="email" defaultValue={session?.user.email ?? ""} /></Field>
           <EnquiryHelper refId={listing.publicRef} title={listing.title} purpose={listing.purpose as "SALE" | "RENT" | "LEASE"} />
           <Field label="Message"><textarea name="message" id="enqMessage" rows={4} required defaultValue={`I am interested in ${listing.publicRef}. Is it still available?`} /></Field>
           <p className="small muted">Your details go only to the company that listed this property.</p>

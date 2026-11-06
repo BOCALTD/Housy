@@ -1,5 +1,6 @@
 import { DemoStrip } from "@/components/DemoStrip";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { AppToaster, UrlToasts } from "@/components/Toasts";
 import "./globals.css";
 import "./polish.css";
@@ -95,6 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     name: session.user.name, email: session.user.email, isAdmin: session.user.isPlatformAdmin, avatarUrl: d?.avatarUrl ?? null,
     roleLabel: member ? `${ROLE_LABELS[member.role]} · ${member.companyName}` : session.user.isPlatformAdmin ? "Platform administrator" : "Personal account",
   } : null;
+  const railMini = (await cookies()).get("rail")?.value === "mini";
   return (
     <html lang="en-NG" suppressHydrationWarning>
       <head>
@@ -116,7 +118,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <DemoStrip />
         <AppToaster />
         <Suspense fallback={null}><UrlToasts /></Suspense>
-        <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction}>
+        <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction} collapsed={railMini}>
           {rate ? (
             <aside className="rate-banner" aria-label="Rate the platform">
               <div className="wrap">

@@ -210,6 +210,17 @@ async function main() {
       const open = await s.locator(".bell-panel").isVisible().catch(() => false);
       await record(s, "notification bell", open, open ? "the bell opened its panel" : "the bell did not open");
     } else rows.push({ step: "notification bell", ok: false, note: "no bell in the top bar" });
+    // The side menu folds to icons, stays folded on the next page, and opens again.
+    const railW = () => s.evaluate(() => Math.round((document.querySelector(".rail") as HTMLElement).getBoundingClientRect().width));
+    const full = await railW();
+    await s.locator(".rail-fold").click(); await s.waitForTimeout(600);
+    const folded = await railW();
+    await s.goto(BASE + "/me", { waitUntil: "load" }); await s.waitForTimeout(500);
+    const kept = await railW();
+    const icons = await s.locator(".rail-nav-mini .mini-link:visible").count();
+    await s.locator(".rail-fold").click(); await s.waitForTimeout(600);
+    const back = await railW();
+    await record(s, "side menu folds", full > 200 && folded < 120 && kept < 120 && icons > 5 && back > 200, `full ${full}px, folded ${folded}px, after moving page ${kept}px with ${icons} icons, opened again ${back}px`);
     await ctx.close();
   });
 

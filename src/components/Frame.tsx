@@ -13,8 +13,12 @@ export type FrameNotice = { id: string; title: string; body: string; link: strin
 
 const TOP_LEVEL = /^\/(?:|browse|map|reels|flatmates|market|directory|me|app|admin|messages|login|join|compare|calculators|awards|blog)$/;
 
-/** What a visitor sees across the top, like any website; everything else public is under More. */
-const GUEST_TOP: [string, string][] = [["/", "Home"], ["/browse", "Find property"], ["/directory?kind=agents", "Agents"], ["/directory?kind=companies", "Companies"], ["/blog", "Blog"]];
+/** All a visitor who is not signed in needs, across the top like any website (and in the phone menu). Reels are reached by
+ *  swiping left on the home page or its For you / Property reels switch. */
+const GUEST_TOP: [string, string, keyof typeof Icon][] = [
+  ["/", "Home", "home"], ["/browse", "Find property", "search"], ["/directory?kind=agents", "Agents", "person"], ["/directory?kind=companies", "Companies", "building"],
+  ["/blog", "Blog", "book"], ["/flatmates", "Flatmates", "people"], ["/map", "Map", "map"],
+];
 
 function initials(s: string) { return s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "•"; }
 
@@ -77,8 +81,8 @@ function Groups({ groups, active, defaultOpen }: { groups: SideGroup[]; active: 
  * Everything still works before (or without) the page's script: the menu opens through #rail, and the bell and Back are
  * ordinary links.
  */
-export function Frame({ sections, user, notices, unreadNotices, unreadMessages, markAllRead, children }: {
-  sections: NavSection[]; user: FrameUser | null; notices: FrameNotice[]; unreadNotices: number; unreadMessages: number;
+export function Frame({ sections, user, notices, unreadNotices, unreadMessages, markAllRead, collapsed = false, children }: {
+  sections: NavSection[]; user: FrameUser | null; notices: FrameNotice[]; unreadNotices: number; unreadMessages: number; collapsed?: boolean;
   markAllRead: (form: FormData) => Promise<void>; children: React.ReactNode;
 }) {
   const path = usePathname() ?? "/";
@@ -86,22 +90,16 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
   const [open, setOpen] = useState(false);
   const [bell, setBell] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
-  const moreRef = useRef<HTMLDetailsElement>(null);
   const guest = !user;
+  // Wide screens: the side menu folds to a strip of icons and back; remembered in a cookie so the next page starts the same way.
+  const [mini, setMini] = useState(collapsed);
+  const fold = (v: boolean) => { setMini(v); document.cookie = `rail=${v ? "mini" : "full"}; path=/; max-age=31536000; samesite=lax`; };
+  const guestOn = (href: string) => href === "/" ? path === "/" : href === active || (href === "/browse" && (path.startsWith("/properties") || path === "/browse")) || (href === "/flatmates" && path.startsWith("/flatmates"));
   const active = activeKey(path, search, sections);
   const current = sections.flatMap((s) => s.groups.flatMap((g) => g.items)).find((i) => i.href === active);
   const showBack = !TOP_LEVEL.test(path);
   const parent = path.split("/").slice(0, -1).join("/") || "/";
 
-  useEffect(() => { moreRef.current?.removeAttribute("open"); }, [path, search]);
-  useEffect(() => {
-    const d = moreRef.current;
-    if (!d) return;
-    const out = (e: MouseEvent) => { if (d.open && !d.contains(e.target as Node)) d.removeAttribute("open"); };
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") d.removeAttribute("open"); };
-    document.addEventListener("mousedown", out); document.addEventListener("keydown", k);
-    return () => { document.removeEventListener("mousedown", out); document.removeEventListener("keydown", k); };
-  }, []);
   useEffect(() => { setOpen(false); setBell(false); if (location.hash === "#rail") history.replaceState(null, "", location.pathname + location.search); }, [path, search]);
   useEffect(() => {
     document.body.classList.toggle("no-scroll", open);
@@ -127,10 +125,15 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
   ];
 
   return (
-    <div className={`frame${guest ? " guest" : ""}${open ? " drawer-open" : ""}`}>
+    <div className={`frame${guest ? " guest" : ""}${!guest && mini ? " mini" : ""}${open ? " drawer-open" : ""}`}>
       <aside className="rail" id="rail" aria-label="Main menu">
         <div className="rail-head">
-          <Link href="/" className="rail-logo" aria-label="Housy home"><Logo height={30} tone="light" /></Link>
+          <Link href="/" className="rail-logo" aria-label="Housy home"><span className="rail-logo-full"><Logo height={30} tone="light" /></span><span className="rail-logo-mark"><LogoMark size={36} tile /></span></Link>
+          {guest ? null : (
+            <button type="button" className="rail-fold" onClick={() => fold(!mini)} aria-label={mini ? "Show the full menu" : "Fold the menu to icons"} aria-expanded={!mini} title={mini ? "Show the full menu" : "Fold the menu"}>
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" />{mini ? <path d="m13 10 2 2-2 2" /> : <path d="m16 10-2 2 2 2" />}</svg>
+            </button>
+          )}
           <a href="#" className="rail-close" aria-label="Close menu" onClick={(e) => { e.preventDefault(); setOpen(false); }}>
             <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </a>
@@ -139,14 +142,44 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
           <Icon.search />
           <input name="q" type="search" placeholder="Search area, estate or street" aria-label="Search property" enterKeyHint="search" />
         </form>
-        <nav className="rail-nav" aria-label="Sections">
-          {sections.map((s, si) => (
-            <div key={s.key} className={`rail-section rail-${s.key}`}>
-              {si > 0 ? <p className="rail-section-label">{s.label}</p> : null}
-              <Groups groups={s.groups} active={active} defaultOpen={s.key === "explore"} />
-            </div>
-          ))}
-        </nav>
+        {guest ? (
+          <nav className="rail-nav" aria-label="Sections">
+            <ul className="rail-guest-list">
+              {GUEST_TOP.map(([href, label, ico]) => {
+                const I = Icon[ico]; const on = guestOn(href);
+                return <li key={href}><Link href={href} className={`rail-link${on ? " active" : ""}`} aria-current={on ? "page" : undefined}><I /><span>{label}</span></Link></li>;
+              })}
+            </ul>
+          </nav>
+        ) : (
+          <>
+            <nav className="rail-nav rail-nav-full" aria-label="Sections">
+              {sections.map((s, si) => (
+                <div key={s.key} className={`rail-section rail-${s.key}`}>
+                  {si > 0 ? <p className="rail-section-label">{s.label}</p> : null}
+                  <Groups groups={s.groups} active={active} defaultOpen={s.key === "explore"} />
+                </div>
+              ))}
+            </nav>
+            <nav className="rail-nav rail-nav-mini" aria-label="Sections (icons)">
+              {sections.map((s) => (
+                <ul key={s.key} className="mini-list">
+                  {s.groups.flatMap((g) => g.items).map((i) => {
+                    const on = i.href === active; const I = i.icon ? Icon[i.icon] : null;
+                    return (
+                      <li key={i.href}>
+                        <Link href={i.href} className={`mini-link${on ? " active" : ""}`} aria-current={on ? "page" : undefined} aria-label={i.label} title={i.label}>
+                          {I ? <I /> : <span className="mini-letter" aria-hidden="true">{i.label.slice(0, 1)}</span>}
+                          {i.badge ? <em className="mini-badge" aria-hidden="true" /> : null}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ))}
+            </nav>
+          </>
+        )}
         <div className="rail-foot">
           {user ? (
             <Link href="/me/settings" className="rail-me">
@@ -174,18 +207,9 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
           {guest ? (
             <nav className="topnav" aria-label="Main">
               {GUEST_TOP.map(([href, label]) => {
-                const on = href === "/" ? path === "/" : href === active || (href === "/browse" && (path.startsWith("/properties") || path === "/browse"));
+                const on = guestOn(href);
                 return <Link key={href} href={href} className={on ? "on" : ""} aria-current={on ? "page" : undefined}>{label}</Link>;
               })}
-              <details className="topnav-more" ref={moreRef}>
-                <summary>More</summary>
-                <div className="more-panel">
-                  {sections.flatMap((sec) => sec.groups.flatMap((g) => g.items)).filter((i) => !GUEST_TOP.some(([h]) => h === i.href)).map((i) => {
-                    const Ico = i.icon ? Icon[i.icon] : null;
-                    return <Link key={i.href} href={i.href} className={i.href === active ? "on" : ""}>{Ico ? <Ico /> : null}<span>{i.label}</span></Link>;
-                  })}
-                </div>
-              </details>
             </nav>
           ) : null}
           {showBack ? (

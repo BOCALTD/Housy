@@ -5,7 +5,7 @@ Q = sys.argv[1:]
 seen = {}
 for q in Q:
     for page in (1, 2):
-        url = f"https://mixkit.co/free-stock-video/{q}/" + (f"?page={page}" if page > 1 else "")
+        url = f"https://mixkit.co/free-stock-video/discover/{q}/" + (f"?page={page}" if page > 1 else "")
         try:
             t = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40).read().decode("utf8", "replace")
         except Exception as e:
@@ -18,5 +18,5 @@ for q in Q:
             tm = re.search(r'__title[^>]*>\s*(?:<a[^>]*>)?\s*([^<]+)', t[m.end(): m.end() + 4000])
             seen[vid] = {"id": vid, "q": q, "title": html.unescape(tm.group(1).strip()) if tm else ""}
         print(q, page, len(seen), file=sys.stderr)
-        time.sleep(.5)
+        time.sleep(2)
 json.dump(list(seen.values()), open("out/index.json", "w"), indent=0)

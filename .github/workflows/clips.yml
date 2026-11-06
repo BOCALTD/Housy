@@ -12,6 +12,10 @@ jobs:
       - env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python3 get.py
+      - name: Make the clips small enough to publish (same picture size)
+        run: |
+          for f in out/clips/*.mp4; do ffmpeg -v error -y -i "$f" -t 40 -an -vf "scale='if(gt(iw,ih),-2,1080)':'if(gt(iw,ih),1080,-2)'" -c:v libx264 -crf 19 -preset medium -pix_fmt yuv420p "${f%.mp4}.s.mp4" && mv "${f%.mp4}.s.mp4" "$f"; done
+          ls -la out/clips
       - run: for f in out/clips/*.mp4; do echo "$(basename $f) $(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 $f) $(ffprobe -v error -show_entries format=duration -of csv=p=0 $f)"; done | tee out/clips.txt
       - name: Publish
         run: |

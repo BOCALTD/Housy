@@ -7,6 +7,7 @@ import { Icon } from "./Icons";
 import { Logo, LogoMark } from "./Logo";
 import type { NavSection } from "@/lib/nav";
 import type { SideGroup } from "./nav-types";
+import { ThemeSwitch, type Theme } from "./ThemeSwitch";
 
 export type FrameUser = { name: string; email: string; roleLabel: string; avatarUrl?: string | null; isAdmin: boolean };
 export type FrameNotice = { id: string; title: string; body: string; link: string; at: string; unread: boolean };
@@ -81,8 +82,8 @@ function Groups({ groups, active, defaultOpen }: { groups: SideGroup[]; active: 
  * Everything still works before (or without) the page's script: the menu opens through #rail, and the bell and Back are
  * ordinary links.
  */
-export function Frame({ sections, user, notices, unreadNotices, unreadMessages, markAllRead, collapsed = false, children }: {
-  sections: NavSection[]; user: FrameUser | null; notices: FrameNotice[]; unreadNotices: number; unreadMessages: number; collapsed?: boolean;
+export function Frame({ sections, user, notices, unreadNotices, unreadMessages, markAllRead, collapsed = false, theme = "system", children }: {
+  sections: NavSection[]; user: FrameUser | null; notices: FrameNotice[]; unreadNotices: number; unreadMessages: number; collapsed?: boolean; theme?: Theme;
   markAllRead: (form: FormData) => Promise<void>; children: React.ReactNode;
 }) {
   const path = usePathname() ?? "/";
@@ -226,6 +227,7 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
             <Icon.search />
             <input name="q" type="search" placeholder="Search Lekki, Wuse 2, Ikeja GRA…" aria-label="Search property" enterKeyHint="search" />
           </form>
+          <ThemeSwitch initial={theme} />
           {user ? (
             <div className="bell" ref={bellRef}>
               <a href="/me/notifications" className="bar-btn bell-btn" aria-label={`Notifications${unreadNotices ? `, ${unreadNotices} unread` : ""}`} aria-expanded={bell}

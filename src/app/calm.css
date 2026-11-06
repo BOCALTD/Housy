@@ -1,0 +1,51 @@
+/*
+ * Calm: loaded last. Softer accents (no glows or shine on buttons, quieter highlights) and more room to breathe between
+ * sections, inside cards and between lines, so pages read clearly instead of feeling packed.
+ */
+
+/* ---- Room to breathe ---- */
+body { line-height: 1.65; }
+main { padding-block: 36px 80px; }
+.stack { gap: 20px; }
+.stack-lg { gap: 40px; }
+.card { padding: 24px; }
+.sec { gap: 22px; }
+.stack-lg > .sec + .sec, .stack-lg > section + section { margin-top: 12px; }
+.sec-head p { margin-top: 8px; line-height: 1.6; }
+.sec-head h2 { margin-top: 2px; }
+.counts { gap: 16px; }
+.fields { gap: 18px; }
+.row { gap: 12px; }
+@media (max-width: 760px) { main { padding-block: 22px 64px; } .stack-lg { gap: 30px; } .card { padding: 18px; } }
+
+/* ---- Softer accents ---- */
+.btn.primary { background: var(--primary); box-shadow: none; }
+.btn.primary::after { content: none; }
+@media (hover: hover) { .btn.primary:hover { background: #D69C33; box-shadow: none; } }
+.rail-link.active { background: rgba(227, 169, 63, .14); }
+.rail-link.active::before { box-shadow: none; }
+.bar::after { background: linear-gradient(90deg, rgba(227, 169, 63, .55), transparent 40%); }
+.rail::after { background: linear-gradient(180deg, rgba(227, 169, 63, .3), transparent 40%); }
+.topnav > a.on { background: rgba(227, 169, 63, .14); }
+.avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, .85); }
+.bar-avatar .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px rgba(227, 169, 63, .45); }
+body::before { opacity: .6; }
+
+/* ---- Light, Dark or Device ---- */
+.theme-switch { position: relative; }
+.theme-btn svg { width: 21px; height: 21px; }
+.theme-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 70; width: 230px; padding: 6px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-2); display: grid; gap: 2px; }
+.theme-menu button { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 12px; border: 0; border-radius: 12px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.theme-menu button svg { width: 20px; height: 20px; flex: none; color: var(--muted); }
+.theme-menu button span { display: grid; flex: 1; }
+.theme-menu button small { color: var(--muted); font-size: 12.5px; }
+.theme-menu button.on { background: var(--surface-2); }
+.theme-menu button.on svg, .theme-menu em { color: var(--primary-text); font-style: normal; font-weight: 800; }
+.theme-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.theme-choice button { display: grid; justify-items: center; gap: 4px; min-height: 96px; padding: 14px 8px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.theme-choice button svg { width: 26px; height: 26px; color: var(--muted); }
+.theme-choice button small { color: var(--muted); font-size: 12.5px; text-align: center; }
+.theme-choice button.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.theme-choice button.on svg { color: var(--primary-text); }
+@media (hover: hover) { .theme-menu button:not(.on):hover, .theme-choice button:not(.on):hover { background: var(--surface-2); } }
+@media (max-width: 760px) { .theme-menu { position: fixed; left: auto; right: 12px; top: calc(var(--bar-h) + 8px); } }

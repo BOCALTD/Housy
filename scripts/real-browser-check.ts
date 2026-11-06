@@ -165,6 +165,36 @@ async function main() {
     await record(w, "visitor header", ok, `side panel shown: ${r.railShown}; top links: ${r.links.join(", ")}; spacer colour: ${r.band}; promo card heights: ${r.offers.join(", ") || "none"}; label heights: ${r.tags.join(", ") || "none"}; footer column rows: ${r.footerRows}; home sections: ${r.sections}`);
   });
 
+  await step("Desktop reels: the whole reel fits on the screen", async () => {
+    await w.goto(BASE + "/reels", { waitUntil: "load" });
+    await w.waitForTimeout(1500);
+    const r = await w.evaluate(() => {
+      const info = document.querySelector(".rf-info, .rf-rail") as HTMLElement | null;
+      const slide = document.querySelector(".rf-slide") as HTMLElement | null;
+      return { h: innerHeight, infoBottom: info ? Math.round(info.getBoundingClientRect().bottom) : -1, slideBottom: slide ? Math.round(slide.getBoundingClientRect().bottom) : -1 };
+    });
+    const ok = r.slideBottom > 0 && r.slideBottom <= r.h + 1 && r.infoBottom <= r.h;
+    await record(w, "desktop reels fit", ok || r.slideBottom === -1, r.slideBottom === -1 ? "no reels in this data" : `screen ${r.h}px; reel ends at ${r.slideBottom}px; caption and buttons end at ${r.infoBottom}px`);
+  });
+
+  await step("Theme: the person's choice wins over the device setting", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 }, colorScheme: "dark" });
+    const t = await ctx.newPage(); watch(t, "theme");
+    await t.goto(BASE + "/blog", { waitUntil: "load" });
+    const bg = () => t.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const device = await bg();
+    await t.locator(".theme-btn").click();
+    await t.getByRole("menuitemradio", { name: /light/i }).click();
+    await t.waitForTimeout(300);
+    const light = await bg();
+    await t.reload({ waitUntil: "load" });
+    const kept = await bg();
+    const lum = (c: string) => { const m = c.match(/\d+/g)!.map(Number); return (m[0] + m[1] + m[2]) / 3; };
+    const ok = lum(device) < 80 && lum(light) > 200 && lum(kept) > 200;
+    await record(t, "theme choice", ok, `device dark: ${device}; after choosing Light: ${light}; after reload: ${kept}`);
+    await ctx.close();
+  });
+
   // 5. Phone: menu opens.
   const phone = await newContext(browser, "phone");
   const m = await phone.newPage(); watch(m, "phone");

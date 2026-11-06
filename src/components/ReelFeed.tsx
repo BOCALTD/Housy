@@ -52,17 +52,24 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
   const loading = useRef(false);
   const tap = useRef<{ t: number; timer: ReturnType<typeof setTimeout> | null }>({ t: 0, timer: null });
 
-  // The feed fills the screen below the site header, whatever its height on this device.
+  // The feed fills exactly the rest of the screen: everything above it is measured (the demo notice, the top bar, the
+  // For you / Property reels switch), so the caption and buttons at the bottom of a reel are never pushed below the screen.
   useEffect(() => {
     const set = () => {
-      const h = (document.querySelector("header.bar") as HTMLElement | null)?.offsetHeight ?? 64;
+      const el = box.current;
+      if (!el) return;
+      const top = Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY));
       const tabs = document.querySelector(".tabbar") as HTMLElement | null;
       const b = tabs && getComputedStyle(tabs).display !== "none" ? tabs.offsetHeight : 0;
-      box.current?.style.setProperty("--rf-top", `${h}px`);
-      box.current?.style.setProperty("--rf-bottom", `${b}px`);
+      el.style.setProperty("--rf-top", `${top}px`);
+      el.style.setProperty("--rf-bottom", `${b}px`);
+      if (window.scrollY) window.scrollTo({ top: 0 });
     };
-    set(); window.addEventListener("resize", set);
-    return () => window.removeEventListener("resize", set);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(document.body);
+    window.addEventListener("resize", set);
+    return () => { ro.disconnect(); window.removeEventListener("resize", set); };
   }, []);
 
   // Whichever reel is mostly on screen is the one playing.

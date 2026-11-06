@@ -6,6 +6,8 @@ import { profileFor } from "@/lib/services/profile";
 import { logoutAction } from "@/app/auth-actions";
 import { Icon } from "@/components/Icons";
 import { ProfileMedia } from "@/components/ProfileMedia";
+import { ThemeChoice } from "@/components/ThemeSwitch";
+import { cookies } from "next/headers";
 import { becomeAgentAction, removeProfileImageAction, switchModeAction, takeBreakAction, updateAboutAction, uploadProfileImageAction } from "./actions";
 
 export const metadata = { title: "Profile and settings" };
@@ -21,6 +23,8 @@ const ROWS: { href: string; title: string; text: string; icon: keyof typeof Icon
 ];
 
 export default async function SettingsPage() {
+  const tc = (await cookies()).get("theme")?.value;
+  const theme = tc === "light" || tc === "dark" ? tc : "system";
   const user = await requireUser();
   const [p, session] = await Promise.all([profileFor(user.id), getSession()]);
   const activeCompany = session?.companyId ?? null;
@@ -83,6 +87,12 @@ export default async function SettingsPage() {
             </form>
           </details>
         ) : null}
+      </section>
+
+      <section className="card stack" aria-labelledby="look-h">
+        <h2 id="look-h">Appearance</h2>
+        <p className="small muted">Choose light or dark, or follow the setting on this device. Saved on this browser.</p>
+        <ThemeChoice initial={theme} />
       </section>
 
       <section className="card stack" aria-labelledby="about-h">

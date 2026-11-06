@@ -40,6 +40,7 @@ import "./frame.css";
 import "./chat.css";
 import "./features.css";
 import "./alive.css";
+import "./calm.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -96,9 +97,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     name: session.user.name, email: session.user.email, isAdmin: session.user.isPlatformAdmin, avatarUrl: d?.avatarUrl ?? null,
     roleLabel: member ? `${ROLE_LABELS[member.role]} · ${member.companyName}` : session.user.isPlatformAdmin ? "Platform administrator" : "Personal account",
   } : null;
-  const railMini = (await cookies()).get("rail")?.value === "mini";
+  const jar = await cookies();
+  const railMini = jar.get("rail")?.value === "mini";
+  const themeCookie = jar.get("theme")?.value;
+  const theme: "light" | "dark" | "system" = themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
   return (
-    <html lang="en-NG" suppressHydrationWarning>
+    <html lang="en-NG" suppressHydrationWarning data-theme={theme === "system" ? undefined : theme}>
       <head>
         {/* Says so on screen if the app's scripts never start (public/health.js). */}
         <script src="/health.js" />
@@ -118,7 +122,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <DemoStrip />
         <AppToaster />
         <Suspense fallback={null}><UrlToasts /></Suspense>
-        <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction} collapsed={railMini}>
+        <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction} collapsed={railMini} theme={theme}>
           {rate ? (
             <aside className="rate-banner" aria-label="Rate the platform">
               <div className="wrap">

@@ -2,7 +2,7 @@ import json, os, numpy as np, soundfile as sf
 from kokoro import KPipeline
 lines = json.load(open("script.json"))
 # Candidate voices per character; the edit picks one of each.
-CAST = {"ada": ["af_heart", "af_bella", "af_nicole"], "emeka": ["am_michael", "am_fenrir", "am_puck"], "tunde": ["bm_george", "bm_fable", "am_onyx"]}
+CAST = {"tolu": ["af_heart"], "emeka": ["am_michael"], "tunde": ["bm_george"]}
 pipes = {"a": KPipeline(lang_code="a"), "b": KPipeline(lang_code="b")}
 out = {}
 for who, voices in CAST.items():

@@ -1,24 +1,134 @@
 [
- ["A01","ada","He collected my inspection fee… and switched off his phone!","He collected my inspection fee... and switched off his phone!"],
- ["A02","emeka","Ada, why are you still chasing agents on the road? Download Housy.","Ada, why are you still chasing agents on the road? Download [Housy](/hˈWsi/)."],
- ["A03","ada","Housy? Okay, show me.","[Housy](/hˈWsi/)? Okay, show me."],
- ["B01","emeka","Tap Join free. Your name, your email, your number — it already knows plus two three four.","Tap, join free. Your name, your email, your number. It already knows, plus two three four."],
- ["B02","ada","Password… and it says the passwords match. Nice!","Password... and it says the passwords match. Nice!"],
- ["B03","emeka","Tick that you're eighteen or over, and you're in.","Tick that you're eighteen or over, and you're in."],
- ["C01","emeka","Now set My search, once. Where, rent or buy, budget, bedrooms.","Now set, My search, once. Where, rent or buy, budget, bedrooms."],
- ["C02","ada","Lagos. Rent. Fifteen million a year. Two bedrooms. Save.","Lagos. Rent. Fifteen million a year. Two bedrooms. Save."],
- ["D01","emeka","Your home page now shows homes that fit. And search puts the best match first: fair price for the area, real photos, verified companies.","Your home page now shows homes that fit. And search puts the best match first. Fair price for the area, real photos, verified companies."],
- ["D02","ada","And when five agents post the same flat?","And when five agents post the same flat?"],
- ["D03","emeka","It shows once.","It shows, once."],
- ["E01","ada","Wait… there are videos?","Wait... there are videos?"],
- ["E02","emeka","Property reels. Swipe, filter by area and budget, and see the place before you leave your house.","Property reels. Swipe, filter by area and budget, and see the place, before you leave your house."],
- ["F01","ada","But how do I know the agent is real?","But how do I know the agent is real?"],
- ["F02","emeka","Every company is checked. Agents have reviews from real deals. And Market shows what similar homes cost in that area.","Every company is checked. Agents have reviews from real deals. And Market shows what similar homes cost, in that area."],
- ["G01","ada","Request an inspection… Saturday, eleven a.m. Sent!","Request an inspection... Saturday, eleven a m. Sent!"],
- ["G02","tunde","Hello Ada, Tunde from Lekki Prime Homes. Saturday works. See you there.","Hello Ada, [Tunde](/tˈʊndeɪ/) from [Lekki](/lˈɛki/) Prime Homes. Saturday works. See you there."],
- ["G03","emeka","And the golden rule?","And the golden rule?"],
- ["G04","ada","Never pay before I inspect!","Never pay, before I inspect!"],
- ["H01","ada","Saturday. Safety session on, so my sister can follow my trip.","Saturday. Safety session on, so my sister can follow my trip."],
- ["H02","tunde","Welcome, Ada. Come and see your new home.","Welcome, Ada. Come and see your new home."],
- ["H03","ada","Found it on Housy. Checked it. Inspected it. Then I paid.","Found it on [Housy](/hˈWsi/). Checked it. Inspected it. Then I paid."]
+[
+"A01",
+"tolu",
+"He collected my inspection fee… and switched off his phone!",
+"He collected my inspection fee... and switched off his phone!"
+],
+[
+"A02",
+"emeka",
+"Tolu, why are you still chasing agents on the road? Download Housy.",
+"Tolu, why are you still chasing agents on the road? Download [Housy](/hˈWsi/)."
+],
+[
+"A03",
+"tolu",
+"Housy? Okay, show me.",
+"[Housy](/hˈWsi/)? Okay, show me."
+],
+[
+"B01",
+"emeka",
+"Tap Join free. Your name, your email, your number — it already knows plus two three four.",
+"Tap, join free. Your name, your email, your number. It already knows, plus two three four."
+],
+[
+"B02",
+"tolu",
+"Password… and it says the passwords match. Nice!",
+"Password... and it says the passwords match. Nice!"
+],
+[
+"B03",
+"emeka",
+"Tick that you're eighteen or over, and you're in.",
+"Tick that you're eighteen or over, and you're in."
+],
+[
+"C01",
+"emeka",
+"Now set My search, once. Where, rent or buy, budget, bedrooms.",
+"Now set, My search, once. Where, rent or buy, budget, bedrooms."
+],
+[
+"C02",
+"tolu",
+"Lagos. Rent. Fifteen million a year. Two bedrooms. Save.",
+"Lagos. Rent. Fifteen million a year. Two bedrooms. Save."
+],
+[
+"D01",
+"emeka",
+"Your home page now shows homes that fit. And search puts the best match first: fair price for the area, real photos, verified companies.",
+"Your home page now shows homes that fit. And search puts the best match first. Fair price for the area, real photos, verified companies."
+],
+[
+"D02",
+"tolu",
+"And when five agents post the same flat?",
+"And when five agents post the same flat?"
+],
+[
+"D03",
+"emeka",
+"It shows once.",
+"It shows, once."
+],
+[
+"E01",
+"tolu",
+"Wait… there are videos?",
+"Wait... there are videos?"
+],
+[
+"E02",
+"emeka",
+"Property reels. Swipe, filter by area and budget, and see the place before you leave your house.",
+"Property reels. Swipe, filter by area and budget, and see the place, before you leave your house."
+],
+[
+"F01",
+"tolu",
+"But how do I know the agent is real?",
+"But how do I know the agent is real?"
+],
+[
+"F02",
+"emeka",
+"Every company is checked. Agents have reviews from real deals. And Market shows what similar homes cost in that area.",
+"Every company is checked. Agents have reviews from real deals. And Market shows what similar homes cost, in that area."
+],
+[
+"G01",
+"tolu",
+"Request an inspection… Monday, eleven a.m. Sent!",
+"Request an inspection... Monday, eleven a m. Sent!"
+],
+[
+"G02",
+"tunde",
+"Hello Tolu, Tunde from Alpha Estates. Monday works. See you there.",
+"Hello Tolu, [Tunde](/tˈʊndeɪ/) from Alpha Estates. Monday works. See you there."
+],
+[
+"G03",
+"emeka",
+"And the golden rule?",
+"And the golden rule?"
+],
+[
+"G04",
+"tolu",
+"Never pay before I inspect!",
+"Never pay, before I inspect!"
+],
+[
+"H01",
+"tolu",
+"Monday. Safety session on, so my sister can follow my trip.",
+"Monday. Safety session on, so my sister can follow my trip."
+],
+[
+"H02",
+"tunde",
+"Welcome, Tolu. Come and see your new home.",
+"Welcome, Tolu. Come and see your new home."
+],
+[
+"H03",
+"tolu",
+"Found it on Housy. Checked it. Inspected it. Then I paid.",
+"Found it on [Housy](/hˈWsi/). Checked it. Inspected it. Then I paid."
+]
 ]

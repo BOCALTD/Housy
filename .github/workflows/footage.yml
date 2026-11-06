@@ -1,0 +1,25 @@
+name: Guide footage
+on: push
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg fonts-dejavu-core && pip install pillow
+      - run: |
+          mkdir -p out
+          python3 scan.py woman-driving man-driving driving car-interior taxi traffic motorcycle motorbike scooter bicycle street city-street crowd people-walking pedestrian crosswalk woman-phone man-phone smartphone texting black-woman black-man african-american african young-woman friends couple keys moving apartment real-estate handshake door happy
+          python3 sheets.py
+      - name: Publish
+        run: |
+          cp -r out /tmp/out
+          git config user.name "ci"; git config user.email "ci@example.invalid"
+          git checkout --orphan guide-footage-out
+          git rm -rf -q --cached . > /dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r /tmp/out/* . && rm -rf rows
+          git add -A && git commit -q -m "Guide footage contact sheets"
+          git push -q -f origin guide-footage-out

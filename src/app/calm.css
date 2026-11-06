@@ -55,3 +55,29 @@ body::before { opacity: .6; }
 
 /* Reels use the full width (the page-width cap for ordinary pages was winning, leaving light strips at the sides). */
 .frame main:has(.rf-page) > .wrap { max-width: none; padding: 0; }
+
+/* Best match: the reasons a listing ranks where it does, and the good-price badge */
+.good-price { font-weight: 700; }
+.match-why { display: flex; flex-wrap: wrap; gap: 6px; }
+.match-why em { font-style: normal; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+
+/* Reels filter: a small pill over the feed, opening to place, rent or buy and budget */
+.rf-filter { position: absolute; z-index: 7; top: 12px; right: 12px; max-width: min(360px, calc(100% - 24px)); color: #fff; }
+.rf-filter > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; max-width: 100%; padding: 0 14px; border-radius: 999px; background: rgba(12, 13, 15, .62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, .16); cursor: pointer; font-weight: 600; font-size: 14px; float: right; }
+.rf-filter > summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-filter > summary::-webkit-details-marker { display: none; }
+.rf-filter-form { clear: both; margin-top: 8px; display: grid; gap: 12px; padding: 16px; border-radius: 18px; background: rgba(18, 19, 22, .94); border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 20px 40px -20px rgba(0, 0, 0, .8); }
+.rf-filter-form .field { color: #E9EAEC; }
+.rf-filter-form input { background: rgba(255, 255, 255, .06); color: #fff; border-color: rgba(255, 255, 255, .18); }
+.rf-filter-purpose { border: 0; padding: 0; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.rf-filter-purpose legend { width: 100%; margin-bottom: 6px; font-size: 14px; color: #E9EAEC; }
+.rf-filter-form .muted, .rf-filter-form .small { color: #B7BCC4; }
+.rf-filter-form a { color: #EDC57A; }
+.rf-empty { position: absolute; z-index: 6; inset: 30% 16px auto; margin-inline: auto; max-width: 360px; display: grid; gap: 8px; justify-items: center; text-align: center; padding: 22px; border-radius: 18px; background: rgba(18, 19, 22, .9); color: #fff; }
+@media (max-width: 760px) { .rf-filter { top: 60px; } }
+.use-my-search { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px dashed var(--primary); color: var(--ink); text-decoration: none; justify-self: start; }
+.use-my-search span { color: var(--primary-text); }
+@media (hover: hover) { .use-my-search:hover { background: var(--surface-2); } }
+.price-verdict { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); font-size: 15px; }
+.price-verdict.v-good { background: color-mix(in srgb, #10B981 14%, var(--surface)); }
+.price-verdict a { margin-left: 4px; }

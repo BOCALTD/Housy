@@ -28,6 +28,7 @@ import { isBot } from "@/lib/ad-rules";
 import { sp, type SP } from "@/components/ui";
 import { getSession } from "@/lib/auth";
 import { suggestedListings } from "@/lib/services/signals";
+import { mySearchPicks } from "@/lib/services/search-prefs";
 import { publicListingsByRefs } from "@/lib/services/listings";
 import { decorateListings } from "@/lib/services/promotions";
 
@@ -76,12 +77,14 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
   const bot = isBot(h.get("user-agent"));
   const country = visitorCountry(h);
   const session = await getSession();
-  const [listings, sponsored, picks] = await Promise.all([
+  const [listings, sponsored, pickSet] = await Promise.all([
     searchListingsRanked(filters),
     sponsoredFor("HOME_FEATURED", { filters, bot }).catch(() => []),
-    session ? suggestedListings(session.user.id, 10).catch(() => null) : Promise.resolve(null),
+    // My search first (set once in settings); otherwise what the person has been looking at.
+    session ? mySearchPicks(session.user.id, 10).then(async (m) => (m && m.rows.length ? { from: "search" as const, label: m.label, rows: m.rows } : { from: "taste" as const, label: "", rows: ((await suggestedListings(session.user.id, 10)) ?? []).map((p) => ({ publicRef: p.publicRef, why: p.why })) })).catch(() => null) : Promise.resolve(null),
   ]);
   // Suggestions from what this person has looked at, saved and asked about; each says why. Shown only when there are some.
+  const picks = pickSet?.rows ?? null;
   const pickRows = picks?.length ? await decorateListings(await publicListingsByRefs(picks.map((p) => p.publicRef)), false) : [];
   const picked = (picks ?? []).map((p) => ({ why: p.why, l: pickRows.find((r) => r.publicRef === p.publicRef) })).filter((x): x is { why: string[]; l: (typeof pickRows)[number] } => !!x.l);
 
@@ -184,7 +187,9 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
 
       {picked.length ? (
       <section className="sec" aria-labelledby="picks-h">
-        <SectionHead kicker="For you" title="Picked for you" text="From the places, homes and agents you have been looking at. You can see or clear what shapes this in Your data and privacy." link={{ href: "/me/privacy#suggestions", label: "Why these?" }} />
+        {pickSet?.from === "search"
+          ? <SectionHead kicker="For you" title="Homes that fit your search" text={`${pickSet.label}. Best match first: good value for the area, complete listings and verified companies.`} link={{ href: "/me/settings#my-search", label: "Change my search" }} />
+          : <SectionHead kicker="For you" title="Picked for you" text="From the places, homes and agents you have been looking at. Set My search in Profile and settings to choose exactly what you want here." link={{ href: "/me/privacy#suggestions", label: "Why these?" }} />}
         <Carousel label="Picked for you" few={picked.length <= 3}>
           {picked.map(({ l, why }) => (
             <div key={l.id} className="pick">

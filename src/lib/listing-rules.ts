@@ -74,7 +74,7 @@ export const CATEGORIES: Category[] = [
 export const categoryBySlug = (slug: string) => CATEGORIES.find((c) => c.slug === slug) ?? null;
 
 // ---------- Search filters ----------
-export const SORTS = { newest: "Newest first", price_asc: "Lowest price", price_desc: "Highest price", size_desc: "Largest first" } as const;
+export const SORTS = { best: "Best match", newest: "Newest first", price_asc: "Lowest price", price_desc: "Highest price", size_desc: "Largest first" } as const;
 export type Sort = keyof typeof SORTS;
 export const SEARCH_PAGE = 24;
 
@@ -110,7 +110,7 @@ export function parseFilters(get: Get, getAll: (k: string) => string[] = (k) => 
     estate: text(get("estate"), 80), availableBy: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
     verifiedOnly: get("verified") === "1" ? true : undefined, negotiable: get("negotiable") === "1" ? true : undefined,
     period: isCode(PRICE_PERIODS, get("period")) ? (get("period") as PricePeriod) : undefined,
-    sort: isCode(SORTS, sort) ? (sort as Sort) : "newest", page: Math.max(1, Math.min(int(get("page"), 1000) ?? 1, 1000)),
+    sort: isCode(SORTS, sort) ? (sort as Sort) : "best", page: Math.max(1, Math.min(int(get("page"), 1000) ?? 1, 1000)),
   };
 }
 
@@ -127,7 +127,7 @@ export function filtersToQuery(f: Partial<Filters>, change: Record<string, strin
   put("minBeds", f.minBeds); put("minBaths", f.minBaths); put("furnishing", f.furnishing); put("serviced", f.serviced); put("amenity", f.amenities);
   put("minSize", f.minSize); put("construction", f.construction); put("titleDoc", f.titleDoc); put("estate", f.estate); put("availableBy", f.availableBy);
   put("verified", f.verifiedOnly); put("negotiable", f.negotiable); put("period", f.period);
-  if (f.sort && f.sort !== "newest") q.set("sort", f.sort);
+  if (f.sort && f.sort !== "best") q.set("sort", f.sort);
   if (f.page && f.page > 1) q.set("page", String(f.page));
   for (const [k, v] of Object.entries(change)) { if (v === undefined || v === "") q.delete(k); else q.set(k, String(v)); }
   return q.toString();

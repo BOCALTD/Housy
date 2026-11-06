@@ -18,7 +18,7 @@ test("filters are read forgivingly: unknown values are dropped, numbers bounded"
   assert.equal(f.furnishing, "FURNISHED");
   const bad = q("purpose=DROP TABLE&sort=evil&availableBy=tomorrow&minSize=-5&furnishing=UNSPECIFIED");
   assert.equal(bad.purpose, undefined);
-  assert.equal(bad.sort, "newest");
+  assert.equal(bad.sort, "best");
   assert.equal(bad.availableBy, undefined);
   assert.equal(bad.minSize, undefined);
   assert.equal(bad.furnishing, undefined);

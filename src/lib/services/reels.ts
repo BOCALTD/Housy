@@ -12,6 +12,7 @@ import { shortName } from "./reviews";
 import { reelTaste } from "./signals";
 import { mixIntoClip } from "./music";
 import { cleanChoice, type MusicChoice } from "../music-rules";
+import { comparableNaira } from "../match-rules";
 
 // Reels: short property videos by listed agents. Every reel is checked by the platform before it is public. People can like, save,
 // share, comment and report. Reach is organic: it comes from other people's engagement and never from a plan or a promotion.
@@ -265,12 +266,36 @@ async function candidates(now: Date) {
   return { reels, feed };
 }
 
-export async function discover(o: { viewerId?: string | null; tab?: Tab; page?: number; now?: Date } = {}) {
+/** What a person narrows the reels to: a place, rent or buy, and a budget (a sale price, or a year's rent). */
+export type ReelFilter = { city?: string; purpose?: "SALE" | "RENT"; maxNaira?: number };
+export const hasReelFilter = (f?: ReelFilter | null) => !!f && (!!f.city || !!f.purpose || (f.maxNaira ?? 0) > 0);
+
+/** Keep reels whose property fits the filter. A reel with no property attached only passes a place-only filter. */
+async function applyReelFilter(reels: { id: string; listingId: string | null; city: string }[], f: ReelFilter) {
+  const ids = [...new Set(reels.map((r) => r.listingId).filter((x): x is string => !!x))];
+  const listings = ids.length ? await withPublic((tx) => tx.listing.findMany({ where: { id: { in: ids }, status: "PUBLISHED" }, select: { id: true, city: true, state: true, purpose: true, pricePeriod: true, priceKobo: true } })) : [];
+  const byId = new Map(listings.map((l) => [l.id, l]));
+  const place = (f.city ?? "").trim().toLowerCase();
+  return new Set(reels.filter((r) => {
+    const l = r.listingId ? byId.get(r.listingId) : undefined;
+    if (place && ![r.city, l?.city ?? "", l?.state ?? ""].some((x) => x.toLowerCase().includes(place))) return false;
+    if (f.purpose && l?.purpose !== f.purpose) return false;
+    if ((f.maxNaira ?? 0) > 0) {
+      if (!l) return false;
+      const n = comparableNaira({ purpose: l.purpose, pricePeriod: l.pricePeriod, priceKobo: l.priceKobo });
+      if (n === null || n > f.maxNaira!) return false;
+    }
+    return true;
+  }).map((r) => r.id));
+}
+
+export async function discover(o: { viewerId?: string | null; tab?: Tab; page?: number; now?: Date; filter?: ReelFilter | null } = {}) {
   const now = o.now ?? new Date();
   const tab: Tab = o.tab ?? (o.viewerId ? "foryou" : "trending");
   const { reels, feed } = await candidates(now);
   const viewer = o.viewerId ? await viewerProfile(o.viewerId) : null;
   let pool = feed;
+  if (hasReelFilter(o.filter)) { const keep = await applyReelFilter(reels, o.filter!); pool = pool.filter((r) => keep.has(r.id)); }
   if (tab === "following") pool = feed.filter((r) => viewer?.followedAuthors.has(r.authorId) || viewer?.followedCompanies.has(r.companyId));
   const ranked = rankFeed(pool, now, tab === "trending" ? null : viewer);
   const page = Math.max(0, o.page ?? 0);

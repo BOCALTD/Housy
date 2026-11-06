@@ -96,6 +96,7 @@ function workspaceGroups(r: Role, incoming: number): SideGroup[] {
     ]),
     g("Properties", [
       ["/app/assets", "Assets", "building", true],
+      ["/app/listings", "Still available?", "clipboard", can(r, "listing.manage")],
       ["/app/inspections", "Inspections", "clipboard", true],
       ["/field", "Field kit (works offline)", "clipboard", can(r, "inspection.conduct")],
       ["/app/maintenance", "Maintenance", "wrench", true],

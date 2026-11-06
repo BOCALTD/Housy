@@ -10,6 +10,7 @@ import type { ReelCard } from "@/lib/services/reels";
 import { commentOn, commentsPage, followAgent, likeReel, morePage, reportReel, saveReel, watched } from "@/app/reels/live-actions";
 
 type Tab = "foryou" | "following" | "trending";
+import type { ReelFilter } from "@/lib/services/reels";
 type Comment = { id: string; authorName: string; body: string; createdAt: Date | string };
 type Sheet = null | { kind: "signin"; verb: string; reelId: string } | { kind: "comments"; reel: ReelCard } | { kind: "more"; reel: ReelCard };
 
@@ -34,7 +35,7 @@ const Sound = ({ off }: { off: boolean }) => <svg width="20" height="20" viewBox
  * sharing and following ask a visitor to sign in or create an account first. Each clip is fetched once: the next one starts
  * loading in the background, and clips already watched play again from the browser and the app's cache without downloading.
  */
-export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: ReelCard[]; pages: number; tab: Tab; signedIn: boolean; canPost: boolean }) {
+export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null }: { initial: ReelCard[]; pages: number; tab: Tab; signedIn: boolean; canPost: boolean; filter?: ReelFilter | null }) {
   const [rows, setRows] = useState(initial);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(pages);
@@ -97,7 +98,7 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost }: { initial: 
     // Near the end, fetch the next page.
     if (active >= rows.length - 2 && page + 1 < total && !loading.current) {
       loading.current = true;
-      morePage(tab, page + 1).then((m) => {
+      morePage(tab, page + 1, filter).then((m) => {
         setRows((old) => [...old, ...m.rows.filter((x) => !old.some((o) => o.id === x.id))]);
         setPage(m.page); setTotal(m.pages);
       }).catch(() => {}).finally(() => { loading.current = false; });

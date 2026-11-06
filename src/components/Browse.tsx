@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, SORTS, extraFilterCount, filtersToQuery, parseFilters, type Category } from "@/lib/listing-rules";
 import { searchListingsPage } from "@/lib/services/listings";
+import { priceVerdicts } from "@/lib/services/best-match";
+import { getSearchPref, prefLabel, prefParams } from "@/lib/services/search-prefs";
 import { decorateListings } from "@/lib/services/promotions";
 import { verifiedCompanyIds } from "@/lib/services/kyc";
 import { activeOf, labelsOf, refData } from "@/lib/services/reference";
@@ -27,8 +29,12 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
   const typeLabels = labelsOf(ref, "PROPERTY_TYPE");
   const companyIds = f.verifiedOnly ? await verifiedCompanyIds() : undefined;
   const page = await searchListingsPage(f, category?.rule ?? {}, companyIds);
-  const rows = await decorateListings(page.rows, f.sort === "newest");
+  const decorated = await decorateListings(page.rows, f.sort === "newest");
+  // Best match already carries its price verdicts; any other order gets them here, for the "Good price" badge.
+  const verdicts = f.sort === "best" ? null : await priceVerdicts(page.rows).catch(() => null);
+  const rows = decorated.map((r) => ("verdict" in r ? r : { ...r, verdict: verdicts?.get(r.id) ?? null, matchWhy: [] as string[], alsoListed: [] as { publicRef: string; companyId: string }[] }));
   const session = await getSession();
+  const myPref = session ? await getSearchPref(session.user.id).catch(() => null) : null;
   if (session && f.city) void recordSignal(session.user.id, { kind: "SEARCH", city: f.city, purpose: f.purpose ?? "" });
   const bot = isBot((await headers()).get("user-agent"));
   const sponsored = await sponsoredFor("SEARCH_TOP", { filters: { q: f.q, purpose: f.purpose, city: f.city, maxPrice: f.maxPrice, minBeds: f.minBeds?.toString() }, bot }).catch(() => []);
@@ -90,11 +96,14 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
         </details>
       </form>
 
+      {myPref && !f.city && !f.purpose && !f.maxPrice && !f.minBeds && !f.q ? (
+        <Link className="use-my-search" href={`${basePath}?${new URLSearchParams(prefParams(myPref))}`}><span aria-hidden="true">★</span> Use my search: <strong>{prefLabel(myPref)}</strong></Link>
+      ) : null}
       <SponsoredStrip items={sponsored} where="search" />
       <section className="sec" aria-label="Results">
         <div className="sec-head">
-          <div><h2>{page.total} {page.total === 1 ? "property" : "properties"}</h2><p className="small muted">Title documents are listed as the company states them; {PLATFORM_NAME} has not verified title.</p></div>
-          <nav className="sort-links" aria-label="Sort">{Object.entries(SORTS).map(([k, v]) => <Link key={k} href={href({ sort: k === "newest" ? undefined : k, page: undefined })} aria-current={f.sort === k ? "page" : undefined}>{v}</Link>)}</nav>
+          <div><h2>{page.total} {page.total === 1 ? "property" : "properties"}</h2><p className="small muted">{f.sort === "best" ? <>Best match puts good value for the area, complete listings, verified companies and fresh listings first. Paid promotion never changes this order, and copies of the same home are grouped. </> : null}Title documents are listed as the company states them; {PLATFORM_NAME} has not verified title.</p></div>
+          <nav className="sort-links" aria-label="Sort">{Object.entries(SORTS).map(([k, v]) => <Link key={k} href={href({ sort: k === "best" ? undefined : k, page: undefined })} aria-current={f.sort === k ? "page" : undefined}>{v}</Link>)}</nav>
         </div>
         {session ? (
           <details className="inline"><summary>Save this search and get alerts</summary>

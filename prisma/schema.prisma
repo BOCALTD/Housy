@@ -59,6 +59,7 @@ model User {
   artisanOffers   ArtisanOffer[]
   flatmateCheck   FlatmateCheck?
 
+  searchPref      SearchPref?
   @@index([phone])
   @@map("users")
 }
@@ -665,6 +666,9 @@ model Listing {
   publishedAt DateTime?      @map("published_at")
   /// When a published listing was taken off the market (let, sold or withdrawn), for time-on-market figures.
   offMarketAt DateTime?      @map("off_market_at")
+  /// Last time the company said it is still available (search hides it 45 days after; lib/match-rules.ts).
+  confirmedAt       DateTime?      @map("confirmed_at")
+  confirmRemindedAt DateTime?      @map("confirm_reminded_at")
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
   asset       Asset          @relation(fields: [assetId], references: [id], onDelete: Restrict)
@@ -5842,4 +5846,17 @@ model ArtisanReview {
 
   @@index([companyId, contractorId])
   @@map("artisan_reviews")
+}
+
+/// A person's own search (where, rent or buy, budget, bedrooms), set once and used across Housy.
+model SearchPref {
+  userId       String   @id @map("user_id")
+  city         String   @default("")
+  purpose      String   @default("")
+  maxPriceKobo BigInt?  @map("max_price_kobo")
+  minBeds      Int?     @map("min_beds")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("search_prefs")
 }

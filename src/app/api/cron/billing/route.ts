@@ -2,6 +2,7 @@ import { cronAuthorised } from "@/lib/cron-auth";
 import { generateRenewalInvoices, verifyPending } from "@/lib/services/billing";
 import { evaluateCampaigns } from "@/lib/services/ads";
 import { purgeFlatmateCheckImages } from "@/lib/services/flatmates";
+import { remindUnconfirmedListings } from "@/lib/services/listings";
 
 export const dynamic = "force-dynamic";
 
@@ -13,5 +14,7 @@ export async function GET(req: Request) {
   const ads = await evaluateCampaigns();
   // Data kept only as long as needed: flatmate ID pictures go 30 days after the decision.
   const idImagesDeleted = await purgeFlatmateCheckImages("system").catch(() => 0);
-  return Response.json({ renewals, pending, ads, idImagesDeleted });
+  // Listings not confirmed as still available stop showing after 45 days; companies get one reminder a week before.
+  const listingReminders = await remindUnconfirmedListings().catch(() => null);
+  return Response.json({ renewals, pending, ads, idImagesDeleted, listingReminders });
 }

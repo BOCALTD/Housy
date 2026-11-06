@@ -14,6 +14,8 @@ import { publicPhotosOf } from "@/lib/services/listing-photos";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getPublicListing } from "@/lib/services/listings";
+import { priceVerdicts } from "@/lib/services/best-match";
+import { confirmationState } from "@/lib/match-rules";
 import { getFeaturedProvider, parsePrefs, shouldAutoShow } from "@/lib/services/verification";
 import { listingExtras } from "@/lib/services/promotions";
 import { GoldBadge, PremiumTag, PriceBlock, PromoEnds, PromoRibbon } from "@/components/Promo";
@@ -75,6 +77,8 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   const here = `/properties/${listing.publicRef}`;
   const shared = sp(searchParams, "shared") === "1";
   const plans = photos.filter((p) => p.kind === "FLOOR_PLAN");
+  const verdict = (await priceVerdicts([listing]).catch(() => null))?.get(listing.id) ?? null;
+  const stale = confirmationState(listing.confirmedAt, listing.publishedAt, new Date())?.state === "expired";
   const [trust, company] = await Promise.all([companyTrust(listing.companyId), withPublic((tx) => tx.companyProfile.findFirst({ where: { companyId: listing.companyId, listed: true }, select: { displayName: true } }))]);
   const watching = session ? await isWatching(session.user.id, listing.id) : false;
   const provider = await getFeaturedProvider();
@@ -111,6 +115,15 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
         <p className="price" style={{ fontSize: 26 }}>
           <PriceBlock priceKobo={listing.priceKobo} promo={extras.promo} suffix={priceSuffix(listing.pricePeriod)} />
         </p>
+        {verdict ? (
+          <p className={`price-verdict v-${verdict.kind}`}>
+            {verdict.kind === "good" ? <><strong>Good price for {listing.city}:</strong> about {Math.abs(verdict.pct)}% under the typical {listing.purpose === "SALE" ? "asking price" : "yearly rent"} for this kind of home.</>
+              : verdict.kind === "high" ? <><strong>Above the usual for {listing.city}:</strong> about {verdict.pct}% over the typical {listing.purpose === "SALE" ? "asking price" : "yearly rent"}. Worth asking why, or comparing.</>
+              : <>In line with the typical {listing.purpose === "SALE" ? "asking price" : "yearly rent"} for this kind of home in {listing.city}.</>}
+            {" "}<Link href="/market">Market prices</Link>
+          </p>
+        ) : null}
+        {stale ? <p className="flash warn" role="note">The company has not confirmed this is still available for a while, so it no longer shows in search. Ask the agent before you plan a visit.</p> : null}
         <p className="muted">
           {[listing.bedrooms != null ? `${listing.bedrooms} bedrooms` : null, listing.bathrooms != null ? `${listing.bathrooms} bathrooms` : null,
             `${listing.city}, ${listing.state}`].filter(Boolean).join(" · ")}

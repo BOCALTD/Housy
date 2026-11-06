@@ -1,3 +1,6 @@
+import { notify } from "./notifications";
+import { bestMatchPage, freshWhere } from "./best-match";
+import { CONFIRM_EVERY_DAYS, CONFIRM_REMIND_DAYS, confirmationState } from "../match-rules";
 import { referralEvent } from "./referrals";
 import { alertNewListing, alertWatchers, notifyEnquiry } from "./alerts";
 import { vacancyListingPublished } from "./vacancies";
@@ -121,7 +124,7 @@ export async function setListingStatus(ctx: Ctx, assetId: string, to: "PENDING_R
       throw new Error(`A listing that is ${listing.status.replace("_", " ").toLowerCase()} cannot move to ${to.replace("_", " ").toLowerCase()}`);
     }
     // Taken off the market (let, sold or withdrawn): the date is kept for the market's "time on the market" figures.
-    await tx.listing.update({ where: { id: listing.id }, data: { status: to, ...(to === "UNAVAILABLE" ? { offMarketAt: new Date() } : to === "PENDING_REVIEW" ? { offMarketAt: null } : {}) } });
+    await tx.listing.update({ where: { id: listing.id }, data: { status: to, ...(to === "UNAVAILABLE" ? { offMarketAt: new Date() } : to === "PENDING_REVIEW" ? { offMarketAt: null } : {}), ...(to === "PUBLISHED" ? { confirmedAt: new Date(), confirmRemindedAt: null } : {}) } });
     await logActivity(tx, {
       companyId: ctx.companyId, actorId: ctx.userId, entityType: "listing", entityId: listing.id,
       action: "listing.status_changed", detail: { from: listing.status, to },
@@ -153,7 +156,7 @@ export async function reviewListing(adminUserId: string, listingId: string, deci
     const status = decision === "approve" ? "PUBLISHED" : "DRAFT";
     await tx.listing.update({
       where: { id: listing.id },
-      data: { status, reviewNote: note.trim(), publishedAt: decision === "approve" ? new Date() : null },
+      data: { status, reviewNote: note.trim(), publishedAt: decision === "approve" ? new Date() : null, ...(decision === "approve" ? { confirmedAt: new Date(), confirmRemindedAt: null } : {}) },
     });
     await logActivity(tx, {
       companyId: listing.companyId, actorId: adminUserId, entityType: "listing", entityId: listing.id,
@@ -185,6 +188,7 @@ export async function searchListings(f: SearchFilters) {
     tx.listing.findMany({
       where: {
         status: "PUBLISHED",
+        AND: [freshWhere()],
         ...(purpose ? { purpose } : {}),
         ...(f.city ? { OR: [{ city: { contains: f.city, mode: "insensitive" } }, { state: { contains: f.city, mode: "insensitive" } }] } : {}),
         ...(f.q ? { title: { contains: f.q, mode: "insensitive" } } : {}),
@@ -199,7 +203,7 @@ export async function searchListings(f: SearchFilters) {
 
 /** Turn filters (and a category's rule) into a database query. Only published listings, always. */
 export function listingWhere(f: Filters, rule: CategoryRule = {}, companyIds?: string[]): Prisma.ListingWhereInput {
-  const and: Prisma.ListingWhereInput[] = [{ status: "PUBLISHED" }];
+  const and: Prisma.ListingWhereInput[] = [{ status: "PUBLISHED" }, freshWhere()];
   if (rule.purpose) and.push({ purpose: { in: rule.purpose } });
   if (rule.types) and.push({ propertyType: { in: rule.types } });
   if (rule.period) and.push({ pricePeriod: { in: rule.period } });
@@ -229,6 +233,7 @@ export function listingWhere(f: Filters, rule: CategoryRule = {}, companyIds?: s
 }
 
 const ORDER: Record<Filters["sort"], Prisma.ListingOrderByWithRelationInput[]> = {
+  best: [{ publishedAt: "desc" }, { publicRef: "asc" }],
   newest: [{ publishedAt: "desc" }, { publicRef: "asc" }],
   price_asc: [{ priceKobo: "asc" }, { publicRef: "asc" }],
   price_desc: [{ priceKobo: "desc" }, { publicRef: "asc" }],
@@ -238,6 +243,7 @@ const ORDER: Record<Filters["sort"], Prisma.ListingOrderByWithRelationInput[]> =
 /** One page of search results with the total, for the browse and category pages. */
 export async function searchListingsPage(f: Filters, rule: CategoryRule = {}, companyIds?: string[]) {
   const where = listingWhere(f, rule, companyIds);
+  if (f.sort === "best") return bestMatchPage(where, f.page, SEARCH_PAGE);
   return withPublic(async (tx) => {
     const [total, rows] = await Promise.all([
       tx.listing.count({ where }),
@@ -292,4 +298,52 @@ export async function publicListingsByRefs(refs: string[]) {
   if (!refs.length) return [];
   const rows = await withPublic((tx) => tx.listing.findMany({ where: { publicRef: { in: refs }, status: "PUBLISHED" } }));
   return refs.map((r) => rows.find((x) => x.publicRef === r)).filter((x): x is NonNullable<typeof x> => !!x);
+}
+
+
+// ---------- Still available? ----------
+
+/** The company says these listings are still available: they show in search for another 45 days. */
+export async function confirmListings(ctx: Ctx, ids: string[]) {
+  assertCan(ctx, "listing.manage");
+  const list = [...new Set(ids)].slice(0, 500);
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const r = await tx.listing.updateMany({ where: { id: { in: list }, companyId: ctx.companyId, status: "PUBLISHED" }, data: { confirmedAt: new Date(), confirmRemindedAt: null } });
+    if (r.count) await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "listing", entityId: list[0], action: "listing.confirmed", detail: { count: r.count } });
+    return r.count;
+  });
+}
+
+/** The company's live listings that need confirming soon or have stopped showing because they were not confirmed. */
+export async function listingsToConfirm(ctx: Ctx, now = new Date()) {
+  assertCan(ctx, "listing.manage");
+  const rows = await withTenant(ctx.companyId, ctx.userId, (tx) => tx.listing.findMany({ where: { companyId: ctx.companyId, status: "PUBLISHED" }, select: { id: true, publicRef: true, title: true, confirmedAt: true, publishedAt: true }, orderBy: { publishedAt: "asc" }, take: 1000 }));
+  return rows.map((r) => ({ ...r, c: confirmationState(r.confirmedAt, r.publishedAt, now) })).filter((r) => r.c && r.c.state !== "ok").map((r) => ({ id: r.id, publicRef: r.publicRef, title: r.title, due: r.c!.due, expired: r.c!.state === "expired" }));
+}
+
+/**
+ * Daily: tell each company once about live listings that stop showing within a week (or already stopped) unless they
+ * confirm them. Sent to its managers and the person who posted each listing.
+ */
+export async function remindUnconfirmedListings(now = new Date()) {
+  // Only listings within a week of their deadline (or past it), so the daily run stays small however many are live.
+  const cut = new Date(now.getTime() - (CONFIRM_EVERY_DAYS - CONFIRM_REMIND_DAYS) * 864e5);
+  const rows = await withPublic((tx) => tx.listing.findMany({ where: { status: "PUBLISHED", confirmRemindedAt: null, OR: [{ confirmedAt: { lte: cut } }, { confirmedAt: null, publishedAt: { lte: cut } }] }, select: { id: true, companyId: true, postedById: true, confirmedAt: true, publishedAt: true }, take: 5000 }));
+  const due = rows.filter((r) => { const c = confirmationState(r.confirmedAt, r.publishedAt, now); return c && c.state !== "ok"; });
+  const byCompany = new Map<string, typeof due>();
+  for (const r of due) { const a = byCompany.get(r.companyId); if (a) a.push(r); else byCompany.set(r.companyId, [r]); }
+  let companies = 0;
+  for (const [companyId, list] of byCompany) {
+    await withTenant(companyId, "system", async (tx) => {
+      const managers = await tx.membership.findMany({ where: { companyId, status: "ACTIVE", role: { in: ["COMPANY_SUPER_ADMIN", "MANAGER"] } }, select: { userId: true }, take: 20 });
+      const people = new Set([...managers.map((m) => m.userId), ...list.map((l) => l.postedById).filter((x): x is string => !!x)]);
+      const n = list.length;
+      for (const userId of people) {
+        await notify(tx, userId, { kind: "listing.confirm", title: `${n} ${n === 1 ? "listing needs" : "listings need"} a quick check`, body: "Confirm they are still available, or they stop showing in search. One tap on the listings page.", link: "/app/listings?confirm=1" });
+      }
+      await tx.listing.updateMany({ where: { id: { in: list.map((l) => l.id) }, companyId }, data: { confirmRemindedAt: now } });
+    });
+    companies += 1;
+  }
+  return { companies, listings: due.length };
 }

@@ -7,7 +7,9 @@ import { logoutAction } from "@/app/auth-actions";
 import { Icon } from "@/components/Icons";
 import { ProfileMedia } from "@/components/ProfileMedia";
 import { ThemeChoice } from "@/components/ThemeSwitch";
+import { getSearchPref } from "@/lib/services/search-prefs";
 import { cookies } from "next/headers";
+import { clearSearchPrefAction, saveSearchPrefAction } from "./actions";
 import { becomeAgentAction, removeProfileImageAction, switchModeAction, takeBreakAction, updateAboutAction, uploadProfileImageAction } from "./actions";
 
 export const metadata = { title: "Profile and settings" };
@@ -26,7 +28,7 @@ export default async function SettingsPage() {
   const tc = (await cookies()).get("theme")?.value;
   const theme = tc === "light" || tc === "dark" ? tc : "system";
   const user = await requireUser();
-  const [p, session] = await Promise.all([profileFor(user.id), getSession()]);
+  const [p, session, myPref] = await Promise.all([profileFor(user.id), getSession(), getSearchPref(user.id).catch(() => null)]);
   const activeCompany = session?.companyId ?? null;
   const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
   const modes = [
@@ -87,6 +89,22 @@ export default async function SettingsPage() {
             </form>
           </details>
         ) : null}
+      </section>
+
+      <section className="card stack" id="my-search" aria-labelledby="mysearch-h">
+        <h2 id="mysearch-h">My search</h2>
+        <p className="small muted">Tell us once what you are looking for. Your home page shows the best matches first, reels start with homes that fit, and search is one tap away. Change or clear it any time.</p>
+        <form action={saveSearchPrefAction} className="stack">
+          <div className="fields">
+            <label className="field">Where<input name="city" maxLength={80} defaultValue={myPref?.city ?? ""} placeholder="City or area, e.g. Lekki" /></label>
+            <label className="field">Rent or buy<select name="purpose" defaultValue={myPref?.purpose ?? ""}><option value="">Either</option><option value="RENT">Rent</option><option value="SALE">Buy</option></select></label>
+            <label className="field">Budget (₦)<input name="maxPrice" inputMode="numeric" data-money defaultValue={myPref?.maxNaira ? String(Math.round(myPref.maxNaira)) : ""} placeholder="Most you want to pay" /></label>
+            <label className="field">Bedrooms, at least<input name="minBeds" inputMode="numeric" maxLength={2} defaultValue={myPref?.minBeds ?? ""} /></label>
+          </div>
+          <p className="small muted">For rent, the budget is for a year.</p>
+          <div className="row"><button className="btn primary" type="submit">Save my search</button></div>
+        </form>
+        {myPref ? <form action={clearSearchPrefAction}><button className="btn" type="submit">Clear my search</button></form> : null}
       </section>
 
       <section className="card stack" aria-labelledby="look-h">

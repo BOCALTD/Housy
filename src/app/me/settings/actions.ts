@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireUser, setActiveCompany } from "@/lib/auth";
 import { act, phoneFrom, str, withNotice } from "@/lib/forms";
+import { clearSearchPref, saveSearchPref } from "@/lib/services/search-prefs";
 import { becomeAgent, checkModeTarget, removeProfileImage, saveProfileImage, takeBreak, updateAbout, type BreakLength } from "@/lib/services/profile";
 
 const BACK = "/me/settings";
@@ -68,5 +69,22 @@ export async function takeBreakAction(form: FormData) {
     await takeBreak(u.id, str(form, "length") as BreakLength);
     (await cookies()).delete("sid");
     return withNotice("/", "Enjoy your break. Sign in whenever you are ready to come back.");
+  });
+}
+
+export async function saveSearchPrefAction(form: FormData) {
+  return act("/me/settings#my-search", async () => {
+    const u = await requireUser();
+    await saveSearchPref(u.id, { city: str(form, "city"), purpose: str(form, "purpose") as "" | "SALE" | "RENT", maxPrice: str(form, "maxPrice"), minBeds: str(form, "minBeds") });
+    revalidatePath("/");
+    return withNotice("/me/settings#my-search", "Saved. Your home page and reels now start from this search.");
+  });
+}
+
+export async function clearSearchPrefAction() {
+  return act("/me/settings#my-search", async () => {
+    const u = await requireUser();
+    await clearSearchPref(u.id);
+    return withNotice("/me/settings#my-search", "My search cleared.");
   });
 }

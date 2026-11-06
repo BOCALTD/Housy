@@ -2,7 +2,7 @@
 
 import { getSession } from "@/lib/auth";
 import { messageFor } from "@/lib/forms";
-import { addComment, commentsFor, discover, recordShare, reportTarget, toggleLike, toggleSave, type Tab } from "@/lib/services/reels";
+import { addComment, commentsFor, discover, recordShare, reportTarget, toggleLike, toggleSave, type ReelFilter, type Tab } from "@/lib/services/reels";
 import { follow, unfollow } from "@/lib/services/community";
 import { recordSignal } from "@/lib/services/signals";
 
@@ -18,9 +18,11 @@ async function run<T>(fn: (userId: string) => Promise<T>): Promise<Out<T>> {
   try { return { ok: true, ...(await fn(id)) } as Out<T>; } catch (e) { return { ok: false, error: messageFor(e) }; }
 }
 
-export async function morePage(tab: Tab, page: number) {
+export async function morePage(tab: Tab, page: number, filter: ReelFilter | null = null) {
   const viewerId = await who();
-  const f = await discover({ viewerId, tab: viewerId ? tab : "trending", page: Math.max(0, Math.min(200, Math.floor(page))) });
+  // The filter comes from the browser, so only its known parts are used.
+  const safe: ReelFilter | null = filter ? { city: typeof filter.city === "string" ? filter.city.slice(0, 80) : undefined, purpose: filter.purpose === "SALE" || filter.purpose === "RENT" ? filter.purpose : undefined, maxNaira: typeof filter.maxNaira === "number" && filter.maxNaira > 0 ? filter.maxNaira : undefined } : null;
+  const f = await discover({ viewerId, tab: viewerId ? tab : "trending", page: Math.max(0, Math.min(200, Math.floor(page))), filter: safe });
   return { rows: f.rows, pages: f.pages, page: f.page };
 }
 

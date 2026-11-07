@@ -7,10 +7,15 @@
 import { prisma } from "../src/lib/db";
 import { tuneNetwork } from "../src/lib/network";
 import { warmAllNearby } from "../src/lib/services/nearby";
+import { databaseReady } from "./db-ready";
 
 tuneNetwork();
-console.log("Looking up the areas of published properties that are not known yet. Each can take up to a minute…");
-warmAllNearby(process.env, { onEach: (cell, ok, left) => console.log(`${ok ? "✓" : "✗"} area ${cell}${ok ? "" : " (the map servers did not answer; it is tried again next time)"}${left ? ` · ${left} to go` : ""}`) })
+databaseReady()
+  .then((ready) => {
+    if (!ready) process.exit(1);
+    console.log("Looking up the areas of published properties that are not known yet. Each can take up to a minute…");
+    return warmAllNearby(process.env, { onEach: (cell, ok, left) => console.log(`${ok ? "✓" : "✗"} area ${cell}${ok ? "" : " (the map servers did not answer; it is tried again next time)"}${left ? ` · ${left} to go` : ""}`) });
+  })
   .then((r) => { console.log(r.looked ? `Done: ${r.ok} of ${r.looked} area${r.looked === 1 ? "" : "s"} found.` : "Every published property's area is already known."); process.exit(r.looked && !r.ok ? 1 : 0); })
   .catch((e) => { console.error(e instanceof Error ? e.message.split("\n").filter(Boolean).pop() : e); process.exit(1); })
   .finally(() => prisma.$disconnect());

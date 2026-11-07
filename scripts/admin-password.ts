@@ -11,6 +11,7 @@ import { prisma, withUser } from "../src/lib/db";
 import { hashPassword } from "../src/lib/auth-hash";
 import { endTemporaryLock } from "../src/lib/services/login-guard";
 import { notify } from "../src/lib/services/notifications";
+import { databaseReady } from "./db-ready";
 
 function ask(question: string, hidden: boolean): Promise<string> {
   return new Promise((resolve) => {
@@ -34,18 +35,6 @@ async function main() {
   await withUser(user.id, (tx) => notify(tx, user.id, { kind: "security.password_changed", title: "Your staff password was changed from the server",
     body: "Someone with access to the server set a new password for this administrator account and signed out every device. If this was not you, tell the platform owner now.", link: "/me/security" })).catch(() => {});
   console.log(`Done. Sign in at /auth/login as ${email}. ${ended.count} open session${ended.count === 1 ? "" : "s"} signed out.`);
-}
-
-/** On Ubuntu under Windows the database does not start by itself after a restart. Try to start it; say what to run if not. */
-async function databaseReady(): Promise<boolean> {
-  const up = () => prisma.$queryRaw`select 1`.then(() => true, () => false);
-  if (await up()) return true;
-  console.log("The database is not running. Starting it (your Ubuntu password may be asked for)…");
-  const { spawnSync } = await import("node:child_process");
-  spawnSync("sudo", ["service", "postgresql", "start"], { stdio: "inherit" });
-  for (let i = 0; i < 15; i++) { if (await up()) return true; await new Promise((r) => setTimeout(r, 1000)); }
-  console.error("The database still is not running. Start it with:  sudo service postgresql start  then run this again.");
-  return false;
 }
 
 databaseReady()

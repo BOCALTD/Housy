@@ -198,10 +198,15 @@
 .pm-btn.ghost { background: rgba(17, 18, 20, .35); }
 .pm.is-saving .pm-btn { opacity: .75; cursor: progress; }
 .profile-avatar-wrap { position: relative; flex: none; }
-.profile-avatar-wrap .pm { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); display: flex; gap: 6px; }
+.profile-avatar-wrap .pm { position: static; }
+.profile-avatar-wrap .pm-form { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); }
 .profile-avatar-wrap .pm-btn { min-height: 36px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
-.profile-avatar-wrap .pm-remove { display: none; }
-.pm-preview-avatar { position: absolute; left: 0; top: -104px; width: 104px; height: 104px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 5px var(--surface); }
+/* Remove the profile photo: a round × on the photo's corner (44px to tap); the initials come back. */
+.profile-avatar-wrap .pm-remove { position: absolute; top: -8px; right: -10px; }
+.pm-x { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; border: 3px solid var(--surface); background: #2A2C31; color: #fff; cursor: pointer; box-shadow: 0 6px 16px -6px rgba(0, 0, 0, .6); }
+.pm-x:focus-visible { outline: 3px solid #E3A93F; outline-offset: 2px; }
+@media (hover: hover) { .pm-x:hover { background: #B42318; } }
+.pm-preview-avatar { position: absolute; left: 0; top: 0; width: 104px; height: 104px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 5px var(--surface); }
 .profile-bio { margin: 8px 0 0; max-width: 60ch; }
 .profile-row { padding-bottom: 28px; }
 @media (max-width: 560px) { .profile-cover .pm { padding: 10px; } .pm-btn span { font-size: 13px; } }

@@ -264,6 +264,17 @@ async function main() {
     await s.locator(".rail-fold").click(); await s.waitForTimeout(600);
     const back = await railW();
     await record(s, "side menu folds", full > 200 && folded < 120 && kept < 120 && icons > 5 && back > 200, `full ${full}px, folded ${folded}px, after moving page ${kept}px with ${icons} icons, opened again ${back}px`);
+    // Profile photo: add one, then the round × on its corner removes it and the initials come back.
+    await s.goto(BASE + "/me/settings", { waitUntil: "load" }); await s.waitForTimeout(400);
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAUUlEQVR42u3PMQ0AMAgAMJgx9KILI1PBQdI6aE5XXPbiOAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAYF9H8XMAkvmWWjoAAAAAElFTkSuQmCC", "base64");
+    await s.locator(".pm-avatar .pm-file").setInputFiles({ name: "me.png", mimeType: "image/png", buffer: png });
+    const added = await s.locator(".profile-avatar img").waitFor({ timeout: 15000 }).then(() => true).catch(() => false);
+    const x = s.locator(".pm-x");
+    const xShown = added && await x.isVisible().catch(() => false);
+    const xSize = xShown ? await x.evaluate((el) => Math.round(Math.min(el.getBoundingClientRect().width, el.getBoundingClientRect().height))) : 0;
+    if (xShown) await x.click();
+    const gone = xShown && await s.waitForFunction(() => !document.querySelector(".profile-avatar img") && (document.querySelector(".profile-avatar")?.textContent ?? "").trim().length > 0, null, { timeout: 15000 }).then(() => true).catch(() => false);
+    await record(s, "remove profile photo", added && xShown && xSize >= 44 && gone, `photo added ${added}; remove button shown ${xShown} (${xSize}px); after tapping it the initials are back ${gone}`);
     await ctx.close();
   });
 

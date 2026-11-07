@@ -56,7 +56,19 @@ export function ProfileMedia({ kind, action, hasImage, remove, label }: {
         </button>
       </form>
       {hasImage && !pending ? (
-        <form action={remove} className="pm-remove"><input type="hidden" name="kind" value={kind} /><button type="submit" className="pm-btn ghost">Remove</button></form>
+        <form action={remove} className="pm-remove">
+          <input type="hidden" name="kind" value={kind} />
+          {kind === "avatar" ? (
+            <button type="submit" className="pm-x" aria-label="Remove profile photo" title="Remove photo">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+          ) : (
+            <button type="submit" className="pm-btn ghost" aria-label="Remove cover photo">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>
+              <span>Remove</span>
+            </button>
+          )}
+        </form>
       ) : null}
     </div>
   );

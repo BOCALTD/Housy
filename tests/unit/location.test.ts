@@ -29,7 +29,7 @@ test("radius search: only the allowed radii, and the box always contains the cir
 
 test("nearby places and landmarks: one cached lookup per square kilometre, classified and summarised nearest first", () => {
   assert.equal(nearbyCell({ lat: 6.44781, lng: 3.47372 }), "6.45,3.47");
-  assert.equal(nearbyCacheKey({ lat: 6.44781, lng: 3.47372 }), "v2:6.45,3.47");
+  assert.equal(nearbyCacheKey({ lat: 6.44781, lng: 3.47372 }), "6.45,3.47");
   const q = overpassQuery({ lat: 6.45, lng: 3.47 });
   assert.match(q, /^\[out:json\]\[timeout:25\];/);
   // One statement per kind and key, values as one pattern; everyday places reach 2 km past the cell slack, landmarks 5 km and need a name.

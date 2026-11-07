@@ -96,8 +96,8 @@ const CELL_SLACK_M = 800;
 
 /** The cache cell for a position: about a kilometre square, so neighbouring properties share one lookup. */
 export const nearbyCell = (p: LL) => `${(Math.round(p.lat * 100) / 100).toFixed(2)},${(Math.round(p.lng * 100) / 100).toFixed(2)}`;
-/** The cache key: the cell, with a version that changes whenever the kinds looked up change. */
-export const nearbyCacheKey = (p: LL) => `v2:${nearbyCell(p)}`;
+/** The cache key is the cell. When the kinds looked up change, a migration clears the cache so every area is looked up again. */
+export const nearbyCacheKey = (p: LL) => nearbyCell(p);
 
 const esc = (v: string) => v.replace(/[^a-z0-9_]/gi, "");
 /**

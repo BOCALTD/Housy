@@ -118,4 +118,9 @@ for p in $PAGES; do
   esac
 done
 echo "Opened $COUNT signed-in pages without errors"
+# The command people run on their own server to see whether nearby places work there must at least start and answer.
+NB_EXIT=0; NB=$(OVERPASS_URL=http://127.0.0.1:9/api/interpreter timeout 60 npx tsx scripts/check-nearby.ts 6.45,3.47 2>&1) || NB_EXIT=$?
+[ "$NB_EXIT" = "1" ] && echo "$NB" | grep -q "No map server answered" || fail "npm run check:nearby did not run: $(echo "$NB" | tail -3)"
+echo "ok: the nearby-places check runs"
 echo "Smoke test passed"
+

@@ -5,8 +5,10 @@
  * It asks exactly what the property page asks, names the site the same way, and prints what each server answered and
  * what was found. Nothing is saved.
  */
+import { tuneNetwork } from "../src/lib/network";
 import { nearbyCell, overpassFailed, overpassQuery, overpassServers, overpassUserAgent as userAgent, parseOverpass, summariseNearby } from "../src/lib/location-rules";
 
+tuneNetwork(); // the same connection settings as the server
 const arg = process.argv.slice(2).find((a) => /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(a));
 const [lat, lng] = (arg ?? "6.4474,3.4723").split(",").map(Number);
 const [clat, clng] = nearbyCell({ lat, lng }).split(",").map(Number);

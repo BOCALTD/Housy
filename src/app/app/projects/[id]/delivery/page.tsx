@@ -68,7 +68,7 @@ export default async function DeliveryPage({ params: paramsP, searchParams: sear
             <ShowMore noun="more parties" limit={5} items={d.parties.map((x) => (
               <li key={x.id}><div className="row between" style={{ width: "100%" }}>
                 <div><strong>{x.name}</strong> · {humanize(x.role)}<div className="small muted">{x.scope || "No scope recorded"}{x.email ? ` · ${x.email}` : ""}{x.phone ? ` · ${x.phone}` : ""}{x.appointedOn ? ` · from ${formatDate(x.appointedOn)}` : ""}{x.endedOn ? ` · ended ${formatDate(x.endedOn)}` : ""}</div></div>
-                {plan && open && !x.endedOn ? <form action={endPartyAction}>{hidden}<input type="hidden" name="partyId" value={x.id} /><button className="btn" type="submit">End</button></form> : null}
+                {plan && open && !x.endedOn ? <form action={endPartyAction}>{hidden}<input type="hidden" name="partyId" value={x.id} /><button className="btn" type="submit" data-confirm="End their part in the project?" data-confirm-ok="End" data-confirm-tone="default">End</button></form> : null}
               </div></li>
             ))} />
           )}

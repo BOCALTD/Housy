@@ -56,7 +56,7 @@ export default async function InventoryPage({ searchParams: searchP }: { searchP
                       <input type="hidden" name="adjustmentId" value={p.id} />
                       <input name="note" placeholder="Note (needed to reject)" aria-label="Note" style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)" }} />
                       <button className="btn primary" type="submit" name="decision" value="approve">Approve</button>
-                      <button className="btn" type="submit" name="decision" value="reject">Reject</button>
+                      <button className="btn" type="submit" name="decision" value="reject" data-confirm="Reject this?" data-confirm-body="The person is told." data-confirm-ok="Reject">Reject</button>
                     </form>
                   ) : approve ? <p className="small muted">Someone else must approve a request you made.</p> : null}
                 </div>

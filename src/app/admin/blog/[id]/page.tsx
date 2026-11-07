@@ -54,7 +54,7 @@ export default async function EditPost({ params, searchParams }: { params: Promi
           <section className="card stack">
             <h2>Remove</h2>
             {p.status === "PUBLISHED" ? <form action={unpublishAction}><input type="hidden" name="id" value={p.id} /><button className="btn" type="submit">Take off the blog (keep as draft)</button></form> : null}
-            <form action={deletePostAction} className="row"><input type="hidden" name="id" value={p.id} /><label className="check"><input type="checkbox" name="confirm" /> I want to delete this post for good</label><button className="btn danger" type="submit">Delete</button></form>
+            <form action={deletePostAction} className="row"><input type="hidden" name="id" value={p.id} /><label className="check"><input type="checkbox" name="confirm" /> I want to delete this post for good</label><button className="btn danger" type="submit" data-confirm="Delete this post for good?" data-confirm-body="It comes off the blog and cannot be brought back." data-confirm-ok="Delete post">Delete</button></form>
           </section>
         </>
       ) : null}

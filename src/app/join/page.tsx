@@ -4,6 +4,8 @@ import { visitorCountry } from "@/lib/countries";
 import { PhoneField } from "@/components/PhoneField";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { AuthShell } from "@/components/AuthShell";
+import { signedInAs } from "@/lib/session-label";
+import { SessionSwitch } from "@/components/SessionSwitch";
 import { NewPassword } from "@/components/PasswordInput";
 import { ACCOUNT_COPY, AccountTabs } from "@/components/AccountTabs";
 import { BUSINESS_TYPES, accountTypeOf } from "@/lib/account-type-rules";
@@ -18,6 +20,8 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
   const raw = sp(searchParams, "as");
   const next = safeLocalPath(sp(searchParams, "next") ?? "", "");
   const country = visitorCountry(await headers());
+  const me = await signedInAs();
+  const gate = me ? <SessionSwitch name={me.name} role={me.role} goingTo="create a new account" stayHref={me.home} /> : null;
   const signIn = (t: string) => `/login?as=${t}${next ? `&next=${encodeURIComponent(next)}` : ""}`;
 
   // First, choose the kind of account; each one asks only for what it needs.
@@ -26,6 +30,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
       <AuthShell eyebrow="Get started" title={`How will you use ${PLATFORM_NAME}?`} intro="Choose one. You can always look for property from any account."
         points={["Verified companies and agents", "Every inspection booked and tracked", "Rent, documents and deals in one place"]}
         foot={<span>Already have an account? <Link href={signIn("personal")}><strong>Sign in</strong></Link></span>}>
+        {gate}
         <AccountTabs current={null} base="/join" next={next} cards />
       </AuthShell>
     );
@@ -36,6 +41,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
   return (
     <AuthShell eyebrow="Create an account" title={copy.joinTitle} intro={copy.joinIntro} photo={copy.photo} points={copy.points}
       foot={<span>Already have an account? <Link href={signIn(as)}><strong>Sign in</strong></Link></span>}>
+      {gate}
       <AccountTabs current={as} base="/join" next={next} />
       <Flash searchParams={{ error: sp(searchParams, "error") }} />
       <form action={joinAction} className="card stack" key={as}>

@@ -46,7 +46,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
       <form action={action} className="stack">
         {hidden}<input type="hidden" name={idName} value={id} />
         <Field label="Note" hint="Required if you reject."><input name="note" /></Field>
-        <div className="row"><button className="btn primary" type="submit" name="decision" value="approve">Approve</button><button className="btn" type="submit" name="decision" value="reject">Reject</button></div>
+        <div className="row"><button className="btn primary" type="submit" name="decision" value="approve">Approve</button><button className="btn" type="submit" name="decision" value="reject" data-confirm="Reject this?" data-confirm-body="The person is told." data-confirm-ok="Reject">Reject</button></div>
       </form>
     )
   );
@@ -102,7 +102,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
               <button className="btn" type="submit">Save</button>
             </form>
           </details>
-          <details className="inline"><summary>Cancel the project</summary><form action={cancelAction} className="stack">{hidden}<Field label="Reason"><input name="reason" required /></Field><button className="btn" type="submit">Cancel project</button></form></details>
+          <details className="inline"><summary>Cancel the project</summary><form action={cancelAction} className="stack">{hidden}<Field label="Reason"><input name="reason" required /></Field><button className="btn" type="submit" data-confirm="Cancel this project?" data-confirm-body="Work on it stops and the team is told." data-confirm-ok="Cancel project">Cancel project</button></form></details>
         </section>
       ) : null}
 
@@ -167,7 +167,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                       <Field label="Description"><input name="description" defaultValue={w.description} /></Field>
                       <button className="btn" type="submit">Save</button>
                     </form>
-                    {p.budgetStatus === "DRAFT" ? <form action={removePackageAction} style={{ marginTop: 8 }}>{hidden}<input type="hidden" name="packageId" value={w.id} /><button className="btn" type="submit">Remove work package</button></form> : null}
+                    {p.budgetStatus === "DRAFT" ? <form action={removePackageAction} style={{ marginTop: 8 }}>{hidden}<input type="hidden" name="packageId" value={w.id} /><button className="btn" type="submit" data-confirm="Remove this work package?" data-confirm-body="It comes off the draft budget." data-confirm-ok="Remove">Remove work package</button></form> : null}
                   </details>
                 ) : null}
               </div></li>
@@ -204,7 +204,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                 <div className="row">
                   {m.achievedOn ? <Pill status="DONE" label="Achieved" /> : m.dueOn.getTime() < today.getTime() ? <Pill status="OVERDUE" label="Overdue" /> : <Pill status="OPEN" label="Open" />}
                   {plan && active && !m.achievedOn ? <form action={achieveMilestoneAction}>{hidden}<input type="hidden" name="milestoneId" value={m.id} /><button className="btn" type="submit">Achieved</button></form> : null}
-                  {plan && open && !m.achievedOn ? <form action={removeMilestoneAction}>{hidden}<input type="hidden" name="milestoneId" value={m.id} /><button className="btn" type="submit">Remove</button></form> : null}
+                  {plan && open && !m.achievedOn ? <form action={removeMilestoneAction}>{hidden}<input type="hidden" name="milestoneId" value={m.id} /><button className="btn" type="submit" data-confirm="Remove this milestone?" data-confirm-body="It comes off the project plan." data-confirm-ok="Remove">Remove</button></form> : null}
                 </div>
               </div></li>
             ))} />

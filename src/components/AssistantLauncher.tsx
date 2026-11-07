@@ -16,7 +16,7 @@ export function AssistantLauncher({ name, workspace, starters }: { name?: string
     return () => document.removeEventListener("keydown", k);
   }, [open]);
   // Not on pages that are already the assistant, a chat, or reels (which fill the screen).
-  if (/^\/(assistant|app\/assistant|messages|reels)(\/|$)/.test(path)) return null;
+  if (/^\/(assistant|app\/assistant|messages|reels|auth)(\/|$)/.test(path)) return null;
   return (
     <>
       <button type="button" className={`ai-fab${open ? " on" : ""}`} aria-expanded={open} aria-controls="ai-panel" onClick={() => setOpen((o) => !o)}>

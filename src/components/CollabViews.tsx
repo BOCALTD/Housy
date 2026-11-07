@@ -112,7 +112,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
               <fieldset><legend className="small muted">Who will work on this for your company (you are included if you choose no one)</legend>
                 <div className="row">{extras.colleagues.map((m) => <label key={m.userId} className="check"><input type="checkbox" name="person" value={m.userId} /><span>{m.name}</span></label>)}</div></fieldset>
             ) : null}
-            <div className="row"><button className="btn primary" type="submit" name="decision" value="accept">Accept</button><button className="btn" type="submit" name="decision" value="decline">Decline</button></div>
+            <div className="row"><button className="btn primary" type="submit" name="decision" value="accept">Accept</button><button className="btn" type="submit" name="decision" value="decline" data-confirm="Decline this?" data-confirm-body="The person is told." data-confirm-ok="Decline" data-confirm-tone="default">Decline</button></div>
           </form></section>
       ) : null}
 
@@ -122,7 +122,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
           <div className="row">
             {c.status === "DRAFT" ? <form action={sendAction}>{id}<button className="btn primary" type="submit">Send invitation</button></form> : null}
             <details className="inline"><summary>Cancel the invitation</summary>
-              <form action={cancelAction} className="stack">{id}<Field label="Reason (optional)"><input name="reason" maxLength={500} /></Field><button className="btn" type="submit">Cancel invitation</button></form></details>
+              <form action={cancelAction} className="stack">{id}<Field label="Reason (optional)"><input name="reason" maxLength={500} /></Field><button className="btn" type="submit" data-confirm="Cancel the invitation?" data-confirm-body="They can no longer accept it." data-confirm-ok="Cancel invitation">Cancel invitation</button></form></details>
           </div></section>
       ) : null}
 
@@ -226,10 +226,10 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
             {!p.revokedAt && company && (w.side === p.side ? (p.side === "SENDER" ? canSender : canRecipient) : false) ? (
               <details className="inline"><summary>Change access</summary>
                 <form action={updateParticipantAction} className="stack">{id}{hidden("participantId", p.id)}<PermBoxes p={p} /><Field label="Access ends on (optional)"><input name="expiresOn" type="date" /></Field><button className="btn" type="submit">Save</button></form>
-                <form action={revokeParticipantAction} className="row">{id}{hidden("participantId", p.id)}<input name="reason" placeholder="Why" required minLength={3} aria-label="Why" /><button className="btn" type="submit">Remove access</button></form></details>
+                <form action={revokeParticipantAction} className="row">{id}{hidden("participantId", p.id)}<input name="reason" placeholder="Why" required minLength={3} aria-label="Why" /><button className="btn" type="submit" data-confirm="Remove their access to the workspace?" data-confirm-body="They can no longer see anything in it." data-confirm-ok="Remove access">Remove access</button></form></details>
             ) : null}
             {!p.revokedAt && p.userId === w.me?.userId && !(company && mySideSpeaks) ? (
-              <details className="inline"><summary>Leave</summary><form action={revokeParticipantAction} className="row">{id}{hidden("participantId", p.id)}<input name="reason" placeholder="Why" required minLength={3} aria-label="Why" /><button className="btn" type="submit">Leave</button></form></details>
+              <details className="inline"><summary>Leave</summary><form action={revokeParticipantAction} className="row">{id}{hidden("participantId", p.id)}<input name="reason" placeholder="Why" required minLength={3} aria-label="Why" /><button className="btn" type="submit" data-confirm="Leave this workspace?" data-confirm-body="You will no longer see anything in it." data-confirm-ok="Leave">Leave</button></form></details>
             ) : null}
           </div></li>))} />
         {company && mySideSpeaks && open ? (
@@ -245,7 +245,7 @@ export function CollabWorkspaceView({ w, extras, base }: { w: Workspace; extras:
           <div className="row">
             {open ? (
               <details className="inline"><summary>Suspend for now</summary>
-                <form action={suspendAction} className="stack">{id}<Field label="Reason"><input name="reason" required minLength={3} maxLength={500} /></Field><button className="btn" type="submit">Suspend</button></form></details>
+                <form action={suspendAction} className="stack">{id}<Field label="Reason"><input name="reason" required minLength={3} maxLength={500} /></Field><button className="btn" type="submit" data-confirm="Suspend this workspace?" data-confirm-body="Nobody can add to it until it is resumed." data-confirm-ok="Suspend">Suspend</button></form></details>
             ) : null}
             {suspendedByMe ? <form action={resumeAction}>{id}<button className="btn" type="submit">Resume</button></form> : null}
             <details className="inline"><summary>Finish the collaboration</summary>

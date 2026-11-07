@@ -31,7 +31,7 @@ export function CalendarFeed({ since }: { since: string | null }) {
       <p className="small muted">{active ? `Your calendar link has been on since ${since}. Making a new one stops the old one working.` : "Your phone or computer calendar can show your inspections and update itself when a time changes or an inspection is cancelled."}</p>
       <div className="row">
         <form action={make}><button className="btn primary" type="submit" disabled={making}>{active ? "Make a new link" : "Turn on calendar link"}</button></form>
-        {active ? <form action={remove}><button className="btn" type="submit" disabled={removing}>Turn off</button></form> : null}
+        {active ? <form action={remove}><button className="btn" type="submit" disabled={removing} data-confirm="Turn off the calendar feed?" data-confirm-body="Calendars that use the link stop updating." data-confirm-ok="Turn off" data-confirm-tone="default">Turn off</button></form> : null}
       </div>
     </div>
   );

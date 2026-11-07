@@ -26,7 +26,7 @@ export default async function SecurityPage({ searchParams: searchP }: { searchPa
             <p>On. You are asked for a code from your authenticator app when you sign in. Recovery codes left: <strong>{st.recoveryLeft}</strong>.</p>
             <form action={disableMfaAction} className="stack">
               <Field label="Your password, to turn it off"><input name="password" type="password" required autoComplete="current-password" /></Field>
-              <button className="btn" type="submit">Turn off two-step sign-in</button>
+              <button className="btn" type="submit" data-confirm="Turn off two-step sign-in?" data-confirm-body="Your account will be easier to break into." data-confirm-ok="Turn it off">Turn off two-step sign-in</button>
             </form>
           </>
         ) : secret ? (
@@ -54,7 +54,7 @@ export default async function SecurityPage({ searchParams: searchP }: { searchPa
       <section className="card stack">
         <h2>Devices</h2>
         <p className="muted">Signed in somewhere you do not trust? Sign out of every other device.</p>
-        <form action={signOutOthersAction}><button className="btn" type="submit">Sign out other devices</button></form>
+        <form action={signOutOthersAction}><button className="btn" type="submit" data-confirm="Sign out every other device?" data-confirm-body="Phones and computers signed in to this account will have to sign in again. This one stays signed in." data-confirm-ok="Sign out other devices" data-confirm-tone="default">Sign out other devices</button></form>
       </section>
     </div>
   );

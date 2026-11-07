@@ -163,6 +163,15 @@ export async function adminLoginAction(form: FormData) {
   });
 }
 
+/**
+ * Leave the current session without going anywhere: the switch screen calls this, shows that the person has been signed
+ * out, and then opens the next sign-in itself.
+ */
+export async function leaveSessionAction(): Promise<{ ok: true }> {
+  await destroySession();
+  return { ok: true };
+}
+
 export async function logoutAction() {
   return act("/", async () => {
     await destroySession();

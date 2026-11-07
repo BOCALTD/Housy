@@ -50,9 +50,9 @@ export default async function AdminAdsPage({ searchParams: searchP }: { searchPa
                 ) : null}
                 {c.status === "APPROVED" || c.status === "PAUSED" ? (
                   <details className="inline"><summary>Suspend</summary>
-                    <form action={suspendAdAction} className="stack"><input type="hidden" name="id" value={c.id} /><input type="hidden" name="status" value={q.status} /><Field label="Reason"><input name="reason" required minLength={5} maxLength={300} /></Field><button className="btn" type="submit">Suspend</button></form></details>
+                    <form action={suspendAdAction} className="stack"><input type="hidden" name="id" value={c.id} /><input type="hidden" name="status" value={q.status} /><Field label="Reason"><input name="reason" required minLength={5} maxLength={300} /></Field><button className="btn" type="submit" data-confirm="Suspend this campaign?" data-confirm-body="It stops showing straight away and the advertiser is told." data-confirm-ok="Suspend">Suspend</button></form></details>
                 ) : null}
-                {c.status === "SUSPENDED" && c.suspendedBy === "ADMIN" ? <form action={liftAdAction}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="status" value={q.status} /><button className="btn" type="submit">Lift suspension</button></form> : null}
+                {c.status === "SUSPENDED" && c.suspendedBy === "ADMIN" ? <form action={liftAdAction}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="status" value={q.status} /><button className="btn" type="submit" data-confirm="Lift the suspension?" data-confirm-body="It starts showing again." data-confirm-ok="Lift it" data-confirm-tone="default">Lift suspension</button></form> : null}
                 <Link className="btn" href={`/admin/ads/${c.ref}`}>Results</Link>
               </div>
             </div>

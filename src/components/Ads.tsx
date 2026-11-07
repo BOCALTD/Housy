@@ -126,8 +126,8 @@ export async function AdDetail({ payer, from, r }: { payer: Payer; from: "me" | 
             {editable ? <form action={submitCampaignAction}>{hidden}<button className="btn primary" type="submit">Send for review</button></form> : null}
             {c.status === "APPROVED" ? <form action={pauseCampaignAction}>{hidden}<button className="btn" type="submit">Pause</button></form> : null}
             {c.status === "PAUSED" ? <form action={resumeCampaignAction}>{hidden}<button className="btn" type="submit">Resume</button></form> : null}
-            {c.status === "APPROVED" || c.status === "PAUSED" || c.status === "SUSPENDED" ? <details className="inline"><summary>End campaign</summary><form action={endCampaignAction} className="stack">{hidden}<p className="small muted">This cannot be undone. Budget not spent stays yours and can be refunded.</p><button className="btn" type="submit">End it</button></form></details> : null}
-            {editable && c.fundedKobo === 0n ? <details className="inline"><summary>Delete</summary><form action={deleteCampaignAction} className="stack">{hidden}<button className="btn" type="submit">Delete campaign</button></form></details> : null}
+            {c.status === "APPROVED" || c.status === "PAUSED" || c.status === "SUSPENDED" ? <details className="inline"><summary>End campaign</summary><form action={endCampaignAction} className="stack">{hidden}<p className="small muted">This cannot be undone. Budget not spent stays yours and can be refunded.</p><button className="btn" type="submit" data-confirm="End this campaign?" data-confirm-body="It stops showing straight away. Money not spent is kept for you." data-confirm-ok="End campaign">End it</button></form></details> : null}
+            {editable && c.fundedKobo === 0n ? <details className="inline"><summary>Delete</summary><form action={deleteCampaignAction} className="stack">{hidden}<button className="btn" type="submit" data-confirm="Delete this campaign?" data-confirm-body="It cannot be brought back." data-confirm-ok="Delete">Delete campaign</button></form></details> : null}
           </div>
         ) : null}
         {editable && mayAct ? (

@@ -24,7 +24,7 @@ export default async function AdminCollaborationsPage({ searchParams: searchP }:
             {c.status === "SUSPENDED" && c.suspendedBy === "PLATFORM" ? <form action={platformResumeAction}><input type="hidden" name="id" value={c.id} /><button className="btn" type="submit">Resume</button></form> : null}
             {c.status === "ACTIVE" ? (
               <details className="inline"><summary>Suspend</summary>
-                <form action={platformSuspendAction} className="row"><input type="hidden" name="id" value={c.id} /><input name="reason" required minLength={3} placeholder="Reason" aria-label="Reason" /><button className="btn" type="submit">Suspend</button></form></details>
+                <form action={platformSuspendAction} className="row"><input type="hidden" name="id" value={c.id} /><input name="reason" required minLength={3} placeholder="Reason" aria-label="Reason" /><button className="btn" type="submit" data-confirm="Suspend this workspace?" data-confirm-body="Both sides are told, and nobody can add to it until it is resumed." data-confirm-ok="Suspend">Suspend</button></form></details>
             ) : null}
           </div></li>))} />
       )}</section>

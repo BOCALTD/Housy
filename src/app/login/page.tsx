@@ -7,6 +7,8 @@ import { ACCOUNT_COPY, AccountTabs } from "@/components/AccountTabs";
 import { accountTypeOf } from "@/lib/account-type-rules";
 import { safeLocalPath } from "@/lib/security";
 import { loginAction } from "../auth-actions";
+import { signedInAs } from "@/lib/session-label";
+import { SessionSwitch } from "@/components/SessionSwitch";
 
 export const metadata = { title: "Sign in" };
 
@@ -16,11 +18,13 @@ export default async function LoginPage({ searchParams: searchP }: { searchParam
   const next = safeLocalPath(sp(searchParams, "next") ?? "", "");
   const copy = ACCOUNT_COPY[as];
   const joinHref = `/join?as=${as}${next ? `&next=${encodeURIComponent(next)}` : ""}`;
+  const me = await signedInAs();
   return (
     <AuthShell
       eyebrow="Welcome back" title="Sign in" intro={copy.signInIntro} photo={copy.photo} points={copy.points}
       foot={<><span>New here? <Link href={joinHref}><strong>Create {as === "personal" ? "a free account" : as === "agent" ? "an agent account" : "a company account"}</strong></Link></span><span><Link href="/forgot">Forgot your password?</Link></span></>}
     >
+      {me ? <SessionSwitch name={me.name} role={me.role} goingTo="sign in with another account" stayHref={me.home} /> : null}
       <AccountTabs current={as} base="/login" next={next} />
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       {/* Nothing here is filled in or kept by the browser: each sign-in starts with empty boxes. */}

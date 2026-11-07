@@ -159,7 +159,7 @@ export default async function AdminPage({ searchParams: searchP }: { searchParam
                   <form key={m.id} action={removeProviderMemberAction} className="row between">
                     <input type="hidden" name="id" value={m.id} />
                     <span>{m.user?.name ?? "Unknown"} <span className="small muted">{m.user?.email}</span></span>
-                    <button className="btn danger" type="submit">Remove</button>
+                    <button className="btn danger" type="submit" data-confirm="Remove this person from the provider?" data-confirm-body="They lose access to the provider&#x27;s checks straight away." data-confirm-ok="Remove">Remove</button>
                   </form>
                 ))}
                 <form action={addProviderMemberAction} className="row">

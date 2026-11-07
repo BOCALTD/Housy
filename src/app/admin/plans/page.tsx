@@ -73,7 +73,7 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
               <div className="row between"><div><strong>{s.ownerName}</strong> <span className="small muted">{s.plan.name} · until {formatDate(s.periodEnd)}</span></div><Pill status={stateTone(s.state)} label={humanize(s.state)} /></div>
               <details className="inline"><summary>Renew or cancel</summary>
                 <form action={renewAction} className="row"><input type="hidden" name="subscriptionId" value={s.id} /><Field label="New end date"><input name="periodEnd" type="date" required /></Field><Field label="Note"><input name="note" /></Field><button className="btn" type="submit">Renew</button></form>
-                {s.status === "CANCELLED" ? null : <form action={cancelAction} className="row"><input type="hidden" name="subscriptionId" value={s.id} /><Field label="Reason"><input name="note" /></Field><button className="btn" type="submit">Cancel at end of period</button></form>}
+                {s.status === "CANCELLED" ? null : <form action={cancelAction} className="row"><input type="hidden" name="subscriptionId" value={s.id} /><Field label="Reason"><input name="note" /></Field><button className="btn" type="submit" data-confirm="Cancel at the end of the period?" data-confirm-body="The plan stays active until then." data-confirm-ok="Cancel plan" data-confirm-tone="default">Cancel at end of period</button></form>}
               </details>
             </div></li>))} />
         )}

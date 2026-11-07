@@ -39,7 +39,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
             <li key={r.id} className="card stack">
               <div className="fm-card-top"><MatchBadge score={r.score} /><div className="stack" style={{ gap: 2 }}><Link className="tap" href={`/flatmates/p/${r.other}`}><strong>{r.name}</strong></Link><span className="small muted">{formatDate(r.createdAt)}</span></div></div>
               {r.note ? <p className="small">&ldquo;{r.note}&rdquo;</p> : null}
-              <form action={answerAction} className="row"><input type="hidden" name="id" value={r.id} /><button className="btn primary" name="decision" value="accept" type="submit">Accept and open a chat room</button><button className="btn" name="decision" value="decline" type="submit">Decline</button></form>
+              <form action={answerAction} className="row"><input type="hidden" name="id" value={r.id} /><button className="btn primary" name="decision" value="accept" type="submit">Accept and open a chat room</button><button className="btn" name="decision" value="decline" type="submit" data-confirm="Decline this?" data-confirm-body="The person is told." data-confirm-ok="Decline" data-confirm-tone="default">Decline</button></form>
             </li>
           ))} />
         )}
@@ -52,7 +52,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
               <div className="row between"><span><strong>{r.name}</strong><span className="small muted"> · {r.score}%, {band(r.score).label} · matched {r.decidedAt ? formatDate(r.decidedAt) : ""}</span></span></div>
               <div className="row">
                 {r.conversationId ? <Link className="btn" href={`/messages/${r.conversationId}`}>Chat room</Link> : null}
-                <details className="inline"><summary>End this match</summary><form action={endMatchAction} className="stack"><input type="hidden" name="id" value={r.id} /><p className="small muted">You leave the chat rooms you share, and neither of you can add the other to a room again.</p><button className="btn danger" type="submit">End match</button></form></details>
+                <details className="inline"><summary>End this match</summary><form action={endMatchAction} className="stack"><input type="hidden" name="id" value={r.id} /><p className="small muted">You leave the chat rooms you share, and neither of you can add the other to a room again.</p><button className="btn danger" type="submit" data-confirm="End this match?" data-confirm-body="You will no longer be able to message each other." data-confirm-ok="End match">End match</button></form></details>
               </div>
             </li>
           ))} />
@@ -62,7 +62,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
       {a.outgoing.length ? (
         <details className="card inline"><summary>Requests you sent, waiting for an answer ({a.outgoing.length})</summary>
           <CardMore limit={6} noun="more" items={a.outgoing.map((r) => (
-            <li key={r.id} className="row between"><span><Link className="tap" href={`/flatmates/p/${r.other}`}>{r.name}</Link><span className="small muted"> · {r.score}% · {formatDate(r.createdAt)}</span></span><form action={withdrawAction}><input type="hidden" name="id" value={r.id} /><button className="btn" type="submit">Withdraw</button></form></li>
+            <li key={r.id} className="row between"><span><Link className="tap" href={`/flatmates/p/${r.other}`}>{r.name}</Link><span className="small muted"> · {r.score}% · {formatDate(r.createdAt)}</span></span><form action={withdrawAction}><input type="hidden" name="id" value={r.id} /><button className="btn" type="submit" data-confirm="Withdraw your request?" data-confirm-ok="Withdraw" data-confirm-tone="default">Withdraw</button></form></li>
           ))} />
         </details>
       ) : null}

@@ -34,7 +34,7 @@ export default async function ApiKeysPage({ searchParams: searchP }: { searchPar
                 <td className="small">{parseScopes(k.scopes).join(", ")}</td>
                 <td><Pill status={state === "ok" ? "ACTIVE" : "SUSPENDED"} label={state === "ok" ? `Active until ${k.expiresAt ? formatDate(k.expiresAt) : "revoked"}` : state === "revoked" ? "Revoked" : "Expired"} /></td>
                 <td className="small">{k.lastUsedAt ? formatDateTime(k.lastUsedAt) : "Never"}</td>
-                <td>{state === "ok" ? <form action={revokeApiKeyAction}><input type="hidden" name="id" value={k.id} /><button className="btn small danger" type="submit">Revoke</button></form> : null}</td>
+                <td>{state === "ok" ? <form action={revokeApiKeyAction}><input type="hidden" name="id" value={k.id} /><button className="btn small danger" type="submit" data-confirm="Revoke this key?" data-confirm-body="Anything using it stops working straight away. This cannot be undone." data-confirm-ok="Revoke key">Revoke</button></form> : null}</td>
               </tr>
             );
           })} />

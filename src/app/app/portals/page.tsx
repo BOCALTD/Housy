@@ -60,7 +60,7 @@ export default async function PortalsPage({ searchParams }: { searchParams?: Pro
       {g.status !== "REVOKED" ? (
         <div className="row">
           {g.status === "INVITED" ? <ReissueForm id={g.id} who={g.displayName} /> : null}
-          <form action={revokeAction}><input type="hidden" name="id" value={g.id} /><button className="btn danger" type="submit">Remove access</button></form>
+          <form action={revokeAction}><input type="hidden" name="id" value={g.id} /><button className="btn danger" type="submit" data-confirm="Remove their access?" data-confirm-body="They can no longer see this portal." data-confirm-ok="Remove access">Remove access</button></form>
         </div>
       ) : <p className="small muted">Removed {g.revokedAt ? formatDate(g.revokedAt) : ""}</p>}
     </li>

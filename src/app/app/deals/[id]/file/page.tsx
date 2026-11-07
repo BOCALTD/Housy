@@ -146,7 +146,7 @@ export default async function DealFilePage({ params: paramsP, searchParams: sear
               {c.status === "SUBMITTED" && approve && c.submittedById !== member.userId && !c.splits.some((x) => x.membershipId === member.membershipId) && deal.ownerId !== member.membershipId ? (
                 <details className="inline"><summary>Decide</summary>
                   <form action={decideAction} className="stack">{hid}<Field label="Note (needed to reject)"><input name="note" /></Field>
-                    <div className="row"><button className="btn primary" name="decision" value="approve" type="submit">Approve</button><button className="btn" name="decision" value="reject" type="submit">Reject</button></div></form></details>
+                    <div className="row"><button className="btn primary" name="decision" value="approve" type="submit">Approve</button><button className="btn" name="decision" value="reject" type="submit" data-confirm="Reject this?" data-confirm-body="The person is told." data-confirm-ok="Reject">Reject</button></div></form></details>
               ) : null}
               {["SUBMITTED", "APPROVED"].includes(c.status) && (approve || (manage && c.submittedById === member.userId)) && !c.splits.some((x) => x.paidAt) ? (
                 <details className="inline"><summary>Cancel the commission</summary><form action={cancelAction} className="stack">{hid}<Field label="Reason"><input name="reason" required /></Field><button className="btn" type="submit">Cancel</button></form></details>

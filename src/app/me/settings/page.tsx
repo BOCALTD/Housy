@@ -3,7 +3,7 @@ import { PhoneField } from "@/components/PhoneField";
 import { getSession, requireUser } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 import { profileFor } from "@/lib/services/profile";
-import { logoutAction } from "@/app/auth-actions";
+import { SignOutButton } from "@/components/SessionSwitch";
 import { Icon } from "@/components/Icons";
 import { ProfileMedia } from "@/components/ProfileMedia";
 import { ThemeChoice } from "@/components/ThemeSwitch";
@@ -104,7 +104,7 @@ export default async function SettingsPage() {
           <p className="small muted">For rent, the budget is for a year.</p>
           <div className="row"><button className="btn primary" type="submit">Save my search</button></div>
         </form>
-        {myPref ? <form action={clearSearchPrefAction}><button className="btn" type="submit">Clear my search</button></form> : null}
+        {myPref ? <form action={clearSearchPrefAction}><button className="btn" type="submit" data-confirm="Clear your search?" data-confirm-body="Best matches stop until you set it again." data-confirm-ok="Clear" data-confirm-tone="default">Clear my search</button></form> : null}
       </section>
 
       <section className="card stack" aria-labelledby="look-h">
@@ -141,7 +141,7 @@ export default async function SettingsPage() {
           <div className="leave-card">
             <h3>Sign out</h3>
             <p className="muted small">Sign out on this device. Everything stays in your account.</p>
-            <form action={logoutAction}><button className="btn" type="submit">Sign out</button></form>
+            <SignOutButton name={user.name} />
           </div>
           <details className="leave-card">
             <summary><h3>Take a break</h3><span className="muted small">Hide your profile and pause emails. Signing in again ends the break.</span></summary>

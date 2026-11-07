@@ -165,7 +165,7 @@ export default async function CorrespondenceDetail({ params: paramsP, searchPara
                     {base("close")}
                     {owesResponse ? <p className="small muted">A response is still due. Closing records that it was handled another way.</p> : null}
                     <Field label="How it was resolved" hint="Closure evidence, for example: no response needed, settled by phone on 12 Oct."><textarea name="note" rows={2} required /></Field>
-                    <div className="row"><button className="btn danger" type="submit">Close</button></div>
+                    <div className="row"><button className="btn danger" type="submit" data-confirm="Close this record?" data-confirm-body="No more actions can be added to it." data-confirm-ok="Close record">Close</button></div>
                   </form>
                 </details>
               ) : null}

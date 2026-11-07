@@ -31,7 +31,7 @@ export default async function AdminReelsPage({ searchParams: searchP }: { search
                   <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                     <button className="btn primary" name="action" value="publish" type="submit">Publish</button>
                     <button className="btn" name="action" value="hide" type="submit">Send back</button>
-                    <button className="btn" name="action" value="remove" type="submit">Remove</button>
+                    <button className="btn" name="action" value="remove" type="submit" data-confirm="Remove this reel?" data-confirm-body="It comes off the site and the poster is told." data-confirm-ok="Remove reel">Remove</button>
                   </div>
                 </form>
               </div>
@@ -50,7 +50,7 @@ export default async function AdminReelsPage({ searchParams: searchP }: { search
                 <p className="small"><Link href={`/reels/${g.reelId}`}>Open the reel</Link></p>
                 <form action={decideReportsAction} className="stack"><input type="hidden" name="id" value={g.targetId} /><input type="hidden" name="kind" value={g.kind} />
                   <Field label="Reason for your decision"><input name="note" required minLength={3} maxLength={300} /></Field>
-                  <div className="row" style={{ gap: 8 }}><button className="btn primary" name="decision" value="uphold" type="submit">Remove it</button><button className="btn" name="decision" value="dismiss" type="submit">Dismiss reports</button></div>
+                  <div className="row" style={{ gap: 8 }}><button className="btn primary" name="decision" value="uphold" type="submit" data-confirm="Remove this reel?" data-confirm-body="It comes off the site and the poster is told." data-confirm-ok="Remove">Remove it</button><button className="btn" name="decision" value="dismiss" type="submit">Dismiss reports</button></div>
                 </form>
               </div>
             </li>))} />

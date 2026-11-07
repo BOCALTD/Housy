@@ -70,7 +70,7 @@ export default async function KycAdmin({ searchParams: searchP }: { searchParams
               {r.status === "VERIFIED" ? (
                 <details className="inline"><summary>Revoke</summary>
                   <form action={decideKycAction} className="stack"><input type="hidden" name="id" value={r.id} /><input type="hidden" name="decision" value="revoke" />
-                    <label className="field">Why<input name="note" required minLength={5} maxLength={1000} /></label><button className="btn danger" type="submit">Revoke this check</button></form>
+                    <label className="field">Why<input name="note" required minLength={5} maxLength={1000} /></label><button className="btn danger" type="submit" data-confirm="Revoke this check?" data-confirm-body="The badge comes off the account straight away." data-confirm-ok="Revoke">Revoke this check</button></form>
                 </details>
               ) : null}
             </li>

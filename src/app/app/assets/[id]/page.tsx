@@ -326,7 +326,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                           <span className="small">{ph.kind === "FLOOR_PLAN" ? <strong>Floor plan</strong> : n === 0 ? <strong>Cover</strong> : `Picture ${n + 1}`}{ph.caption ? ` · ${ph.caption}` : ""}</span>
                           <span className="row">
                             {n > 0 && ph.kind !== "FLOOR_PLAN" ? <form action={makeCoverPhotoAction}>{hidden}<input type="hidden" name="photoId" value={ph.id} /><button className="btn small" type="submit">Make cover</button></form> : null}
-                            <form action={removeListingPhotoAction}>{hidden}<input type="hidden" name="photoId" value={ph.id} /><button className="btn small danger" type="submit">Remove</button></form>
+                            <form action={removeListingPhotoAction}>{hidden}<input type="hidden" name="photoId" value={ph.id} /><button className="btn small danger" type="submit" data-confirm="Remove this picture?" data-confirm-body="It comes off the listing straight away." data-confirm-ok="Remove picture">Remove</button></form>
                           </span>
                         </li>
                       ))}
@@ -353,7 +353,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                       <form action={listingStatusAction}>{hidden}<input type="hidden" name="to" value="PENDING_REVIEW" /><button className="btn primary small" type="submit">Submit for review</button></form>
                     ) : null}
                     {listing.status === "PENDING_REVIEW" ? (
-                      <form action={listingStatusAction}>{hidden}<input type="hidden" name="to" value="DRAFT" /><button className="btn small" type="submit">Withdraw from review</button></form>
+                      <form action={listingStatusAction}>{hidden}<input type="hidden" name="to" value="DRAFT" /><button className="btn small" type="submit" data-confirm="Withdraw this listing from review?" data-confirm-body="It goes back to a draft and is not checked until you send it again." data-confirm-ok="Withdraw" data-confirm-tone="default">Withdraw from review</button></form>
                     ) : null}
                     {listing.status === "PUBLISHED" ? (
                       <form action={listingStatusAction}>{hidden}<input type="hidden" name="to" value="UNAVAILABLE" /><button className="btn small" type="submit">Mark unavailable</button></form>
@@ -486,7 +486,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                     <button className="btn" type="submit">Save position</button>
                   </form>
                 </details>
-                {asset.lat !== null ? <form action={setPositionAction}>{hidden}<input type="hidden" name="clear" value="1" /><input type="hidden" name="lat" value="" /><input type="hidden" name="lng" value="" /><button className="btn small" type="submit">Clear position</button></form> : null}
+                {asset.lat !== null ? <form action={setPositionAction}>{hidden}<input type="hidden" name="clear" value="1" /><input type="hidden" name="lat" value="" /><input type="hidden" name="lng" value="" /><button className="btn small" type="submit" data-confirm="Clear the map position?" data-confirm-body="The property no longer shows on the map until you set it again." data-confirm-ok="Clear">Clear position</button></form> : null}
               </details>
             </section>
           ) : null}
@@ -504,7 +504,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                   <label className="check"><input type="checkbox" name="public" value="yes" defaultChecked={asset.boundaryPublic} /> Show this outline on the public listing. It shows the exact site, so use it for estates, developments and land, not for occupied homes.</label>
                   <button className="btn primary" type="submit">Save outline</button>
                 </form>
-                {Array.isArray(asset.boundary) ? <form action={setBoundaryAction}>{hidden}<input type="hidden" name="clear" value="1" /><button className="btn small" type="submit">Remove the outline</button></form> : null}
+                {Array.isArray(asset.boundary) ? <form action={setBoundaryAction}>{hidden}<input type="hidden" name="clear" value="1" /><button className="btn small" type="submit" data-confirm="Remove the site outline?" data-confirm-body="It no longer shows on the map." data-confirm-ok="Remove">Remove the outline</button></form> : null}
               </details>
             </section>
           ) : null}

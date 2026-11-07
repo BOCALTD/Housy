@@ -50,7 +50,7 @@ export default async function NotificationSettingsPage({ searchParams: searchP }
               {devices.map((d) => (
                 <li key={d.id} className="row between">
                   <span>{d.label || "Device"}<span className="small muted"> · added {formatDate(d.createdAt)}{d.lastSuccessAt ? ` · last delivered ${formatDate(d.lastSuccessAt)}` : ""}</span></span>
-                  <form action={removeDeviceFormAction}><input type="hidden" name="id" value={d.id} /><button className="btn" type="submit">Remove</button></form>
+                  <form action={removeDeviceFormAction}><input type="hidden" name="id" value={d.id} /><button className="btn" type="submit" data-confirm="Remove this device?" data-confirm-body="It stops getting notifications from Housy." data-confirm-ok="Remove">Remove</button></form>
                 </li>
               ))}
             </ul>

@@ -272,9 +272,20 @@ async function main() {
     const x = s.locator(".pm-x");
     const xShown = added && await x.isVisible().catch(() => false);
     const xSize = xShown ? await x.evaluate((el) => Math.round(Math.min(el.getBoundingClientRect().width, el.getBoundingClientRect().height))) : 0;
-    if (xShown) await x.click();
-    const gone = xShown && await s.waitForFunction(() => !document.querySelector(".profile-avatar img") && (document.querySelector(".profile-avatar")?.textContent ?? "").trim().length > 0, null, { timeout: 15000 }).then(() => true).catch(() => false);
-    await record(s, "remove profile photo", added && xShown && xSize >= 44 && gone, `photo added ${added}; remove button shown ${xShown} (${xSize}px); after tapping it the initials are back ${gone}`);
+    // Removing asks first: cancelling keeps the photo; confirming removes it.
+    let asked = false, keptOnCancel = false;
+    if (xShown) {
+      await x.click();
+      const dlg = s.locator("dialog.cfm[open]");
+      asked = await dlg.waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
+      if (asked) {
+        await dlg.locator(".cfm-cancel").click(); await s.waitForTimeout(800);
+        keptOnCancel = (await s.locator(".profile-avatar img").count()) > 0 && !(await s.locator("dialog.cfm[open]").count());
+        await x.click(); await s.locator("dialog.cfm[open] .cfm-ok").click();
+      }
+    }
+    const gone = xShown && asked && await s.waitForFunction(() => !document.querySelector(".profile-avatar img") && (document.querySelector(".profile-avatar")?.textContent ?? "").trim().length > 0, null, { timeout: 15000 }).then(() => true).catch(() => false);
+    await record(s, "remove profile photo", added && xShown && xSize >= 44 && asked && keptOnCancel && gone, `photo added ${added}; remove button shown ${xShown} (${xSize}px); asked first ${asked}; cancelling kept it ${keptOnCancel}; after confirming the initials are back ${gone}`);
     await ctx.close();
   });
 
@@ -322,6 +333,38 @@ async function main() {
       results.push(`menu click to Market prices: lit at once ${lit}, menu kept ${kept}`);
     } else results.push("no Market prices link in this menu");
     await record(s, "side menu stays on menu clicks", ok, results.join("; "));
+    await ctx.close();
+  });
+
+  await step("Signed in as someone else, the staff sign-in asks before leaving that account, shows the switch, and staff can sign in", async () => {
+    // Fresh sessions: this step signs the agent out, so it must not share a session with other steps.
+    const out = execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const agent = out.trim().split("\n")[0];
+    const ctx = await newContext(browser, "desktop");
+    await ctx.addCookies([{ name: "sid", value: agent, domain: new URL(BASE).hostname, path: "/" }]);
+    const s = await ctx.newPage(); watch(s, "staff switch");
+    await s.goto(BASE + "/auth/login", { waitUntil: "load" }); await s.waitForTimeout(800);
+    const gate = s.locator("dialog.switch[open]");
+    const asked = await gate.waitFor({ timeout: 8000 }).then(() => true).catch(() => false);
+    const menu = await s.locator(".rail").count() + await s.locator(".bar-account, .rail-account").count();
+    const named = asked ? (await gate.innerText()).replace(/\s+/g, " ").slice(0, 160) : "";
+    await record(s, "staff switch asks", asked && menu === 0, `asked first ${asked}; side menu or account shown ${menu > 0}; "${named}"`);
+    let steps = "", landed = false, signedIn = false;
+    if (asked) {
+      await gate.locator("button.cfm-ok").click();
+      steps = await s.locator(".switch-steps").innerText({ timeout: 3000 }).catch(() => "");
+      await s.waitForURL((u) => u.pathname === "/auth/login", { timeout: 15000 }).catch(() => {});
+      await s.waitForTimeout(1200);
+      landed = !(await s.locator("dialog.switch[open]").count()) && (await s.locator('form input[name="email"]').count()) > 0;
+      const email = process.env.SEED_ADMIN_EMAIL, password = process.env.SEED_ADMIN_PASSWORD;
+      if (landed && email && password) {
+        await s.locator("#email").click(); await s.locator("#email").fill(email);
+        await s.locator("#password").click(); await s.locator("#password").fill(password);
+        await s.locator("button.auth-submit").click();
+        signedIn = await s.waitForURL((u) => u.pathname.startsWith("/admin"), { timeout: 20000 }).then(() => true).catch(() => false);
+      }
+    }
+    await record(s, "staff switch and sign-in", landed && signedIn, `steps shown "${steps.replace(/\s+/g, " ").slice(0, 120)}"; signed out and on the staff form ${landed}; staff sign-in reached the admin area ${signedIn}`);
     await ctx.close();
   });
 

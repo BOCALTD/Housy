@@ -43,7 +43,7 @@ export default async function FlatmatesHome({ searchParams }: { searchParams?: P
             <Link className="btn" href="/flatmates/requests">Requests and chat rooms</Link>
           </div>
           <details className="inline"><summary>Delete my flatmate profile</summary>
-            <form action={statusAction} className="stack"><input type="hidden" name="to" value="DELETE" /><p className="small muted">Your profile disappears from matches and waiting requests are withdrawn. Chat rooms you are in stay until you leave them.</p><button className="btn danger" type="submit">Delete it</button></form>
+            <form action={statusAction} className="stack"><input type="hidden" name="to" value="DELETE" /><p className="small muted">Your profile disappears from matches and waiting requests are withdrawn. Chat rooms you are in stay until you leave them.</p><button className="btn danger" type="submit" data-confirm="Delete your flatmate profile?" data-confirm-body="It comes off the flatmates list." data-confirm-ok="Delete">Delete it</button></form>
           </details>
         </section>
       ) : null}

@@ -224,7 +224,7 @@ export default async function LeasePage({ params: paramsP, searchParams: searchP
                         {hidden}
                         <input type="hidden" name="adjustmentId" value={a.id} />
                         <input name="note" placeholder="Note (required to reject)" aria-label="Decision note" style={{ flex: "1 1 220px", ...input }} />
-                        <button className="btn small" formAction={rejectAdjustmentAction} type="submit">Reject</button>
+                        <button className="btn small" formAction={rejectAdjustmentAction} type="submit" data-confirm="Reject this?" data-confirm-body="The person is told." data-confirm-ok="Reject">Reject</button>
                         {a.requestedById !== member.userId ? <button className="btn small primary" type="submit">Approve</button> : null}
                       </form>
                     ) : null}
@@ -439,7 +439,7 @@ export default async function LeasePage({ params: paramsP, searchParams: searchP
                     <Field label="Closing date"><input name="closedOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
                     <Field label="Reason" hint="Required for early termination."><input name="reason" /></Field>
                     <p className="small muted">Needs the move-out handover. Rent not yet due and untouched by payments is removed; arrears stay on the lease for collection.</p>
-                    <button className="btn danger" type="submit">Close lease</button>
+                    <button className="btn danger" type="submit" data-confirm="Close this lease?" data-confirm-body="No more rent is charged on it and the tenant is told." data-confirm-ok="Close lease">Close lease</button>
                   </form>
                 </details>
               ) : null}

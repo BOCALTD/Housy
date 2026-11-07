@@ -72,13 +72,13 @@ export default async function FlatmateProfileView({ params, searchParams }: { pa
             <div className="row"><button className="btn primary" type="submit">Send request</button></div>
           </form>
         ) : r.status === "PENDING" && r.mine ? (
-          <div className="stack"><h2>Request sent</h2><p className="muted small">You will be told when {p.displayName} answers.</p><form action={withdrawAction}><input type="hidden" name="id" value={r.id} /><button className="btn" type="submit">Withdraw request</button></form></div>
+          <div className="stack"><h2>Request sent</h2><p className="muted small">You will be told when {p.displayName} answers.</p><form action={withdrawAction}><input type="hidden" name="id" value={r.id} /><button className="btn" type="submit" data-confirm="Withdraw your request?" data-confirm-ok="Withdraw" data-confirm-tone="default">Withdraw request</button></form></div>
         ) : r.status === "PENDING" ? (
           <form action={answerAction} className="stack">
             <input type="hidden" name="id" value={r.id} />
             <h2>{p.displayName} asked to match</h2>
             {r.note ? <p>&ldquo;{r.note}&rdquo;</p> : null}
-            <div className="row"><button className="btn primary" name="decision" value="accept" type="submit">Accept and open a chat room</button><button className="btn" name="decision" value="decline" type="submit">Decline</button></div>
+            <div className="row"><button className="btn primary" name="decision" value="accept" type="submit">Accept and open a chat room</button><button className="btn" name="decision" value="decline" type="submit" data-confirm="Decline this?" data-confirm-body="The person is told." data-confirm-ok="Decline" data-confirm-tone="default">Decline</button></div>
           </form>
         ) : r.status === "ACCEPTED" ? (
           <div className="stack"><h2>You are matched</h2><div className="row"><Link className="btn primary" href="/flatmates/requests">Go to your chat rooms</Link></div></div>

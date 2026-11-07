@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ThreadComment } from "@/lib/comment-rules";
+import { confirmAction } from "./Confirm";
 
 /**
  * Comments, the same wherever people comment (reels, workspaces): like a comment, reply to it, delete your own, report
@@ -45,7 +46,6 @@ export function CommentThread({ initial, total: total0, signedIn, onSignIn, acti
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [flash, setFlash] = useState<string | null>(null);
-  const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [reporting, setReporting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
@@ -53,7 +53,6 @@ export function CommentThread({ initial, total: total0, signedIn, onSignIn, acti
   useEffect(() => { setList(initial); }, [initial]);
   useEffect(() => { setTotal(total0); }, [total0]);
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 1800); return () => clearTimeout(t); }, [flash]);
-  useEffect(() => { if (!confirmDel) return; const t = setTimeout(() => setConfirmDel(null), 4000); return () => clearTimeout(t); }, [confirmDel]);
 
   const scrollTo = (id: string) => requestAnimationFrame(() => root.current?.querySelector(`[data-cid="${id}"]`)?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
   const needSignIn = () => { if (onSignIn) onSignIn(); else toast("Sign in to take part."); };
@@ -90,8 +89,8 @@ export function CommentThread({ initial, total: total0, signedIn, onSignIn, acti
   }
   async function remove(c: ThreadComment) {
     if (!actions.remove) return;
-    if (confirmDel !== c.id) { setConfirmDel(c.id); return; }
-    setConfirmDel(null);
+    const replies = c.parentId ? 0 : c.replies.length;
+    if (!(await confirmAction({ title: "Delete your comment?", body: replies ? `Its ${replies} ${replies === 1 ? "reply goes" : "replies go"} with it. This cannot be undone.` : "This cannot be undone.", ok: "Delete" }))) return;
     const out = await actions.remove(c.id);
     if (!out.ok) { toast.error(out.error ?? "That did not work"); return; }
     setList((l) => (c.parentId ? l.map((t) => (t.id === c.parentId ? { ...t, replies: t.replies.filter((r) => r.id !== c.id) } : t)) : l.filter((t) => t.id !== c.id)));
@@ -125,7 +124,7 @@ export function CommentThread({ initial, total: total0, signedIn, onSignIn, acti
               <Heart on={c.liked} /><span>{c.likes || ""}</span>
             </button>
             <button type="button" className="ct-btn" onClick={() => startReply(c)} aria-label={`Reply to ${c.authorName}`}>Reply</button>
-            {c.mine && actions.remove ? <button type="button" className={`ct-btn${confirmDel === c.id ? " danger" : ""}`} onClick={() => void remove(c)}>{confirmDel === c.id ? "Tap again to delete" : "Delete"}</button> : null}
+            {c.mine && actions.remove ? <button type="button" className="ct-btn" onClick={() => void remove(c)}>Delete</button> : null}
             {!c.mine && signedIn && actions.report ? <button type="button" className="ct-btn" onClick={() => setReporting(reporting === c.id ? null : c.id)} aria-expanded={reporting === c.id}>Report</button> : null}
           </div>
           {reporting === c.id ? (

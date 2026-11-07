@@ -110,7 +110,7 @@ export default async function ClientFilePage({ params, searchParams }: { params:
                       </li>
                     ))}</ul>
                   ) : null}
-                  <form action={removePropertyAction}><input type="hidden" name="clientId" value={c.id} /><input type="hidden" name="assetId" value={p.id} /><button className="btn" type="submit">Remove from this file</button></form>
+                  <form action={removePropertyAction}><input type="hidden" name="clientId" value={c.id} /><input type="hidden" name="assetId" value={p.id} /><button className="btn" type="submit" data-confirm="Remove this property from the client&#x27;s file?" data-confirm-body="The client no longer sees it in their file." data-confirm-ok="Remove">Remove from this file</button></form>
                 </details>
               ) : null}
             </article>

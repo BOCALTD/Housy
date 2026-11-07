@@ -69,7 +69,7 @@ export default async function PromotionsPage({ searchParams: searchP }: { search
               <div className="row between"><div><strong>{e.listing?.title ?? "Property"}</strong> <span className="small muted">{e.campaign.name} · {formatKobo(e.originalPriceKobo)} to {formatKobo(e.promoPriceKobo)}</span></div><Pill status={e.status === "APPROVED" ? "ACTIVE" : e.status === "REQUESTED" ? "PENDING" : "SUSPENDED"} label={humanize(e.status)} /></div>
               <div className="small muted">Payment: {e.payment ? (e.payment.status === "NOT_REQUIRED" ? "none due" : `${humanize(e.payment.status)} · ${formatKobo(e.payment.feeKobo)}`) : "none"}{e.reviewNote ? ` · ${e.reviewNote}` : ""}</div>
               {e.listing && e.status === "APPROVED" && e.listing.priceKobo !== e.originalPriceKobo ? <p className="small">The listed price changed, so this promotion is paused. Ask again at the new price.</p> : null}
-              {e.status === "REQUESTED" ? <form action={withdrawPromoAction}><input type="hidden" name="entryId" value={e.id} /><button className="btn small" type="submit">Withdraw</button></form> : null}
+              {e.status === "REQUESTED" ? <form action={withdrawPromoAction}><input type="hidden" name="entryId" value={e.id} /><button className="btn small" type="submit" data-confirm="Withdraw this promotion request?" data-confirm-ok="Withdraw" data-confirm-tone="default">Withdraw</button></form> : null}
             </div></li>))} />
         )}
       </section>

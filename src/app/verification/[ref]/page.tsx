@@ -37,7 +37,7 @@ export default async function LeadStatusPage({ params: paramsP, searchParams: se
           <input type="hidden" name="ref" value={lead.ref} />
           <input type="hidden" name="t" value={token} />
           <p className="small muted">Withdrawing stops further contact and removes your contact details from this request.</p>
-          <button className="btn danger" type="submit">Withdraw my request</button>
+          <button className="btn danger" type="submit" data-confirm="Withdraw your verification request?" data-confirm-body="The check stops. You can ask again later." data-confirm-ok="Withdraw" data-confirm-tone="default">Withdraw my request</button>
         </form>
       ) : null}
     </div>

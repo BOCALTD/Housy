@@ -166,7 +166,7 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
               <li key={m.id}>
                 <div className="row between" style={{ width: "100%" }}>
                   <div>{m.quantity} {m.unit} {m.description} <span className="small muted">@ {formatKobo(m.unitCostKobo)} = {formatKobo(BigInt(m.quantity) * m.unitCostKobo)}</span></div>
-                  {isWorker && !["COMPLETED", "CLOSED", "CANCELLED"].includes(wo.status) ? <form action={removeMaterialAction}>{hidden}<input type="hidden" name="materialId" value={m.id} /><button className="btn small" type="submit">Remove</button></form> : null}
+                  {isWorker && !["COMPLETED", "CLOSED", "CANCELLED"].includes(wo.status) ? <form action={removeMaterialAction}>{hidden}<input type="hidden" name="materialId" value={m.id} /><button className="btn small" type="submit" data-confirm="Remove this material?" data-confirm-body="It comes off the work order." data-confirm-ok="Remove">Remove</button></form> : null}
                 </div>
               </li>
             ))} />
@@ -245,7 +245,7 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
       {wo.status === "CANCELLED" ? <p className="small muted">Cancelled: {wo.cancelReason}</p> : null}
       {manage ? (
         <details className="inline"><summary>Cancel this work order</summary>
-          <form action={cancelAction} className="stack">{hidden}<Field label="Reason"><input name="reason" required /></Field><button className="btn danger" type="submit">Cancel work order</button></form>
+          <form action={cancelAction} className="stack">{hidden}<Field label="Reason"><input name="reason" required /></Field><button className="btn danger" type="submit" data-confirm="Cancel this work order?" data-confirm-body="The people on it are told." data-confirm-ok="Cancel work order">Cancel work order</button></form>
         </details>
       ) : null}
 
@@ -284,7 +284,7 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
                       </form>
                     </details>
                   ) : (
-                    <form action={clearPaidAction}>{hidden}<input type="hidden" name="id" value={v.id} /><button className="btn" type="submit">Clear payment record</button></form>
+                    <form action={clearPaidAction}>{hidden}<input type="hidden" name="id" value={v.id} /><button className="btn" type="submit" data-confirm="Clear the payment record?" data-confirm-ok="Clear">Clear payment record</button></form>
                   )}
                 </div>
               ) : null}

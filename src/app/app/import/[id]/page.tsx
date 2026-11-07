@@ -50,7 +50,7 @@ export default async function ImportBatchPage({ params: paramsP, searchParams: s
                 <div className="row"><button className="btn primary" type="submit">Create {c.READY} records</button></div>
               </form>
             )}
-            <form action={discardImportAction}><input type="hidden" name="batchId" value={batch.id} /><button className="btn" type="submit">Discard this import</button></form>
+            <form action={discardImportAction}><input type="hidden" name="batchId" value={batch.id} /><button className="btn" type="submit" data-confirm="Discard this import?" data-confirm-body="Nothing from it is added. You can upload the file again later." data-confirm-ok="Discard">Discard this import</button></form>
           </div>
         ) : null}
       </section>

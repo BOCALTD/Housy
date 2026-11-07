@@ -55,7 +55,7 @@ export default async function AdminAwardsPage({ searchParams: searchP }: { searc
             <li key={d.id}><div className="stack" style={{ width: "100%" }}>
               <p><strong>{d.entry?.displayName ?? "Agent"}</strong> <span className="small muted">rank {d.entry?.rank ?? "–"}</span></p><p>{d.reason}</p>
               <form action={disputeDecisionAction} className="row"><input type="hidden" name="id" value={d.id} /><Field label="Your reason"><input name="note" required minLength={5} /></Field>
-                <button className="btn primary" type="submit" name="decision" value="uphold">Uphold</button><button className="btn" type="submit" name="decision" value="reject">Reject</button></form>
+                <button className="btn primary" type="submit" name="decision" value="uphold">Uphold</button><button className="btn" type="submit" name="decision" value="reject" data-confirm="Reject this?" data-confirm-body="The person is told." data-confirm-ok="Reject">Reject</button></form>
             </div></li>))} />
         )}
       </section>

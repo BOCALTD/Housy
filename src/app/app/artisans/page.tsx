@@ -58,7 +58,7 @@ export default async function ArtisanDeskPage() {
                 <input type="hidden" name="id" value={a.id} />
                 <input name="note" maxLength={500} placeholder="Note (optional)" aria-label="Note to the applicant" />
                 <button className="btn primary" type="submit" name="decision" value="approve">Approve</button>
-                <button className="btn" type="submit" name="decision" value="decline">Decline</button>
+                <button className="btn" type="submit" name="decision" value="decline" data-confirm="Decline this?" data-confirm-body="The person is told." data-confirm-ok="Decline" data-confirm-tone="default">Decline</button>
               </form>
             </li>
           ))}</ul>

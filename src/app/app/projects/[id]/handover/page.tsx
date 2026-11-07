@@ -77,7 +77,7 @@ export default async function HandoverPage({ params: paramsP, searchParams: sear
                 <div className="stack">
                   <p>Completion was requested by {who(p.completionRequestedById)}{p.completionNote ? `: ${p.completionNote}` : "."} Defects period: {p.defectsMonths} months.</p>
                   {iRequested ? <p className="small muted">You asked for this, so someone else must approve it.</p> : null}
-                  {iRequested && plan ? <form action={withdrawCompletionAction}>{hidden}<button className="btn" type="submit">Withdraw request</button></form> : null}
+                  {iRequested && plan ? <form action={withdrawCompletionAction}>{hidden}<button className="btn" type="submit" data-confirm="Withdraw the completion request?" data-confirm-ok="Withdraw" data-confirm-tone="default">Withdraw request</button></form> : null}
                   {approve && !iRequested ? (
                     <form action={decideCompletionAction} className="stack">
                       {hidden}
@@ -162,7 +162,7 @@ export default async function HandoverPage({ params: paramsP, searchParams: sear
             <ShowMore noun="more warranties" limit={4} items={d.warranties.map((w) => (
               <li key={w.id}><div className="row between" style={{ width: "100%" }}>
                 <div><strong>{w.title}</strong> · {w.provider}<div className="small muted">{formatDate(w.startsOn)} to {formatDate(w.endsOn)}{w.coverage ? ` · ${w.coverage}` : ""}</div></div>
-                <div className="row"><Pill status={warrantyTone(w.state)} label={humanize(w.state)} />{manage ? <form action={removeWarrantyAction}>{hidden}<input type="hidden" name="warrantyId" value={w.id} /><button className="btn" type="submit">Remove</button></form> : null}</div>
+                <div className="row"><Pill status={warrantyTone(w.state)} label={humanize(w.state)} />{manage ? <form action={removeWarrantyAction}>{hidden}<input type="hidden" name="warrantyId" value={w.id} /><button className="btn" type="submit" data-confirm="Remove this warranty?" data-confirm-body="It comes off the handover record." data-confirm-ok="Remove">Remove</button></form> : null}</div>
               </div></li>
             ))} />
           )}

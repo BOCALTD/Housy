@@ -42,7 +42,7 @@ export default async function AdminReviewsPage({ searchParams: searchP }: { sear
           <li key={c.id}><div className="stack" style={{ width: "100%" }}>
             <p><strong>{humanize(c.kind)}</strong>: {c.reason}</p><Summary r={c.review} />
             <form action={caseAction} className="row"><input type="hidden" name="id" value={c.id} /><Field label="Your reason"><input name="note" required minLength={5} /></Field>
-              <button className="btn primary" type="submit" name="decision" value="uphold">Uphold</button><button className="btn" type="submit" name="decision" value="reject">Reject</button></form>
+              <button className="btn primary" type="submit" name="decision" value="uphold">Uphold</button><button className="btn" type="submit" name="decision" value="reject" data-confirm="Reject this?" data-confirm-body="The person is told." data-confirm-ok="Reject">Reject</button></form>
           </div></li>))} />}
       </section>
       <section className="card stack">

@@ -29,7 +29,7 @@ export default async function VacancyDetailPage({ params: paramsP, searchParams:
         {r.outcome === "NEEDS_INFO" ? (
           <form action={replyAction} className="stack"><input type="hidden" name="id" value={r.id} /><Field label="Your answer"><textarea name="reply" required minLength={3} maxLength={1000} rows={3} /></Field><button className="btn primary" type="submit">Send answer</button></form>
         ) : null}
-        {["OPEN", "NEEDS_INFO"].includes(r.outcome) ? <form action={withdrawAction}><input type="hidden" name="id" value={r.id} /><button className="btn" type="submit">Withdraw this report</button></form> : null}
+        {["OPEN", "NEEDS_INFO"].includes(r.outcome) ? <form action={withdrawAction}><input type="hidden" name="id" value={r.id} /><button className="btn" type="submit" data-confirm="Withdraw this report?" data-confirm-ok="Withdraw" data-confirm-tone="default">Withdraw this report</button></form> : null}
         {["REJECTED", "MERGED"].includes(r.outcome) && !r.appealedAt ? (
           <details className="inline"><summary>Appeal this decision</summary><form action={appealAction} className="stack"><input type="hidden" name="id" value={r.id} /><Field label="Why do you disagree?"><textarea name="reason" required minLength={10} maxLength={1000} rows={3} /></Field><button className="btn" type="submit">Send appeal</button></form></details>
         ) : null}

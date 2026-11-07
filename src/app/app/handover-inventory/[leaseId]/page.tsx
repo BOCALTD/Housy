@@ -69,7 +69,7 @@ export default async function HandoverInventoryPage({ params: paramsP, searchPar
                               ) : null}
                             </td>
                             {schedule.status === "DRAFT" && record ? (
-                              <td><form action={removeLineAction}><input type="hidden" name="leaseId" value={d.lease.id} /><input type="hidden" name="scheduleId" value={schedule.id} /><input type="hidden" name="lineId" value={l.id} /><button className="btn small" type="submit">Remove</button></form></td>
+                              <td><form action={removeLineAction}><input type="hidden" name="leaseId" value={d.lease.id} /><input type="hidden" name="scheduleId" value={schedule.id} /><input type="hidden" name="lineId" value={l.id} /><button className="btn small" type="submit" data-confirm="Remove this line?" data-confirm-body="It comes off the handover inventory." data-confirm-ok="Remove">Remove</button></form></td>
                             ) : null}
                           </tr>
                         );

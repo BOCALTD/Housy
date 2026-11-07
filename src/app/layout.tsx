@@ -19,6 +19,7 @@ import { BackToTop } from "@/components/BackToTop";
 import { SiteFooter } from "@/components/SiteFooter";
 import { CompareBar } from "@/components/Compare";
 import { ServiceWorker } from "@/components/Pwa";
+import { ConfirmHost } from "@/components/Confirm";
 import { Frame, type FrameNotice } from "@/components/Frame";
 import { getMember } from "@/lib/auth";
 import { ROLE_LABELS, can } from "@/lib/permissions";
@@ -122,6 +123,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}><FirstVisitIntro signedIn={!!session} name={PLATFORM_NAME} /></Suspense>
         <DemoStrip />
         <AppToaster />
+        <ConfirmHost />
         <Suspense fallback={null}><UrlToasts /></Suspense>
         <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction} collapsed={railMini} theme={theme}>
           {rate ? (

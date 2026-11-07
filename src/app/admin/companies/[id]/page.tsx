@@ -41,7 +41,7 @@ export default async function CompanyAdmin({ params, searchParams }: { params: P
                 <p className="small">The workspace closes for everyone in the company, its API keys stop, and its listings and profiles leave public view. Nothing is deleted, and you can restore it at any time. The company sees your reason.</p>
                 <label className="field">Reason<textarea name="reason" required minLength={5} maxLength={1000} rows={3} /></label>
                 <label className="check"><input type="checkbox" name="confirm" value="yes" required /> I have checked this is the right company.</label>
-                <button className="btn danger" type="submit">Suspend</button>
+                <button className="btn danger" type="submit" data-confirm="Suspend this company?" data-confirm-body="Its workspace closes for everyone in it and its listings leave public view until you restore it." data-confirm-ok="Suspend company">Suspend</button>
               </form>
             </details>
           )}

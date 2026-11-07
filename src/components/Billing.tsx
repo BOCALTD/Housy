@@ -36,7 +36,7 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
               <details className="inline"><summary>Stop renewing</summary>
                 <form action={cancelPlanAction} className="stack"><input type="hidden" name="from" value={from} />
                   <p className="small muted">Everything you paid for keeps working until {formatDate(plan.sub.periodEnd)}. You can buy again at any time.</p>
-                  <button className="btn" type="submit">Stop renewing</button></form></details>
+                  <button className="btn" type="submit" data-confirm="Stop renewing your plan?" data-confirm-body="It stays active until the end of the period you paid for." data-confirm-ok="Stop renewing" data-confirm-tone="default">Stop renewing</button></form></details>
             ) : null}
           </>
         ) : (<><h2>No paid plan</h2><p>{plan.explanation}</p></>)}

@@ -124,7 +124,7 @@ export default async function ValuationPage({ params: paramsP, searchParams: sea
               <form action={cancelAction} className="stack" style={{ marginTop: 12 }}>
                 {hidden}
                 <Field label="Reason"><input name="reason" required /></Field>
-                <button className="btn" type="submit">Cancel instruction</button>
+                <button className="btn" type="submit" data-confirm="Cancel this instruction?" data-confirm-ok="Cancel instruction">Cancel instruction</button>
               </form>
             </details>
           </div>
@@ -141,7 +141,7 @@ export default async function ValuationPage({ params: paramsP, searchParams: sea
             entries.map((e) => (
               <li key={e.id}><div className="row between" style={{ width: "100%" }}>
                 <div><Pill status="OPEN" label={kindLabel(e.kind)} /> {e.text}<div className="small muted">{who(e.createdById)}</div></div>
-                {prepare ? <form action={removeEntryAction}>{hidden}<input type="hidden" name="entryId" value={e.id} /><button className="btn" type="submit">Remove</button></form> : null}
+                {prepare ? <form action={removeEntryAction}>{hidden}<input type="hidden" name="entryId" value={e.id} /><button className="btn" type="submit" data-confirm="Remove this entry?" data-confirm-body="It comes off the valuation." data-confirm-ok="Remove">Remove</button></form> : null}
               </div></li>
             ))} />
         )}
@@ -174,7 +174,7 @@ export default async function ValuationPage({ params: paramsP, searchParams: sea
                 {prepare ? (
                   <div className="row">
                     {!c.verifiedAt ? <form action={verifyComparableAction}>{hidden}<input type="hidden" name="comparableId" value={c.id} /><button className="btn" type="submit">Mark as checked</button></form> : null}
-                    <form action={removeComparableAction}>{hidden}<input type="hidden" name="comparableId" value={c.id} /><button className="btn" type="submit">Remove</button></form>
+                    <form action={removeComparableAction}>{hidden}<input type="hidden" name="comparableId" value={c.id} /><button className="btn" type="submit" data-confirm="Remove this comparable?" data-confirm-body="It is no longer used in the valuation." data-confirm-ok="Remove">Remove</button></form>
                   </div>
                 ) : null}
               </div></li>
@@ -245,7 +245,7 @@ export default async function ValuationPage({ params: paramsP, searchParams: sea
                     <Field label="Notes on this method"><input name="note" defaultValue={ws?.note ?? ""} /></Field>
                     <button className="btn" type="submit">Calculate and save</button>
                   </form>
-                  {ws ? <form action={removeWorksheetAction} style={{ marginTop: 8 }}>{hidden}<input type="hidden" name="method" value={m} /><button className="btn" type="submit">Remove this worksheet</button></form> : null}
+                  {ws ? <form action={removeWorksheetAction} style={{ marginTop: 8 }}>{hidden}<input type="hidden" name="method" value={m} /><button className="btn" type="submit" data-confirm="Remove this worksheet?" data-confirm-body="Its figures are no longer used in the valuation." data-confirm-ok="Remove">Remove this worksheet</button></form> : null}
                 </details>
               ) : null}
             </div>

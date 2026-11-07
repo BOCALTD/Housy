@@ -46,7 +46,7 @@ export default async function AdminReferralsPage({ searchParams: searchP }: { se
       </section>
       <section className="card"><h2>Campaigns</h2>
         {d.campaigns.length === 0 ? <p className="muted">No campaigns yet. Create one, then set its reward on the rewards page.</p> : (
-          <ShowMore noun="more campaigns" limit={4} items={d.campaigns.map((c) => <li key={c.id}><div className="row between"><span><strong>{c.name}</strong> <span className="small muted">{humanize(c.audience)} · {EVENT_LABELS[c.event]} · {c.registered} sign-ups, {c.qualified} qualified · {formatDate(c.startsOn)}{c.endsOn ? ` to ${formatDate(c.endsOn)}` : ""}{c.active ? "" : " · ended"}</span></span>{c.active ? <form action={endCampaignAction}><input type="hidden" name="campaignId" value={c.id} /><button className="btn" type="submit">End</button></form> : null}</div></li>)} />
+          <ShowMore noun="more campaigns" limit={4} items={d.campaigns.map((c) => <li key={c.id}><div className="row between"><span><strong>{c.name}</strong> <span className="small muted">{humanize(c.audience)} · {EVENT_LABELS[c.event]} · {c.registered} sign-ups, {c.qualified} qualified · {formatDate(c.startsOn)}{c.endsOn ? ` to ${formatDate(c.endsOn)}` : ""}{c.active ? "" : " · ended"}</span></span>{c.active ? <form action={endCampaignAction}><input type="hidden" name="campaignId" value={c.id} /><button className="btn" type="submit" data-confirm="End this campaign?" data-confirm-body="Its links stop counting from now." data-confirm-ok="End campaign">End</button></form> : null}</div></li>)} />
         )}
         <details className="inline"><summary>New campaign</summary>
           <form action={campaignAction} className="stack">

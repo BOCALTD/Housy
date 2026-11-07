@@ -72,8 +72,8 @@ export default async function DealPage({ params: paramsP, searchParams: searchP 
                       <div className="fields"><Field label="Amount (₦)"><input name="amount" inputMode="decimal" required /></Field><Field label="Valid until"><input name="validUntil" type="date" /></Field></div>
                       <Field label="Conditions"><input name="conditions" /></Field><Field label="Note"><input name="note" /></Field><button className="btn primary" type="submit">Record counteroffer</button></form></details>
                   <details className="inline"><summary>Reject or withdraw</summary>
-                    <form action={rejectOfferAction} className="stack">{hid}<input type="hidden" name="offerId" value={o.id} /><Field label="Reason for rejecting"><input name="reason" required /></Field><button className="btn" type="submit">Reject</button></form>
-                    <form action={withdrawOfferAction} className="stack">{hid}<input type="hidden" name="offerId" value={o.id} /><Field label="Note"><input name="note" /></Field><button className="btn" type="submit">Withdraw</button></form></details>
+                    <form action={rejectOfferAction} className="stack">{hid}<input type="hidden" name="offerId" value={o.id} /><Field label="Reason for rejecting"><input name="reason" required /></Field><button className="btn" type="submit" data-confirm="Reject this?" data-confirm-body="The person is told." data-confirm-ok="Reject">Reject</button></form>
+                    <form action={withdrawOfferAction} className="stack">{hid}<input type="hidden" name="offerId" value={o.id} /><Field label="Note"><input name="note" /></Field><button className="btn" type="submit" data-confirm="Withdraw this offer?" data-confirm-body="The other side is told it has been withdrawn." data-confirm-ok="Withdraw offer">Withdraw</button></form></details>
                 </div>
               ) : null}
               {o.status === "ACCEPTANCE_REQUESTED" && open ? (
@@ -84,7 +84,7 @@ export default async function DealPage({ params: paramsP, searchParams: searchP 
                         <Field label="Note (needed to refuse)"><input name="note" /></Field>
                         <div className="row"><button className="btn primary" name="decision" value="approve" type="submit">Approve and agree the price</button><button className="btn" name="decision" value="reject" type="submit">Refuse</button></div></form></details>
                   ) : null}
-                  {o.acceptRequestedById === member.userId || assign ? <form action={withdrawAcceptanceAction}><input type="hidden" name="dealId" value={deal.id} /><input type="hidden" name="offerId" value={o.id} /><button className="btn" type="submit">Withdraw the request</button></form> : null}
+                  {o.acceptRequestedById === member.userId || assign ? <form action={withdrawAcceptanceAction}><input type="hidden" name="dealId" value={deal.id} /><input type="hidden" name="offerId" value={o.id} /><button className="btn" type="submit" data-confirm="Withdraw the request?" data-confirm-ok="Withdraw" data-confirm-tone="default">Withdraw the request</button></form> : null}
                 </div>
               ) : null}
             </div></li>))} />
@@ -173,7 +173,7 @@ export default async function DealPage({ params: paramsP, searchParams: searchP 
                 <form action={resolveDisputeAction} className="stack">{hid}<Field label="How it was settled"><input name="outcome" required /></Field>
                   <Field label="Then"><select name="then" defaultValue="resume"><option value="resume">Carry on with the deal</option><option value="cancel">Cancel the deal</option></select></Field><button className="btn primary" type="submit">Settle the dispute</button></form>
               ) : null}
-              {manage && deal.stage !== "COMPLETED" ? <form action={cancelDealAction} className="stack">{hid}<Field label="Reason for cancelling"><input name="reason" required /></Field><button className="btn" type="submit">Cancel the deal</button></form> : null}
+              {manage && deal.stage !== "COMPLETED" ? <form action={cancelDealAction} className="stack">{hid}<Field label="Reason for cancelling"><input name="reason" required /></Field><button className="btn" type="submit" data-confirm="Cancel this deal?" data-confirm-body="The deal stops here and everyone on it is told." data-confirm-ok="Cancel the deal">Cancel the deal</button></form> : null}
               {assign && deal.status !== "COMPLETED" ? <form action={reassignAction} className="stack">{hid}<Field label="Hand the deal to"><select name="ownerId" required defaultValue="">{<option value="" disabled>Choose</option>}{d.agents.filter((a) => a.id !== deal.ownerId).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
                 <Field label="Reason"><input name="reason" required /></Field><button className="btn" type="submit">Reassign</button></form> : null}
             </div>

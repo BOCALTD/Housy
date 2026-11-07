@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "./Confirm";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { kvClear, kvDel, kvGet, kvList, kvPut, shrinkPhoto } from "@/lib/field-store";
@@ -178,7 +179,10 @@ export function FieldKit() {
   async function removeAll() {
     if (!user) return;
     const waiting = Object.values(outbox).filter((o) => o.state !== "sent").length + Object.keys(drafts).length;
-    if (waiting && !window.confirm(`${waiting} inspection${waiting === 1 ? " has" : "s have"} work that has not reached the office. Remove it from this device anyway?`)) return;
+    const ok = await confirmAction(waiting
+      ? { title: "Remove unsent work from this device?", body: `${waiting} inspection${waiting === 1 ? " has" : "s have"} work that has not reached the office yet. Removing it now loses that work for good.`, ok: "Remove it anyway" }
+      : { title: "Remove the inspections from this device?", body: "They stay in the office system. You can download them again when you are online.", ok: "Remove from this device" });
+    if (!ok) return;
     for (const p of ["pack:", "draft:", "out:", "photo:"]) await kvClear(`${p}${user}${p === "pack:" ? "" : ":"}`);
     await kvDel("last-user");
     setUser(null); setPack(null); setDrafts({}); setOutbox({}); setOpen(null);
@@ -366,7 +370,7 @@ function Editor({ uid, insp, draft, out, online, onClose, onChange, onSend }: {
       <section className="card stack">
         {head}
         {out.state === "waiting" ? <p className="fk-note">Waiting to send{online ? "…" : ". It goes when you are back online."} Saved {time(out.queuedAt)}.</p> : null}
-        {out.state === "closed" ? <><p className="fk-note">{out.note}</p><div className="row"><button type="button" className="btn" onClick={forget}>Remove my copy</button></div></> : null}
+        {out.state === "closed" ? <><p className="fk-note">{out.note}</p><div className="row"><button type="button" className="btn" onClick={forget} data-confirm="Remove your copy from this device?" data-confirm-body="Work not yet sent to the office is lost." data-confirm-ok="Remove">Remove my copy</button></div></> : null}
         {out.state === "conflicts" ? (
           <div className="stack">
             <p className="fk-note">Everything else was sent. Someone in the office changed {out.conflicts!.length === 1 ? "one answer" : `${out.conflicts!.length} answers`} differently while you were away. Choose which to keep.</p>
@@ -388,7 +392,7 @@ function Editor({ uid, insp, draft, out, online, onClose, onChange, onSend }: {
     <section className="card stack" aria-label={`Inspection ${insp.ref}`}>
       {head}
       {out?.state === "sent" ? <p className="fk-note">{out.note} {out.sentAt ? `(${time(out.sentAt)})` : ""} You can record more and send again.</p> : null}
-      {out?.state === "error" ? <><p className="fk-note fk-warn">The office did not accept this: {out.error}</p><div className="row"><button type="button" className="btn" onClick={editAgain}>Correct it and send again</button><button type="button" className="btn" onClick={forget}>Discard it</button></div></> : null}
+      {out?.state === "error" ? <><p className="fk-note fk-warn">The office did not accept this: {out.error}</p><div className="row"><button type="button" className="btn" onClick={editAgain}>Correct it and send again</button><button type="button" className="btn" onClick={forget} data-confirm="Discard this draft?" data-confirm-body="What you wrote is lost." data-confirm-ok="Discard">Discard it</button></div></> : null}
 
       <div className="fk-grid">
         <label className="field"><span>Date inspected</span><input type="date" max={todayLagos()} value={d.record.conductedOn} onChange={(e) => setField("conductedOn", e.target.value)} /></label>
@@ -428,7 +432,8 @@ function Editor({ uid, insp, draft, out, online, onClose, onChange, onSend }: {
         <div className="row between"><h3>Defects</h3>{!adding ? <button type="button" className="btn" onClick={() => setAdding(true)}>Add a defect</button> : null}</div>
         {d.findings.length ? <ul className="fk-findings">{d.findings.map((f) => (
           <li key={f.clientId}><span><strong>{f.title}</strong> <span className="small muted">{SEVERITIES[f.severity as keyof typeof SEVERITIES]}{f.safetyRisk ? " · safety risk" : ""}{f.location ? ` · ${f.location}` : ""}</span></span>
-            <button type="button" className="btn small" onClick={() => update({ ...d, findings: d.findings.filter((x) => x.clientId !== f.clientId) })}>Remove</button></li>
+            <button type="button" className="btn small" onClick={() => update({ ...d, findings: d.findings.filter((x) => x.clientId !== f.clientId) })}
+              data-confirm="Remove this finding?" data-confirm-body="What you wrote for it is lost." data-confirm-ok="Remove">Remove</button></li>
         ))}</ul> : !adding ? <p className="small muted">None noted.</p> : null}
         {adding ? <FindingForm onCancel={() => setAdding(false)} onAdd={(f) => { update({ ...d, findings: [...d.findings, f] }); setAdding(false); }} /> : null}
       </div>
@@ -448,7 +453,8 @@ function Editor({ uid, insp, draft, out, online, onClose, onChange, onSend }: {
           <li key={pid}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={thumbs[pid].url} alt={thumbs[pid].caption} />
-            <button type="button" className="btn small" onClick={() => removePhoto(pid)} aria-label={`Remove photo: ${thumbs[pid].caption}`}>Remove</button>
+            <button type="button" className="btn small" onClick={() => removePhoto(pid)} aria-label={`Remove photo: ${thumbs[pid].caption}`}
+              data-confirm="Remove this photo?" data-confirm-body="It comes off this inspection." data-confirm-ok="Remove photo">Remove</button>
           </li>
         ) : null)}</ul> : <p className="small muted">Photos are made smaller and kept on this device until sent.</p>}
       </div>

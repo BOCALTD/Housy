@@ -32,7 +32,7 @@ export default async function PrivacyPage({ searchParams }: { searchParams?: Pro
         ) : <p className="small muted">You see the same properties and reels as everyone else.</p>}
         <div className="row">
           <form action={personaliseAction}><input type="hidden" name="on" value={sig.on ? "no" : "yes"} /><button className="btn" type="submit">{sig.on ? "Turn suggestions off" : "Turn suggestions on"}</button></form>
-          {sig.on && sig.count ? <form action={clearSignalsAction}><button className="btn" type="submit">Clear what shapes them</button></form> : null}
+          {sig.on && sig.count ? <form action={clearSignalsAction}><button className="btn" type="submit" data-confirm="Clear what shapes your suggestions?" data-confirm-body="Suggestions start again from nothing." data-confirm-ok="Clear" data-confirm-tone="default">Clear what shapes them</button></form> : null}
         </div>
       </section>
       <section className="card stack">
@@ -53,7 +53,7 @@ export default async function PrivacyPage({ searchParams }: { searchParams?: Pro
           <form action={deleteAccountAction} className="stack">
             <label className="field">Your password<input name="password" type="password" required autoComplete="current-password" /></label>
             <label className="field">Type DELETE to confirm<input name="confirm" required autoComplete="off" /></label>
-            <button className="btn danger" type="submit">Delete my account</button>
+            <button className="btn danger" type="submit" data-confirm="Delete your account?" data-confirm-body="This cannot be undone. Your profile, saved searches and settings are removed." data-confirm-ok="Delete my account">Delete my account</button>
           </form>
         )}
       </section>

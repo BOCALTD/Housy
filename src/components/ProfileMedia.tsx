@@ -59,11 +59,13 @@ export function ProfileMedia({ kind, action, hasImage, remove, label }: {
         <form action={remove} className="pm-remove">
           <input type="hidden" name="kind" value={kind} />
           {kind === "avatar" ? (
-            <button type="submit" className="pm-x" aria-label="Remove profile photo" title="Remove photo">
+            <button type="submit" className="pm-x" aria-label="Remove profile photo" title="Remove photo"
+              data-confirm="Remove your profile photo?" data-confirm-body="Your initials show in its place. You can add a photo again at any time." data-confirm-ok="Remove photo">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
           ) : (
-            <button type="submit" className="pm-btn ghost" aria-label="Remove cover photo">
+            <button type="submit" className="pm-btn ghost" aria-label="Remove cover photo"
+              data-confirm="Remove your cover photo?" data-confirm-body="The plain background shows in its place. You can add a cover again at any time." data-confirm-ok="Remove cover">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>
               <span>Remove</span>
             </button>

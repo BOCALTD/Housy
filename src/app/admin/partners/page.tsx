@@ -39,7 +39,7 @@ export default async function PartnersAdmin({ searchParams: searchP }: { searchP
               <td><Pill status={p.active ? "ACTIVE" : "SUSPENDED"} label={p.active ? "Shown" : "Hidden"} /></td>
               <td className="row">
                 <form action={togglePartnerAction}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="active" value={p.active ? "no" : "yes"} /><button className="btn small" type="submit">{p.active ? "Hide" : "Show"}</button></form>
-                <form action={removePartnerAction}><input type="hidden" name="id" value={p.id} /><button className="btn small danger" type="submit">Remove</button></form>
+                <form action={removePartnerAction}><input type="hidden" name="id" value={p.id} /><button className="btn small danger" type="submit" data-confirm="Remove this partner?" data-confirm-body="Their logo and link come off the site." data-confirm-ok="Remove">Remove</button></form>
               </td>
             </tr>
           ))} />

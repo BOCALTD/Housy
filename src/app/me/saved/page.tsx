@@ -27,7 +27,7 @@ export default async function SavedPage({ searchParams: searchP }: { searchParam
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                 <Link className="btn small" href={`/?${new URLSearchParams(Object.entries({ city: s.city, purpose: s.purpose, q: s.q, minBeds: s.minBeds != null ? String(s.minBeds) : "", maxPrice: s.maxKobo ? String(Math.round(Number(s.maxKobo) / 100)) : "" }).filter(([, v]) => v)).toString()}`}>Run it now</Link>
                 <form action={toggleAlertsAction}><input type="hidden" name="id" value={s.id} /><input type="hidden" name="on" value={s.alertsOn ? "0" : "1"} /><button className="btn small" type="submit">{s.alertsOn ? "Alerts on: turn off" : "Alerts off: turn on"}</button></form>
-                <form action={deleteSearchAction}><input type="hidden" name="id" value={s.id} /><button className="btn small" type="submit">Delete</button></form>
+                <form action={deleteSearchAction}><input type="hidden" name="id" value={s.id} /><button className="btn small" type="submit" data-confirm="Delete this saved search?" data-confirm-body="You will stop getting alerts for it." data-confirm-ok="Delete">Delete</button></form>
               </div>
             </div></li>))} />
         )}

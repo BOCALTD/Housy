@@ -39,7 +39,7 @@ export default async function ConversationPage({ params: paramsP, searchParams: 
     if (m.kind === "INSPECTION_REQUEST") {
       extras[m.id] = t.answered.has(m.id) ? <p className="bubble-note">{t.answered.get(m.id) === "accept" ? "Accepted" : "Declined"}</p> : mine ? <p className="bubble-note">Waiting for an answer</p> : (
         <form action={inspectReplyAction} className="bubble-actions">{hid}<input type="hidden" name="requestId" value={m.id} />
-          <button className="btn primary small" type="submit" name="decision" value="accept">Accept</button><button className="btn small" type="submit" name="decision" value="decline">Decline</button></form>
+          <button className="btn primary small" type="submit" name="decision" value="accept">Accept</button><button className="btn small" type="submit" name="decision" value="decline" data-confirm="Decline this?" data-confirm-body="The person is told." data-confirm-ok="Decline" data-confirm-tone="default">Decline</button></form>
       );
     }
     if (!mine && !t.reported.has(m.id)) {
@@ -80,12 +80,12 @@ export default async function ConversationPage({ params: paramsP, searchParams: 
             ) : null}
             {room && room.status === "OPEN" ? (
               <details><summary>Leave this room</summary>
-                <form action={leaveRoomAction} className="stack"><input type="hidden" name="roomId" value={room.id} /><input type="hidden" name="conversationId" value={params.id} /><p className="small muted">You will stop seeing new messages. A room with fewer than two people closes.</p><button className="btn danger" type="submit">Leave room</button></form></details>
+                <form action={leaveRoomAction} className="stack"><input type="hidden" name="roomId" value={room.id} /><input type="hidden" name="conversationId" value={params.id} /><p className="small muted">You will stop seeing new messages. A room with fewer than two people closes.</p><button className="btn danger" type="submit" data-confirm="Leave this room?" data-confirm-body="You will stop getting its messages." data-confirm-ok="Leave room">Leave room</button></form></details>
             ) : null}
             {other ? (t.iBlocked ? (
               <form action={unblockAction}>{hid}<input type="hidden" name="userId" value={other.userId} /><button className="btn" type="submit">Unblock {other.name}</button></form>
             ) : (
-              <details><summary>Block {other.name}</summary><form action={blockAction} className="stack">{hid}<input type="hidden" name="userId" value={other.userId} /><p className="small muted">They will not be able to message you, and you will not be able to message them. They are not told.</p><button className="btn danger" type="submit">Block</button></form></details>
+              <details><summary>Block {other.name}</summary><form action={blockAction} className="stack">{hid}<input type="hidden" name="userId" value={other.userId} /><p className="small muted">They will not be able to message you, and you will not be able to message them. They are not told.</p><button className="btn danger" type="submit" data-confirm="Block this person?" data-confirm-body="They can no longer message you." data-confirm-ok="Block">Block</button></form></details>
             )) : null}
           </div>
         </details>

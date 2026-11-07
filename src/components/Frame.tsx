@@ -154,6 +154,8 @@ export function Frame({ sections, user, notices, unreadNotices, unreadMessages, 
     { href: user ? "/me" : "/login", label: user ? "Me" : "Sign in", icon: Icon.person, on: path.startsWith("/me") || path === "/login" },
   ];
 
+  // The staff sign-in stands alone: no side menu, no name, nothing from whoever else is signed in on this device.
+  if (path.startsWith("/auth/")) return <div className="frame-bare">{children}</div>;
   return (
     <div className={`frame${site ? " guest site" : ""}${!site && mini ? " mini" : ""}${open ? " drawer-open" : ""}${railEnter ? " rail-enter" : ""}`}>
       <aside className="rail" id="rail" aria-label="Main menu">

@@ -314,6 +314,19 @@ async function main() {
     await ctx.close();
   });
 
+  await step("The admin area is hidden; staff sign in at /auth/login", async () => {
+    const ctx = await newContext(browser, "desktop");
+    const s = await ctx.newPage();
+    const admin = await s.goto(BASE + "/admin", { waitUntil: "load" });
+    const deep = await s.request.get(BASE + "/admin/kyc", { maxRedirects: 0 });
+    const staff = await s.goto(BASE + "/auth/login", { waitUntil: "load" });
+    const noindex = await s.locator('meta[name="robots"][content*="noindex"]').count();
+    const form = await s.locator('form input[name="email"]').count();
+    const ok = admin?.status() === 404 && deep.status() === 404 && staff?.status() === 200 && noindex > 0 && form > 0;
+    await record(s, "admin hidden, staff sign-in", ok, `/admin: ${admin?.status()}; /admin/kyc: ${deep.status()}; /auth/login: ${staff?.status()}, noindex ${noindex > 0}, form ${form > 0}`);
+    await ctx.close();
+  });
+
   await browser.close();
 
   const failed = rows.filter((r) => !r.ok);

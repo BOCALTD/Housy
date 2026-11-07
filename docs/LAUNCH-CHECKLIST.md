@@ -26,7 +26,7 @@ Each line says who does it and how you know it is done. The page `/admin/launch`
 
 - [ ] Run `deploy.sh`. It applies migrations and checks health. Open `/api/health`: it answers `"ok":true`.
 - [ ] Open `/setup` with the setup token and create the first platform administrator. Then **remove `SETUP_TOKEN`** and restart the service.
-- [ ] A8: sign in as that administrator, open `/me/security`, turn on two-step sign-in, save the recovery codes somewhere safe (not on the same phone). Create a **second** platform administrator the same way, so one lost phone is not a lockout.
+- [ ] A8: sign in as that administrator at the staff page `/auth/login` (the public `/login` refuses administrator accounts, and `/admin` shows "not found" to everyone else), open `/me/security`, turn on two-step sign-in, save the recovery codes somewhere safe (not on the same phone). Create a **second** platform administrator the same way, so one lost phone is not a lockout.
 - [ ] Add an uptime monitor on `/api/health` that alerts you by email or text, and certbot check: `sudo certbot renew --dry-run`.
 - [ ] Open `/admin/launch`. Every row is Ready, or you understand and accept each warning.
 

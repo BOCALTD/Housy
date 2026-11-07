@@ -140,10 +140,11 @@ fi
 URL="${NEXT_PUBLIC_APP_URL}"
 say "Ready"
 echo "Open:      $URL"
-echo "Admin:     ${SEED_ADMIN_EMAIL}"
+echo "Admin:     ${SEED_ADMIN_EMAIL}  (staff sign-in only: $URL/auth/login; the normal /login refuses administrators)"
 if $NEW_ADMIN; then echo "Password:  ${SEED_ADMIN_PASSWORD}   (shown once here; it is also in .env until you change it)"; else echo "Password:  the one shown the first time (in .env as SEED_ADMIN_PASSWORD unless you changed it)"; fi
 $DEMO && echo "Sample sign-ins: demo.seeker@example.test, demo.kemi.agent@example.test, demo.lekki@example.test (password demo-password-123)"
 $LAN && echo "On your phone: connect to the same Wi-Fi and open $URL (allow the port if a firewall is on: sudo ufw allow $PORT/tcp)"
+$LAN && echo "Note: on Wi-Fi this local copy is plain http (not encrypted). Do not sign in as the administrator from other devices; the live server uses https."
 if $START; then
   echo "Stop with Ctrl+C. Start again later with:  bash scripts/ubuntu-local.sh$([ "$PORT" != 3000 ] && echo " --port $PORT")$($LAN && echo " --lan")"
   if $LAN; then H=0.0.0.0; else H=127.0.0.1; fi

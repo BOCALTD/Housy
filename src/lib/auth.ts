@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { adminMfaMissing } from "./readiness";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma, withTenant } from "./db";
 import { hashToken, newToken } from "./tokens";
 import { can, type Action, type Role } from "./permissions";
@@ -12,9 +12,12 @@ const SESSION_DAYS = 14;
 import { secureCookies } from "./cookie-security";
 export { hashPassword, verifyPassword } from "./auth-hash";
 
-export async function createSession(userId: string, companyId: string | null) {
+/** Administrator sessions end after this many hours, whatever happens; everyone else stays signed in for SESSION_DAYS. */
+export const ADMIN_SESSION_HOURS = 8;
+
+export async function createSession(userId: string, companyId: string | null, opts: { hours?: number } = {}) {
   const token = newToken();
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 864e5);
+  const expiresAt = new Date(Date.now() + (opts.hours ? opts.hours * 36e5 : SESSION_DAYS * 864e5));
   await prisma.session.create({ data: { userId, companyId, tokenHash: hashToken(token), expiresAt } });
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -115,8 +118,10 @@ export function adminNeedsMfa(user: { mfaEnabledAt?: Date | null }) {
 }
 
 export async function requirePlatformAdmin() {
-  const user = await requireUser();
-  if (!user.isPlatformAdmin) redirect("/");
+  // Not "sign in first" and not "go home": to anyone who is not a signed-in administrator, the admin area does not exist.
+  const session = await getSession();
+  if (!session?.user.isPlatformAdmin) notFound();
+  const user = session.user;
   // When REQUIRE_ADMIN_MFA=true, an administrator without two-step sign-in can reach only the page that turns it on.
   if (adminNeedsMfa(user)) redirect("/me/security?error=" + encodeURIComponent("Platform administrators must turn on two-step sign-in before using the admin pages."));
   return user;

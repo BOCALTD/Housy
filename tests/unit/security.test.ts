@@ -200,3 +200,20 @@ test("security headers are set for every page", () => {
   assert.match(cfg, /object-src 'none'/);
   assert.match(cfg, /geolocation=\(self\)/); // the map's "use my location" needs it
 });
+
+test("the admin area is hidden and has its own staff sign-in", () => {
+  const read = (rel: string) => readFileSync(`${SRC}/${rel}`, "utf8");
+  // Anyone who is not a signed-in administrator gets a 404 for every admin page, not a sign-in page that points the way.
+  assert.match(read("app/admin/layout.tsx"), /notFound\(\)/);
+  assert.match(read("lib/auth.ts"), /export async function requirePlatformAdmin\(\) \{[\s\S]{0,300}notFound\(\)/);
+  // The public sign-in refuses administrator accounts with the wrong-password message; the staff page signs them in.
+  const actions = read("app/auth-actions.ts");
+  assert.match(actions, /if \(user\.isPlatformAdmin\) throw new Error\("That email and password do not match an account\."\)/);
+  assert.match(actions, /export async function adminLoginAction/);
+  assert.match(actions, /!user\.isPlatformAdmin\) \{\s*const r = await recordFailedSignIn/);
+  assert.match(actions, /ADMIN_SESSION_HOURS/);
+  // The staff page is kept out of search engines, and robots.txt does not advertise either address.
+  assert.match(read("app/auth/login/page.tsx"), /robots: \{ index: false/);
+  const robots = read("app/robots.ts");
+  assert.doesNotMatch(robots, /"\/admin"|"\/auth/);
+});

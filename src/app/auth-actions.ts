@@ -5,8 +5,9 @@ import { LEGAL_VERSION } from "@/lib/legal";
 
 import { headers } from "next/headers";
 import { safeLocalPath } from "@/lib/security";
-import { prisma } from "@/lib/db";
-import { createSession, destroySession, getSession, setActiveCompany, verifyPassword, hashPassword } from "@/lib/auth";
+import { prisma, withUser } from "@/lib/db";
+import { ADMIN_SESSION_HOURS, createSession, destroySession, getSession, setActiveCompany, verifyPassword, hashPassword } from "@/lib/auth";
+import { notify } from "@/lib/services/notifications";
 import { act, phoneFrom, str, withNotice } from "@/lib/forms";
 import { endBreak } from "@/lib/services/profile";
 import { rateLimit } from "@/lib/ratelimit";
@@ -108,6 +109,9 @@ export async function loginAction(form: FormData) {
       if (!code) throw new Error("Enter the code from your authenticator app, or a recovery code.");
       if (!(await rateLimit(`mfa:${user.id}`, 8, 15 * 60 * 1000)) || !(await checkSecondStep(user.id, code))) throw new Error("That code is not right or has already been used.");
     }
+    // Administrators sign in only on the staff page. Here an administrator account answers exactly like a wrong password
+    // (without counting towards a lock), so this page never confirms that an address belongs to an administrator.
+    if (user.isPlatformAdmin) throw new Error("That email and password do not match an account.");
     // The password is right, so saying which kind of account this is reveals nothing to someone who does not already hold it.
     const kinds = await membershipKinds(user.id);
     const refusal = user.isPlatformAdmin && as === "personal" ? null : signInRefusal(as, kinds);
@@ -121,6 +125,41 @@ export async function loginAction(form: FormData) {
     const back = await endBreak(user.id);
     const next = safeLocalPath(str(form, "next"), "") || landingFor(as, user.isPlatformAdmin);
     return back ? withNotice(next, "Welcome back. Your profile is visible again and your emails have resumed.") : next;
+  });
+}
+
+/**
+ * Staff sign-in (/auth/login): administrators only. Stricter limits than the public page, the second step is always asked
+ * for when it is on, the session lasts a working day, and every sign-in is reported to the administrator.
+ */
+export async function adminLoginAction(form: FormData) {
+  return act("/auth/login", async () => {
+    const email = str(form, "email").toLowerCase();
+    const ip = await clientIp();
+    if (!(await rateLimit(`admin-login:${ip}`, 10, 60 * 60 * 1000)) || !(await rateLimit(`admin-login:${ip}:${email}`, 5, 15 * 60 * 1000))) {
+      throw new Error("Too many sign-in attempts. Wait and try again later.");
+    }
+    const locked = lockedMessage(await signInState(email));
+    if (locked) throw new Error(locked);
+    const user = await prisma.user.findUnique({ where: { email } });
+    const passwordOk = await verifyPassword(str(form, "password"), user?.passwordHash ?? (await noAccountHash()));
+    // A real account that is not an administrator fails here exactly like a wrong password, and counts towards the lock.
+    if (!user || !passwordOk || !user.isPlatformAdmin) {
+      const r = await recordFailedSignIn(email, user?.id ?? null);
+      if (r.event === "locked" || r.event === "banned" || r.event === "refused") throw new Error(lockedMessage(await signInState(email)) ?? "Too many wrong passwords.");
+      throw new Error("Those details do not match a staff account.");
+    }
+    if (user.mfaEnabledAt) {
+      const code = str(form, "code");
+      if (!code) throw new Error("Enter the code from your authenticator app, or a recovery code.");
+      if (!(await rateLimit(`mfa:${user.id}`, 5, 15 * 60 * 1000)) || !(await checkSecondStep(user.id, code))) throw new Error("That code is not right or has already been used.");
+    }
+    await recordSuccessfulSignIn(email);
+    await createSession(user.id, null, { hours: ADMIN_SESSION_HOURS });
+    const when = new Date().toLocaleString("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" });
+    await withUser(user.id, (tx) => notify(tx, user.id, { kind: "security.admin_signin", title: "Staff sign-in to your administrator account",
+      body: `Signed in on ${when} from ${ip}. If this was not you, change your password and sign out every device from Security now.`, link: "/me/security" })).catch(() => {});
+    return "/admin";
   });
 }
 

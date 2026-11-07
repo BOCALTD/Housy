@@ -1,0 +1,39 @@
+== Lekki Phase 1
+status: Connected as: 82615889 | Current time: 2026-11-07T20:56:43Z | Announced endpoint: gall.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+A around (current) | AbortError 40002ms
+status: Connected as: 82615889 | Current time: 2026-11-07T20:57:49Z | Announced endpoint: lambert.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+B bbox nwr per kind | 28957ms | 53390 bytes |  | landmark:17 school:7 health:3 pharmacy:1 shopping:5 bank:2 fuel:3 transport:2 food:9 worship:7 park:13 police:1 hotel:15
+    landmarks: Miskay Boutique 1.1km; Trocadero Square 1.2km; Filmhouse IMAX Lekki 1.2km; Grace Garden Event Place 1.4km; Bolien Mall 1.4km
+status: Connected as: 82615889 | Current time: 2026-11-07T20:59:00Z | Announced endpoint: lambert.openstreetmap.de/ | Rate limit: 2 | 1 slots available now. | Slot available after: 2026-11-07T20:59:18Z, in 18 seconds.
+C bbox nw per kind | 27811ms | 53136 bytes |  | landmark:17 school:7 health:3 pharmacy:1 shopping:5 bank:2 fuel:3 transport:2 food:9 worship:7 park:13 police:1 hotel:15
+    landmarks: Miskay Boutique 1.1km; Trocadero Square 1.2km; Filmhouse IMAX Lekki 1.2km; Grace Garden Event Place 1.4km; Bolien Mall 1.4km
+status: Connected as: 82615889 | Current time: 2026-11-07T21:00:09Z | Announced endpoint: lambert.openstreetmap.de/ | Rate limit: 2 | 1 slots available now. | Slot available after: 2026-11-07T21:00:27Z, in 18 seconds.
+D bbox nw by key | AbortError 40002ms
+status: Connected as: 82615889 | Current time: 2026-11-07T21:01:26Z | Announced endpoint: gall.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+E bbox nw per kind, everyday 1.5km | HTTP 502 98ms # 502 Gateway Timeout This Overpass API server is currently at capacity. All query worker
+== Ikeja GRA
+status: Connected as: 82615889 | Current time: 2026-11-07T21:02:16Z | Announced endpoint: gall.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+A around (current) | AbortError 40002ms
+status: # 502 Gateway Timeout |  | This Overpass API server is currently at capacity. All query workers are busy | and the request queue is full. |  | ## What to do
+B bbox nwr per kind | HTTP 502 295ms # 502 Gateway Timeout This Overpass API server is currently at capacity. All query worker
+status: Connected as: 82615889 | Current time: 2026-11-07T21:03:37Z | Announced endpoint: lambert.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+C bbox nw per kind | 36554ms | 53984 bytes |  | landmark:16 school:13 health:3 pharmacy:1 shopping:5 bank:6 fuel:1 transport:10 food:15 worship:9 park:19 police:2 hotel:17
+    landmarks: Ikeja Golf Course 0.6km; Opebi 1.7km; Pep 2.0km; MMA2 New Domestic Terminal 2 2.0km; Aircraft 2.1km
+status: Connected as: 82615889 | Current time: 2026-11-07T21:04:48Z | Announced endpoint: gall.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+D bbox nw by key | 32781ms | 50108 bytes |  | landmark:16 school:13 health:3 pharmacy:1 shopping:5 bank:6 fuel:1 transport:10 food:15 worship:9 park:19 police:2 hotel:17
+    landmarks: Ikeja Golf Course 0.6km; Opebi 1.7km; Pep 2.0km; MMA2 New Domestic Terminal 2 2.0km; Aircraft 2.1km
+status: # 502 Gateway Timeout |  | This Overpass API server is currently at capacity. All query workers are busy | and the request queue is full. |  | ## What to do
+E bbox nw per kind, everyday 1.5km | 35394ms | 38159 bytes |  | landmark:16 school:13 health:3 pharmacy:1 shopping:5 bank:6 fuel:1 transport:10 food:15 worship:9 park:19 police:2 hotel:13
+    landmarks: Ikeja Golf Course 0.6km; Opebi 1.7km; Pep 2.0km; MMA2 New Domestic Terminal 2 2.0km; Aircraft 2.1km
+== Port Harcourt GRA
+status: # 502 Gateway Timeout |  | This Overpass API server is currently at capacity. All query workers are busy | and the request queue is full. |  | ## What to do
+A around (current) | HTTP 502 302ms # 502 Gateway Timeout This Overpass API server is currently at capacity. All query worker
+status: Connected as: 82615889 | Current time: 2026-11-07T21:06:55Z | Announced endpoint: lambert.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+B bbox nwr per kind | AbortError 40000ms
+status: Connected as: 82615889 | Current time: 2026-11-07T21:08:25Z | Announced endpoint: lambert.openstreetmap.de/ | Rate limit: 2 | 1 slots available now. | Slot available after: 2026-11-07T21:08:43Z, in 18 seconds.
+C bbox nw per kind | HTTP 502 117ms # 502 Gateway Timeout This Overpass API server is currently at capacity. All query worker
+status: Connected as: 82615889 | Current time: 2026-11-07T21:09:05Z | Announced endpoint: lambert.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+D bbox nw by key | AbortError 40001ms
+status: Connected as: 82615889 | Current time: 2026-11-07T21:10:26Z | Announced endpoint: gall.openstreetmap.de/ | Rate limit: 2 | 2 slots available now. | Currently running queries (pid, space limit, time limit, start time):
+E bbox nw per kind, everyday 1.5km | 25412ms | 56997 bytes |  | landmark:11 school:1 health:2 shopping:2 bank:6 fuel:2 transport:4 food:1 worship:8 park:4 police:1 hotel:144
+    landmarks: Liberation Stadium 1.4km; Yakubu Gowon Stadium (formerly Liberation Stadium) 1.4km; Park 1.9km; Karis Event place 2.4km; Market Shops 2.7km

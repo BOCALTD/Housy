@@ -93,7 +93,7 @@ test("nearby places come from one cached lookup per area; a failure is reported,
   const c = await nearbyForListing(listing.publicRef, {});
   assert.equal(asked.length, 3);
   // The servers refuse anonymous requests: every one says who is asking and how to reach them.
-  assert.ok(agents.every((a) => /^Housy\/1\.0 \(\+https:\/\//.test(a)), agents.join(" / "));
+  assert.ok(agents.every((a) => /^Housy\/1\.0 \(\+https:\/\/[^;]+; nearby places\)$/.test(a)), agents.join(" / "));
   assert.ok(c.available);
   assert.deepEqual(c.summary.map((s) => [s.kind, s.nearest[0].name]), [["landmark", "Test Museum"]]);
   setNearbyFetchForTests(null);

@@ -6,7 +6,7 @@
  * what was found. Nothing is saved.
  */
 import { tuneNetwork } from "../src/lib/network";
-import { nearbyCell, overpassFailed, overpassQuery, overpassServers, overpassUserAgent as userAgent, parseOverpass, summariseNearby } from "../src/lib/location-rules";
+import { nearbyCell, overpassFailed, overpassQuery, overpassHeaders, overpassServers, overpassUserAgent as userAgent, parseOverpass, summariseNearby } from "../src/lib/location-rules";
 
 tuneNetwork(); // the same connection settings as the server
 const arg = process.argv.slice(2).find((a) => /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(a));
@@ -43,7 +43,7 @@ async function main() {
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 30_000);
-      const res = await fetch(url, { method: "POST", signal: ctrl.signal, headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", "User-Agent": ua }, body: new URLSearchParams({ data: query }).toString() });
+      const res = await fetch(url, { method: "POST", signal: ctrl.signal, headers: overpassHeaders(process.env), body: new URLSearchParams({ data: query }).toString() });
       clearTimeout(timer);
       const text = await res.text();
       const ms = Date.now() - t;

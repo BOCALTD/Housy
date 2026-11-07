@@ -8,7 +8,7 @@
  * Only the property's public position (blurred to about a kilometre) is ever sent out, never an address or a person's data.
  */
 import { prisma, withPublic } from "../db";
-import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, overpassServers, overpassUserAgent as userAgent, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
+import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, overpassHeaders, overpassServers, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
 
 const DAY = 864e5;
 const TTL_OK = 30 * DAY, TTL_EMPTY = DAY, TTL_FAIL = 5 * 60_000;
@@ -49,7 +49,7 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
     try {
       const res = await fetcher(url, {
         method: "POST", signal: ctrl.signal, cache: "no-store",
-        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", "User-Agent": userAgent(env) },
+        headers: overpassHeaders(env),
         body: new URLSearchParams({ data: query }).toString(),
       });
       if (!res.ok) continue;

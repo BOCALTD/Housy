@@ -119,13 +119,22 @@ const OVERPASS_SERVERS = ["https://overpass-api.de/api/interpreter", "https://ov
 /** The map servers to ask, in order: OVERPASS_URL (comma separated) when set, otherwise the public ones. */
 export const overpassServers = (env: Env) => (env.OVERPASS_URL ? env.OVERPASS_URL.split(",").map((x) => x.trim()).filter(Boolean) : OVERPASS_SERVERS);
 /**
- * The public map servers turn away requests that do not say who is asking and how to reach them, so the site names itself
- * with its public https address (or the project page) and OVERPASS_CONTACT when that is set.
+ * The public map servers turn away requests that do not say who is asking and how to reach them, and also names that
+ * look like scrapers (words like "property listings", or posing as a browser): they answer "406 Not Acceptable". This
+ * exact shape is the one the main server accepts: the site's https address (or the project page) and the purpose.
  */
 export function overpassUserAgent(env: Env) {
   const site = env.NEXT_PUBLIC_APP_URL && /^https:\/\//.test(env.NEXT_PUBLIC_APP_URL) ? env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "") : "https://github.com/BOCALTD/Housy";
+  return `Housy/1.0 (+${site}; nearby places)`;
+}
+/** The request headers for a map server: who is asking, and (the standard From header) an email to reach them on. */
+export function overpassHeaders(env: Env): Record<string, string> {
   const contact = env.OVERPASS_CONTACT?.trim();
-  return `Housy/1.0 (+${site}; property listings: nearby places${contact ? `; ${contact}` : ""})`;
+  return {
+    "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": overpassUserAgent(env),
+    ...(contact && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? { From: contact } : {}),
+  };
 }
 
 /** An Overpass answer that ran out of time or memory says so in "remark", and its elements are then incomplete. */

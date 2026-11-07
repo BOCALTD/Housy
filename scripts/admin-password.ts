@@ -36,4 +36,19 @@ async function main() {
   console.log(`Done. Sign in at /auth/login as ${email}. ${ended.count} open session${ended.count === 1 ? "" : "s"} signed out.`);
 }
 
-main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); }).finally(() => prisma.$disconnect());
+/** On Ubuntu under Windows the database does not start by itself after a restart. Try to start it; say what to run if not. */
+async function databaseReady(): Promise<boolean> {
+  const up = () => prisma.$queryRaw`select 1`.then(() => true, () => false);
+  if (await up()) return true;
+  console.log("The database is not running. Starting it (your Ubuntu password may be asked for)…");
+  const { spawnSync } = await import("node:child_process");
+  spawnSync("sudo", ["service", "postgresql", "start"], { stdio: "inherit" });
+  for (let i = 0; i < 15; i++) { if (await up()) return true; await new Promise((r) => setTimeout(r, 1000)); }
+  console.error("The database still is not running. Start it with:  sudo service postgresql start  then run this again.");
+  return false;
+}
+
+databaseReady()
+  .then((ok) => (ok ? main() : process.exit(1)))
+  .catch((e) => { console.error(e instanceof Error ? e.message.split("\n").filter(Boolean).pop() : e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

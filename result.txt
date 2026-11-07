@@ -1,0 +1,45 @@
+Lekki Phase 1, Lagos | https://overpass-api.de/api/interpreter | HTTP 406 1044ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Lekki Phase 1, Lagos | https://overpass.private.coffee/api/interpreter | AbortError  30002ms
+Lekki Phase 1, Lagos | https://overpass.kumi.systems/api/interpreter | AbortError  30001ms
+Lekki Phase 1, Lagos | https://overpass-api.de/api/interpreter | HTTP 406 289ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Lekki Phase 1, Lagos | https://overpass.private.coffee/api/interpreter | AbortError  30002ms
+Lekki Phase 1, Lagos | https://overpass.kumi.systems/api/interpreter | AbortError  30002ms
+Lekki Phase 1, Lagos | https://overpass-api.de/api/interpreter | HTTP 406 369ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Lekki Phase 1, Lagos | https://overpass.private.coffee/api/interpreter | AbortError  30000ms
+Lekki Phase 1, Lagos | https://overpass.kumi.systems/api/interpreter | AbortError  29999ms
+Ikeja GRA, Lagos | https://overpass-api.de/api/interpreter | HTTP 406 365ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Ikeja GRA, Lagos | https://overpass.private.coffee/api/interpreter | AbortError  30000ms
+Ikeja GRA, Lagos | https://overpass.kumi.systems/api/interpreter | AbortError  30001ms
+Ikeja GRA, Lagos | https://overpass-api.de/api/interpreter | HTTP 406 285ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Ikeja GRA, Lagos | https://overpass.private.coffee/api/interpreter | AbortError  30002ms
+Ikeja GRA, Lagos | https://overpass.kumi.systems/api/interpreter | AbortError  30001ms
+Ikeja GRA, Lagos | https://overpass-api.de/api/interpreter | HTTP 406 368ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Ikeja GRA, Lagos | https://overpass.private.coffee/api/interpreter | AbortError  30000ms
+Ikeja GRA, Lagos | https://overpass.kumi.systems/api/interpreter | AbortError  30002ms
+Independence Layout, Enugu | https://overpass-api.de/api/interpreter | HTTP 406 285ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Independence Layout, Enugu | https://overpass.private.coffee/api/interpreter | AbortError  30000ms
+Independence Layout, Enugu | https://overpass.kumi.systems/api/interpreter | AbortError  30000ms
+Independence Layout, Enugu | https://overpass-api.de/api/interpreter | HTTP 406 367ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Independence Layout, Enugu | https://overpass.private.coffee/api/interpreter | AbortError  30002ms
+Independence Layout, Enugu | https://overpass.kumi.systems/api/interpreter | AbortError  30000ms
+Independence Layout, Enugu | https://overpass-api.de/api/interpreter | HTTP 406 285ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Independence Layout, Enugu | https://overpass.private.coffee/api/interpreter | AbortError  30000ms
+Independence Layout, Enugu | https://overpass.kumi.systems/api/interpreter | AbortError  30001ms
+GRA Phase 2, Port Harcourt | https://overpass-api.de/api/interpreter | HTTP 406 282ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+GRA Phase 2, Port Harcourt | https://overpass.private.coffee/api/interpreter | AbortError  30001ms
+GRA Phase 2, Port Harcourt | https://overpass.kumi.systems/api/interpreter | AbortError  30001ms
+GRA Phase 2, Port Harcourt | https://overpass-api.de/api/interpreter | HTTP 406 281ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+GRA Phase 2, Port Harcourt | https://overpass.private.coffee/api/interpreter | AbortError  30001ms
+GRA Phase 2, Port Harcourt | https://overpass.kumi.systems/api/interpreter | AbortError  30001ms
+GRA Phase 2, Port Harcourt | https://overpass-api.de/api/interpreter | HTTP 406 281ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+GRA Phase 2, Port Harcourt | https://overpass.private.coffee/api/interpreter | AbortError  30002ms
+GRA Phase 2, Port Harcourt | https://overpass.kumi.systems/api/interpreter | AbortError  30000ms
+Wuse 2, Abuja | https://overpass-api.de/api/interpreter | HTTP 406 369ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Wuse 2, Abuja | https://overpass.private.coffee/api/interpreter | AbortError  29999ms
+Wuse 2, Abuja | https://overpass.kumi.systems/api/interpreter | AbortError  30001ms
+Wuse 2, Abuja | https://overpass-api.de/api/interpreter | HTTP 406 365ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Wuse 2, Abuja | https://overpass.private.coffee/api/interpreter | AbortError  30003ms
+Wuse 2, Abuja | https://overpass.kumi.systems/api/interpreter | AbortError  30000ms
+Wuse 2, Abuja | https://overpass-api.de/api/interpreter | HTTP 406 284ms <html> <head><title>406 Not Acceptable</title></head> <body> <center><h1>406 Not Acceptable</h1><
+Wuse 2, Abuja | https://overpass.private.coffee/api/interpreter | AbortError  30000ms
+Wuse 2, Abuja | https://overpass.kumi.systems/api/interpreter | AbortError  30002ms

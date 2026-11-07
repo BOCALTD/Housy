@@ -14,6 +14,26 @@ const query = overpassQuery({ lat: clat, lng: clng });
 const ua = userAgent(process.env);
 console.log(`Looking around ${lat}, ${lng} as: ${ua}\n`);
 
+/** The reason a connection failed, in words, with the system's own code so it can be looked up. */
+function why(e: unknown): string {
+  const c = (e as { cause?: { code?: string; message?: string; errors?: { code?: string }[] } }).cause;
+  const code = c?.code ?? c?.errors?.[0]?.code ?? "";
+  const words: Record<string, string> = {
+    ENOTFOUND: "this machine could not look up the server's address (DNS)",
+    EAI_AGAIN: "this machine could not look up the server's address (DNS) just now",
+    ECONNREFUSED: "the connection was refused",
+    ECONNRESET: "the connection was cut",
+    ETIMEDOUT: "the connection timed out",
+    ENETUNREACH: "this machine has no route to the internet for that address",
+    EHOSTUNREACH: "this machine has no route to that server",
+    UNABLE_TO_GET_ISSUER_CERT_LOCALLY: "the secure connection could not be checked (a proxy or antivirus may be in the way)",
+    SELF_SIGNED_CERT_IN_CHAIN: "the secure connection could not be checked (a proxy or antivirus may be in the way)",
+    CERT_HAS_EXPIRED: "the secure connection could not be checked (check this machine's clock)",
+    UND_ERR_CONNECT_TIMEOUT: "the connection timed out",
+  };
+  return `${words[code] ?? (c?.message || (e as Error).message || "unknown")}${code ? ` [${code}]` : ""}`;
+}
+
 async function main() {
   let found = false;
   for (const url of overpassServers(process.env)) {
@@ -40,10 +60,10 @@ async function main() {
       found = true;
       break;
     } catch (e) {
-      console.log(`✗ ${url}\n  ${(e as Error).name === "AbortError" ? "no answer within 30 seconds" : "could not connect"} (${Date.now() - t} ms)\n`);
+      console.log(`✗ ${url}\n  ${(e as Error).name === "AbortError" ? "no answer within 30 seconds" : `could not connect: ${why(e)}`} (${Date.now() - t} ms)\n`);
     }
   }
-  console.log(found ? "\nNearby places work from this machine." : "\nNo map server answered from this machine. Check the internet connection, or set OVERPASS_URL to a server you run or pay for.");
+  console.log(found ? "\nNearby places work from this machine." : "\nNo map server answered from this machine. Check the internet connection (the reasons above say what failed), or set OVERPASS_URL to a server you run or pay for.");
   return found;
 }
 

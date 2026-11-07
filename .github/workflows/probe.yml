@@ -1,0 +1,14 @@
+name: Probe nearby
+on: { push: { branches: [probe-nearby] } }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --experimental-strip-types probe.ts | tee result.txt
+      - run: |
+          git config user.name probe; git config user.email probe@users.noreply.github.com
+          git checkout --orphan probe-nearby-out; git rm -rqf --cached . ; git add result.txt; git commit -qm result; git push -f origin probe-nearby-out
+    permissions: { contents: write }

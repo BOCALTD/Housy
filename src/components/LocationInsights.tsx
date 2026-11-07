@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { StreetMap, type StaticPoint } from "@/components/StreetMap";
 import { directionsLinks, distanceLabel, minutesLabel, type NearbySummary } from "@/lib/location-rules";
 
-const DOT: Record<string, string> = { school: "#2563eb", health: "#dc2626", pharmacy: "#16a34a", shopping: "#9333ea", bank: "#0f766e", fuel: "#ea580c", transport: "#475569", food: "#d97706", worship: "#7c3aed", park: "#15803d", police: "#1e3a8a" };
+const DOT: Record<string, string> = { landmark: "#b45309", hotel: "#be185d", school: "#2563eb", health: "#dc2626", pharmacy: "#16a34a", shopping: "#9333ea", bank: "#0f766e", fuel: "#ea580c", transport: "#475569", food: "#d97706", worship: "#7c3aed", park: "#15803d", police: "#1e3a8a" };
 const PLACE_KEY = "travel-from";
 
 type Nearby = { available: true; centre: { lat: number; lng: number }; summary: NearbySummary[] } | { available: false; reason: string };
@@ -79,9 +79,9 @@ export function LocationInsights({ refId, title, centre, boundary }: { refId: st
 
       <section className="nearby" aria-labelledby="nearby-h">
         <h3 id="nearby-h">What is nearby</h3>
-        {nearby === null ? <p className="small muted">Looking up schools, hospitals, markets and transport nearby…</p>
-          : !nearby.available ? <p className="small muted">{nearby.reason === "off" ? "Nearby places are switched off on this site." : "Nearby places are not available just now."}</p>
-          : nearby.summary.length === 0 ? <p className="small muted">No schools, shops or other places are recorded within about 1.5 km on the public map.</p>
+        {nearby === null ? <p className="small muted">Looking up landmarks, schools, hospitals, markets and transport nearby…</p>
+          : !nearby.available ? <p className="small muted">{nearby.reason === "off" ? "Nearby places are switched off on this site." : "The map service is busy, so nearby places could not be loaded. Reload the page in a few minutes."}</p>
+          : nearby.summary.length === 0 ? <p className="small muted">No landmarks, schools, shops or other places are recorded near here on the public map yet.</p>
           : (
             <>
               <div className="row" role="group" aria-label="Show on the map">
@@ -100,7 +100,7 @@ export function LocationInsights({ refId, title, centre, boundary }: { refId: st
                   <ul className="nearby-grid">{nearby.summary.slice(6).map((s) => <NearbyKind key={s.kind} s={s} />)}</ul>
                 </details>
               ) : null}
-              <p className="small muted">Within about 1.5 km of the area, from OpenStreetMap. Distances are in a straight line.</p>
+              <p className="small muted">Everyday places within about 2 km, landmarks within about 5 km, from OpenStreetMap. Distances are in a straight line from the area.</p>
             </>
           )}
       </section>
@@ -133,7 +133,7 @@ export function LocationInsights({ refId, title, centre, boundary }: { refId: st
 function NearbyKind({ s }: { s: NearbySummary }) {
   return (
     <li className="nearby-kind">
-      <header><strong><span className="nearby-dot" style={{ background: DOT[s.kind] }} aria-hidden="true" />{s.label}</strong><span className="nearby-count">{s.count}</span></header>
+      <header><strong><span className="nearby-dot" style={{ background: DOT[s.kind] }} aria-hidden="true" />{s.label}</strong><span className="nearby-count" title={`Within about ${s.km} km`}>{s.count}</span></header>
       <ul>{s.nearest.map((n) => <li key={`${n.name}-${n.lat}`}><span>{n.name}</span><span>{distanceLabel(n.km)}</span></li>)}</ul>
     </li>
   );

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { areaLabel, boundaryAreaSqm, checkBoundary, circleBounds, directionsLinks, distanceLabel, mapLayers, nearbyCell, overpassQuery, parseNear, parseOverpass, parseRoute, summariseNearby, travelEstimate } from "../../src/lib/location-rules";
+import { areaLabel, boundaryAreaSqm, checkBoundary, circleBounds, directionsLinks, distanceLabel, mapLayers, nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, parseNear, parseOverpass, parseRoute, summariseNearby, travelEstimate } from "../../src/lib/location-rules";
 import { distanceKm, inBounds } from "../../src/lib/geo-rules";
 
 test("satellite is offered only with a provider that allows it", () => {
@@ -27,24 +27,42 @@ test("radius search: only the allowed radii, and the box always contains the cir
   assert.equal(distanceLabel(0.43), "450 m"); assert.equal(distanceLabel(3.44), "3.4 km"); assert.equal(distanceLabel(27.6), "28 km");
 });
 
-test("nearby places: one cached lookup per square kilometre, classified and summarised nearest first", () => {
+test("nearby places and landmarks: one cached lookup per square kilometre, classified and summarised nearest first", () => {
   assert.equal(nearbyCell({ lat: 6.44781, lng: 3.47372 }), "6.45,3.47");
+  assert.equal(nearbyCacheKey({ lat: 6.44781, lng: 3.47372 }), "v2:6.45,3.47");
   const q = overpassQuery({ lat: 6.45, lng: 3.47 });
-  assert.match(q, /^\[out:json\]/); assert.match(q, /nwr\["amenity"="school"\]\(around:1500,6\.45000,3\.47000\);/);
+  assert.match(q, /^\[out:json\]\[timeout:25\];/);
+  // One statement per kind and key, values as one pattern; everyday places reach 2 km past the cell slack, landmarks 5 km and need a name.
+  assert.match(q, /nwr\["amenity"~"\^\(school\|kindergarten\|college\|university\)\$"\]\(around:2800,6\.45000,3\.47000\);/);
+  assert.match(q, /nwr\["tourism"~"\^\(attraction\|museum[^"]*\)\$"\]\["name"\]\(around:5800,/);
+  assert.equal((q.match(/out tags center/g) ?? []).length, 13, "each kind is printed on its own, so one kind cannot crowd out the others");
+  assert.ok(q.length < 4000);
   const places = parseOverpass({ elements: [
-    { type: "node", lat: 6.451, lon: 3.471, tags: { amenity: "school", name: "Corona School" } },
-    { type: "way", center: { lat: 6.457, lon: 3.475 }, tags: { amenity: "school" } },
-    { type: "node", lat: 6.449, lon: 3.47, tags: { amenity: "pharmacy", name: "MedPlus" } },
-    { type: "node", lat: 6.6, lon: 3.6, tags: { amenity: "pharmacy", name: "Too far" } },
-    { type: "node", tags: { amenity: "bank" } },
-    { type: "node", lat: 6.45, lon: 3.47, tags: { shop: "shoes" } },
+    { type: "node", id: 1, lat: 6.451, lon: 3.471, tags: { amenity: "school", name: "Corona School" } },
+    { type: "way", id: 2, center: { lat: 6.457, lon: 3.475 }, tags: { amenity: "school" } },
+    { type: "node", id: 3, lat: 6.449, lon: 3.47, tags: { amenity: "pharmacy", name: "MedPlus" } },
+    { type: "node", id: 4, lat: 6.6, lon: 3.6, tags: { amenity: "pharmacy", name: "Too far" } },
+    { type: "node", id: 5, tags: { amenity: "bank" } },
+    { type: "node", id: 6, lat: 6.45, lon: 3.47, tags: { shop: "shoes" } },
+    // A mall is shopping and a landmark; it comes back once for each, and twice more as a point and an outline.
+    { type: "way", id: 7, center: { lat: 6.4601, lon: 3.4801 }, tags: { shop: "mall", name: "Circle Mall" } },
+    { type: "way", id: 7, center: { lat: 6.4601, lon: 3.4801 }, tags: { shop: "mall", name: "Circle Mall" } },
+    { type: "node", id: 8, lat: 6.4602, lon: 3.4802, tags: { shop: "mall", name: "Circle Mall" } },
+    // A landmark 4 km away counts; an unnamed attraction does not.
+    { type: "node", id: 9, lat: 6.486, lon: 3.47, tags: { tourism: "attraction", name: "Lekki Conservation Centre" } },
+    { type: "node", id: 10, lat: 6.452, lon: 3.47, tags: { tourism: "attraction" } },
   ] });
-  assert.equal(places.length, 4);
+  assert.equal(places.filter((p) => p.name === "Circle Mall").length, 2, "one as shopping, one as a landmark");
   const s = summariseNearby({ lat: 6.45, lng: 3.47 }, places);
-  assert.deepEqual(s.map((x) => [x.kind, x.count]), [["school", 2], ["pharmacy", 1]]);
-  assert.equal(s[0].nearest[0].name, "Corona School");
-  assert.equal(s[0].nearest[1].name, "A school");
+  assert.deepEqual(s.map((x) => [x.kind, x.count]), [["landmark", 2], ["school", 2], ["pharmacy", 1], ["shopping", 1]]);
+  assert.deepEqual(s[0].nearest.map((n) => n.name), ["Circle Mall", "Lekki Conservation Centre"]);
+  assert.equal(s[0].km, 5);
+  assert.equal(s[1].nearest[0].name, "Corona School");
+  assert.equal(s[1].nearest[1].name, "A school");
   assert.deepEqual(parseOverpass({ remark: "runtime error" }), []);
+  // A server that ran out of time still answers 200 with a partial list: that is a failure, not "nothing nearby".
+  assert.equal(overpassFailed({ elements: [], remark: "runtime error: Query timed out in \"query\" at line 1 after 26 seconds." }), true);
+  assert.equal(overpassFailed({ elements: [] }), false);
 });
 
 test("travel time is a range from quiet roads to rush hour; a routing service answer is read when there is one", () => {

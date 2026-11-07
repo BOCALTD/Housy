@@ -13,7 +13,7 @@ import { mapNear } from "../../src/lib/services/street-map";
 import { nearbyForListing, setNearbyFetchForTests, travelToListing } from "../../src/lib/services/nearby";
 import { confirmBooking, dayRoute, myBooking, requestInspection } from "../../src/lib/services/inspection-bookings";
 import { registerSeeker } from "../../src/lib/services/community";
-import { nearbyCell } from "../../src/lib/location-rules";
+import { nearbyCacheKey } from "../../src/lib/location-rules";
 import { newCompany, newPlatformAdmin } from "./helpers";
 
 after(() => prisma.$disconnect());
@@ -64,7 +64,7 @@ test("nearby places come from one cached lookup per area; a failure is reported,
       { type: "node", lat: listing.lat!, lon: listing.lng! + 0.003, tags: { amenity: "pharmacy" } },
     ] }), { status: 200 });
   }) as typeof fetch);
-  await prisma.nearbyCache.deleteMany({ where: { cell: nearbyCell({ lat: listing.lat!, lng: listing.lng! }) } });
+  await prisma.nearbyCache.deleteMany({ where: { cell: nearbyCacheKey({ lat: listing.lat!, lng: listing.lng! }) } });
   const a = await nearbyForListing(listing.publicRef, {});
   assert.ok(a.available);
   assert.deepEqual(a.summary.map((s) => s.kind), ["school", "pharmacy"]);
@@ -76,10 +76,24 @@ test("nearby places come from one cached lookup per area; a failure is reported,
   const asset = await withTenant(listing.companyId, "system", (tx) => tx.asset.findFirstOrThrow({ where: { id: listing.assetId } }));
   assert.ok(!decodeURIComponent(sent[0]).includes(asset.lat!.toFixed(5)));
   // A failed lookup on an empty cache says so instead of showing nothing as if there were nothing.
-  await prisma.nearbyCache.deleteMany({ where: { cell: nearbyCell({ lat: listing.lat!, lng: listing.lng! }) } });
+  await prisma.nearbyCache.deleteMany({ where: { cell: nearbyCacheKey({ lat: listing.lat!, lng: listing.lng! }) } });
   answer = "fail";
   assert.deepEqual(await nearbyForListing(listing.publicRef, {}), { available: false, reason: "unavailable" });
   assert.deepEqual(await nearbyForListing(listing.publicRef, { NEARBY_PLACES: "off" }), { available: false, reason: "off" });
+  // A busy server that answers "timed out" is not taken as "nothing nearby": the next server is asked.
+  await prisma.nearbyCache.deleteMany({ where: { cell: nearbyCacheKey({ lat: listing.lat!, lng: listing.lng! }) } });
+  const asked: string[] = [];
+  setNearbyFetchForTests((async (url: string) => {
+    asked.push(String(url));
+    if (asked.length === 1) return new Response(JSON.stringify({ elements: [], remark: "runtime error: Query timed out in \"query\" at line 1 after 26 seconds." }), { status: 200 });
+    if (asked.length === 2) return new Response("Too many requests", { status: 429 });
+    return new Response(JSON.stringify({ elements: [{ type: "node", id: 1, lat: listing.lat! + 0.02, lon: listing.lng!, tags: { tourism: "museum", name: "Test Museum" } }] }), { status: 200 });
+  }) as typeof fetch);
+  const c = await nearbyForListing(listing.publicRef, {});
+  assert.equal(asked.length, 3);
+  assert.ok(c.available);
+  assert.deepEqual(c.summary.map((s) => [s.kind, s.nearest[0].name]), [["landmark", "Test Museum"]]);
+  setNearbyFetchForTests(null);
 });
 
 test("travel time is an estimate without a routing server, and a real route with one", async () => {

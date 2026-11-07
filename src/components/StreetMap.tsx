@@ -33,7 +33,7 @@ type Group = { kind: "group"; lat: number; lng: number; count: number; minPrice:
 type ViewData = { total: number; markers: (Pin | Group)[]; list: Pin[] };
 export type StaticPoint = { id: string; lat: number; lng: number; label: string; href?: string; group?: string; weight?: number; approximate?: boolean; sub?: string };
 
-const COLOURS: Record<string, string> = { school: "#2563eb", health: "#dc2626", pharmacy: "#16a34a", shopping: "#9333ea", bank: "#0f766e", fuel: "#ea580c", transport: "#475569", food: "#d97706", worship: "#7c3aed", park: "#15803d", police: "#1e3a8a", SALE: "#0f766e", RENT: "#1d4ed8", LEASE: "#7c3aed", OCCUPIED: "#0f766e", VACANT: "#b45309", ACTIVE: "#1d4ed8", UNDER_RENOVATION: "#7c3aed", VACANCY: "#b45309" };
+const COLOURS: Record<string, string> = { landmark: "#b45309", hotel: "#be185d", school: "#2563eb", health: "#dc2626", pharmacy: "#16a34a", shopping: "#9333ea", bank: "#0f766e", fuel: "#ea580c", transport: "#475569", food: "#d97706", worship: "#7c3aed", park: "#15803d", police: "#1e3a8a", SALE: "#0f766e", RENT: "#1d4ed8", LEASE: "#7c3aed", OCCUPIED: "#0f766e", VACANT: "#b45309", ACTIVE: "#1d4ed8", UNDER_RENOVATION: "#7c3aed", VACANCY: "#b45309" };
 
 function reducedMotion() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -136,6 +136,12 @@ export function StreetMap(props:
           card.appendChild(text("span", "map-card-title", p.label));
           if (p.sub) card.appendChild(text("span", "map-card-meta", p.sub));
           m.bindPopup(card, { maxWidth: 240 }).addTo(map);
+        }
+        // Landmarks can be a few kilometres away: widen the view so every place shown is on the map.
+        if (props.extras?.length && !props.boundary?.length) {
+          const b = L.latLngBounds([[props.centre.lat, props.centre.lng]]);
+          for (const p of props.extras) b.extend([p.lat, p.lng]);
+          map.fitBounds(b, { padding: [24, 24], maxZoom: 15 });
         }
       } else if (props.mode === "draw") {
         const startAt = props.value?.length ? { lat: props.value[0][0], lng: props.value[0][1], zoom: 16 } : props.anchor ? { ...props.anchor, zoom: 16 } : props.start;

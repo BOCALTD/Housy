@@ -58,67 +58,109 @@ export function distanceLabel(km: number): string {
   return km < 10 ? `${Math.round(km * 10) / 10} km` : `${Math.round(km)} km`;
 }
 
-// ---------- Nearby amenities ----------
+// ---------- Nearby places and landmarks ----------
 
-export type AmenityKind = "school" | "health" | "pharmacy" | "shopping" | "bank" | "fuel" | "transport" | "food" | "worship" | "park" | "police";
+export type AmenityKind = "landmark" | "school" | "health" | "pharmacy" | "shopping" | "bank" | "fuel" | "transport" | "food" | "worship" | "park" | "police" | "hotel";
 
-/** Each kind, with the OpenStreetMap tags that count as it. */
-export const AMENITY_KINDS: { kind: AmenityKind; label: string; tags: [string, string][] }[] = [
-  { kind: "school", label: "Schools", tags: [["amenity", "school"], ["amenity", "kindergarten"], ["amenity", "college"], ["amenity", "university"]] },
-  { kind: "health", label: "Hospitals and clinics", tags: [["amenity", "hospital"], ["amenity", "clinic"], ["amenity", "doctors"]] },
-  { kind: "pharmacy", label: "Pharmacies", tags: [["amenity", "pharmacy"]] },
-  { kind: "shopping", label: "Supermarkets and markets", tags: [["shop", "supermarket"], ["amenity", "marketplace"], ["shop", "mall"]] },
-  { kind: "bank", label: "Banks and cash points", tags: [["amenity", "bank"], ["amenity", "atm"]] },
-  { kind: "fuel", label: "Filling stations", tags: [["amenity", "fuel"]] },
-  { kind: "transport", label: "Bus stops and stations", tags: [["highway", "bus_stop"], ["amenity", "bus_station"], ["railway", "station"]] },
-  { kind: "food", label: "Restaurants and cafés", tags: [["amenity", "restaurant"], ["amenity", "cafe"], ["amenity", "fast_food"]] },
-  { kind: "worship", label: "Places of worship", tags: [["amenity", "place_of_worship"]] },
-  { kind: "park", label: "Parks and sports", tags: [["leisure", "park"], ["leisure", "sports_centre"], ["leisure", "pitch"]] },
-  { kind: "police", label: "Police stations", tags: [["amenity", "police"]] },
+/**
+ * Each kind, with the OpenStreetMap tags that count as it (key and values) and how far to look. Everyday places are
+ * counted within walking distance; landmarks (the places people give directions by) within a short drive.
+ */
+export const AMENITY_KINDS: { kind: AmenityKind; label: string; km: number; named?: true; tags: [string, string[]][] }[] = [
+  { kind: "landmark", label: "Landmarks", km: 5, named: true, tags: [
+    ["tourism", ["attraction", "museum", "gallery", "viewpoint", "zoo", "theme_park"]],
+    ["historic", ["monument", "memorial", "castle", "archaeological_site", "ruins"]],
+    ["leisure", ["stadium", "golf_course", "marina", "water_park", "nature_reserve"]],
+    ["amenity", ["townhall", "courthouse", "events_venue", "conference_centre", "theatre", "cinema", "arts_centre", "university"]],
+    ["shop", ["mall", "department_store"]],
+    ["aeroway", ["aerodrome", "terminal"]],
+  ] },
+  { kind: "school", label: "Schools", km: 2, tags: [["amenity", ["school", "kindergarten", "college", "university"]]] },
+  { kind: "health", label: "Hospitals and clinics", km: 2, tags: [["amenity", ["hospital", "clinic", "doctors", "dentist"]], ["healthcare", ["hospital", "clinic", "centre"]]] },
+  { kind: "pharmacy", label: "Pharmacies", km: 2, tags: [["amenity", ["pharmacy"]], ["shop", ["chemist"]]] },
+  { kind: "shopping", label: "Supermarkets and markets", km: 2, tags: [["shop", ["supermarket", "mall", "convenience", "department_store", "wholesale"]], ["amenity", ["marketplace"]]] },
+  { kind: "bank", label: "Banks and cash points", km: 2, tags: [["amenity", ["bank", "atm", "bureau_de_change"]]] },
+  { kind: "fuel", label: "Filling stations", km: 2, tags: [["amenity", ["fuel"]]] },
+  { kind: "transport", label: "Bus stops and stations", km: 2, tags: [["highway", ["bus_stop"]], ["amenity", ["bus_station", "ferry_terminal", "taxi"]], ["railway", ["station", "halt"]], ["public_transport", ["station"]]] },
+  { kind: "food", label: "Restaurants and cafés", km: 2, tags: [["amenity", ["restaurant", "cafe", "fast_food", "food_court"]]] },
+  { kind: "worship", label: "Places of worship", km: 2, tags: [["amenity", ["place_of_worship"]]] },
+  { kind: "park", label: "Parks and sports", km: 2, tags: [["leisure", ["park", "sports_centre", "pitch", "fitness_centre", "playground"]]] },
+  { kind: "police", label: "Police and fire stations", km: 3, tags: [["amenity", ["police", "fire_station"]]] },
+  { kind: "hotel", label: "Hotels", km: 3, tags: [["tourism", ["hotel", "guest_house", "apartment"]]] },
 ];
 
-export const NEARBY_RADIUS_M = 1500;
+/** The widest distance any kind is counted at. */
+export const NEARBY_RADIUS_M = Math.max(...AMENITY_KINDS.map((k) => k.km)) * 1000;
+/** The lookup is centred on the cache cell, which can be up to about 800 m from the property, so it reaches that much further. */
+const CELL_SLACK_M = 800;
 
 /** The cache cell for a position: about a kilometre square, so neighbouring properties share one lookup. */
 export const nearbyCell = (p: LL) => `${(Math.round(p.lat * 100) / 100).toFixed(2)},${(Math.round(p.lng * 100) / 100).toFixed(2)}`;
+/** The cache key: the cell, with a version that changes whenever the kinds looked up change. */
+export const nearbyCacheKey = (p: LL) => `v2:${nearbyCell(p)}`;
 
-/** The Overpass query for every kind around a point, nodes and the centres of ways, at most 400 results. */
-export function overpassQuery(p: LL, radiusM = NEARBY_RADIUS_M): string {
-  const sel = AMENITY_KINDS.flatMap((k) => k.tags).map(([key, value]) => `nwr["${key}"="${value}"](around:${radiusM},${p.lat.toFixed(5)},${p.lng.toFixed(5)});`).join("");
-  return `[out:json][timeout:20];(${sel});out center 400;`;
+const esc = (v: string) => v.replace(/[^a-z0-9_]/gi, "");
+/**
+ * The Overpass query: one statement per kind and tag key (values as one pattern, which the server answers far faster than a
+ * statement per value), and each kind printed on its own, so a street full of bus stops cannot crowd out the schools.
+ */
+export function overpassQuery(p: LL): string {
+  const at = `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
+  const parts = AMENITY_KINDS.map((k) => {
+    const r = Math.round(k.km * 1000 + CELL_SLACK_M);
+    const sel = k.tags.map(([key, values]) => `nwr["${esc(key)}"~"^(${values.map(esc).join("|")})$"]${k.named ? '["name"]' : ""}(around:${r},${at});`).join("");
+    return `(${sel});out tags center ${k.kind === "transport" || k.kind === "food" || k.kind === "shopping" ? 300 : 150};`;
+  });
+  return `[out:json][timeout:25];${parts.join("")}`;
+}
+
+/** An Overpass answer that ran out of time or memory says so in "remark", and its elements are then incomplete. */
+export function overpassFailed(json: unknown): boolean {
+  const remark = (json as { remark?: unknown })?.remark;
+  return typeof remark === "string" && /error|timed out|timeout|out of memory|too busy|rate limit/i.test(remark);
 }
 
 export type Amenity = { kind: AmenityKind; name: string; lat: number; lng: number };
 
-/** Read an Overpass answer: classify each element, keep named ones first, drop anything without a position. */
+/** A place can be more than one kind: a university is a school and a landmark, a mall is shopping and a landmark. */
+const classify = (t: Record<string, string>) => AMENITY_KINDS.filter((k) => (!k.named || t.name) && k.tags.some(([key, values]) => values.includes(t[key])));
+
+/** Read an Overpass answer: classify each element, drop anything without a position or (for landmarks) without a name. */
 export function parseOverpass(json: unknown): Amenity[] {
-  const els = (json as { elements?: { tags?: Record<string, string>; lat?: number; lon?: number; center?: { lat: number; lon: number } }[] })?.elements;
+  const els = (json as { elements?: { type?: string; id?: number; tags?: Record<string, string>; lat?: number; lon?: number; center?: { lat: number; lon: number } }[] })?.elements;
   if (!Array.isArray(els)) return [];
   const out: Amenity[] = [];
+  const seen = new Set<string>();
   for (const e of els) {
     const t = e.tags ?? {};
-    const k = AMENITY_KINDS.find((x) => x.tags.some(([key, value]) => t[key] === value));
     const lat = e.lat ?? e.center?.lat, lng = e.lon ?? e.center?.lon;
-    if (!k || typeof lat !== "number" || typeof lng !== "number") continue;
-    const name = (t.name || t["name:en"] || "").trim().slice(0, 80);
-    out.push({ kind: k.kind, name, lat, lng });
+    if (typeof lat !== "number" || typeof lng !== "number") continue;
+    const name = (t.name || t["name:en"] || t.brand || "").trim().slice(0, 80);
+    for (const k of classify(t)) {
+      // The same place is often mapped twice (a point and a building outline), and the query returns it once per kind: keep one.
+      const key = `${k.kind}|${name.toLowerCase()}|${lat.toFixed(3)},${lng.toFixed(3)}`;
+      const id = e.id !== undefined ? `${k.kind}|${e.type}${e.id}` : "";
+      if ((name && seen.has(key)) || (id && seen.has(id))) continue;
+      seen.add(key); if (id) seen.add(id);
+      out.push({ kind: k.kind, name, lat, lng });
+    }
   }
   return out;
 }
 
-export type NearbySummary = { kind: AmenityKind; label: string; count: number; nearest: { name: string; km: number; lat: number; lng: number }[] };
+export type NearbySummary = { kind: AmenityKind; label: string; km: number; count: number; nearest: { name: string; km: number; lat: number; lng: number }[] };
 
-/** Per kind: how many are within the radius, and the nearest three (named ones preferred), with distances. */
-export function summariseNearby(from: LL, places: Amenity[], radiusKm = NEARBY_RADIUS_M / 1000): NearbySummary[] {
-  return AMENITY_KINDS.map(({ kind, label }) => {
+/** Per kind: how many are within its distance, and the nearest few (named ones preferred), with distances. */
+export function summariseNearby(from: LL, places: Amenity[]): NearbySummary[] {
+  return AMENITY_KINDS.map(({ kind, label, km: radiusKm }) => {
     const mine = places.filter((p) => p.kind === kind).map((p) => ({ ...p, km: distanceKm(from, p) })).filter((p) => p.km <= radiusKm);
     const named = mine.filter((p) => p.name).sort((a, b) => a.km - b.km);
     const unnamed = mine.filter((p) => !p.name).sort((a, b) => a.km - b.km);
-    const nearest = [...named, ...unnamed].slice(0, 3).map((p) => ({ name: p.name || unnamedLabel(kind), km: p.km, lat: p.lat, lng: p.lng }));
-    return { kind, label, count: mine.length, nearest };
+    const nearest = [...named, ...unnamed].slice(0, kind === "landmark" ? 5 : 3).map((p) => ({ name: p.name || unnamedLabel(kind), km: p.km, lat: p.lat, lng: p.lng }));
+    return { kind, label, km: radiusKm, count: mine.length, nearest };
   }).filter((s) => s.count > 0);
 }
-const unnamedLabel = (k: AmenityKind) => ({ school: "A school", health: "A clinic", pharmacy: "A pharmacy", shopping: "A shop", bank: "A bank or cash point", fuel: "A filling station", transport: "A bus stop", food: "A place to eat", worship: "A place of worship", park: "A park", police: "A police station" })[k];
+const unnamedLabel = (k: AmenityKind) => ({ landmark: "A landmark", school: "A school", health: "A clinic", pharmacy: "A pharmacy", shopping: "A shop", bank: "A bank or cash point", fuel: "A filling station", transport: "A bus stop", food: "A place to eat", worship: "A place of worship", park: "A park", police: "A police station", hotel: "A hotel" })[k];
 
 // ---------- Travel time ----------
 

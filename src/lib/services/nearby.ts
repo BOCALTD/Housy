@@ -1,17 +1,19 @@
 /**
- * Nearby places and travel times for a property, from public map data.
- * - Nearby: OpenStreetMap data through an Overpass server (OVERPASS_URL; the public server by default, which allows
- *   reasonable use). One lookup covers a square kilometre and is kept for 30 days in nearby_cache, so a busy site makes few
- *   requests; a failed lookup is remembered for an hour. Set NEARBY_PLACES=off to switch it off.
+ * Nearby places, landmarks and travel times for a property, from public map data.
+ * - Nearby: OpenStreetMap data through an Overpass server. OVERPASS_URL may list several, separated by commas; by default
+ *   the main public server is tried first and two other public servers after it, so one busy server does not leave the
+ *   section empty. One lookup covers a square kilometre and is kept for 30 days in nearby_cache (an empty answer for a day,
+ *   in case the map was still loading); a failed lookup is retried after five minutes. Set NEARBY_PLACES=off to switch it off.
  * - Travel time: an estimate from the distance, or real driving times when ROUTING_URL points at an OSRM-compatible server.
  * Only the property's public position (blurred to about a kilometre) is ever sent out, never an address or a person's data.
  */
 import { prisma, withPublic } from "../db";
-import { nearbyCell, overpassQuery, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
+import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
 
 const DAY = 864e5;
-const TTL_OK = 30 * DAY, TTL_FAIL = 3_600_000;
-const TIMEOUT_MS = 20_000;
+const TTL_OK = 30 * DAY, TTL_EMPTY = DAY, TTL_FAIL = 5 * 60_000;
+const TIMEOUT_MS = 30_000;
+const SERVERS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 
 type Env = Record<string, string | undefined>;
 let fetcher: typeof fetch = (...a) => fetch(...a);
@@ -30,25 +32,47 @@ async function listingPoint(ref: string) {
     .then((l) => (l && l.lat !== null && l.lng !== null ? { lat: l.lat, lng: l.lng } : null));
 }
 
+const ttl = (c: { ok: boolean; places: unknown }) => (!c.ok ? TTL_FAIL : Array.isArray(c.places) && c.places.length ? TTL_OK : TTL_EMPTY);
+
+/** Ask each server in turn until one gives a complete answer. A server that is busy, slow or cut its answer short is skipped. */
+async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
+  const servers = env.OVERPASS_URL ? env.OVERPASS_URL.split(",").map((x) => x.trim()).filter(Boolean) : SERVERS;
+  const started = Date.now();
+  for (const url of servers) {
+    if (Date.now() - started > 35_000) break; // the visitor is waiting: give up and try again in a few minutes
+    try {
+      const res = await timed(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", "User-Agent": "Housy/1.0 (nearby places for property listings)" },
+        body: new URLSearchParams({ data: query }).toString(),
+      });
+      if (!res.ok) continue;
+      const json: unknown = await res.json();
+      if (overpassFailed(json) || !Array.isArray((json as { elements?: unknown }).elements)) continue;
+      return parseOverpass(json);
+    } catch { /* try the next server */ }
+  }
+  return null;
+}
+
 async function placesAround(p: { lat: number; lng: number }, env: Env, now: Date): Promise<{ places: Amenity[]; ok: boolean }> {
-  const cell = nearbyCell(p);
+  const cell = nearbyCacheKey(p);
   const cached = await prisma.nearbyCache.findUnique({ where: { cell } });
-  if (cached && now.getTime() - cached.fetchedAt.getTime() < (cached.ok ? TTL_OK : TTL_FAIL)) return { places: cached.places as Amenity[], ok: cached.ok };
-  const [clat, clng] = cell.split(",").map(Number);
-  let places: Amenity[] = [], ok = false;
-  try {
-    const res = await timed(env.OVERPASS_URL || "https://overpass-api.de/api/interpreter", {
-      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "property-marketplace/1.0 (nearby places)" },
-      body: new URLSearchParams({ data: overpassQuery({ lat: clat, lng: clng }, 2000) }).toString(),
-    });
-    if (res.ok) { places = parseOverpass(await res.json()); ok = true; }
-  } catch { ok = false; }
+  if (cached && now.getTime() - cached.fetchedAt.getTime() < ttl(cached)) return { places: cached.places as Amenity[], ok: cached.ok };
+  // Only the cell centre (the blurred public position) is sent, never the property's own position.
+  const [clat, clng] = nearbyCell(p).split(",").map(Number);
+  const found = await askOverpass(overpassQuery({ lat: clat, lng: clng }), env);
+  if (!found && cached?.ok) {
+    // Keep showing the older answer, and try again in a few minutes rather than on every visit.
+    await prisma.nearbyCache.update({ where: { cell }, data: { fetchedAt: new Date(now.getTime() - ttl(cached) + TTL_FAIL) } });
+    return { places: cached.places as Amenity[], ok: true };
+  }
+  const places = found ?? [], ok = !!found;
   await prisma.nearbyCache.upsert({ where: { cell }, create: { cell, places, ok, fetchedAt: now }, update: { places, ok, fetchedAt: now } });
-  if (!ok && cached?.ok) return { places: cached.places as Amenity[], ok: true }; // keep showing the older answer
   return { places, ok };
 }
 
-/** What is within walking distance of a published property, by kind, nearest first. */
+/** What is near a published property (everyday places within walking distance, landmarks within a short drive), by kind, nearest first. */
 export async function nearbyForListing(ref: string, env: Env = process.env, now = new Date()) {
   if (env.NEARBY_PLACES === "off") return { available: false as const, reason: "off" as const };
   const p = await listingPoint(ref);

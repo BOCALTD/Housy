@@ -6,10 +6,11 @@
  */
 import { prisma } from "../src/lib/db";
 import { tuneNetwork } from "../src/lib/network";
-import { warmAllNearby } from "../src/lib/services/nearby";
+import { reportNearbyAttempts, warmAllNearby } from "../src/lib/services/nearby";
 import { databaseReady } from "./db-ready";
 
 tuneNetwork();
+reportNearbyAttempts((a) => console.log(`    ${a.server}: ${a.result} after ${Math.round(a.ms / 1000)} s`));
 databaseReady()
   .then((ready) => {
     if (!ready) process.exit(1);

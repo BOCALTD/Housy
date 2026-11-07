@@ -40,6 +40,11 @@ const ttl = (c: { ok: boolean; places: unknown }) => (!c.ok ? TTL_FAIL : Array.i
  * This runs in the background, so it can wait as long as the free servers need (they often take 30 to 40 seconds).
  */
 const BUDGET_MS = 150_000, PER_SERVER_MS = 75_000;
+/** What happened with each server, for the command-line tools (never shown to visitors). */
+export type Attempt = { server: string; ms: number; result: string };
+let onAttempt: ((a: Attempt) => void) | null = null;
+export function reportNearbyAttempts(f: ((a: Attempt) => void) | null) { onAttempt = f; }
+
 async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
   const servers = overpassServers(env);
   const deadline = Date.now() + BUDGET_MS;
@@ -48,13 +53,22 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
     if (left < 5_000) break;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), Math.min(PER_SERVER_MS, left));
+    const t = Date.now();
+    const note = (result: string) => onAttempt?.({ server: new URL(url).host, ms: Date.now() - t, result });
     try {
       const res = await fetcher(url, { method: "POST", signal: ctrl.signal, cache: "no-store", headers: overpassHeaders(env), body: new URLSearchParams({ data: query }).toString() });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        note(res.status === 406 ? "refused (406)" : res.status === 429 ? "too many requests from this machine (429)" : res.status === 504 || res.status === 502 ? `busy, at capacity (${res.status})` : `error ${res.status}`);
+        continue;
+      }
       const json: unknown = await res.json();
-      if (overpassFailed(json) || !Array.isArray((json as { elements?: unknown }).elements)) continue;
+      if (overpassFailed(json) || !Array.isArray((json as { elements?: unknown }).elements)) { note(`ran out of time: ${String((json as { remark?: unknown }).remark ?? "").slice(0, 80)}`); continue; }
+      note("answered");
       return parseOverpass(json);
-    } catch { /* try the next server */ } finally { clearTimeout(timer); }
+    } catch (e) {
+      const c = (e as { cause?: { code?: string } }).cause;
+      note((e as Error).name === "AbortError" ? "no answer in time" : `could not connect${c?.code ? ` [${c.code}]` : ""}`);
+    } finally { clearTimeout(timer); }
   }
   return null;
 }

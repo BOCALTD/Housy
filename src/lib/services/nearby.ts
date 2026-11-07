@@ -34,6 +34,16 @@ async function listingPoint(ref: string) {
 
 const ttl = (c: { ok: boolean; places: unknown }) => (!c.ok ? TTL_FAIL : Array.isArray(c.places) && c.places.length ? TTL_OK : TTL_EMPTY);
 
+/**
+ * The public map servers turn away requests that do not say who is asking and how to reach them (they answer
+ * "406 Not Acceptable"), so the site names itself with its public address, or OVERPASS_CONTACT when that is set.
+ */
+export function userAgent(env: Env) {
+  const site = env.NEXT_PUBLIC_APP_URL && /^https:\/\//.test(env.NEXT_PUBLIC_APP_URL) ? env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "") : "https://github.com/BOCALTD/Housy";
+  const contact = env.OVERPASS_CONTACT?.trim();
+  return `Housy/1.0 (+${site}; property listings: nearby places${contact ? `; ${contact}` : ""})`;
+}
+
 /** Ask each server in turn until one gives a complete answer. A server that is busy, slow or cut its answer short is skipped. */
 async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
   const servers = env.OVERPASS_URL ? env.OVERPASS_URL.split(",").map((x) => x.trim()).filter(Boolean) : SERVERS;
@@ -43,7 +53,7 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
     try {
       const res = await timed(url, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", "User-Agent": "Housy/1.0 (nearby places for property listings)" },
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", "User-Agent": userAgent(env) },
         body: new URLSearchParams({ data: query }).toString(),
       });
       if (!res.ok) continue;

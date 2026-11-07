@@ -83,14 +83,17 @@ test("nearby places come from one cached lookup per area; a failure is reported,
   // A busy server that answers "timed out" is not taken as "nothing nearby": the next server is asked.
   await prisma.nearbyCache.deleteMany({ where: { cell: nearbyCacheKey({ lat: listing.lat!, lng: listing.lng! }) } });
   const asked: string[] = [];
-  setNearbyFetchForTests((async (url: string) => {
-    asked.push(String(url));
+  const agents: string[] = [];
+  setNearbyFetchForTests((async (url: string, init?: RequestInit) => {
+    asked.push(String(url)); agents.push(new Headers(init?.headers).get("user-agent") ?? "");
     if (asked.length === 1) return new Response(JSON.stringify({ elements: [], remark: "runtime error: Query timed out in \"query\" at line 1 after 26 seconds." }), { status: 200 });
     if (asked.length === 2) return new Response("Too many requests", { status: 429 });
     return new Response(JSON.stringify({ elements: [{ type: "node", id: 1, lat: listing.lat! + 0.02, lon: listing.lng!, tags: { tourism: "museum", name: "Test Museum" } }] }), { status: 200 });
   }) as typeof fetch);
   const c = await nearbyForListing(listing.publicRef, {});
   assert.equal(asked.length, 3);
+  // The servers refuse anonymous requests: every one says who is asking and how to reach them.
+  assert.ok(agents.every((a) => /^Housy\/1\.0 \(\+https:\/\//.test(a)), agents.join(" / "));
   assert.ok(c.available);
   assert.deepEqual(c.summary.map((s) => [s.kind, s.nearest[0].name]), [["landmark", "Test Museum"]]);
   setNearbyFetchForTests(null);

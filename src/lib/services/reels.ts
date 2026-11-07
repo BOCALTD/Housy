@@ -13,6 +13,7 @@ import { reelTaste } from "./signals";
 import { mixIntoClip } from "./music";
 import { cleanChoice, type MusicChoice } from "../music-rules";
 import { comparableNaira } from "../match-rules";
+import { buildThreads, threadRoot, withMention, type ThreadComment } from "../comment-rules";
 
 // Reels: short property videos by listed agents. Every reel is checked by the platform before it is public. People can like, save,
 // share, comment and report. Reach is organic: it comes from other people's engagement and never from a plan or a promotion.
@@ -171,6 +172,8 @@ export async function decideReports(adminId: string, kind: "REEL" | "COMMENT", t
       const c = await tx.reelComment.findUnique({ where: { id: targetId } });
       if (c) {
         await tx.reelComment.update({ where: { id: c.id }, data: { status: decision === "uphold" ? "HIDDEN" : "VISIBLE" } });
+        // Replies live under their comment: they are hidden and shown again with it.
+        await tx.reelComment.updateMany({ where: { parentId: c.id }, data: { status: decision === "uphold" ? "HIDDEN" : "VISIBLE" } });
         if (decision === "uphold") await notify(tx, c.userId, { kind: "reel", title: "Your comment was removed", body: why });
       }
     }
@@ -329,10 +332,26 @@ export async function reelsByAuthor(authorId: string, limit = 6) {
   return cards(rows, null);
 }
 
-export async function commentsFor(reelId: string, page = 0) {
-  const where = { reelId, status: "VISIBLE" as const };
-  const [total, rows] = await Promise.all([withPublic((tx) => tx.reelComment.count({ where })), withPublic((tx) => tx.reelComment.findMany({ where, orderBy: { createdAt: "desc" }, skip: Math.max(0, page) * COMMENT_PAGE, take: COMMENT_PAGE }))]);
-  return { total, page, pages: Math.max(1, Math.ceil(total / COMMENT_PAGE)), rows };
+/**
+ * One page of a reel's comments as threads: newest comments first, each with its replies (oldest first), likes, and
+ * whether the viewer liked or wrote it. The count in the heading includes replies.
+ */
+export async function commentsFor(reelId: string, page = 0, viewerId: string | null = null) {
+  const top = { reelId, status: "VISIBLE" as const, parentId: null };
+  const [total, topCount, tops] = await Promise.all([
+    withPublic((tx) => tx.reelComment.count({ where: { reelId, status: "VISIBLE" } })),
+    withPublic((tx) => tx.reelComment.count({ where: top })),
+    withPublic((tx) => tx.reelComment.findMany({ where: top, orderBy: { createdAt: "desc" }, skip: Math.max(0, page) * COMMENT_PAGE, take: COMMENT_PAGE })),
+  ]);
+  const replies = tops.length ? await withPublic((tx) => tx.reelComment.findMany({ where: { reelId, status: "VISIBLE", parentId: { in: tops.map((t) => t.id) } }, orderBy: { createdAt: "asc" }, take: 500 })) : [];
+  const ids = [...tops, ...replies].map((c) => c.id);
+  const [counts, mine] = await Promise.all([
+    ids.length ? withPublic((tx) => tx.reelCommentLike.groupBy({ by: ["commentId"], where: { commentId: { in: ids } }, _count: true })) : Promise.resolve([]),
+    viewerId && ids.length ? withPublic((tx) => tx.reelCommentLike.findMany({ where: { commentId: { in: ids }, userId: viewerId }, select: { commentId: true } })) : Promise.resolve([]),
+  ]);
+  const rows: ThreadComment[] = buildThreads([...tops, ...replies].map((c) => ({ id: c.id, parentId: c.parentId, authorName: c.authorName, authorId: c.userId, body: c.body, createdAt: c.createdAt })),
+    new Map(counts.map((c) => [c.commentId, c._count])), new Set(mine.map((m) => m.commentId)), viewerId);
+  return { total, page, pages: Math.max(1, Math.ceil(topCount / COMMENT_PAGE)), rows };
 }
 
 /** The clip itself. Anyone can get a published reel; an author can also see their own while it waits. */
@@ -395,16 +414,51 @@ export async function recordShare(userId: string, reelId: string) {
 const commentSchema = z.string().trim().min(1, "Write a comment first").max(500, "Keep comments to 500 characters")
   .refine((v) => !/https?:\/\/|www\./i.test(v), "Links are not allowed in comments");
 
-export async function addComment(userId: string, reelId: string, body: string) {
-  const text = commentSchema.parse(body);
-  await limited(`reel-comment:${userId}`, 10);
-  const u = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true } });
+/** Comment on a reel, or reply to a comment on it (pass the comment being answered). */
+export async function addComment(userId: string, reelId: string, body: string, replyTo?: string | null) {
+  let text = commentSchema.parse(body);
+  await limited(`reel-comment:${userId}`, 20);
+  const u = await withUser(userId, (tx) => tx.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true } }));
   return system(async (tx) => {
     const r = await livereel(tx, reelId);
-    if (await tx.reelComment.findFirst({ where: { reelId, userId, body: text } })) throw new Error("You already said that on this reel");
-    const c = await tx.reelComment.create({ data: { reelId, userId, authorName: shortName(u.name), body: text } });
-    if (r.authorId !== userId) await notify(tx, r.authorId, { kind: "reel", title: `${shortName(u.name)} commented on your reel`, body: text.slice(0, 120), link: `/reels/${r.id}` });
+    let parent: { id: string; parentId: string | null; userId: string; authorName: string } | null = null;
+    if (replyTo) {
+      parent = await tx.reelComment.findFirst({ where: { id: replyTo, reelId, status: "VISIBLE" }, select: { id: true, parentId: true, userId: true, authorName: true } });
+      if (!parent) throw new Error("That comment is no longer there");
+      text = withMention(text, { authorName: parent.authorName, isReply: !!parent.parentId }).slice(0, 500);
+    }
+    const parentId = parent ? threadRoot(parent) : null;
+    if (await tx.reelComment.findFirst({ where: { reelId, userId, body: text, parentId } })) throw new Error("You already said that here");
+    const c = await tx.reelComment.create({ data: { reelId, userId, authorName: shortName(u.name), body: text, parentId } });
+    if (parent && parent.userId !== userId) await notify(tx, parent.userId, { kind: "reel", title: `${shortName(u.name)} replied to your comment`, body: text.slice(0, 120), link: `/reels/${r.id}` });
+    else if (!parent && r.authorId !== userId) await notify(tx, r.authorId, { kind: "reel", title: `${shortName(u.name)} commented on your reel`, body: text.slice(0, 120), link: `/reels/${r.id}` });
     return c;
+  });
+}
+
+/** Like a comment, or take the like back. */
+export async function toggleCommentLike(userId: string, commentId: string) {
+  await limited(`reel-comment-like:${userId}`, 120);
+  return system(async (tx) => {
+    const c = await tx.reelComment.findFirst({ where: { id: commentId, status: "VISIBLE" } });
+    if (!c) throw new Error("That comment is no longer there");
+    await livereel(tx, c.reelId);
+    const had = await tx.reelCommentLike.findUnique({ where: { commentId_userId: { commentId, userId } } });
+    if (had) await tx.reelCommentLike.delete({ where: { id: had.id } });
+    else await tx.reelCommentLike.create({ data: { commentId, userId } });
+    return { liked: !had, likes: await tx.reelCommentLike.count({ where: { commentId } }) };
+  });
+}
+
+/** Delete your own comment; its replies and likes go with it. */
+export async function deleteComment(userId: string, commentId: string) {
+  return system(async (tx) => {
+    const c = await tx.reelComment.findUnique({ where: { id: commentId } });
+    if (!c || c.userId !== userId) throw new Error("You can only delete your own comments");
+    const ids = [c.id, ...(await tx.reelComment.findMany({ where: { parentId: c.id }, select: { id: true } })).map((x) => x.id)];
+    await tx.reelCommentLike.deleteMany({ where: { commentId: { in: ids } } });
+    await tx.reelComment.deleteMany({ where: { id: { in: ids } } });
+    return { deleted: ids.length };
   });
 }
 
@@ -425,7 +479,10 @@ export async function reportTarget(userId: string, kind: "REEL" | "COMMENT", tar
     // Several different people reporting the same thing hides it until the platform has looked.
     const distinct = (await tx.socialReport.findMany({ where: { targetKind: kind, targetId, status: "OPEN" }, select: { reporterId: true } })).length;
     if (kind === "REEL" && distinct >= REPORTS_TO_HIDE_REEL) await tx.reel.update({ where: { id: targetId }, data: { status: "HIDDEN", reviewNote: "Hidden while reports are checked" } });
-    if (kind === "COMMENT" && distinct >= REPORTS_TO_HIDE_COMMENT) await tx.reelComment.update({ where: { id: targetId }, data: { status: "HIDDEN" } });
+    if (kind === "COMMENT" && distinct >= REPORTS_TO_HIDE_COMMENT) {
+      await tx.reelComment.update({ where: { id: targetId }, data: { status: "HIDDEN" } });
+      await tx.reelComment.updateMany({ where: { parentId: targetId }, data: { status: "HIDDEN" } });
+    }
   });
 }
 

@@ -338,6 +338,40 @@ async function main() {
     await ctx.close();
   });
 
+  await step("Signed in on a phone: comment on a reel, reply with the comment highlighted, and like a comment", async () => {
+    const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const seeker = out.trim().split("\n")[2];
+    const ctx = await newContext(browser, "phone");
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    const s = await ctx.newPage(); watch(s, "reel comments");
+    await s.goto(BASE + "/reels?all=1", { waitUntil: "load" }); await s.waitForTimeout(1200);
+    const notes: string[] = []; let ok = true;
+    const open = s.locator('.rf-act[aria-label^="Comments"]').first();
+    if (!(await open.count())) { await record(s, "reel comments", false, "no reel with a comments button"); await ctx.close(); return; }
+    await open.click();
+    const box = s.locator(".rf-sheet .ct-row textarea");
+    await box.waitFor({ timeout: 8000 });
+    const text = `Is parking included? ${Date.now() % 100000}`;
+    await box.fill(text); await s.locator(".rf-sheet .ct-row button[type=submit]").click();
+    const posted = await s.locator(".rf-sheet .ct-item", { hasText: text }).first().waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+    notes.push(`posted ${posted}`); ok = ok && posted;
+    if (posted) {
+      const mine = s.locator(".rf-sheet .ct-item", { hasText: text }).first();
+      await mine.locator('button:has-text("Reply")').first().click();
+      const lit = await mine.evaluate((el) => el.classList.contains("is-target")).catch(() => false);
+      const label = await s.locator(".rf-sheet .ct-replying").isVisible().catch(() => false);
+      await box.fill("Asking for a friend too"); await s.locator(".rf-sheet .ct-row button[type=submit]").click();
+      const replied = await mine.locator(".ct-replies .ct-item", { hasText: "Asking for a friend too" }).first().waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+      const like = mine.locator(".ct-like").first();
+      await like.click(); await s.waitForTimeout(1200);
+      const liked = (await like.getAttribute("aria-pressed")) === "true";
+      notes.push(`reply highlighted ${lit}, "Replying to" shown ${label}, reply under the comment ${replied}, liked ${liked}`);
+      ok = ok && lit && label && replied && liked;
+    }
+    await record(s, "reel comments", ok, notes.join("; "));
+    await ctx.close();
+  });
+
   await step("When the page's scripts cannot load, people see plain words and a Reload button, never file names", async () => {
     const ctx = await newContext(browser, "phone");
     await ctx.route("**/_next/static/chunks/**", (r) => r.abort());

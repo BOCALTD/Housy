@@ -16,6 +16,7 @@ import { weakest } from "../subscription-rules";
 import { readSettings } from "./platform-settings";
 import { entitlementIn, type Entitlement, type Owner } from "./subscriptions";
 import { notify } from "./notifications";
+import { buildThreads, threadRoot, withMention } from "../comment-rules";
 import { canChangeDeal, loadDeal } from "./deal";
 import type { Ctx } from "./context";
 import type { Upload } from "./photos";
@@ -644,15 +645,57 @@ export async function setTaskStatus(a: Actor, taskId: string, status: "DONE" | "
   });
 }
 
-export async function addComment(a: Actor, id: string, bodyInput: string, itemId?: string) {
-  const body = z.string().trim().min(1, "Write a comment").max(2000).parse(bodyInput);
+export async function addComment(a: Actor, id: string, bodyInput: string, itemId?: string, replyTo?: string | null) {
+  let body = z.string().trim().min(1, "Write a comment").max(2000).parse(bodyInput);
   return run(a, async (tx) => {
     const w = await open(tx, a, id, "COMMENT", true);
     if (itemId) {
       const item = await tx.collabItem.findFirst({ where: { id: itemId, collaborationId: id, revokedAt: null } });
       if (!item) throw new Error("That item is not in this workspace");
     }
-    return tx.collabComment.create({ data: { collaborationId: id, itemId: itemId ?? null, authorId: a.userId, authorName: w.me.name, body } });
+    let parentId: string | null = null, parentAuthor: string | null = null;
+    if (replyTo) {
+      const p = await tx.collabComment.findFirst({ where: { id: replyTo, collaborationId: id } });
+      if (!p) throw new Error("That comment is no longer there");
+      parentId = threadRoot(p); parentAuthor = p.authorId;
+      body = withMention(body, { authorName: p.authorName, isReply: !!p.parentId }).slice(0, 2000);
+    }
+    const c = await tx.collabComment.create({ data: { collaborationId: id, itemId: itemId ?? null, authorId: a.userId, authorName: w.me.name, body, parentId } });
+    if (parentAuthor && parentAuthor !== a.userId) {
+      const side = w.me.side === "SENDER" ? "RECIPIENT" : "SENDER";
+      const them = await tx.collabParticipant.findUnique({ where: { collaborationId_userId: { collaborationId: id, userId: parentAuthor } } });
+      await notify(tx, parentAuthor, { kind: "collab.reply", title: `${w.me.name} replied to your comment`, body: body.slice(0, 120), link: linkFor(w.c, (them?.side as Side | undefined) ?? side) });
+    }
+    return c;
+  });
+}
+
+/** Like a workspace comment, or take the like back. Anyone who can see the workspace while it is open can. */
+export async function toggleCollabCommentLike(a: Actor, commentId: string) {
+  return run(a, async (tx) => {
+    const c = await tx.collabComment.findUnique({ where: { id: commentId } });
+    if (!c) throw new Error("That comment is no longer there");
+    const w = await open(tx, a, c.collaborationId, "COMMENT", false);
+    if (!w.mode.write) throw new Error(w.mode.reason || "This workspace is read-only now");
+    const had = await tx.collabCommentLike.findUnique({ where: { commentId_userId: { commentId, userId: a.userId } } });
+    if (had) await tx.collabCommentLike.delete({ where: { id: had.id } });
+    else await tx.collabCommentLike.create({ data: { collaborationId: c.collaborationId, commentId, userId: a.userId } });
+    return { liked: !had, likes: await tx.collabCommentLike.count({ where: { commentId } }) };
+  });
+}
+
+/** Delete your own workspace comment while the workspace is open; its replies and likes go with it. */
+export async function deleteCollabComment(a: Actor, commentId: string) {
+  return run(a, async (tx) => {
+    const c = await tx.collabComment.findUnique({ where: { id: commentId } });
+    if (!c || c.authorId !== a.userId) throw new Error("You can only delete your own comments");
+    const w = await open(tx, a, c.collaborationId, "COMMENT", false);
+    if (!w.mode.write) throw new Error(w.mode.reason || "This workspace is read-only now");
+    const ids = [c.id, ...(await tx.collabComment.findMany({ where: { parentId: c.id }, select: { id: true } })).map((x) => x.id)];
+    await tx.collabCommentLike.deleteMany({ where: { commentId: { in: ids } } });
+    await tx.collabComment.deleteMany({ where: { id: { in: ids } } });
+    await event(tx, c.collaborationId, a.userId, "comment_deleted", `${w.me.name} deleted a comment`);
+    return { deleted: ids.length };
   });
 }
 
@@ -681,8 +724,13 @@ export async function getWorkspace(a: Actor, id: string) {
           tx.collabComment.findMany({ where: { collaborationId: id }, orderBy: { createdAt: "asc" }, take: 300 }),
         ])
       : [[], [], []];
+    const likes = comments.length ? await tx.collabCommentLike.findMany({ where: { collaborationId: id }, select: { commentId: true, userId: true } }) : [];
+    const likeCounts = new Map<string, number>(); for (const l of likes) likeCounts.set(l.commentId, (likeCounts.get(l.commentId) ?? 0) + 1);
+    // Workspace comments read as a conversation: oldest first, replies under the comment they answer.
+    const threads = buildThreads(comments.map((m) => ({ id: m.id, parentId: m.parentId, authorName: m.authorName, authorId: m.authorId, body: m.body, createdAt: m.createdAt })),
+      likeCounts, new Set(likes.filter((l) => l.userId === a.userId).map((l) => l.commentId)), a.userId, "oldest");
     return {
-      collab: c, side, me, supervisor, participants, plan, mode, tasks, comments, events,
+      collab: c, side, me, supervisor, participants, plan, mode, tasks, comments, threads, events,
       // What the other side shared carries no identifier of their records, no storage key, and no record of how they chose to share it.
       items: items.map((i) => (me && i.side === me.side ? i : { ...i, sourceId: "", sourceType: "", fileKey: i.fileKey ? "-" : null, details: { fields: ((i.details as { fields?: unknown } | null)?.fields ?? []) } as Prisma.JsonObject })),
       contentHidden: !showContent,

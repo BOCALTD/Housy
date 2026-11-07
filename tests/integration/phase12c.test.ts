@@ -12,7 +12,7 @@ import { assignSubscription } from "../../src/lib/services/subscriptions";
 import { myNotifications } from "../../src/lib/services/notifications";
 import {
   addComment, commentsFor, decideReports, discover, getReel, listingChoices, moderateReel, myReels, mySaved, recordShare, reelQueue, reelVideo, reportTarget,
-  toggleLike, toggleSave, uploadReel, withdrawReel,
+  toggleLike, toggleSave, uploadReel, withdrawReel, toggleCommentLike, deleteComment,
 } from "../../src/lib/services/reels";
 import { computeMonth } from "../../src/lib/services/awards";
 import { MONTHLY_REEL_CAP } from "../../src/lib/social-rules";
@@ -235,4 +235,41 @@ test("published reels count as posts for the monthly ranking, up to a cap", asyn
   assert.ok(e, "an agent with only reels is in the ranking");
   assert.equal(e!.posts, MONTHLY_REEL_CAP, "volume is capped");
   assert.equal(e!.eligible, false, "posts alone are not enough: a verified sale and reviews are still needed");
+});
+
+test("reel comments: reply, like, delete your own, and hidden comments take their replies with them", async () => {
+  const admin = await newPlatformAdmin();
+  const co = await agent("thr");
+  const reel = await post(co);
+  await moderateReel(admin.id, reel.id, "publish", "");
+  const ada = await person("ada"), bola = await person("bola"), chi = await person("chi");
+  const top = await addComment(ada, reel.id, "Is the generator shared?");
+  const r1 = await addComment(bola, reel.id, "Same question", top.id);
+  const r2 = await addComment(ada, reel.id, "Thanks", r1.id);
+  assert.equal(r1.parentId, top.id); assert.equal(r2.parentId, top.id, "a reply to a reply joins the same thread");
+  assert.match(r2.body, /^@\S+ Thanks$/, "and names the person answered");
+  await assert.rejects(addComment(chi, reel.id, "hello", "not-a-comment"), /no longer there/);
+  // The person answered hears about it; the reel's author is told only about new comments, not every reply.
+  const told = await myNotifications(ada);
+  assert.ok(told.some((n) => /replied to your comment/.test(n.title)));
+  assert.deepEqual(await toggleCommentLike(bola, top.id), { liked: true, likes: 1 });
+  assert.deepEqual(await toggleCommentLike(chi, top.id), { liked: true, likes: 2 });
+  assert.deepEqual(await toggleCommentLike(chi, top.id), { liked: false, likes: 1 });
+  const page = await commentsFor(reel.id, 0, bola);
+  assert.equal(page.total, 3);
+  const t = page.rows.find((x) => x.id === top.id)!;
+  assert.deepEqual(t.replies.map((r) => r.id), [r1.id, r2.id]);
+  assert.equal(t.likes, 1); assert.equal(t.liked, true); assert.equal(t.mine, false); assert.equal(t.replies[0].mine, true);
+  // Only your own; the replies and likes go with it.
+  await assert.rejects(deleteComment(bola, top.id), /own comments/);
+  assert.deepEqual(await deleteComment(bola, r1.id), { deleted: 1 });
+  assert.deepEqual(await deleteComment(ada, top.id), { deleted: 2 });
+  assert.equal((await commentsFor(reel.id)).total, 0);
+  // Reports that hide a comment hide its replies too.
+  const c2 = await addComment(ada, reel.id, "Price negotiable?");
+  await addComment(bola, reel.id, "Ask them", c2.id);
+  for (const who of [bola, chi]) await reportTarget(who, "COMMENT", c2.id, "spam spam");
+  const after2 = await commentsFor(reel.id);
+  assert.ok(!after2.rows.some((r) => r.id === c2.id));
+  assert.equal(after2.total, 0);
 });

@@ -7,11 +7,12 @@ import ShareButton from "@/components/ShareButton";
 import { shareText } from "@/lib/share-rules";
 import { PLATFORM_NAME } from "@/lib/labels";
 import type { ReelCard } from "@/lib/services/reels";
-import { commentOn, commentsPage, followAgent, likeReel, morePage, reportReel, saveReel, watched } from "@/app/reels/live-actions";
+import { commentOn, commentsPage, followAgent, likeComment, likeReel, morePage, removeComment, reportComment, reportReel, saveReel, watched } from "@/app/reels/live-actions";
+import { CommentThread, type ThreadActions } from "./CommentThread";
+import type { ThreadComment } from "@/lib/comment-rules";
 
 type Tab = "foryou" | "following" | "trending";
 import type { ReelFilter } from "@/lib/services/reels";
-type Comment = { id: string; authorName: string; body: string; createdAt: Date | string };
 type Sheet = null | { kind: "signin"; verb: string; reelId: string } | { kind: "comments"; reel: ReelCard } | { kind: "more"; reel: ReelCard };
 
 const initials = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "A";
@@ -258,7 +259,7 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
         {canPost ? <Link className="rf-post rf-top-right" href="/reels/new" aria-label="Post a reel">+</Link> : null}
       </div>
 
-      {sheet ? <SheetView sheet={sheet} signedIn={signedIn} onClose={() => setSheet(null)} onCommented={(id) => patch(id, { comments: (rows.find((x) => x.id === id)?.comments ?? 0) + 1 })} onSignIn={(verb, id) => setSheet({ kind: "signin", verb, reelId: id })} /> : null}
+      {sheet ? <SheetView sheet={sheet} signedIn={signedIn} onClose={() => setSheet(null)} onCommented={(id, d) => patch(id, { comments: Math.max(0, (rows.find((x) => x.id === id)?.comments ?? 0) + d) })} onSignIn={(verb, id) => setSheet({ kind: "signin", verb, reelId: id })} /> : null}
     </div>
   );
 }
@@ -274,19 +275,25 @@ function Caption({ text }: { text: string }) {
   );
 }
 
-function SheetView({ sheet, signedIn, onClose, onCommented, onSignIn }: { sheet: NonNullable<Sheet>; signedIn: boolean; onClose: () => void; onCommented: (id: string) => void; onSignIn: (verb: string, id: string) => void }) {
+const COMMENT_RULES = "Be kind and stay on topic. Links are not allowed.";
+const reelThreadActions = (reelId: string): ThreadActions => ({
+  post: (body, replyTo) => commentOn(reelId, body, replyTo),
+  like: (id) => likeComment(id),
+  remove: (id) => removeComment(id),
+  report: (id, reason) => reportComment(id, reason),
+});
+
+function SheetView({ sheet, signedIn, onClose, onCommented, onSignIn }: { sheet: NonNullable<Sheet>; signedIn: boolean; onClose: () => void; onCommented: (id: string, delta: number) => void; onSignIn: (verb: string, id: string) => void }) {
   const first = useRef<HTMLButtonElement>(null);
-  const [comments, setComments] = useState<Comment[] | null>(null);
+  const [comments, setComments] = useState<ThreadComment[] | null>(null);
   const [cPage, setCPage] = useState({ page: 0, pages: 1, total: 0 });
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const reelId = sheet.kind === "signin" ? sheet.reelId : sheet.reel.id;
   const back = `/reels?r=${encodeURIComponent(reelId)}`;
 
   useEffect(() => {
     first.current?.focus();
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape" && !e.defaultPrevented) onClose(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
@@ -296,18 +303,10 @@ function SheetView({ sheet, signedIn, onClose, onCommented, onSignIn }: { sheet:
   }, [sheet]);
 
   async function more() {
-    if (sheet.kind !== "comments") return;
+    if (sheet.kind !== "comments") return [];
     const c = await commentsPage(sheet.reel.id, cPage.page + 1);
-    setComments((old) => [...(old ?? []), ...c.rows]); setCPage({ page: c.page, pages: c.pages, total: c.total });
-  }
-  async function post(e: React.FormEvent) {
-    e.preventDefault();
-    if (sheet.kind !== "comments" || !body.trim()) return;
-    setBusy(true);
-    const out = await commentOn(sheet.reel.id, body);
-    setBusy(false);
-    if (!out.ok) { if (out.signIn) onSignIn("comment", sheet.reel.id); else toast.error(out.error ?? "That did not work"); return; }
-    setComments((old) => [out.comment, ...(old ?? [])]); setBody(""); onCommented(sheet.reel.id);
+    setCPage({ page: c.page, pages: c.pages, total: c.total });
+    return c.rows;
   }
   async function report(e: React.FormEvent) {
     e.preventDefault();
@@ -337,16 +336,11 @@ function SheetView({ sheet, signedIn, onClose, onCommented, onSignIn }: { sheet:
 
         {sheet.kind === "comments" ? (
           <div className="rf-sheet-body rf-comments">
-            {comments === null ? <p className="muted small">Loading…</p> : comments.length === 0 ? <p className="muted small">No comments yet. {signedIn ? "Be the first." : ""}</p> : (
-              <ul>{comments.map((c) => <li key={c.id}><span className="rf-c-av" aria-hidden="true">{initials(c.authorName)}</span><div><strong>{c.authorName}</strong> <span className="muted small">{ago(c.createdAt)}</span><p>{c.body}</p></div></li>)}</ul>
+            {comments === null ? <p className="muted small">Loading…</p> : (
+              <CommentThread initial={comments} total={cPage.total} signedIn={signedIn} onSignIn={() => onSignIn("comment", sheet.reel.id)}
+                actions={reelThreadActions(sheet.reel.id)} hasMore={cPage.page + 1 < cPage.pages} onMore={more}
+                onCount={(d) => { setCPage((p) => ({ ...p, total: Math.max(0, p.total + d) })); onCommented(sheet.reel.id, d); }} rules={COMMENT_RULES} />
             )}
-            {cPage.page + 1 < cPage.pages ? <button type="button" className="btn small" onClick={more}>More comments</button> : null}
-            {signedIn ? (
-              <form className="rf-c-form" onSubmit={post}>
-                <input value={body} onChange={(e) => setBody(e.target.value)} maxLength={500} placeholder="Add a comment" aria-label="Your comment" />
-                <button className="btn primary" type="submit" disabled={busy || !body.trim()}>Post</button>
-              </form>
-            ) : <button type="button" className="btn primary" onClick={() => onSignIn("comment", sheet.reel.id)}>Sign in to comment</button>}
           </div>
         ) : null}
 

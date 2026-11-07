@@ -2,7 +2,7 @@
 
 import { getSession } from "@/lib/auth";
 import { messageFor } from "@/lib/forms";
-import { addComment, commentsFor, discover, recordShare, reportTarget, toggleLike, toggleSave, type ReelFilter, type Tab } from "@/lib/services/reels";
+import { addComment, commentsFor, deleteComment, toggleCommentLike, discover, recordShare, reportTarget, toggleLike, toggleSave, type ReelFilter, type Tab } from "@/lib/services/reels";
 import { follow, unfollow } from "@/lib/services/community";
 import { recordSignal } from "@/lib/services/signals";
 
@@ -35,13 +35,24 @@ export async function saveReel(id: string) {
 export async function shareReel(id: string) {
   return run(async (u) => recordShare(u, id));
 }
-export async function commentOn(id: string, body: string) {
-  return run(async (u) => { const c = await addComment(u, id, body); return { comment: { id: c.id, authorName: c.authorName, body: c.body, createdAt: c.createdAt } }; });
+export async function commentOn(id: string, body: string, replyTo: string | null = null) {
+  return run(async (u) => {
+    const c = await addComment(u, id, body, typeof replyTo === "string" && replyTo ? replyTo.slice(0, 64) : null);
+    return { comment: { id: c.id, parentId: c.parentId, authorName: c.authorName, body: c.body, createdAt: c.createdAt.toISOString(), likes: 0, liked: false, mine: true, replies: [] } };
+  });
 }
 export async function commentsPage(id: string, page: number) {
-  const r = await commentsFor(id, Math.max(0, Math.floor(page)));
   // Only what is shown: never who wrote it beyond the short name.
-  return { total: r.total, page: r.page, pages: r.pages, rows: r.rows.map((c) => ({ id: c.id, authorName: c.authorName, body: c.body, createdAt: c.createdAt })) };
+  return commentsFor(id, Math.max(0, Math.floor(page)), await who());
+}
+export async function likeComment(id: string) {
+  return run(async (u) => toggleCommentLike(u, id));
+}
+export async function removeComment(id: string) {
+  return run(async (u) => deleteComment(u, id));
+}
+export async function reportComment(id: string, reason: string) {
+  return run(async (u) => { await reportTarget(u, "COMMENT", id, reason); return {}; });
 }
 export async function followAgent(authorId: string, on: boolean) {
   return run(async (u) => { if (on) await follow(u, "AGENT", authorId); else await unfollow(u, "AGENT", authorId); return { following: on }; });

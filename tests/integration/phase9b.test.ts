@@ -12,7 +12,7 @@ import { createAsset } from "../../src/lib/services/assets";
 import { createClient } from "../../src/lib/services/crm";
 import { createDeal, getDeal } from "../../src/lib/services/deal";
 import {
-  addComment, addParticipant, addTask, asCompany, asPerson, cancelInvitation, collaborationReport, createInvitation, endCollaboration, getSharedFile, getWorkspace, listCollaborations, pendingIncoming,
+  addComment, addParticipant, deleteCollabComment, toggleCollabCommentLike, addTask, asCompany, asPerson, cancelInvitation, collaborationReport, createInvitation, endCollaboration, getSharedFile, getWorkspace, listCollaborations, pendingIncoming,
   platformResume, platformSuspend, refreshItem, respondInvitation, resumeCollaboration, revokeItem, revokeParticipant, sendInvitation, setTaskStatus, shareDeal, shareDocument, shareNote, shareProperty,
   suspendCollaboration, updateParticipant,
 } from "../../src/lib/services/collab";
@@ -401,4 +401,31 @@ test("a seeker's workspace stays between the seeker and the agent", async () => 
   const held = await getWorkspace(asCompany(agent), c.id);
   assert.equal(held.contentHidden, true);
   assert.match(held.plan.explanation, /seeker/i);
+});
+
+test("workspace comments: replies under the comment they answer, likes, deleting your own, and only for the parties", async () => {
+  const admin = await newPlatformAdmin();
+  const { id, a, b } = await liveWorkspace(admin);
+  const first = await addComment(a, id, "Can we see the survey plan?");
+  const reply = await addComment(b, id, "Yes, uploading it today", undefined, first.id);
+  assert.equal(reply.parentId, first.id);
+  // Replying to a reply stays in the same thread and names the person answered.
+  const again = await addComment(a, id, "Thanks", undefined, reply.id);
+  assert.equal(again.parentId, first.id);
+  assert.match(again.body, /^@\S+ Thanks$/);
+  assert.deepEqual(await toggleCollabCommentLike(b, first.id), { liked: true, likes: 1 });
+  assert.deepEqual(await toggleCollabCommentLike(a, first.id), { liked: true, likes: 2 });
+  assert.deepEqual(await toggleCollabCommentLike(b, first.id), { liked: false, likes: 1 });
+  const w = await getWorkspace(a, id);
+  const t = w.threads.find((x) => x.id === first.id)!;
+  assert.deepEqual(t.replies.map((r) => r.id), [reply.id, again.id]);
+  assert.equal(t.likes, 1); assert.equal(t.liked, true); assert.equal(t.mine, true);
+  assert.equal(t.replies[0].mine, false);
+  // Only your own, and the thread goes with it.
+  await assert.rejects(deleteCollabComment(b, first.id), /own comments/);
+  const outsider = await newCompany("nosy");
+  await assert.rejects(toggleCollabCommentLike(asCompany(outsider), first.id), /not found|no longer there/i);
+  await assert.rejects(addComment(asCompany(outsider), id, "hi", undefined, first.id), /not found/i);
+  assert.deepEqual(await deleteCollabComment(a, first.id), { deleted: 3 });
+  assert.equal((await getWorkspace(b, id)).threads.length, 0);
 });

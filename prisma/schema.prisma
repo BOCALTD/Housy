@@ -3541,10 +3541,26 @@ model CollabComment {
   authorName      String        @map("author_name")
   body            String
   createdAt       DateTime      @default(now()) @map("created_at")
+  /// The first comment of the thread this one replies to (null for a comment on the workspace itself).
+  parentId        String?       @map("parent_id")
   collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
 
   @@index([collaborationId, createdAt])
+  @@index([parentId, createdAt])
   @@map("collab_comments")
+}
+
+/// Someone in the workspace liked a comment.
+model CollabCommentLike {
+  id              String   @id @default(uuid())
+  collaborationId String   @map("collaboration_id")
+  commentId       String   @map("comment_id")
+  userId          String   @map("user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([commentId, userId])
+  @@index([collaborationId])
+  @@map("collab_comment_likes")
 }
 
 /// The workspace's history: who did what, when. Append-only.
@@ -4558,9 +4574,24 @@ model ReelComment {
   body      String
   status    CommentStatus @default(VISIBLE)
   createdAt DateTime      @default(now()) @map("created_at")
+  /// The first comment of the thread this one replies to (null for a comment on the reel itself).
+  parentId  String?       @map("parent_id")
 
   @@index([reelId, createdAt])
+  @@index([parentId, createdAt])
   @@map("reel_comments")
+}
+
+/// Someone liked a comment on a reel.
+model ReelCommentLike {
+  id        String   @id @default(uuid())
+  commentId String   @map("comment_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([commentId, userId])
+  @@index([userId])
+  @@map("reel_comment_likes")
 }
 
 /// A report about a reel or a comment. Targets are identified by kind and id so one table covers both.

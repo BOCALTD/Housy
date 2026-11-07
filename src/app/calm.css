@@ -115,3 +115,43 @@ body::before { opacity: .6; }
 .staff-auth { min-height: 70vh; display: grid; place-items: center; padding: 32px 16px; }
 .staff-card { width: min(440px, 100%); padding: 32px; border-radius: 24px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 30px 70px -40px rgba(0, 0, 0, .5); }
 .staff-card h1 { margin: 4px 0 6px; }
+
+/* ---- Comment threads (components/CommentThread.tsx): reels, reel pages and workspaces ---- */
+.ct { display: grid; gap: 12px; }
+.ct-list, .ct-replies { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ct-replies { margin-top: 6px; padding-left: 6px; border-left: 2px solid var(--line); }
+.ct-item { display: grid; grid-template-columns: 36px 1fr; gap: 10px; padding: 8px 10px; border-radius: 14px; border: 1.5px solid transparent; transition: background-color .25s ease, border-color .25s ease; }
+.ct-reply { grid-template-columns: 30px 1fr; }
+.ct-av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--ink); font-weight: 700; font-size: 13px; }
+.ct-reply .ct-av { width: 30px; height: 30px; font-size: 12px; }
+.ct-main { min-width: 0; }
+.ct-head { margin: 0; font-size: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.ct-time { color: var(--muted); font-size: 12px; }
+.ct-tag { font-size: 12px; font-weight: 700; color: #8A5A00; background: color-mix(in srgb, #E3A93F 24%, var(--surface)); padding: 1px 8px; border-radius: 999px; }
+.ct-body { margin: 2px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+.ct-at { color: #9A6A12; }
+.ct-acts { display: flex; flex-wrap: wrap; gap: 2px; margin: 2px 0 0 -10px; }
+.ct-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; min-width: 44px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 13px var(--font-body); cursor: pointer; }
+.ct-btn.ct-like.on { color: #D9443A; }
+.ct-btn.danger { color: #B42318; }
+.ct-more-replies { margin-top: 2px; min-height: 44px; padding: 0 10px; border: 0; background: transparent; color: #9A6A12; font: 700 13px var(--font-body); cursor: pointer; }
+/* The comment being answered stands out while the reply is written; a new comment glows briefly. */
+.ct-item.is-target { background: color-mix(in srgb, #E3A93F 14%, var(--surface)); border-color: #E3A93F; }
+.ct-item.is-new { background: color-mix(in srgb, #E3A93F 22%, var(--surface)); }
+.ct-report { display: flex; gap: 8px; margin-top: 4px; }
+.ct-report input { flex: 1; min-width: 0; }
+.ct-form { position: sticky; bottom: 0; display: grid; gap: 6px; padding-top: 10px; background: var(--surface); }
+.ct-replying { margin: 0; display: flex; align-items: center; gap: 6px; padding: 6px 4px 6px 12px; border-radius: 12px; background: color-mix(in srgb, #E3A93F 16%, var(--surface)); border-left: 4px solid #E3A93F; font-size: 14px; }
+.ct-cancel { margin-left: auto; min-width: 44px; min-height: 40px; border: 0; background: transparent; color: var(--muted); font-size: 22px; cursor: pointer; }
+.ct-row { display: flex; gap: 8px; align-items: flex-end; }
+.ct-row textarea { flex: 1; min-width: 0; min-height: 44px; max-height: 140px; resize: none; padding: 11px 16px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 16px; line-height: 1.35; field-sizing: content; }
+.ct-form.replying textarea { border-color: #E3A93F; box-shadow: 0 0 0 3px rgba(227, 169, 63, .2); }
+.ct-rules { margin: 0; }
+.ct-load { justify-self: start; }
+@media (hover: hover) { .ct-btn:hover, .ct-more-replies:hover { background: var(--surface-2); color: var(--ink); } .ct-btn.ct-like.on:hover { color: #D9443A; } }
+@media (prefers-reduced-motion: no-preference) {
+  .ct-item.is-new { animation: ct-glow 1.6s ease-out; }
+  @keyframes ct-glow { 0% { background: color-mix(in srgb, #E3A93F 38%, var(--surface)); } 100% { background: transparent; } }
+  .ct-btn.ct-like.on svg { animation: ct-pop .35s cubic-bezier(.2, .9, .3, 1.4); }
+  @keyframes ct-pop { 0% { transform: scale(.6); } 100% { transform: scale(1); } }
+}

@@ -902,9 +902,6 @@ body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none
 .rf-grip { width: 40px; height: 4px; border-radius: 4px; background: var(--line); }
 .rf-close { position: absolute; right: 8px; top: 6px; width: 44px; height: 44px; border: 0; background: none; font-size: 28px; color: var(--muted); cursor: pointer; }
 .rf-sheet-body { padding: 16px; overflow-y: auto; }
-.rf-comments ul { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 14px; }
-.rf-comments li { display: grid; grid-template-columns: 36px 1fr; gap: 10px; }
-.rf-comments li p { margin: 2px 0 0; overflow-wrap: anywhere; }
 .rf-c-av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-weight: 700; font-size: 13px; }
 .rf-c-form { position: sticky; bottom: 0; display: flex; gap: 8px; padding-top: 10px; background: var(--surface); }
 .rf-c-form input { flex: 1; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 999px; padding: 0 16px; background: var(--surface-2); color: var(--ink); }

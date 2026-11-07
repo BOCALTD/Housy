@@ -65,7 +65,7 @@ curl -s http://localhost:3100/ | grep -q 'rel="icon"' || fail "home page has no 
 REF=$(curl -s http://localhost:3100/ | grep -o 'properties/PROP-[A-Z0-9]*' | head -1)
 [ -n "$REF" ] || fail "no property link on the home page"
 P=${REF#properties/}
-curl -s --max-time 45 "http://localhost:3100/api/map/nearby?ref=$P" | grep -q '"available"' || fail "the nearby endpoint did not answer for $P"
+curl -s --max-time 40 "http://localhost:3100/api/map/nearby?ref=$P" | grep -q '"available"' || fail "the nearby endpoint did not answer for $P"
 curl -s "http://localhost:3100/api/map/travel?ref=$P&from=6.6018,3.3515" | grep -q '"estimate"' || fail "the travel endpoint did not answer for $P"
 curl -s "http://localhost:3100/$REF" | grep -q "Verify this property" || fail "$REF has no verification link"
 # Sharing: the page has a share button, a preview picture of its own, and a guest is invited to sign up; a shared link returns to it.

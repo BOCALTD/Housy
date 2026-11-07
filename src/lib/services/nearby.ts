@@ -12,7 +12,7 @@ import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, overpassServ
 
 const DAY = 864e5;
 const TTL_OK = 30 * DAY, TTL_EMPTY = DAY, TTL_FAIL = 5 * 60_000;
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 20_000;
 
 type Env = Record<string, string | undefined>;
 let fetcher: typeof fetch = (...a) => fetch(...a);
@@ -33,15 +33,22 @@ async function listingPoint(ref: string) {
 
 const ttl = (c: { ok: boolean; places: unknown }) => (!c.ok ? TTL_FAIL : Array.isArray(c.places) && c.places.length ? TTL_OK : TTL_EMPTY);
 
-/** Ask each server in turn until one gives a complete answer. A server that is busy, slow or cut its answer short is skipped. */
+/**
+ * Ask each server in turn until one gives a complete answer. A server that is busy, slow or cut its answer short is skipped.
+ * The whole lookup takes at most BUDGET_MS, because a visitor is waiting for the page section; reading the answer counts too.
+ */
+const BUDGET_MS = 25_000, PER_SERVER_MS = 15_000;
 async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
   const servers = overpassServers(env);
-  const started = Date.now();
-  for (const url of servers) {
-    if (Date.now() - started > 35_000) break; // the visitor is waiting: give up and try again in a few minutes
+  const deadline = Date.now() + BUDGET_MS;
+  for (const [i, url] of servers.entries()) {
+    const left = deadline - Date.now();
+    if (left < 2_000) break; // give up for now; the next visit tries again after a few minutes
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), i === servers.length - 1 ? left : Math.min(PER_SERVER_MS, left));
     try {
-      const res = await timed(url, {
-        method: "POST",
+      const res = await fetcher(url, {
+        method: "POST", signal: ctrl.signal, cache: "no-store",
         headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", "User-Agent": userAgent(env) },
         body: new URLSearchParams({ data: query }).toString(),
       });
@@ -49,7 +56,7 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
       const json: unknown = await res.json();
       if (overpassFailed(json) || !Array.isArray((json as { elements?: unknown }).elements)) continue;
       return parseOverpass(json);
-    } catch { /* try the next server */ }
+    } catch { /* try the next server */ } finally { clearTimeout(timer); }
   }
   return null;
 }

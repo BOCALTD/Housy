@@ -114,6 +114,20 @@ export function overpassQuery(p: LL): string {
   return `[out:json][timeout:25];${parts.join("")}`;
 }
 
+type Env = Record<string, string | undefined>;
+const OVERPASS_SERVERS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+/** The map servers to ask, in order: OVERPASS_URL (comma separated) when set, otherwise the public ones. */
+export const overpassServers = (env: Env) => (env.OVERPASS_URL ? env.OVERPASS_URL.split(",").map((x) => x.trim()).filter(Boolean) : OVERPASS_SERVERS);
+/**
+ * The public map servers turn away requests that do not say who is asking and how to reach them, so the site names itself
+ * with its public https address (or the project page) and OVERPASS_CONTACT when that is set.
+ */
+export function overpassUserAgent(env: Env) {
+  const site = env.NEXT_PUBLIC_APP_URL && /^https:\/\//.test(env.NEXT_PUBLIC_APP_URL) ? env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "") : "https://github.com/BOCALTD/Housy";
+  const contact = env.OVERPASS_CONTACT?.trim();
+  return `Housy/1.0 (+${site}; property listings: nearby places${contact ? `; ${contact}` : ""})`;
+}
+
 /** An Overpass answer that ran out of time or memory says so in "remark", and its elements are then incomplete. */
 export function overpassFailed(json: unknown): boolean {
   const remark = (json as { remark?: unknown })?.remark;

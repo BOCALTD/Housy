@@ -8,12 +8,11 @@
  * Only the property's public position (blurred to about a kilometre) is ever sent out, never an address or a person's data.
  */
 import { prisma, withPublic } from "../db";
-import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
+import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, overpassServers, overpassUserAgent as userAgent, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
 
 const DAY = 864e5;
 const TTL_OK = 30 * DAY, TTL_EMPTY = DAY, TTL_FAIL = 5 * 60_000;
 const TIMEOUT_MS = 30_000;
-const SERVERS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 
 type Env = Record<string, string | undefined>;
 let fetcher: typeof fetch = (...a) => fetch(...a);
@@ -34,19 +33,9 @@ async function listingPoint(ref: string) {
 
 const ttl = (c: { ok: boolean; places: unknown }) => (!c.ok ? TTL_FAIL : Array.isArray(c.places) && c.places.length ? TTL_OK : TTL_EMPTY);
 
-/**
- * The public map servers turn away requests that do not say who is asking and how to reach them (they answer
- * "406 Not Acceptable"), so the site names itself with its public address, or OVERPASS_CONTACT when that is set.
- */
-export function userAgent(env: Env) {
-  const site = env.NEXT_PUBLIC_APP_URL && /^https:\/\//.test(env.NEXT_PUBLIC_APP_URL) ? env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "") : "https://github.com/BOCALTD/Housy";
-  const contact = env.OVERPASS_CONTACT?.trim();
-  return `Housy/1.0 (+${site}; property listings: nearby places${contact ? `; ${contact}` : ""})`;
-}
-
 /** Ask each server in turn until one gives a complete answer. A server that is busy, slow or cut its answer short is skipped. */
 async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
-  const servers = env.OVERPASS_URL ? env.OVERPASS_URL.split(",").map((x) => x.trim()).filter(Boolean) : SERVERS;
+  const servers = overpassServers(env);
   const started = Date.now();
   for (const url of servers) {
     if (Date.now() - started > 35_000) break; // the visitor is waiting: give up and try again in a few minutes

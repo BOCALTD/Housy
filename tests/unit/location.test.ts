@@ -31,11 +31,13 @@ test("nearby places and landmarks: one cached lookup per square kilometre, class
   assert.equal(nearbyCell({ lat: 6.44781, lng: 3.47372 }), "6.45,3.47");
   assert.equal(nearbyCacheKey({ lat: 6.44781, lng: 3.47372 }), "6.45,3.47");
   const q = overpassQuery({ lat: 6.45, lng: 3.47 });
-  assert.match(q, /^\[out:json\]\[timeout:25\];/);
-  // One statement per kind and key, values as one pattern; everyday places reach 2 km past the cell slack, landmarks 5 km and need a name.
-  assert.match(q, /nwr\["amenity"~"\^\(school\|kindergarten\|college\|university\)\$"\]\(around:2800,6\.45000,3\.47000\);/);
-  assert.match(q, /nwr\["tourism"~"\^\(attraction\|museum[^"]*\)\$"\]\["name"\]\(around:5800,/);
-  assert.equal((q.match(/out tags center/g) ?? []).length, 13, "each kind is printed on its own, so one kind cannot crowd out the others");
+  assert.match(q, /^\[out:json\]\[timeout:60\];/);
+  // One statement per kind and key, values as one pattern, in a square: everyday places reach 2 km past the cell slack (2.8 km
+  // each way), landmarks 5 km and need a name.
+  assert.match(q, /nw\["amenity"~"\^\(school\|kindergarten\|college\|university\)\$"\]\(6\.42485,3\.44469,6\.47515,3\.49531\);/);
+  assert.match(q, /nw\["tourism"~"\^\(attraction\|museum[^"]*\)\$"\]\["name"\]\(6\.39790,3\.41757,6\.50210,3\.52243\);/);
+  assert.doesNotMatch(q, /around:|nwr\[/);
+  assert.equal((q.match(/out tags center qt/g) ?? []).length, 13, "each kind is printed on its own, so one kind cannot crowd out the others");
   assert.ok(q.length < 4000);
   const places = parseOverpass({ elements: [
     { type: "node", id: 1, lat: 6.451, lon: 3.471, tags: { amenity: "school", name: "Corona School" } },

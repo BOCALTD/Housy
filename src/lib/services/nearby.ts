@@ -1,9 +1,11 @@
 /**
  * Nearby places, landmarks and travel times for a property, from public map data.
  * - Nearby: OpenStreetMap data through an Overpass server. OVERPASS_URL may list several, separated by commas; by default
- *   the main public server is tried first and two other public servers after it, so one busy server does not leave the
- *   section empty. One lookup covers a square kilometre and is kept for 30 days in nearby_cache (an empty answer for a day,
- *   in case the map was still loading); a failed lookup is retried after five minutes. Set NEARBY_PLACES=off to switch it off.
+ *   the main public server is tried first and two other public servers after it. The free servers are often busy and take
+ *   half a minute or more to answer, so nobody waits for them: the first visit to an area starts the lookup in the
+ *   background and the page fills in when it lands; publishing a property starts it too. One lookup covers a square
+ *   kilometre and is kept for 30 days in nearby_cache (an empty answer for a day); a failed lookup is retried after five
+ *   minutes, and an older answer keeps showing meanwhile. Set NEARBY_PLACES=off to switch it off.
  * - Travel time: an estimate from the distance, or real driving times when ROUTING_URL points at an OSRM-compatible server.
  * Only the property's public position (blurred to about a kilometre) is ever sent out, never an address or a person's data.
  */
@@ -35,23 +37,19 @@ const ttl = (c: { ok: boolean; places: unknown }) => (!c.ok ? TTL_FAIL : Array.i
 
 /**
  * Ask each server in turn until one gives a complete answer. A server that is busy, slow or cut its answer short is skipped.
- * The whole lookup takes at most BUDGET_MS, because a visitor is waiting for the page section; reading the answer counts too.
+ * This runs in the background, so it can wait as long as the free servers need (they often take 30 to 40 seconds).
  */
-const BUDGET_MS = 25_000, PER_SERVER_MS = 15_000;
+const BUDGET_MS = 150_000, PER_SERVER_MS = 75_000;
 async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
   const servers = overpassServers(env);
   const deadline = Date.now() + BUDGET_MS;
-  for (const [i, url] of servers.entries()) {
+  for (const url of servers) {
     const left = deadline - Date.now();
-    if (left < 2_000) break; // give up for now; the next visit tries again after a few minutes
+    if (left < 5_000) break;
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), i === servers.length - 1 ? left : Math.min(PER_SERVER_MS, left));
+    const timer = setTimeout(() => ctrl.abort(), Math.min(PER_SERVER_MS, left));
     try {
-      const res = await fetcher(url, {
-        method: "POST", signal: ctrl.signal, cache: "no-store",
-        headers: overpassHeaders(env),
-        body: new URLSearchParams({ data: query }).toString(),
-      });
+      const res = await fetcher(url, { method: "POST", signal: ctrl.signal, cache: "no-store", headers: overpassHeaders(env), body: new URLSearchParams({ data: query }).toString() });
       if (!res.ok) continue;
       const json: unknown = await res.json();
       if (overpassFailed(json) || !Array.isArray((json as { elements?: unknown }).elements)) continue;
@@ -61,30 +59,89 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
   return null;
 }
 
-async function placesAround(p: { lat: number; lng: number }, env: Env, now: Date): Promise<{ places: Amenity[]; ok: boolean }> {
+/** Lookups in progress, one per area, so many visitors to the same area start one lookup between them. */
+const inflight = new Map<string, Promise<void>>();
+
+/** Look an area up and store the answer. Only the cell centre (the blurred public position) is sent, never the property's own. */
+function refresh(p: { lat: number; lng: number }, env: Env): Promise<void> {
   const cell = nearbyCacheKey(p);
-  const cached = await prisma.nearbyCache.findUnique({ where: { cell } });
-  if (cached && now.getTime() - cached.fetchedAt.getTime() < ttl(cached)) return { places: cached.places as Amenity[], ok: cached.ok };
-  // Only the cell centre (the blurred public position) is sent, never the property's own position.
-  const [clat, clng] = nearbyCell(p).split(",").map(Number);
-  const found = await askOverpass(overpassQuery({ lat: clat, lng: clng }), env);
-  if (!found && cached?.ok) {
-    // Keep showing the older answer, and try again in a few minutes rather than on every visit.
-    await prisma.nearbyCache.update({ where: { cell }, data: { fetchedAt: new Date(now.getTime() - ttl(cached) + TTL_FAIL) } });
-    return { places: cached.places as Amenity[], ok: true };
-  }
-  const places = found ?? [], ok = !!found;
-  await prisma.nearbyCache.upsert({ where: { cell }, create: { cell, places, ok, fetchedAt: now }, update: { places, ok, fetchedAt: now } });
-  return { places, ok };
+  const running = inflight.get(cell);
+  if (running) return running;
+  const job = (async () => {
+    const [clat, clng] = nearbyCell(p).split(",").map(Number);
+    const found = await askOverpass(overpassQuery({ lat: clat, lng: clng }), env);
+    const now = new Date();
+    const cached = await prisma.nearbyCache.findUnique({ where: { cell } });
+    if (!found && cached?.ok) {
+      // Keep the older answer, and try again in a few minutes.
+      await prisma.nearbyCache.update({ where: { cell }, data: { fetchedAt: new Date(now.getTime() - ttl(cached) + TTL_FAIL) } });
+      return;
+    }
+    const places = found ?? [], ok = !!found;
+    await prisma.nearbyCache.upsert({ where: { cell }, create: { cell, places, ok, fetchedAt: now }, update: { places, ok, fetchedAt: now } });
+  })().catch(() => { /* the next visit tries again */ }).finally(() => inflight.delete(cell));
+  inflight.set(cell, job);
+  return job;
 }
 
-/** What is near a published property (everyday places within walking distance, landmarks within a short drive), by kind, nearest first. */
-export async function nearbyForListing(ref: string, env: Env = process.env, now = new Date()) {
+/** Wait for every lookup in progress (the API route keeps the server working on them after it has answered). */
+export const nearbyLookupsSettled = () => Promise.allSettled([...inflight.values()]).then(() => undefined);
+
+/**
+ * Look up every published property's area that is not known yet, one area at a time (the free servers allow two requests
+ * at once per machine, and a polite gap between them). For a schedule or by hand: npm run nearby:warm.
+ */
+export async function warmAllNearby(env: Env = process.env, opts: { limit?: number; onEach?: (cell: string, ok: boolean, left: number) => void } = {}) {
+  if (env.NEARBY_PLACES === "off") return { looked: 0, ok: 0 };
+  const rows = await withPublic((tx) => tx.listing.findMany({ where: { status: "PUBLISHED", lat: { not: null }, lng: { not: null } }, select: { lat: true, lng: true } }));
+  const cells = new Map<string, { lat: number; lng: number }>();
+  for (const r of rows) if (r.lat !== null && r.lng !== null) cells.set(nearbyCacheKey({ lat: r.lat, lng: r.lng }), { lat: r.lat, lng: r.lng });
+  const known = await prisma.nearbyCache.findMany({ where: { cell: { in: [...cells.keys()] } } });
+  const now = Date.now();
+  for (const c of known) if (now - c.fetchedAt.getTime() < ttl(c)) cells.delete(c.cell);
+  const todo = [...cells].slice(0, opts.limit ?? 200);
+  let ok = 0;
+  for (const [i, [cell, p]] of todo.entries()) {
+    await refresh(p, env);
+    const got = await prisma.nearbyCache.findUnique({ where: { cell } });
+    if (got?.ok) ok += 1;
+    opts.onEach?.(cell, !!got?.ok, todo.length - i - 1);
+    if (i < todo.length - 1) await new Promise((r) => setTimeout(r, 5_000));
+  }
+  return { looked: todo.length, ok };
+}
+
+type Places = { state: "ready"; places: Amenity[] } | { state: "failed" } | { state: "pending" };
+async function placesAround(p: { lat: number; lng: number }, env: Env, now: Date, waitMs: number): Promise<Places> {
+  const cell = nearbyCacheKey(p);
+  const read = () => prisma.nearbyCache.findUnique({ where: { cell } });
+  let cached = await read();
+  const fresh = (c: NonNullable<typeof cached>) => now.getTime() - c.fetchedAt.getTime() < ttl(c);
+  if (cached && fresh(cached)) return cached.ok ? { state: "ready", places: cached.places as Amenity[] } : { state: "failed" };
+  const job = refresh(p, env);
+  // Wait a little: a fast server (or one already working on this area) often answers in time for this visit.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([job, new Promise<void>((r) => { timer = setTimeout(r, waitMs); })]);
+  clearTimeout(timer);
+  cached = await read();
+  if (cached && cached.fetchedAt.getTime() >= now.getTime() - 1000 && !inflight.has(cell)) return cached.ok ? { state: "ready", places: cached.places as Amenity[] } : { state: "failed" };
+  // Still looking: an older answer shows meanwhile; otherwise the page says it is looking and asks again shortly.
+  if (cached?.ok) return { state: "ready", places: cached.places as Amenity[] };
+  return { state: "pending" };
+}
+
+/**
+ * What is near a published property (everyday places within walking distance, landmarks within a short drive), by kind,
+ * nearest first. waitMs is how long this visit waits for a lookup that is not known yet; after that it answers "pending"
+ * and the lookup carries on in the background. Left out, it waits for the lookup to finish.
+ */
+export async function nearbyForListing(ref: string, env: Env = process.env, now = new Date(), opts: { waitMs?: number } = {}) {
   if (env.NEARBY_PLACES === "off") return { available: false as const, reason: "off" as const };
   const p = await listingPoint(ref);
   if (!p) return { available: false as const, reason: "no-position" as const };
-  const r = await placesAround(p, env, now);
-  if (!r.ok) return { available: false as const, reason: "unavailable" as const };
+  const r = await placesAround(p, env, now, opts.waitMs ?? BUDGET_MS + 5_000);
+  if (r.state === "pending") return { available: false as const, reason: "pending" as const };
+  if (r.state === "failed") return { available: false as const, reason: "unavailable" as const };
   return { available: true as const, centre: p, summary: summariseNearby(p, r.places) };
 }
 

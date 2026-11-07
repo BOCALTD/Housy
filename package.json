@@ -15,6 +15,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "check:nearby": "tsx scripts/check-nearby.ts",
     "admin:password": "tsx scripts/admin-password.ts",
+    "nearby:warm": "tsx scripts/nearby-warm.ts",
     "db:check-drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "tsx --test tests/unit/*.test.ts",

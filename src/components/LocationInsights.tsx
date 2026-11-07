@@ -25,14 +25,20 @@ export function LocationInsights({ refId, title, centre, boundary }: { refId: st
   const [note, setNote] = useState("");
 
   useEffect(() => {
-    let live = true;
-    fetch(`/api/map/nearby?ref=${encodeURIComponent(refId)}`).then((r) => (r.ok ? r.json() : { available: false, reason: "unavailable" })).then((n: Nearby) => {
+    let live = true, tries = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // The first look at an area can take a minute (the free map servers are slow): while it is "pending", ask again every
+    // few seconds for up to about three minutes.
+    const ask = () => fetch(`/api/map/nearby?ref=${encodeURIComponent(refId)}`).then((r) => (r.ok ? r.json() : { available: false, reason: "unavailable" })).then((n: Nearby) => {
       if (!live) return;
-      setNearby(n);
+      tries += 1;
+      if (!n.available && n.reason === "pending" && tries < 30) { setNearby(n); timer = setTimeout(() => void ask(), 6000); return; }
+      setNearby(n.available || n.reason !== "pending" ? n : { available: false, reason: "unavailable" });
       if (n.available) setKinds(n.summary.slice(0, 4).map((s) => s.kind));
     }).catch(() => live && setNearby({ available: false, reason: "unavailable" }));
+    void ask();
     try { const saved = window.localStorage.getItem(PLACE_KEY); if (saved) setFrom(JSON.parse(saved) as Place); } catch { /* optional */ }
-    return () => { live = false; };
+    return () => { live = false; clearTimeout(timer); };
   }, [refId]);
 
   useEffect(() => {
@@ -80,6 +86,7 @@ export function LocationInsights({ refId, title, centre, boundary }: { refId: st
       <section className="nearby" aria-labelledby="nearby-h">
         <h3 id="nearby-h">What is nearby</h3>
         {nearby === null ? <p className="small muted">Looking up landmarks, schools, hospitals, markets and transport nearby…</p>
+          : !nearby.available && nearby.reason === "pending" ? <p className="small muted nearby-pending" role="status">Finding landmarks and places near this property. The first look at an area can take up to a minute; this fills in by itself.</p>
           : !nearby.available ? <p className="small muted">{nearby.reason === "off" ? "Nearby places are switched off on this site." : "The map service is busy, so nearby places could not be loaded. Reload the page in a few minutes."}</p>
           : nearby.summary.length === 0 ? <p className="small muted">No landmarks, schools, shops or other places are recorded near here on the public map yet.</p>
           : (

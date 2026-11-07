@@ -148,5 +148,8 @@ $LAN && echo "Note: on Wi-Fi this local copy is plain http (not encrypted). Do n
 if $START; then
   echo "Stop with Ctrl+C. Start again later with:  bash scripts/ubuntu-local.sh$([ "$PORT" != 3000 ] && echo " --port $PORT")$($LAN && echo " --lan")"
   if $LAN; then H=0.0.0.0; else H=127.0.0.1; fi
+  # Nearby places and landmarks for the published properties, looked up quietly in the background so pages show them at once.
+  echo "Nearby places: looking up property areas in the background (log: /tmp/housy-nearby.log)"
+  (sleep 15; npm run -s nearby:warm > /tmp/housy-nearby.log 2>&1) &
   exec env NODE_ENV=production npx next start -H "$H" -p "$PORT"
 fi

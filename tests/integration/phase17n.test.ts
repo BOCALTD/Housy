@@ -10,7 +10,7 @@ import { prisma, withPublic, withTenant, withUser } from "../../src/lib/db";
 import { createAsset, setAssetBoundary, setAssetPosition } from "../../src/lib/services/assets";
 import { getPublicListing, reviewListing, saveListingDraft, setListingStatus } from "../../src/lib/services/listings";
 import { mapNear } from "../../src/lib/services/street-map";
-import { nearbyForListing, setNearbyFetchForTests, travelToListing } from "../../src/lib/services/nearby";
+import { nearbyForListing, nearbyLookupsSettled, setNearbyFetchForTests, travelToListing } from "../../src/lib/services/nearby";
 import { confirmBooking, dayRoute, myBooking, requestInspection } from "../../src/lib/services/inspection-bookings";
 import { registerSeeker } from "../../src/lib/services/community";
 import { nearbyCacheKey } from "../../src/lib/location-rules";
@@ -96,6 +96,21 @@ test("nearby places come from one cached lookup per area; a failure is reported,
   assert.ok(agents.every((a) => /^Housy\/1\.0 \(\+https:\/\/[^;]+; nearby places\)$/.test(a)), agents.join(" / "));
   assert.ok(c.available);
   assert.deepEqual(c.summary.map((s) => [s.kind, s.nearest[0].name]), [["landmark", "Test Museum"]]);
+  // A slow map server does not hold the visitor: the page hears "pending", the lookup carries on, and is then ready.
+  await prisma.nearbyCache.deleteMany({ where: { cell: nearbyCacheKey({ lat: listing.lat!, lng: listing.lng! }) } });
+  let calls = 0;
+  setNearbyFetchForTests((async () => {
+    calls += 1;
+    await new Promise((r) => setTimeout(r, 400));
+    return new Response(JSON.stringify({ elements: [{ type: "node", id: 2, lat: listing.lat! + 0.003, lon: listing.lng!, tags: { amenity: "hospital", name: "Slow Hospital" } }] }), { status: 200 });
+  }) as typeof fetch);
+  assert.deepEqual(await nearbyForListing(listing.publicRef, {}, new Date(), { waitMs: 50 }), { available: false, reason: "pending" });
+  assert.deepEqual(await nearbyForListing(listing.publicRef, {}, new Date(), { waitMs: 50 }), { available: false, reason: "pending" });
+  await nearbyLookupsSettled();
+  assert.equal(calls, 1, "visitors to the same area share one lookup");
+  const d = await nearbyForListing(listing.publicRef, {}, new Date(), { waitMs: 50 });
+  assert.ok(d.available);
+  assert.equal(d.summary[0].nearest[0].name, "Slow Hospital");
   setNearbyFetchForTests(null);
 });
 

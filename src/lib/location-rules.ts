@@ -72,8 +72,8 @@ export const AMENITY_KINDS: { kind: AmenityKind; label: string; km: number; name
     ["historic", ["monument", "memorial", "castle", "archaeological_site", "ruins"]],
     ["leisure", ["stadium", "golf_course", "marina", "water_park", "nature_reserve"]],
     ["amenity", ["townhall", "courthouse", "events_venue", "conference_centre", "theatre", "cinema", "arts_centre", "university"]],
-    ["shop", ["mall", "department_store"]],
-    ["aeroway", ["aerodrome", "terminal"]],
+    ["shop", ["mall"]],
+    ["aeroway", ["aerodrome"]],
   ] },
   { kind: "school", label: "Schools", km: 2, tags: [["amenity", ["school", "kindergarten", "college", "university"]]] },
   { kind: "health", label: "Hospitals and clinics", km: 2, tags: [["amenity", ["hospital", "clinic", "doctors", "dentist"]], ["healthcare", ["hospital", "clinic", "centre"]]] },
@@ -86,7 +86,7 @@ export const AMENITY_KINDS: { kind: AmenityKind; label: string; km: number; name
   { kind: "worship", label: "Places of worship", km: 2, tags: [["amenity", ["place_of_worship"]]] },
   { kind: "park", label: "Parks and sports", km: 2, tags: [["leisure", ["park", "sports_centre", "pitch", "fitness_centre", "playground"]]] },
   { kind: "police", label: "Police and fire stations", km: 3, tags: [["amenity", ["police", "fire_station"]]] },
-  { kind: "hotel", label: "Hotels", km: 3, tags: [["tourism", ["hotel", "guest_house", "apartment"]]] },
+  { kind: "hotel", label: "Hotels", km: 3, tags: [["tourism", ["hotel", "guest_house", "motel"]]] },
 ];
 
 /** The widest distance any kind is counted at. */
@@ -100,18 +100,23 @@ export const nearbyCell = (p: LL) => `${(Math.round(p.lat * 100) / 100).toFixed(
 export const nearbyCacheKey = (p: LL) => nearbyCell(p);
 
 const esc = (v: string) => v.replace(/[^a-z0-9_]/gi, "");
+/** A square around a point, reaching m metres each way: south, west, north, east. */
+function squareAround(p: LL, m: number) {
+  const dLat = m / 111_320, dLng = m / (111_320 * Math.cos((p.lat * Math.PI) / 180));
+  return `${(p.lat - dLat).toFixed(5)},${(p.lng - dLng).toFixed(5)},${(p.lat + dLat).toFixed(5)},${(p.lng + dLng).toFixed(5)}`;
+}
 /**
- * The Overpass query: one statement per kind and tag key (values as one pattern, which the server answers far faster than a
- * statement per value), and each kind printed on its own, so a street full of bus stops cannot crowd out the schools.
+ * The Overpass query: one statement per kind and tag key (values as one pattern), searching a square around the area
+ * (the busy public servers answer a square far faster than a circle; distances are measured here afterwards), points and
+ * outlines only, and each kind printed on its own, so a street full of bus stops cannot crowd out the schools.
  */
 export function overpassQuery(p: LL): string {
-  const at = `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
   const parts = AMENITY_KINDS.map((k) => {
-    const r = Math.round(k.km * 1000 + CELL_SLACK_M);
-    const sel = k.tags.map(([key, values]) => `nwr["${esc(key)}"~"^(${values.map(esc).join("|")})$"]${k.named ? '["name"]' : ""}(around:${r},${at});`).join("");
-    return `(${sel});out tags center ${k.kind === "transport" || k.kind === "food" || k.kind === "shopping" ? 300 : 150};`;
+    const box = squareAround(p, Math.round(k.km * 1000 + CELL_SLACK_M));
+    const sel = k.tags.map(([key, values]) => `nw["${esc(key)}"~"^(${values.map(esc).join("|")})$"]${k.named ? '["name"]' : ""}(${box});`).join("");
+    return `(${sel});out tags center qt ${k.kind === "transport" || k.kind === "food" || k.kind === "shopping" ? 300 : 150};`;
   });
-  return `[out:json][timeout:25];${parts.join("")}`;
+  return `[out:json][timeout:60];${parts.join("")}`;
 }
 
 type Env = Record<string, string | undefined>;

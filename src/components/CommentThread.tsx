@@ -72,7 +72,7 @@ export function CommentThread({ initial, total: total0, signedIn, onSignIn, acti
     if (!signedIn) return needSignIn();
     const text = body.trim(); if (!text || busy) return;
     setBusy(true);
-    const out = await actions.post(text, replyTo?.id ?? null).catch(() => ({ ok: false as const, error: "That did not send. Check your connection and try again." }));
+    const out = await actions.post(text, replyTo?.id ?? null).catch((): { ok: false; signIn?: true; error?: string } => ({ ok: false, error: "That did not send. Check your connection and try again." }));
     setBusy(false);
     if (!out.ok) { if (out.signIn) needSignIn(); else toast.error(out.error ?? "That did not work"); return; }
     const c = out.comment;
@@ -84,7 +84,7 @@ export function CommentThread({ initial, total: total0, signedIn, onSignIn, acti
   async function like(c: ThreadComment) {
     if (!signedIn) return needSignIn();
     update(c.id, (x) => ({ ...x, liked: !x.liked, likes: x.likes + (x.liked ? -1 : 1) }));
-    const out = await actions.like(c.id).catch(() => ({ ok: false as const, error: "That did not work" }));
+    const out = await actions.like(c.id).catch((): { ok: false; signIn?: true; error?: string } => ({ ok: false, error: "That did not work" }));
     if (!out.ok) { update(c.id, (x) => ({ ...x, liked: c.liked, likes: c.likes })); if (out.signIn) needSignIn(); else toast.error(out.error ?? "That did not work"); return; }
     update(c.id, (x) => ({ ...x, liked: out.liked, likes: out.likes }));
   }

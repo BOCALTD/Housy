@@ -58,12 +58,27 @@ export default function SaveDocument({ url, fallbackName = "document", label = "
     try { setMsg(await job()); } catch (e) { setMsg(e instanceof Error ? e.message : "That did not work"); } finally { setBusy(false); }
   }
 
-  const share = () => run(async () => {
-    const { blob, name } = await fetchFile(url, fallbackName);
-    const file = new File([blob], name, { type: blob.type });
-    if (!navigator.canShare?.({ files: [file] })) throw new Error("This device cannot send files to other apps. Use Download.");
-    try { await navigator.share({ files: [file], title: name }); return "Sent."; } catch (e) { if (e instanceof Error && e.name === "AbortError") return ""; throw e; }
-  });
+  // The share sheet only opens straight from a tap, so the file is fetched when this opens and the tap sends it at once.
+  const [file, setFile] = useState<File | null>(null);
+  const [prep, setPrep] = useState<"idle" | "loading" | "ready" | "none">("idle");
+  async function prepare() {
+    if (prep !== "idle") return;
+    setPrep("loading");
+    try {
+      const { blob, name } = await fetchFile(url, fallbackName);
+      const f = new File([blob], name, { type: blob.type || "application/octet-stream" });
+      if (navigator.canShare?.({ files: [f] })) { setFile(f); setPrep("ready"); } else setPrep("none");
+    } catch { setPrep("none"); }
+  }
+  function share() {
+    if (!file) return;
+    let p: Promise<void>;
+    try { p = navigator.share({ files: [file], title: file.name }); } catch (e) { p = Promise.reject(e); }
+    setBusy(true); setMsg("");
+    p.then(() => setMsg("Sent."))
+      .catch((e: Error) => setMsg(e?.name === "AbortError" ? "" : "This device would not send the file. Use Download instead."))
+      .finally(() => setBusy(false));
+  }
 
   const drive = () => run(async () => {
     await loadGoogle();
@@ -81,14 +96,20 @@ export default function SaveDocument({ url, fallbackName = "document", label = "
   });
 
   return (
-    <details className="inline" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function" && typeof navigator.canShare === "function"); }}>
+    <details className="inline" onToggle={(e) => {
+      if (!(e.currentTarget as HTMLDetailsElement).open) return;
+      const can = typeof navigator !== "undefined" && typeof navigator.share === "function" && typeof navigator.canShare === "function";
+      setCanShare(can);
+      if (can) void prepare();
+      if (CLIENT_ID) void loadGoogle().catch(() => undefined); // ready before the tap, so Google's sign-in window is not blocked
+    }}>
       <summary>{label}</summary>
       <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
         <a className="btn" href={url} download>Download</a>
-        {canShare ? <button className="btn" type="button" onClick={share} disabled={busy}>Send to another app</button> : null}
+        {canShare && prep !== "none" ? <button className="btn" type="button" onClick={share} disabled={busy || prep !== "ready"}>{prep === "ready" ? "Send to another app" : "Getting the file ready…"}</button> : null}
         {CLIENT_ID ? <button className="btn" type="button" onClick={drive} disabled={busy}>Save to Google Drive</button> : null}
       </div>
-      {canShare ? <p className="small muted">Another app means Files, iCloud Drive, Google Drive, Dropbox, OneDrive or any app on this device that accepts files.</p> : null}
+      {canShare && prep !== "none" ? <p className="small muted">Another app means Files, iCloud Drive, Google Drive, Dropbox, OneDrive or any app on this device that accepts files.</p> : null}
       <p className="small muted" role="status">{busy ? "Working…" : msg}</p>
     </details>
   );

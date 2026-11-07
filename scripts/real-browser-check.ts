@@ -372,6 +372,50 @@ async function main() {
     await ctx.close();
   });
 
+  await step("Signed in on a phone: sharing a reel opens the phone's share sheet straight from the tap, and only a real share counts", async () => {
+    const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const seeker = out.trim().split("\n")[2];
+    const ctx = await newContext(browser, "phone");
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    // Stand in for the phone's share sheet: note what was shared and whether the tap was still "fresh" (the browser
+    // refuses navigator.share otherwise), and answer as if the person cancelled or sent it.
+    await ctx.addInitScript(() => {
+      const w = window as unknown as { __shares: { files: number; url?: string; fresh: boolean }[]; __mode: string };
+      w.__shares = []; w.__mode = "cancel";
+      Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+      Object.defineProperty(navigator, "share", { configurable: true, value: (d: ShareData) => {
+        w.__shares.push({ files: d.files?.length ?? 0, url: d.url, fresh: (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive ?? true });
+        return w.__mode === "cancel" ? Promise.reject(new DOMException("closed", "AbortError")) : Promise.resolve();
+      } });
+    });
+    const s = await ctx.newPage(); watch(s, "reel share");
+    await s.goto(BASE + "/reels?all=1", { waitUntil: "load" }); await s.waitForTimeout(1200);
+    const btn = s.locator('.rf-act[aria-label^="Share"]').first();
+    if (!(await btn.count())) { await record(s, "reel share", false, "no reel with a share button"); await ctx.close(); return; }
+    const count = async () => Number((await btn.locator(".rf-n").innerText().catch(() => "-1")).trim());
+    const n0 = await count();
+    await btn.click();
+    const sheet = s.locator("dialog.share-sheet[open]").first();
+    await sheet.waitFor({ timeout: 8000 });
+    await sheet.locator('button:has-text("Copy link")').click(); await s.waitForTimeout(800);
+    const afterCopy = await count();
+    await sheet.locator('button:has-text("Share link with an app")').click(); await s.waitForTimeout(800);
+    const afterCancel = await count();
+    const video = sheet.locator('button:has-text("Share the video and link")');
+    const ready = await video.waitFor({ timeout: 25000 }).then(() => true).catch(() => false);
+    if (ready) {
+      await s.evaluate(() => { (window as unknown as { __mode: string }).__mode = "send"; });
+      await video.click(); await s.waitForTimeout(1500);
+    }
+    const afterSend = await count();
+    const calls = await s.evaluate(() => (window as unknown as { __shares: { files: number; url?: string; fresh: boolean }[] }).__shares);
+    const linkCall = calls[0], videoCall = calls[1];
+    const ok = n0 >= 0 && afterCopy === n0 && afterCancel === n0 && !!linkCall?.fresh && !!linkCall?.url && ready && !!videoCall?.fresh && videoCall.files === 1 && afterSend === n0 + 1;
+    await record(s, "reel share", ok, `count ${n0}; after copying the link ${afterCopy}; after cancelling the share sheet ${afterCancel}; ` +
+      `link share opened from a fresh tap ${!!linkCall?.fresh}; video ready ${ready}; video share opened from a fresh tap ${!!videoCall?.fresh} with ${videoCall?.files ?? 0} file; after sending ${afterSend}`);
+    await ctx.close();
+  });
+
   await step("When the page's scripts cannot load, people see plain words and a Reload button, never file names", async () => {
     const ctx = await newContext(browser, "phone");
     await ctx.route("**/_next/static/chunks/**", (r) => r.abort());

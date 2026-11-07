@@ -2,7 +2,7 @@
 
 import { currentActor } from "@/lib/collab-session";
 import { messageFor } from "@/lib/forms";
-import { addComment, deleteCollabComment, toggleCollabCommentLike } from "@/lib/services/collab";
+import { addComment, toggleCollabCommentLike } from "@/lib/services/collab";
 
 /** What the workspace comment thread calls from the browser: post or reply, like, delete your own. */
 type Out<T> = ({ ok: true } & T) | { ok: false; error?: string };
@@ -19,7 +19,4 @@ export async function postWorkspaceComment(collabId: string, body: string, reply
 }
 export async function likeWorkspaceComment(id: string) {
   return run(async (a) => toggleCollabCommentLike(a, id64(id)));
-}
-export async function deleteWorkspaceComment(id: string) {
-  return run(async (a) => deleteCollabComment(a, id64(id)));
 }

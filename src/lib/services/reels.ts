@@ -401,7 +401,10 @@ export async function toggleSave(userId: string, reelId: string) {
   });
 }
 
-/** A share counts once per person, however many times they press the button. */
+/**
+ * A share counts once per person, and only when it really happened: the phone's share sheet reported it sent, or someone
+ * else opened the person's shared link (see sharedLinkOpened). Opening a network or copying a link is not a share.
+ */
 export async function recordShare(userId: string, reelId: string) {
   await limited(`reel-share:${userId}`, 60);
   return system(async (tx) => {
@@ -409,6 +412,18 @@ export async function recordShare(userId: string, reelId: string) {
     await tx.reelShare.upsert({ where: { reelId_userId: { reelId, userId } }, create: { reelId, userId }, update: {} });
     return { count: await tx.reelShare.count({ where: { reelId } }) };
   });
+}
+
+/** Someone other than the sharer opened a shared reel link: that counts as the sharer's share (once per sharer). */
+export async function sharedLinkOpened(sharerId: string, reelId: string, visitorId: string | null) {
+  if (!sharerId || visitorId === sharerId) return null;
+  if (!(await rateLimit(`reel-share-open:${sharerId}:${reelId}`, 30, 3600_000))) return null;
+  return system(async (tx) => {
+    const r = await tx.reel.findUnique({ where: { id: reelId } });
+    if (!r || r.status !== "PUBLISHED") return null;
+    await tx.reelShare.upsert({ where: { reelId_userId: { reelId, userId: sharerId } }, create: { reelId, userId: sharerId }, update: {} });
+    return { count: await tx.reelShare.count({ where: { reelId } }) };
+  }).catch(() => null);
 }
 
 const commentSchema = z.string().trim().min(1, "Write a comment first").max(500, "Keep comments to 500 characters")

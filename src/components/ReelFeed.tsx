@@ -220,7 +220,7 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
                 <span className="rf-ico"><Bubble /></span><span className="rf-n">{short(r.comments)}</span>
               </button>
               {signedIn ? (
-                <ShareButton kind="reel" rail path={`/reels/${r.id}`} reelId={r.id} count={r.shares} signedIn video={`/reels/${r.id}/video`}
+                <ShareButton kind="reel" rail path={`/reels/${r.id}`} reelId={r.id} count={r.shares} signedIn={signedIn} video={`/reels/${r.id}/video`}
                   title={r.caption || r.listingTitle || "Property reel"}
                   text={shareText("reel", { title: r.caption || r.listingTitle || `A property reel by ${r.authorName}`, place: r.city, by: r.companyName ? `${r.authorName}, ${r.companyName}` : r.authorName }, PLATFORM_NAME)} />
               ) : (

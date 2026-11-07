@@ -75,6 +75,12 @@ export async function getOrCreateCode(userId: string) {
   });
 }
 /** A visit to /r/CODE. Only a count is kept: nothing about the visitor. */
+/** Whose invite code this is (active codes only), for crediting a share when someone opens the shared link. */
+export async function codeOwner(code: string): Promise<string | null> {
+  if (!isCodeShape(code)) return null;
+  return system(async (tx) => (await tx.referralCode.findFirst({ where: { code, active: true }, select: { userId: true } }))?.userId ?? null).catch(() => null);
+}
+
 export async function countClick(code: string): Promise<boolean> {
   if (!isCodeShape(code)) return false;
   return system(async (tx) => {

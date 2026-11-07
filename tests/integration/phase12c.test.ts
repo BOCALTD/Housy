@@ -12,12 +12,13 @@ import { assignSubscription } from "../../src/lib/services/subscriptions";
 import { myNotifications } from "../../src/lib/services/notifications";
 import {
   addComment, commentsFor, decideReports, discover, getReel, listingChoices, moderateReel, myReels, mySaved, recordShare, reelQueue, reelVideo, reportTarget,
-  toggleLike, toggleSave, uploadReel, withdrawReel, toggleCommentLike, deleteComment,
+  toggleLike, toggleSave, uploadReel, withdrawReel, toggleCommentLike, deleteComment, sharedLinkOpened,
 } from "../../src/lib/services/reels";
 import { computeMonth } from "../../src/lib/services/awards";
 import { MONTHLY_REEL_CAP } from "../../src/lib/social-rules";
 import { monthRange } from "../../src/lib/award-rules";
 import type { Ctx } from "../../src/lib/services/context";
+import { codeOwner, getOrCreateCode } from "../../src/lib/services/referrals";
 import { newCompany, newPlatformAdmin, relativeDate, PASSWORD } from "./helpers";
 
 after(() => prisma.$disconnect());
@@ -272,4 +273,23 @@ test("reel comments: reply, like, delete your own, and hidden comments take thei
   const after2 = await commentsFor(reel.id);
   assert.ok(!after2.rows.some((r) => r.id === c2.id));
   assert.equal(after2.total, 0);
+});
+
+test("a shared link counts as a share only when someone else opens it: never the sharer, once per sharer, never an unpublished reel", async () => {
+  const admin = await newPlatformAdmin();
+  const co = await agent("sh");
+  const reel = await post(co);
+  const sharer = await person("sharer"), friend = await person("friend"), other = await person("other");
+  const code = (await getOrCreateCode(sharer)).code;
+  assert.equal(await codeOwner(code), sharer);
+  assert.equal(await codeOwner("NOSUCHCD"), null);
+  assert.equal(await sharedLinkOpened(sharer, reel.id, friend), null, "a reel that is not published cannot be shared");
+  await moderateReel(admin.id, reel.id, "publish", "");
+  assert.equal((await getReel(reel.id, null))!.shares, 0, "opening the share dialog or copying a link records nothing");
+  assert.equal(await sharedLinkOpened(sharer, reel.id, sharer), null, "the sharer opening their own link is not a share");
+  assert.equal((await getReel(reel.id, null))!.shares, 0);
+  assert.deepEqual(await sharedLinkOpened(sharer, reel.id, null), { count: 1 }, "a visitor who is not signed in opening it is");
+  assert.deepEqual(await sharedLinkOpened(sharer, reel.id, friend), { count: 1 }, "more people opening the same person's link is still one share");
+  assert.equal((await recordShare(sharer, reel.id)).count, 1, "the phone confirming the same person's share does not count it twice");
+  assert.deepEqual(await sharedLinkOpened(other, reel.id, friend), { count: 2 });
 });

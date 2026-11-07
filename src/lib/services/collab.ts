@@ -684,20 +684,8 @@ export async function toggleCollabCommentLike(a: Actor, commentId: string) {
   });
 }
 
-/** Delete your own workspace comment while the workspace is open; its replies and likes go with it. */
-export async function deleteCollabComment(a: Actor, commentId: string) {
-  return run(a, async (tx) => {
-    const c = await tx.collabComment.findUnique({ where: { id: commentId } });
-    if (!c || c.authorId !== a.userId) throw new Error("You can only delete your own comments");
-    const w = await open(tx, a, c.collaborationId, "COMMENT", false);
-    if (!w.mode.write) throw new Error(w.mode.reason || "This workspace is read-only now");
-    const ids = [c.id, ...(await tx.collabComment.findMany({ where: { parentId: c.id }, select: { id: true } })).map((x) => x.id)];
-    await tx.collabCommentLike.deleteMany({ where: { commentId: { in: ids } } });
-    await tx.collabComment.deleteMany({ where: { id: { in: ids } } });
-    await event(tx, c.collaborationId, a.userId, "comment_deleted", `${w.me.name} deleted a comment`);
-    return { deleted: ids.length };
-  });
-}
+// Workspace comments are part of the workspace's record (both sides rely on it, like the history), so they are never
+// edited or deleted; the database refuses that for the app. Replies and likes are added alongside.
 
 // ---------- Reading ----------
 

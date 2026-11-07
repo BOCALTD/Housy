@@ -38,6 +38,12 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
     } catch { setCanFiles(false); }
   }, []);
 
+  // The phone only opens its share sheet straight from a tap: anything slow before navigator.share (fetching the link or the
+  // video) makes it refuse. So the link and the files are prepared when the dialog opens, and the tap shares at once.
+  const [prepared, setPrepared] = useState<File[] | null>(null);
+  const [prep, setPrep] = useState<"idle" | "loading" | "ready" | "none">("idle");
+  const hasMedia = !!video || photos.length > 0;
+
   async function link(): Promise<string> {
     if (url) return url;
     let code: string | null = null;
@@ -47,13 +53,25 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
     return u;
   }
 
+  async function prepareFiles() {
+    if (!canFiles || !hasMedia || prep === "loading" || prep === "ready") return;
+    setPrep("loading");
+    const f = await files();
+    const ok = f.length > 0 && !!navigator.canShare?.({ files: f });
+    setPrepared(ok ? f : null);
+    setPrep(ok ? "ready" : "none");
+  }
+
   async function open() {
     setStatus("");
     await link();
     box.current?.showModal();
+    void prepareFiles();
   }
 
-  async function done() {
+  /** Counted only when a share really happened (the phone says it was sent). Copying or opening a network is not a share;
+   * those count when someone opens the shared link. */
+  async function counted1() {
     if (reelId && signedIn && !counted) {
       setCounted(true);
       try { setN(await countReelShare(reelId)); } catch { /* counting is best effort */ }
@@ -63,34 +81,34 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
   async function files(): Promise<File[]> {
     const list: File[] = [];
     const want = video ? [video] : photos.slice(0, 4);
+    const limit = video ? 60_000_000 : 15_000_000; // bigger than this and most share sheets give up
     for (const [i, src] of want.entries()) {
       try {
         const res = await fetch(src);
         if (!res.ok) continue;
         const blob = await res.blob();
-        if (blob.size > 15_000_000) continue; // too big for most share sheets
-        const ext = blob.type.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
-        list.push(new File([blob], `${kind}-${i + 1}.${ext}`, { type: blob.type }));
-      } catch { /* skip a picture that will not load */ }
+        if (blob.size > limit) continue;
+        const type = blob.type || (video ? "video/mp4" : "image/jpeg");
+        const ext = type.split("/")[1]?.replace("jpeg", "jpg").replace("quicktime", "mov") || (video ? "mp4" : "jpg");
+        list.push(new File([blob], `${kind}-${i + 1}.${ext}`, { type }));
+      } catch { /* skip a file that will not load */ }
     }
     return list;
   }
 
-  async function nativeShare(withFiles: boolean) {
+  function nativeShare(withFiles: boolean) {
+    if (!url) { setStatus("The link is still being made. Try again in a moment."); return; }
+    // With files attached many apps drop the separate link, so it goes in the words too; without files it goes once, as the link.
+    const data: ShareData = withFiles && prepared ? { title, text: `${text}\n${url}`, files: prepared } : { title, text, url };
+    let p: Promise<void>;
+    try { p = navigator.share(data); } catch (e) { p = Promise.reject(e); }
     setBusy(true);
-    try {
-      const u = await link();
-      const data: ShareData = { title, text: `${text}\n${u}`, url: u };
-      if (withFiles) {
-        const f = await files();
-        if (f.length && navigator.canShare?.({ files: f })) data.files = f;
-      }
-      await navigator.share(data);
-      setStatus("Shared");
-      await done();
-    } catch (e) {
-      if ((e as Error)?.name !== "AbortError") setStatus("Could not open sharing here. Use a button below or copy the link.");
-    } finally { setBusy(false); }
+    p.then(() => { setStatus("Shared"); return counted1(); })
+      .catch((e: Error) => {
+        if (e?.name === "AbortError") { setStatus(""); return; } // they closed the share sheet: nothing was shared
+        setStatus(withFiles ? "This phone would not attach the file. Use Share link with an app, or download it below." : "Sharing did not open here. Use a button below or copy the link.");
+      })
+      .finally(() => setBusy(false));
   }
 
   async function copy(what: "link" | "all") {
@@ -98,8 +116,7 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
     try {
       if (!(await copyText(what === "link" ? u : `${text}\n${u}`))) throw new Error("blocked");
       toast.success(what === "link" ? "Link copied" : "Text and link copied");
-      setStatus(what === "link" ? "Link copied" : "Text and link copied: paste them with the photos");
-      await done();
+      setStatus(what === "link" ? "Link copied. It counts as a share when someone opens it." : "Text and link copied: paste them with the photos");
     } catch { setStatus("Copying is blocked here. Press and hold the link to copy it."); }
   }
 
@@ -134,16 +151,19 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
           </div>
           {canShare ? (
             <div className="share-primary">
-              {canFiles && (photos.length || video) ? (
-                <button type="button" className="btn primary" disabled={busy} onClick={() => nativeShare(true)}>{busy ? "Getting the photos…" : video ? "Share the video and link" : `Share ${Math.min(photos.length, 4)} photo${photos.length === 1 ? "" : "s"} and link`}</button>
+              {canFiles && hasMedia && prep !== "none" ? (
+                <button type="button" className="btn primary" disabled={busy || prep !== "ready"} onClick={() => nativeShare(true)}>
+                  {prep !== "ready" ? (video ? "Getting the video ready…" : "Getting the photos ready…") : video ? "Share the video and link" : `Share ${prepared?.length ?? 1} photo${(prepared?.length ?? 1) === 1 ? "" : "s"} and link`}
+                </button>
               ) : null}
-              <button type="button" className={`btn${canFiles && (photos.length || video) ? "" : " primary"}`} disabled={busy} onClick={() => nativeShare(false)}>Share link with an app</button>
+              <button type="button" className={`btn${canFiles && hasMedia && prep !== "none" ? "" : " primary"}`} disabled={busy || !url} onClick={() => nativeShare(false)}>Share link with an app</button>
+              {canFiles && hasMedia && prep === "none" ? <p className="small muted">{video ? "This video is too large to attach here, so share the link: it opens the reel." : "These photos cannot be attached here, so share the link or download them below."}</p> : null}
             </div>
           ) : null}
           <ul className="share-grid" aria-label="Share to">
             {NETWORKS.map((nw) => (
               <li key={nw.key}>
-                <a className={`share-net share-${nw.key}`} href={url ? networkLink(nw.key, url, text, title) : "#"} target={nw.key === "email" || nw.key === "sms" ? undefined : "_blank"} rel="noopener noreferrer" onClick={() => { void done(); }}>
+                <a className={`share-net share-${nw.key}`} href={url ? networkLink(nw.key, url, text, title) : "#"} target={nw.key === "email" || nw.key === "sms" ? undefined : "_blank"} rel="noopener noreferrer" onClick={(e) => { if (!url) e.preventDefault(); }}>
                   <span className="share-dot" aria-hidden="true" />{nw.label}
                 </a>
               </li>

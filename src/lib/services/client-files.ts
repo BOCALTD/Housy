@@ -186,11 +186,12 @@ async function openLink(token: string) {
   return link;
 }
 
-/** What a client sees from their link: the property and the chosen sections. Counts the visit. Null when closed. */
-export async function viewClientLink(token: string) {
+/** What a client sees from their link: the property and the chosen sections. Counts the visit (not a chat app's link
+ * preview, which fetches the page before anyone opens it). Null when closed. */
+export async function viewClientLink(token: string, opts: { count?: boolean } = {}) {
   const link = await openLink(token);
   if (!link) return null;
-  await withInviteToken(link.tokenHash, (tx) => tx.clientViewLink.update({ where: { tokenHash: link.tokenHash }, data: { views: { increment: 1 }, lastViewedAt: new Date() } }));
+  if (opts.count !== false) await withInviteToken(link.tokenHash, (tx) => tx.clientViewLink.update({ where: { tokenHash: link.tokenHash }, data: { views: { increment: 1 }, lastViewedAt: new Date() } }));
   return withTenant(link.companyId, "system", async (tx) => {
     const asset = await tx.asset.findFirst({ where: { id: link.assetId, companyId: link.companyId }, select: { name: true, category: true, assetClass: true, city: true, state: true } });
     const client = await tx.client.findFirst({ where: { id: link.clientId, companyId: link.companyId }, select: { name: true } });

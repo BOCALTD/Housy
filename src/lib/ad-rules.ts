@@ -81,7 +81,8 @@ export function suspensionReason(c: Conditions): string | null {
   return null;
 }
 
-export const BOT_PATTERN = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|python-requests|curl\/|wget|monitor|uptime/i;
+// Link previews (WhatsApp, Telegram, iMessage, Slack, Discord, X, LinkedIn…) fetch a shared link before anyone taps it.
+export const BOT_PATTERN = /bot|crawl|spider|slurp|preview|facebookexternalhit|facebookcatalog|whatsapp|embedly|vkshare|quora link|bitlybot|headless|python-requests|curl\/|wget|monitor|uptime/i;
 export const isBot = (ua: string | null | undefined) => !ua || BOT_PATTERN.test(ua);
 
 export type ClickVerdict = { bill: true } | { bill: false; reason: "NOT_LIVE" | "BOT" | "OWN" | "REPEAT" | "DAILY_LIMIT" | "NO_BUDGET" };

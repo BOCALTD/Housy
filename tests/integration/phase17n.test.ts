@@ -10,7 +10,7 @@ import { prisma, withPublic, withTenant, withUser } from "../../src/lib/db";
 import { createAsset, setAssetBoundary, setAssetPosition } from "../../src/lib/services/assets";
 import { getPublicListing, reviewListing, saveListingDraft, setListingStatus } from "../../src/lib/services/listings";
 import { mapNear } from "../../src/lib/services/street-map";
-import { nearbyForListing, nearbyLookupsSettled, setNearbyFetchForTests, travelToListing } from "../../src/lib/services/nearby";
+import { nearbyForListing, nearbyLookupsSettled, setBusyWaitForTests, setNearbyFetchForTests, travelToListing } from "../../src/lib/services/nearby";
 import { confirmBooking, dayRoute, myBooking, requestInspection } from "../../src/lib/services/inspection-bookings";
 import { registerSeeker } from "../../src/lib/services/community";
 import { nearbyCacheKey } from "../../src/lib/location-rules";
@@ -80,7 +80,8 @@ test("nearby places come from one cached lookup per area; a failure is reported,
   answer = "fail";
   assert.deepEqual(await nearbyForListing(listing.publicRef, {}), { available: false, reason: "unavailable" });
   assert.deepEqual(await nearbyForListing(listing.publicRef, { NEARBY_PLACES: "off" }), { available: false, reason: "off" });
-  // A busy server that answers "timed out" is not taken as "nothing nearby": the next server is asked.
+  // A busy server that answers "timed out" or "at capacity" is not taken as "nothing nearby": it is asked again shortly.
+  setBusyWaitForTests(10);
   await prisma.nearbyCache.deleteMany({ where: { cell: nearbyCacheKey({ lat: listing.lat!, lng: listing.lng! }) } });
   const asked: string[] = [];
   const agents: string[] = [];

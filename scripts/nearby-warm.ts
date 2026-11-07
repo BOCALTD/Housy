@@ -15,7 +15,7 @@ databaseReady()
   .then((ready) => {
     if (!ready) process.exit(1);
     console.log("Looking up the areas of published properties that are not known yet. Each can take up to a minute…");
-    return warmAllNearby(process.env, { onEach: (cell, ok, left) => console.log(`${ok ? "✓" : "✗"} area ${cell}${ok ? "" : " (the map servers did not answer; it is tried again next time)"}${left ? ` · ${left} to go` : ""}`) });
+    return warmAllNearby(process.env, { onEach: (cell, ok, left) => console.log(`${ok ? "✓" : "✗"} area ${cell}${ok ? "" : " (the map servers were too busy)"}${left ? ` · ${left} to go` : ""}`), onRetry: (n) => console.log(`\nTrying the ${n} area${n === 1 ? "" : "s"} that missed once more, in 30 seconds…`) });
   })
   .then((r) => { console.log(r.looked ? `Done: ${r.ok} of ${r.looked} area${r.looked === 1 ? "" : "s"} found.` : "Every published property's area is already known."); process.exit(r.looked && !r.ok ? 1 : 0); })
   .catch((e) => { console.error(e instanceof Error ? e.message.split("\n").filter(Boolean).pop() : e); process.exit(1); })

@@ -39,7 +39,10 @@ const ttl = (c: { ok: boolean; places: unknown }) => (!c.ok ? TTL_FAIL : Array.i
  * Ask each server in turn until one gives a complete answer. A server that is busy, slow or cut its answer short is skipped.
  * This runs in the background, so it can wait as long as the free servers need (they often take 30 to 40 seconds).
  */
-const BUDGET_MS = 150_000, PER_SERVER_MS = 75_000;
+const BUDGET_MS = 240_000, PER_SERVER_MS = 75_000;
+let BUSY_WAIT_MS = 15_000;
+/** Tests shorten the wait before asking a busy server again. */
+export function setBusyWaitForTests(ms: number) { BUSY_WAIT_MS = ms; }
 /** What happened with each server, for the command-line tools (never shown to visitors). */
 export type Attempt = { server: string; ms: number; result: string };
 let onAttempt: ((a: Attempt) => void) | null = null;
@@ -49,26 +52,41 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
   const servers = overpassServers(env);
   const deadline = Date.now() + BUDGET_MS;
   for (const url of servers) {
-    const left = deadline - Date.now();
-    if (left < 5_000) break;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), Math.min(PER_SERVER_MS, left));
-    const t = Date.now();
-    const note = (result: string) => onAttempt?.({ server: new URL(url).host, ms: Date.now() - t, result });
-    try {
-      const res = await fetcher(url, { method: "POST", signal: ctrl.signal, cache: "no-store", headers: overpassHeaders(env), body: new URLSearchParams({ data: query }).toString() });
-      if (!res.ok) {
-        note(res.status === 406 ? "refused (406)" : res.status === 429 ? "too many requests from this machine (429)" : res.status === 504 || res.status === 502 ? `busy, at capacity (${res.status})` : `error ${res.status}`);
-        continue;
-      }
-      const json: unknown = await res.json();
-      if (overpassFailed(json) || !Array.isArray((json as { elements?: unknown }).elements)) { note(`ran out of time: ${String((json as { remark?: unknown }).remark ?? "").slice(0, 80)}`); continue; }
-      note("answered");
-      return parseOverpass(json);
-    } catch (e) {
-      const c = (e as { cause?: { code?: string } }).cause;
-      note((e as Error).name === "AbortError" ? "no answer in time" : `could not connect${c?.code ? ` [${c.code}]` : ""}`);
-    } finally { clearTimeout(timer); }
+    // A server that says it is full right now (502/504/429) usually has room again within half a minute: wait and ask it
+    // again a few times before moving on, since the other public servers are often slower still from Nigeria.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const left = deadline - Date.now();
+      if (left < 5_000) return null;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), Math.min(PER_SERVER_MS, left));
+      const t = Date.now();
+      const note = (result: string) => onAttempt?.({ server: new URL(url).host, ms: Date.now() - t, result });
+      let busy = false;
+      try {
+        const res = await fetcher(url, { method: "POST", signal: ctrl.signal, cache: "no-store", headers: overpassHeaders(env), body: new URLSearchParams({ data: query }).toString() });
+        if (!res.ok) {
+          busy = res.status === 502 || res.status === 504 || res.status === 429;
+          note(res.status === 406 ? "refused (406)" : res.status === 429 ? "too many requests from this machine (429)" : busy ? `busy, at capacity (${res.status})` : `error ${res.status}`);
+        } else {
+          const json: unknown = await res.json();
+          if (overpassFailed(json) || !Array.isArray((json as { elements?: unknown }).elements)) {
+            busy = true;
+            note(`ran out of time: ${String((json as { remark?: unknown }).remark ?? "").slice(0, 80)}`);
+          } else {
+            note("answered");
+            return parseOverpass(json);
+          }
+        }
+      } catch (e) {
+        const c = (e as { cause?: { code?: string } }).cause;
+        note((e as Error).name === "AbortError" ? "no answer in time" : `could not connect${c?.code ? ` [${c.code}]` : ""}`);
+      } finally { clearTimeout(timer); }
+      if (!busy) break;
+      const pause = Math.min(BUSY_WAIT_MS * (attempt + 1), deadline - Date.now() - 5_000);
+      if (pause <= 0) return null;
+      onAttempt?.({ server: new URL(url).host, ms: pause, result: "waiting to ask again" });
+      await new Promise((r) => setTimeout(r, pause));
+    }
   }
   return null;
 }
@@ -105,7 +123,7 @@ export const nearbyLookupsSettled = () => Promise.allSettled([...inflight.values
  * Look up every published property's area that is not known yet, one area at a time (the free servers allow two requests
  * at once per machine, and a polite gap between them). For a schedule or by hand: npm run nearby:warm.
  */
-export async function warmAllNearby(env: Env = process.env, opts: { limit?: number; onEach?: (cell: string, ok: boolean, left: number) => void } = {}) {
+export async function warmAllNearby(env: Env = process.env, opts: { limit?: number; retry?: boolean; onEach?: (cell: string, ok: boolean, left: number) => void; onRetry?: (n: number) => void } = {}) {
   if (env.NEARBY_PLACES === "off") return { looked: 0, ok: 0 };
   const rows = await withPublic((tx) => tx.listing.findMany({ where: { status: "PUBLISHED", lat: { not: null }, lng: { not: null } }, select: { lat: true, lng: true } }));
   const cells = new Map<string, { lat: number; lng: number }>();
@@ -115,12 +133,26 @@ export async function warmAllNearby(env: Env = process.env, opts: { limit?: numb
   for (const c of known) if (now - c.fetchedAt.getTime() < ttl(c)) cells.delete(c.cell);
   const todo = [...cells].slice(0, opts.limit ?? 200);
   let ok = 0;
-  for (const [i, [cell, p]] of todo.entries()) {
+  const missed: [string, { lat: number; lng: number }][] = [];
+  const one = async (cell: string, p: { lat: number; lng: number }, left: number) => {
+    await prisma.nearbyCache.deleteMany({ where: { cell, ok: false } }); // a failure a moment ago must not stop this try
     await refresh(p, env);
     const got = await prisma.nearbyCache.findUnique({ where: { cell } });
-    if (got?.ok) ok += 1;
-    opts.onEach?.(cell, !!got?.ok, todo.length - i - 1);
+    opts.onEach?.(cell, !!got?.ok, left);
+    return !!got?.ok;
+  };
+  for (const [i, [cell, p]] of todo.entries()) {
+    if (await one(cell, p, todo.length - i - 1)) ok += 1; else missed.push([cell, p]);
     if (i < todo.length - 1) await new Promise((r) => setTimeout(r, 5_000));
+  }
+  // The servers are often full for a while: one more go at the areas that missed, after a pause.
+  if (missed.length && opts.retry !== false) {
+    opts.onRetry?.(missed.length);
+    await new Promise((r) => setTimeout(r, 30_000));
+    for (const [i, [cell, p]] of missed.entries()) {
+      if (await one(cell, p, missed.length - i - 1)) ok += 1;
+      if (i < missed.length - 1) await new Promise((r) => setTimeout(r, 5_000));
+    }
   }
   return { looked: todo.length, ok };
 }

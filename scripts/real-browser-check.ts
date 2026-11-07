@@ -379,15 +379,15 @@ async function main() {
     await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
     // Stand in for the phone's share sheet: note what was shared and whether the tap was still "fresh" (the browser
     // refuses navigator.share otherwise), and answer as if the person cancelled or sent it.
-    await ctx.addInitScript(() => {
-      const w = window as unknown as { __shares: { files: number; url?: string; fresh: boolean }[]; __mode: string };
-      w.__shares = []; w.__mode = "cancel";
-      Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
-      Object.defineProperty(navigator, "share", { configurable: true, value: (d: ShareData) => {
-        w.__shares.push({ files: d.files?.length ?? 0, url: d.url, fresh: (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive ?? true });
-        return w.__mode === "cancel" ? Promise.reject(new DOMException("closed", "AbortError")) : Promise.resolve();
+    // Plain text, so the test runner's compiled helpers never end up inside the page.
+    await ctx.addInitScript(`
+      window.__shares = []; window.__mode = "cancel";
+      Object.defineProperty(navigator, "canShare", { configurable: true, value: function () { return true; } });
+      Object.defineProperty(navigator, "share", { configurable: true, value: function (d) {
+        window.__shares.push({ files: d.files ? d.files.length : 0, url: d.url, fresh: navigator.userActivation ? navigator.userActivation.isActive : true });
+        return window.__mode === "cancel" ? Promise.reject(new DOMException("closed", "AbortError")) : Promise.resolve();
       } });
-    });
+    `);
     const s = await ctx.newPage(); watch(s, "reel share");
     await s.goto(BASE + "/reels?all=1", { waitUntil: "load" }); await s.waitForTimeout(1200);
     const btn = s.locator('.rf-act[aria-label^="Share"]').first();
@@ -404,11 +404,11 @@ async function main() {
     const video = sheet.locator('button:has-text("Share the video and link")');
     const ready = await video.waitFor({ timeout: 25000 }).then(() => true).catch(() => false);
     if (ready) {
-      await s.evaluate(() => { (window as unknown as { __mode: string }).__mode = "send"; });
+      await s.evaluate('window.__mode = "send"');
       await video.click(); await s.waitForTimeout(1500);
     }
     const afterSend = await count();
-    const calls = await s.evaluate(() => (window as unknown as { __shares: { files: number; url?: string; fresh: boolean }[] }).__shares);
+    const calls = (await s.evaluate("window.__shares")) as { files: number; url?: string; fresh: boolean }[];
     const linkCall = calls[0], videoCall = calls[1];
     const ok = n0 >= 0 && afterCopy === n0 && afterCancel === n0 && !!linkCall?.fresh && !!linkCall?.url && ready && !!videoCall?.fresh && videoCall.files === 1 && afterSend === n0 + 1;
     await record(s, "reel share", ok, `count ${n0}; after copying the link ${afterCopy}; after cancelling the share sheet ${afterCancel}; ` +

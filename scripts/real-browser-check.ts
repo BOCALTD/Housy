@@ -327,6 +327,19 @@ async function main() {
     await ctx.close();
   });
 
+  await step("When the page's scripts cannot load, people see plain words and a Reload button, never file names", async () => {
+    const ctx = await newContext(browser, "phone");
+    await ctx.route("**/_next/static/chunks/**", (r) => r.abort());
+    const s = await ctx.newPage();
+    await s.goto(BASE + "/browse", { waitUntil: "load" }).catch(() => {});
+    const bar = s.locator("#js-health");
+    await bar.waitFor({ timeout: 25000 }).catch(() => {});
+    const text = (await bar.innerText().catch(() => "")) || "";
+    const ok = text.length > 20 && !/_next|\.js\b|chunk/i.test(text) && /reload/i.test(text);
+    await record(s, "blocked scripts message", ok, text ? `message: "${text.replace(/\s+/g, " ").slice(0, 160)}"` : "no message shown");
+    await ctx.close();
+  });
+
   await browser.close();
 
   const failed = rows.filter((r) => !r.ok);

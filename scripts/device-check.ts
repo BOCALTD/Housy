@@ -228,14 +228,16 @@ async function main() {
                 const inner = el instanceof HTMLInputElement && ["date", "time", "datetime-local", "month", "week"].includes(el.type);
                 const marked = inner || (parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== "none") || (s.boxShadow !== "none" && s.boxShadow !== "");
                 const what = el instanceof HTMLInputElement ? ` type=${el.type} name=${el.name}` : "";
-                return { tag: el.tagName.toLowerCase() + what, text: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), marked, first: el.classList.contains("skip-link") || !!el.closest('[aria-modal="true"]') };
+                return { tag: el.tagName.toLowerCase() + what, text: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), marked, first: el.classList.contains("skip-link") || !!el.closest('[aria-modal="true"], dialog[open]') };
               }));
             }
             if (!stops[0]?.first) add("keyboard-first-stop", `the first Tab stop is "${stops[0]?.text}", not the skip link`);
             const unmarked = stops.filter((x) => !x.marked && x.tag !== "body");
             if (unmarked.length) add("keyboard-focus-hidden", `${unmarked.length} Tab stop(s) show no focus mark`, unmarked.slice(0, 6).map((x) => `${x.tag} "${x.text}"`));
             const distinct = new Set(stops.map((x) => `${x.tag}:${x.text}`)).size;
-            if (stops.length >= 10 && distinct < 4) add("keyboard-trap", `focus visited only ${distinct} different controls in ${stops.length} presses`);
+            // An open modal window (the "leave your account?" question) keeps focus inside it on purpose, until it is answered.
+            const modal = await page.evaluate(() => !!document.querySelector("dialog[open]:modal, [aria-modal=\"true\"]"));
+            if (!modal && stops.length >= 10 && distinct < 4) add("keyboard-trap", `focus visited only ${distinct} different controls in ${stops.length} presses`);
           }
           if (!touch && prof.engine === "chromium") {
             // Reduced motion: when the person asks for less movement, nothing may keep animating.

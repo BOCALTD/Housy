@@ -147,7 +147,8 @@ export async function warmAllNearby(env: Env = process.env, opts: { limit?: numb
   for (const r of rows) if (r.lat !== null && r.lng !== null) cells.set(nearbyCacheKey({ lat: r.lat, lng: r.lng }), { lat: r.lat, lng: r.lng });
   const known = await prisma.nearbyCache.findMany({ where: { cell: { in: [...cells.keys()] } } });
   const now = Date.now();
-  for (const c of known) if (now - c.fetchedAt.getTime() < ttl(c)) cells.delete(c.cell);
+  // Only a fresh answer counts as known; an area that failed a moment ago is exactly what this run is for.
+  for (const c of known) if (c.ok && now - c.fetchedAt.getTime() < ttl(c)) cells.delete(c.cell);
   const todo = [...cells].slice(0, opts.limit ?? 200);
   let ok = 0;
   const missed: [string, { lat: number; lng: number }][] = [];

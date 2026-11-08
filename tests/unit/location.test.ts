@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { areaLabel, boundaryAreaSqm, checkBoundary, circleBounds, directionsLinks, distanceLabel, mapLayers, nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, parseNear, parseOverpass, parseRoute, summariseNearby, travelEstimate } from "../../src/lib/location-rules";
+import { areaLabel, boundaryAreaSqm, checkBoundary, circleBounds, directionsLinks, distanceLabel, mapLayers, nearbyCacheKey, nearbyCell, overpassFailed, overpassQueries, overpassQuery, parseNear, parseOverpass, parseRoute, summariseNearby, travelEstimate } from "../../src/lib/location-rules";
 import { distanceKm, inBounds } from "../../src/lib/geo-rules";
 
 test("satellite is offered only with a provider that allows it", () => {
@@ -39,6 +39,12 @@ test("nearby places and landmarks: one cached lookup per square kilometre, class
   assert.doesNotMatch(q, /around:|nwr\[/);
   assert.equal((q.match(/out tags center qt/g) ?? []).length, 13, "each kind is printed on its own, so one kind cannot crowd out the others");
   assert.ok(q.length < 4000);
+  // Asked in three parts that together cover every kind once, so each is answered before slow links cut the connection.
+  const parts = overpassQueries({ lat: 6.45, lng: 3.47 });
+  assert.equal(parts.length, 3);
+  assert.equal(parts.reduce((n, x) => n + (x.match(/out tags center qt/g) ?? []).length, 0), 13);
+  assert.match(parts[0], /\["name"\]/);
+  assert.doesNotMatch(parts[1], /tourism"~"\^\(attraction/);
   const places = parseOverpass({ elements: [
     { type: "node", id: 1, lat: 6.451, lon: 3.471, tags: { amenity: "school", name: "Corona School" } },
     { type: "way", id: 2, center: { lat: 6.457, lon: 3.475 }, tags: { amenity: "school" } },

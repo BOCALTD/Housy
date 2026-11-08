@@ -10,7 +10,7 @@
  * Only the property's public position (blurred to about a kilometre) is ever sent out, never an address or a person's data.
  */
 import { prisma, withPublic } from "../db";
-import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQuery, overpassHeaders, overpassServers, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
+import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQueries, overpassHeaders, overpassServers, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
 
 const DAY = 864e5;
 const TTL_OK = 30 * DAY, TTL_EMPTY = DAY, TTL_FAIL = 5 * 60_000;
@@ -51,7 +51,7 @@ export function reportNearbyAttempts(f: ((a: Attempt) => void) | null) { onAttem
 /** Why the last lookup failed: "offline" when no server could even be reached (this machine has no connection). */
 let lastFailure: "offline" | "busy" | null = null;
 
-async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
+async function askOverpass(query: string, env: Env): Promise<unknown[] | null> {
   const servers = overpassServers(env);
   const deadline = Date.now() + BUDGET_MS;
   let reached = false;
@@ -80,7 +80,7 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
             note(`ran out of time: ${String((json as { remark?: unknown }).remark ?? "").slice(0, 80)}`);
           } else {
             note("answered");
-            return parseOverpass(json);
+            return (json as { elements: unknown[] }).elements;
           }
         }
       } catch (e) {
@@ -109,7 +109,16 @@ function refresh(p: { lat: number; lng: number }, env: Env): Promise<void> {
   if (running) return running;
   const job = (async () => {
     const [clat, clng] = nearbyCell(p).split(",").map(Number);
-    const found = await askOverpass(overpassQuery({ lat: clat, lng: clng }), env);
+    // Each part on its own; every part must arrive, or the area is tried again later (half an answer would read as
+    // "no schools here" when they were simply not fetched).
+    let raw: unknown[] | null = [];
+    for (const q of overpassQueries({ lat: clat, lng: clng })) {
+      const part = await askOverpass(q, env);
+      if (!part) { raw = null; break; }
+      raw.push(...part);
+    }
+    // Read once over all parts, so a place returned by two parts (a mall is shopping and a landmark) is not counted twice.
+    const found = raw ? parseOverpass({ elements: raw }) : null;
     const now = new Date();
     const cached = await prisma.nearbyCache.findUnique({ where: { cell } });
     if (!found && cached?.ok) {

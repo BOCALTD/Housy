@@ -110,14 +110,26 @@ function squareAround(p: LL, m: number) {
  * (the busy public servers answer a square far faster than a circle; distances are measured here afterwards), points and
  * outlines only, and each kind printed on its own, so a street full of bus stops cannot crowd out the schools.
  */
-export function overpassQuery(p: LL): string {
-  const parts = AMENITY_KINDS.map((k) => {
+export function overpassQuery(p: LL, kinds: AmenityKind[] = AMENITY_KINDS.map((k) => k.kind)): string {
+  const parts = AMENITY_KINDS.filter((k) => kinds.includes(k.kind)).map((k) => {
     const box = squareAround(p, Math.round(k.km * 1000 + CELL_SLACK_M));
     const sel = k.tags.map(([key, values]) => `nw["${esc(key)}"~"^(${values.map(esc).join("|")})$"]${k.named ? '["name"]' : ""}(${box});`).join("");
     return `(${sel});out tags center qt ${k.kind === "transport" || k.kind === "food" || k.kind === "shopping" ? 300 : 150};`;
   });
   return `[out:json][timeout:60];${parts.join("")}`;
 }
+
+/**
+ * The lookup in three parts, asked one after another. A whole area in one question takes the busy public servers 35 to 40
+ * seconds, and some connections (internet providers, the network under Ubuntu on Windows) are cut after about 30 seconds
+ * of silence; each part is answered well inside that.
+ */
+export const NEARBY_PARTS: AmenityKind[][] = [
+  ["landmark"],
+  ["school", "health", "pharmacy", "bank", "fuel", "police", "hotel"],
+  ["shopping", "transport", "food", "worship", "park"],
+];
+export const overpassQueries = (p: LL) => NEARBY_PARTS.map((kinds) => overpassQuery(p, kinds));
 
 type Env = Record<string, string | undefined>;
 const OVERPASS_SERVERS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];

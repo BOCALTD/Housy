@@ -69,9 +69,10 @@ test("nearby places come from one cached lookup per area; a failure is reported,
   assert.ok(a.available);
   assert.deepEqual(a.summary.map((s) => s.kind), ["school", "pharmacy"]);
   assert.equal(a.summary[0].nearest[0].name, "Test Academy");
-  // The second look is served from the cache.
+  // One lookup is three smaller questions (each answered before slow links cut the connection); the second look is served from the cache.
+  assert.equal(sent.length, 3);
   await nearbyForListing(listing.publicRef, {});
-  assert.equal(sent.length, 1);
+  assert.equal(sent.length, 3);
   // Only the cell centre (the blurred public position) goes out; the asset's exact position never does.
   const asset = await withTenant(listing.companyId, "system", (tx) => tx.asset.findFirstOrThrow({ where: { id: listing.assetId } }));
   assert.ok(!decodeURIComponent(sent[0]).includes(asset.lat!.toFixed(5)));
@@ -92,7 +93,9 @@ test("nearby places come from one cached lookup per area; a failure is reported,
     return new Response(JSON.stringify({ elements: [{ type: "node", id: 1, lat: listing.lat! + 0.02, lon: listing.lng!, tags: { tourism: "museum", name: "Test Museum" } }] }), { status: 200 });
   }) as typeof fetch);
   const c = await nearbyForListing(listing.publicRef, {});
-  assert.equal(asked.length, 3);
+  // The first part: "timed out", then "429", then answered, all from the same server after short waits; then the other two parts.
+  assert.equal(asked.length, 5);
+  assert.equal(new Set(asked.slice(0, 3)).size, 1, "a busy server is asked again rather than skipped");
   // The servers refuse anonymous requests: every one says who is asking and how to reach them.
   assert.ok(agents.every((a) => /^Housy\/1\.0 \(\+https:\/\/[^;]+; nearby places\)$/.test(a)), agents.join(" / "));
   assert.ok(c.available);
@@ -108,7 +111,7 @@ test("nearby places come from one cached lookup per area; a failure is reported,
   assert.deepEqual(await nearbyForListing(listing.publicRef, {}, new Date(), { waitMs: 50 }), { available: false, reason: "pending" });
   assert.deepEqual(await nearbyForListing(listing.publicRef, {}, new Date(), { waitMs: 50 }), { available: false, reason: "pending" });
   await nearbyLookupsSettled();
-  assert.equal(calls, 1, "visitors to the same area share one lookup");
+  assert.equal(calls, 3, "visitors to the same area share one lookup (of three parts)");
   const d = await nearbyForListing(listing.publicRef, {}, new Date(), { waitMs: 50 });
   assert.ok(d.available);
   assert.equal(d.summary[0].nearest[0].name, "Slow Hospital");

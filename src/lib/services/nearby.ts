@@ -48,15 +48,20 @@ export type Attempt = { server: string; ms: number; result: string };
 let onAttempt: ((a: Attempt) => void) | null = null;
 export function reportNearbyAttempts(f: ((a: Attempt) => void) | null) { onAttempt = f; }
 
+/** Why the last lookup failed: "offline" when no server could even be reached (this machine has no connection). */
+let lastFailure: "offline" | "busy" | null = null;
+
 async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
   const servers = overpassServers(env);
   const deadline = Date.now() + BUDGET_MS;
+  let reached = false;
+  lastFailure = null;
   for (const url of servers) {
     // A server that says it is full right now (502/504/429) usually has room again within half a minute: wait and ask it
     // again a few times before moving on, since the other public servers are often slower still from Nigeria.
     for (let attempt = 0; attempt < 4; attempt++) {
       const left = deadline - Date.now();
-      if (left < 5_000) return null;
+      if (left < 5_000) { lastFailure = reached ? "busy" : "offline"; return null; }
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), Math.min(PER_SERVER_MS, left));
       const t = Date.now();
@@ -64,6 +69,7 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
       let busy = false;
       try {
         const res = await fetcher(url, { method: "POST", signal: ctrl.signal, cache: "no-store", headers: overpassHeaders(env), body: new URLSearchParams({ data: query }).toString() });
+        reached = true;
         if (!res.ok) {
           busy = res.status === 502 || res.status === 504 || res.status === 429;
           note(res.status === 406 ? "refused (406)" : res.status === 429 ? "too many requests from this machine (429)" : busy ? `busy, at capacity (${res.status})` : `error ${res.status}`);
@@ -79,15 +85,17 @@ async function askOverpass(query: string, env: Env): Promise<Amenity[] | null> {
         }
       } catch (e) {
         const c = (e as { cause?: { code?: string } }).cause;
+        if ((e as Error).name === "AbortError") reached = true; // connected, but the answer was too slow
         note((e as Error).name === "AbortError" ? "no answer in time" : `could not connect${c?.code ? ` [${c.code}]` : ""}`);
       } finally { clearTimeout(timer); }
       if (!busy) break;
       const pause = Math.min(BUSY_WAIT_MS * (attempt + 1), deadline - Date.now() - 5_000);
-      if (pause <= 0) return null;
+      if (pause <= 0) { lastFailure = "busy"; return null; }
       onAttempt?.({ server: new URL(url).host, ms: pause, result: "waiting to ask again" });
       await new Promise((r) => setTimeout(r, pause));
     }
   }
+  lastFailure = reached ? "busy" : "offline";
   return null;
 }
 
@@ -123,8 +131,8 @@ export const nearbyLookupsSettled = () => Promise.allSettled([...inflight.values
  * Look up every published property's area that is not known yet, one area at a time (the free servers allow two requests
  * at once per machine, and a polite gap between them). For a schedule or by hand: npm run nearby:warm.
  */
-export async function warmAllNearby(env: Env = process.env, opts: { limit?: number; retry?: boolean; onEach?: (cell: string, ok: boolean, left: number) => void; onRetry?: (n: number) => void } = {}) {
-  if (env.NEARBY_PLACES === "off") return { looked: 0, ok: 0 };
+export async function warmAllNearby(env: Env = process.env, opts: { limit?: number; retry?: boolean; onEach?: (cell: string, ok: boolean, left: number, why: "offline" | "busy" | null) => void; onRetry?: (n: number) => void } = {}) {
+  if (env.NEARBY_PLACES === "off") return { looked: 0, ok: 0, offline: false as const };
   const rows = await withPublic((tx) => tx.listing.findMany({ where: { status: "PUBLISHED", lat: { not: null }, lng: { not: null } }, select: { lat: true, lng: true } }));
   const cells = new Map<string, { lat: number; lng: number }>();
   for (const r of rows) if (r.lat !== null && r.lng !== null) cells.set(nearbyCacheKey({ lat: r.lat, lng: r.lng }), { lat: r.lat, lng: r.lng });
@@ -134,17 +142,23 @@ export async function warmAllNearby(env: Env = process.env, opts: { limit?: numb
   const todo = [...cells].slice(0, opts.limit ?? 200);
   let ok = 0;
   const missed: [string, { lat: number; lng: number }][] = [];
+  let offlineRun = 0, offline = false;
   const one = async (cell: string, p: { lat: number; lng: number }, left: number) => {
     await prisma.nearbyCache.deleteMany({ where: { cell, ok: false } }); // a failure a moment ago must not stop this try
     await refresh(p, env);
     const got = await prisma.nearbyCache.findUnique({ where: { cell } });
-    opts.onEach?.(cell, !!got?.ok, left);
+    opts.onEach?.(cell, !!got?.ok, left, got?.ok ? null : lastFailure);
+    offlineRun = got?.ok ? 0 : lastFailure === "offline" ? offlineRun + 1 : 0;
     return !!got?.ok;
   };
   for (const [i, [cell, p]] of todo.entries()) {
     if (await one(cell, p, todo.length - i - 1)) ok += 1; else missed.push([cell, p]);
+    // Two areas in a row where no server could even be reached: this machine is offline (or just woke from sleep). Stop
+    // instead of marking every area as missed; nothing found so far is lost.
+    if (offlineRun >= 2) { offline = true; break; }
     if (i < todo.length - 1) await new Promise((r) => setTimeout(r, 5_000));
   }
+  if (offline) return { looked: todo.length, ok, offline: true as const };
   // The servers are often full for a while: one more go at the areas that missed, after a pause.
   if (missed.length && opts.retry !== false) {
     opts.onRetry?.(missed.length);
@@ -154,7 +168,7 @@ export async function warmAllNearby(env: Env = process.env, opts: { limit?: numb
       if (i < missed.length - 1) await new Promise((r) => setTimeout(r, 5_000));
     }
   }
-  return { looked: todo.length, ok };
+  return { looked: todo.length, ok, offline: false as const };
 }
 
 type Places = { state: "ready"; places: Amenity[] } | { state: "failed" } | { state: "pending" };

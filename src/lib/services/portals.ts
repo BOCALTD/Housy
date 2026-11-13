@@ -564,5 +564,6 @@ export async function removeProviderMember(adminId: string, memberId: string) {
 
 /** Whether to show the Portals link in the person's account menu. */
 export async function portalCount(userId: string) {
-  return withUser(userId, async (tx) => (await tx.portalGrant.count({ where: { userId, status: "ACTIVE" } })) + (await tx.providerMember.count({ where: { userId } })));
+  // Provider organisations have their own place in the menu ("Verification work"), so only portal grants count here.
+  return withUser(userId, async (tx) => tx.portalGrant.count({ where: { userId, status: "ACTIVE" } }));
 }

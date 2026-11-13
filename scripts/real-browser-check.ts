@@ -434,7 +434,7 @@ async function main() {
       await ctx.addInitScript({ content: "Object.defineProperty(navigator, 'webdriver', { get: function () { return false; } });" });
       await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
       const s = await ctx.newPage(); watch(s, `compare bar ${name}`);
-      await s.goto(BASE + "/properties", { waitUntil: "load" }); await s.waitForTimeout(800);
+      await s.goto(BASE + "/browse", { waitUntil: "load" }); await s.waitForTimeout(800);
       const before = await s.locator(".compare-bar").count();
       const refs = await s.$$eval('a[href^="/properties/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?")))].slice(0, 2));
       await s.evaluate((r) => { localStorage.setItem("compare-refs", JSON.stringify(r)); }, refs);
@@ -461,7 +461,7 @@ async function main() {
         await s.locator(".compare-bar a").click();
         const opened = await s.waitForURL((u) => u.pathname === "/compare", { timeout: 10000 }).then(() => true).catch(() => false);
         const onCompare = await s.locator(".compare-bar").count();
-        await s.goto(BASE + "/properties", { waitUntil: "load" }); await s.waitForTimeout(800);
+        await s.goto(BASE + "/browse", { waitUntil: "load" }); await s.waitForTimeout(800);
         const after = await s.locator(".compare-bar").count();
         if (!(opened && onCompare === 0 && after === 0)) allOk = false;
         results.push(`after comparing: opened ${opened}, bar on the comparison ${onCompare > 0}, bar afterwards ${after > 0}`);
@@ -472,7 +472,7 @@ async function main() {
     const pctx = await browser.newContext({ ...devices["iPhone SE"], locale: "en-NG", timezoneId: "Africa/Lagos" });
     await pctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
     const s = await pctx.newPage();
-    await s.goto(BASE + "/properties", { waitUntil: "load" });
+    await s.goto(BASE + "/browse", { waitUntil: "load" });
     const two = await s.$$eval('a[href^="/properties/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?")))].slice(0, 2));
     await s.evaluate((r) => { localStorage.setItem("compare-refs", JSON.stringify(r)); }, two);
     await s.reload({ waitUntil: "load" }); await s.waitForTimeout(1200);

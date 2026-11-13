@@ -28,6 +28,7 @@ export function exploreSection(): NavSection {
       { href: "/directory?kind=developers", label: "Developers", icon: "home" },
       { href: "/awards", label: "Top agents", icon: "star" },
       { href: "/artisans", label: "Artisans", icon: "wrench" },
+      { href: "/verification-partners", label: "Verification partners", icon: "shield" },
     ] },
     { label: "Help", items: [
       { href: "/how-it-works", label: "How it works", icon: "sparkle" },
@@ -39,7 +40,7 @@ export function exploreSection(): NavSection {
   ] };
 }
 
-export function accountSection(c: { incoming: number; portals: number; flatmateWaiting: number; unreadMessages: number; unreadNotices: number }): NavSection {
+export function accountSection(c: { incoming: number; portals: number; flatmateWaiting: number; unreadMessages: number; unreadNotices: number; providers?: number }): NavSection {
   const groups: SideGroup[] = [
     { label: "My account", items: [
       { href: "/me", label: "Overview", icon: "grid" },
@@ -57,6 +58,7 @@ export function accountSection(c: { incoming: number; portals: number; flatmateW
       { href: "/me/following", label: "Following", icon: "people" },
       { href: "/me/reviews", label: "My reviews", icon: "star" },
       { href: "/referrals", label: "Refer and earn", icon: "money" },
+      ...(c.providers ? [{ href: "/provider", label: "Verification work", icon: "shield" as const }] : []),
       ...(c.portals > 0 ? [{ href: "/portal", label: "Portals", icon: "key" as const, badge: c.portals }] : []),
       { href: "/directory", label: "Find agents and companies", icon: "search" },
     ] },
@@ -153,6 +155,7 @@ export function adminSection(): NavSection {
       { href: "/admin/companies", label: "Companies", icon: "building" },
       { href: "/admin/reference", label: "Reference data", icon: "gear" },
       { href: "/admin/partners", label: "Partners", icon: "handshake" },
+      { href: "/admin/verification", label: "Verification network", icon: "shield" },
     ] },
     { label: "Trust and safety", items: [
       { href: "/admin/cases", label: "Trust and Safety cases", icon: "shield" },

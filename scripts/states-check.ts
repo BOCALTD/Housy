@@ -45,6 +45,10 @@ const MEASURE = `(function (sel, opts) {
   if (r.left < -0.5 || r.right > vw + 0.5) out.push("runs off the side of the screen (" + Math.round(r.left) + " to " + Math.round(r.right) + " of " + vw + ")");
   if (opts.fixed && (r.top < -0.5 || (r.bottom > vh + 0.5 && !scrolls))) out.push("does not fit the screen's height and does not scroll (" + Math.round(r.top) + " to " + Math.round(r.bottom) + " of " + vh + ")");
   if (el.scrollWidth > el.clientWidth + 1 && !/(auto|scroll)/.test(st.overflowX)) out.push("its content is wider than it (" + el.scrollWidth + " > " + el.clientWidth + ")");
+  // Inside a box that clips its content (overflow hidden), what runs past the box is not seen, so it does not count.
+  function clipped(n) { for (var a = n.parentElement; a && a !== document.body; a = a.parentElement) { var s2 = getComputedStyle(a); if (/(hidden|clip)/.test(s2.overflowX)) { var ar = a.getBoundingClientRect(); if (ar.right <= vw + 0.5) return true; } } return false; }
+  // A button scrolled partly out of its scrolling box is under the box's edges on purpose; the person scrolls to it.
+  function scrolledAway(n, nr) { for (var a = n.parentElement; a && a !== el.parentElement; a = a.parentElement) { var s3 = getComputedStyle(a); if (/(auto|scroll)/.test(s3.overflowY) && a.scrollHeight > a.clientHeight + 1) { var ar2 = a.getBoundingClientRect(); return nr.top < ar2.top - 0.5 || nr.bottom > ar2.bottom + 0.5; } } return false; }
   var all = el.querySelectorAll("*"), small = 0, smallWhat = "";
   for (var i = 0; i < all.length; i++) {
     var e = all[i], cs = getComputedStyle(e);
@@ -53,7 +57,7 @@ const MEASURE = `(function (sel, opts) {
     for (var k = 0; k < e.childNodes.length; k++) if (e.childNodes[k].nodeType === 3 && e.childNodes[k].textContent.trim()) direct = true;
     if (direct && parseFloat(cs.fontSize) < 12) { small++; smallWhat = (e.textContent || "").trim().slice(0, 30); }
     var er = e.getBoundingClientRect();
-    if (er.right > vw + 0.5 && er.width > 0 && cs.position !== "fixed") out.push("something inside runs off the side: \\"" + (e.textContent || e.tagName).trim().slice(0, 30) + "\\"");
+    if (er.right > vw + 0.5 && er.width > 0 && cs.position !== "fixed" && !e.closest("svg") && !clipped(e)) out.push("something inside runs off the side: \\"" + (e.textContent || e.tagName).trim().slice(0, 30) + "\\"");
   }
   if (small) out.push(small + " piece(s) of text smaller than 12px, e.g. \\"" + smallWhat + "\\"");
   var targets = el.querySelectorAll("button, a.btn, [role=button], input[type=submit]");
@@ -63,7 +67,7 @@ const MEASURE = `(function (sel, opts) {
     var name = (t.getAttribute("aria-label") || t.textContent || "").trim().slice(0, 30);
     if (Math.min(tr.width, tr.height) < 43.5) out.push("button \\"" + name + "\\" is " + Math.round(tr.width) + "x" + Math.round(tr.height) + "px (needs 44)");
     var cx = tr.left + tr.width / 2, cy = tr.top + tr.height / 2;
-    if (cx >= 0 && cx <= vw && cy >= 0 && cy <= vh) { var top = document.elementFromPoint(cx, cy); if (top && top !== t && !t.contains(top)) out.push("button \\"" + name + "\\" is covered by " + (top.className && top.className.baseVal === undefined ? "." + String(top.className).split(" ")[0] : top.tagName)); }
+    if (cx >= 0 && cx <= vw && cy >= 0 && cy <= vh && !scrolledAway(t, tr)) { var top = document.elementFromPoint(cx, cy); if (top && top !== t && !t.contains(top)) out.push("button \\"" + name + "\\" is covered by " + (top.className && top.className.baseVal === undefined ? "." + String(top.className).split(" ")[0] : top.tagName)); }
   }
   if (opts.notOverMenu) {
     var tab = document.querySelector(".tabbar");

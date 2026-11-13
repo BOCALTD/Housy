@@ -46,7 +46,7 @@ execFileSync("npx", ["prisma", "migrate", "deploy"], { env: { ...process.env, DA
 
 // Tables the application may add to but never change or delete: the audit trail and financial records.
 const APPEND_ONLY = [
-  "activity_log", "correspondence_actions",
+  "activity_log", "correspondence_actions", "verification_provider_application_events",
   "rent_payments", "receipts", "receipt_reconciliations", "receipt_reversals", "deposit_entries",
   "lease_notices", "lease_handovers", "service_collections", "service_collection_reversals", "obligation_filings", "evidence_photos", "work_order_events", "inventory_movements", "project_forecasts", "project_stock_uses", "site_inspections", "progress_updates", "project_documents", "deal_events", "deal_documents", "deal_payments", "subscription_events", "collab_events", "collab_comments", "messages", "reward_ledger", "vacancy_events", "review_events", "reputation_snapshots", "award_entries", "notification_log", "payment_events", "finance_entries", "ad_clicks", "ai_runs",
 ];

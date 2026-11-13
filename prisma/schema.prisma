@@ -749,6 +749,31 @@ model ServiceProvider {
   createdAt  DateTime       @default(now()) @map("created_at")
   events     RecommendationEvent[]
   leads      ProviderLead[]
+  // ---- The verification network: every provider organisation, BOCA included, uses these same fields. ----
+  /// Permanent provider ID (HVP-000001), given when Housy approves the organisation. Null for a record not yet vetted.
+  providerCode    String?   @unique @map("provider_code")
+  legalName       String    @default("") @map("legal_name")
+  orgType         String    @default("") @map("org_type")
+  cacNumber       String    @default("") @map("cac_number")
+  country         String    @default("Nigeria")
+  contactEmail    String    @default("") @map("contact_email")
+  contactPhone    String    @default("") @map("contact_phone")
+  logoMime        String?   @map("logo_mime")
+  logoBytes       Bytes?    @map("logo_bytes")
+  /// When Housy vetted and approved it through an application. Never set for a record that was not vetted.
+  vettedAt        DateTime? @map("vetted_at")
+  vettedById      String?   @map("vetted_by_id")
+  /// What Housy allows it to do: service category codes and states. Empty means none yet.
+  allowedServices String[]  @default([]) @map("allowed_services")
+  allowedStates   String[]  @default([]) @map("allowed_states")
+  suspendedAt     DateTime? @map("suspended_at")
+  suspendedReason String    @default("") @map("suspended_reason")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  members         ProviderMember[]
+  application     VpApplication?
+  invitations     VpInvitation[]
+  documents       VpDocument[]
+  offerings       VpProviderService[]
 
   @@map("service_providers")
 }
@@ -5502,10 +5527,173 @@ model ProviderMember {
   userId     String   @map("user_id")
   addedById  String   @map("added_by_id")
   createdAt  DateTime @default(now()) @map("created_at")
+  /// What this person may do for the organisation (verification-network-rules.ts VP_ROLES).
+  role       VpRole   @default(INVESTIGATOR)
+  /// ACTIVE, or SUSPENDED (kept for the record but can do nothing).
+  status     String   @default("ACTIVE")
+  title      String   @default("")
+  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
 
   @@unique([providerId, userId])
   @@index([userId])
   @@map("provider_members")
+}
+
+// ---------- The verification network (multi-provider verification) ----------
+
+enum VpRole {
+  OWNER
+  ADMIN
+  MANAGER
+  INVESTIGATOR
+  REVIEWER
+  FINANCE
+}
+
+enum VpApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ADDITIONAL_INFORMATION_REQUIRED
+  RESUBMITTED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+/// An organisation's application to join the network. The applicant is a signed-in person; answers are kept by part.
+model VpApplication {
+  id              String              @id @default(uuid())
+  ref             String              @unique
+  applicantId     String              @map("applicant_id")
+  status          VpApplicationStatus @default(DRAFT)
+  registeredName  String              @default("") @map("registered_name")
+  cacNumber       String              @default("") @map("cac_number")
+  country         String              @default("")
+  services        String[]            @default([])
+  states          String[]            @default([])
+  /// The answers, by part (corporate, ownership, qualifications, operations), as checked by the rules.
+  answers         Json                @default("{}")
+  /// What Housy asked for when it needed more information; shown to the applicant.
+  infoRequest     String              @default("") @map("info_request")
+  decisionReason  String              @default("") @map("decision_reason")
+  submittedAt     DateTime?           @map("submitted_at")
+  decidedAt       DateTime?           @map("decided_at")
+  decidedById     String?             @map("decided_by_id")
+  providerId      String?             @unique @map("provider_id")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at")
+  provider        ServiceProvider?    @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  documents       VpDocument[]
+  events          VpApplicationEvent[]
+
+  @@index([status, submittedAt])
+  @@index([applicantId])
+  @@map("verification_provider_applications")
+}
+
+/// Every step in an application's life, for the record. Internal notes are seen by Housy only.
+model VpApplicationEvent {
+  id            String        @id @default(uuid())
+  applicationId String        @map("application_id")
+  actorId       String        @map("actor_id")
+  action        String
+  fromStatus    String        @default("") @map("from_status")
+  toStatus      String        @default("") @map("to_status")
+  note          String        @default("")
+  internal      Boolean       @default(false)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  application   VpApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+
+  @@index([applicationId, createdAt])
+  @@map("verification_provider_application_events")
+}
+
+/// Documents sent with an application, or kept by an approved organisation. Stored here; served only through checked routes.
+model VpDocument {
+  id            String           @id @default(uuid())
+  applicationId String?          @map("application_id")
+  providerId    String?          @map("provider_id")
+  kind          String
+  title         String           @default("")
+  fileName      String           @map("file_name")
+  mimeType      String           @map("mime_type")
+  sizeBytes     Int              @map("size_bytes")
+  bytes         Bytes
+  sha256        String
+  expiresOn     DateTime?        @map("expires_on") @db.Date
+  uploadedById  String           @map("uploaded_by_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  application   VpApplication?   @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  provider      ServiceProvider? @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([applicationId])
+  @@index([providerId])
+  @@map("verification_provider_documents")
+}
+
+/// An invitation to join a provider organisation in a role. Only the hash of the link's secret is kept.
+model VpInvitation {
+  id           String          @id @default(uuid())
+  providerId   String          @map("provider_id")
+  email        String
+  role         VpRole
+  tokenHash    String          @unique @map("token_hash")
+  invitedById  String          @map("invited_by_id")
+  expiresAt    DateTime        @map("expires_at")
+  acceptedAt   DateTime?       @map("accepted_at")
+  acceptedById String?         @map("accepted_by_id")
+  revokedAt    DateTime?       @map("revoked_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  provider     ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([providerId])
+  @@map("verification_provider_invitations")
+}
+
+/// Service categories, configured by Housy: what each covers, what it needs, and what kind of finding it gives.
+model VpServiceCategory {
+  code              String   @id
+  name              String
+  summary           String   @default("")
+  requiredDocuments String[] @default([]) @map("required_documents")
+  qualifications    String   @default("")
+  evidence          String   @default("")
+  findingKind       String   @default("MIXED") @map("finding_kind")
+  active            Boolean  @default(true)
+  position          Int      @default(0)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("verification_service_categories")
+}
+
+/// A service an organisation offers, within what Housy allows it: its price and how long it takes.
+model VpProviderService {
+  id            String          @id @default(uuid())
+  providerId    String          @map("provider_id")
+  categoryCode  String          @map("category_code")
+  priceKobo     BigInt?         @map("price_kobo")
+  turnaroundDays Int            @default(10) @map("turnaround_days")
+  active        Boolean         @default(true)
+  notes         String          @default("")
+  updatedAt     DateTime        @default(now()) @updatedAt @map("updated_at")
+  provider      ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@unique([providerId, categoryCode])
+  @@map("verification_provider_services")
+}
+
+/// Where an organisation works, within the states Housy allows it.
+model VpProviderCoverage {
+  id         String   @id @default(uuid())
+  providerId String   @map("provider_id")
+  state      String
+  area       String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([providerId, state, area])
+  @@index([state])
+  @@map("verification_provider_coverage")
 }
 
 /// A private calendar feed link: a calendar app subscribes to it to see the person's inspections. Only the hash of the link's secret is kept.

@@ -26,6 +26,7 @@ import { ROLE_LABELS, can } from "@/lib/permissions";
 import { myNotifications } from "@/lib/services/notifications";
 import { asCompany, pendingIncoming } from "@/lib/services/collab";
 import { portalCount } from "@/lib/services/portals";
+import { providerOrgCount } from "@/lib/services/verification-network";
 import { waitingFlatmateRequests } from "@/lib/services/flatmates";
 import { accountSection, adminSection, exploreSection, workspaceSection, type NavSection } from "@/lib/nav";
 import { markAllNoticesReadAction } from "./frame-actions";
@@ -42,6 +43,7 @@ import "./chat.css";
 import "./features.css";
 import "./alive.css";
 import "./calm.css";
+import "./vp.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -70,13 +72,14 @@ export const viewport: Viewport = {
 /** What the frame needs for a signed-in person: counts for the badges, the latest notices for the bell, and their company role. */
 async function frameData(uid: string, inCompany: boolean) {
   const zero = () => 0;
-  const [unread, unreadMsgs, rate, notes, incoming, portals, flatmateWaiting, member] = await Promise.all([
+  const [unread, unreadMsgs, rate, notes, incoming, portals, flatmateWaiting, member, providers] = await Promise.all([
     unreadCount(uid).catch(zero), unreadConversationCount(asPerson(uid)).catch(zero), feedbackDue(uid).catch(() => false),
     myNotifications(uid, 8).catch(() => []), pendingIncoming(asPerson(uid)).catch(zero), portalCount(uid).catch(zero),
     waitingFlatmateRequests(uid).catch(zero), inCompany ? getMember().catch(() => null) : Promise.resolve(null),
+    providerOrgCount(uid).catch(zero),
   ]);
   const avatarUrl = await avatarUrlFor(uid).catch(() => null);
-  return { unread, unreadMsgs, rate, notes, incoming, portals, flatmateWaiting, member, avatarUrl };
+  return { unread, unreadMsgs, rate, notes, incoming, portals, flatmateWaiting, member, avatarUrl, providers };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -87,7 +90,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const unread = d?.unread ?? 0, unreadMsgs = d?.unreadMsgs ?? 0, rate = d?.rate ?? false, member = d?.member ?? null;
   const incoming = d?.incoming ?? 0, portals = d?.portals ?? 0, flatmateWaiting = d?.flatmateWaiting ?? 0, notes = d?.notes ?? [];
   const sections: NavSection[] = [exploreSection()];
-  if (session) sections.push(accountSection({ incoming, portals, flatmateWaiting, unreadMessages: unreadMsgs, unreadNotices: unread }));
+  if (session) sections.push(accountSection({ incoming, portals, flatmateWaiting, unreadMessages: unreadMsgs, unreadNotices: unread, providers: d?.providers ?? 0 }));
   if (member) {
     const companyIncoming = can(member.role, "collab.view") ? await pendingIncoming(asCompany(member)).catch(zero) : 0;
     sections.push({ ...workspaceSection(member.role, companyIncoming), label: `Workspace · ${member.companyName}` });

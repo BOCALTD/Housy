@@ -6079,3 +6079,210 @@ model SearchPref {
 
   @@map("search_prefs")
 }
+
+// ---------- Verification cases (stages 4 to 6) ----------
+
+enum VpCaseStatus {
+  REQUESTED
+  PENDING_PAYMENT
+  READY_FOR_ASSIGNMENT
+  ASSIGNED
+  ACCEPTED
+  DOCUMENT_REVIEW
+  INFORMATION_REQUIRED
+  FIELD_INSPECTION
+  INVESTIGATION_IN_PROGRESS
+  REPORT_DRAFT
+  INTERNAL_REVIEW
+  CORRECTION_REQUIRED
+  SUBMITTED_TO_HOUSY
+  PLATFORM_REVIEW
+  APPROVED_FOR_RELEASE
+  DELIVERED
+  COMPLETED
+  REJECTED
+  CANCELLED
+  DISPUTED
+}
+
+/// A customer's verification request and the case it becomes. Status moves are checked by the rules and by a database trigger.
+model VpCase {
+  id                 String       @id @default(uuid())
+  ref                String       @unique
+  requesterId        String       @map("requester_id")
+  listingId          String?      @map("listing_id")
+  listingRef         String       @default("") @map("listing_ref")
+  propertyAddress    String       @map("property_address")
+  state              String
+  area               String       @default("")
+  propertyType       String       @map("property_type")
+  services           String[]     @default([])
+  documentsAvailable String       @default("") @map("documents_available")
+  ownerDetails       String       @default("") @map("owner_details")
+  transactionContext String       @default("") @map("transaction_context")
+  notes              String       @default("")
+  priority           String       @default("NORMAL")
+  status             VpCaseStatus @default(REQUESTED)
+  providerId         String?      @map("provider_id")
+  officerId          String?      @map("officer_id")
+  reviewerId         String?      @map("reviewer_id")
+  /// How the provider was chosen: MANUAL (Housy), RECOMMENDED (Housy took the engine's suggestion) or CUSTOMER.
+  selectionMethod    String       @default("") @map("selection_method")
+  preferredProviderId String?     @map("preferred_provider_id")
+  requiredBy         DateTime?    @map("required_by")
+  acceptBy           DateTime?    @map("accept_by")
+  infoRequest        String       @default("") @map("info_request")
+  closingNote        String       @default("") @map("closing_note")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at")
+  deliveredAt        DateTime?    @map("delivered_at")
+  completedAt        DateTime?    @map("completed_at")
+  assignments        VpAssignment[]
+  activities         VpCaseActivity[]
+  files              VpCaseFile[]
+  inspections        VpInspection[]
+  report             VpReport?
+
+  @@index([providerId, status])
+  @@index([requesterId])
+  @@index([status, createdAt])
+  @@map("verification_cases")
+}
+
+/// Every offer of a case to a provider and how it ended: accepted, declined (with the reason), expired or withdrawn.
+model VpAssignment {
+  id            String    @id @default(uuid())
+  caseId        String    @map("case_id")
+  providerId    String    @map("provider_id")
+  method        String
+  assignedById  String    @map("assigned_by_id")
+  reason        String    @default("")
+  status        String    @default("OFFERED")
+  declineReason String    @default("") @map("decline_reason")
+  respondBy     DateTime  @map("respond_by")
+  decidedAt     DateTime? @map("decided_at")
+  decidedById   String?   @map("decided_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  case          VpCase    @relation(fields: [caseId], references: [id], onDelete: Restrict)
+
+  @@index([caseId])
+  @@index([providerId, status])
+  @@map("verification_assignments")
+}
+
+/// The case's history. Append-only; the customer sees the steps meant for them.
+model VpCaseActivity {
+  id                String   @id @default(uuid())
+  caseId            String   @map("case_id")
+  providerId        String?  @map("provider_id")
+  actorId           String   @map("actor_id")
+  actorKind         String   @map("actor_kind")
+  action            String
+  fromStatus        String   @default("") @map("from_status")
+  toStatus          String   @default("") @map("to_status")
+  note              String   @default("")
+  visibleToCustomer Boolean  @default(true) @map("visible_to_customer")
+  createdAt         DateTime @default(now()) @map("created_at")
+  case              VpCase   @relation(fields: [caseId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, createdAt])
+  @@map("verification_case_activities")
+}
+
+/// Documents the customer sends and evidence the provider collects. Each says what kind of finding it supports.
+model VpCaseFile {
+  id           String    @id @default(uuid())
+  caseId       String    @map("case_id")
+  providerId   String?   @map("provider_id")
+  kind         String
+  basis        String    @default("")
+  title        String    @default("")
+  caption      String    @default("")
+  fileName     String    @map("file_name")
+  mimeType     String    @map("mime_type")
+  sizeBytes    Int       @map("size_bytes")
+  bytes        Bytes
+  sha256       String
+  lat          Float?
+  lng          Float?
+  takenAt      DateTime? @map("taken_at")
+  uploadedById String    @map("uploaded_by_id")
+  uploaderKind String    @map("uploader_kind")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  case         VpCase    @relation(fields: [caseId], references: [id], onDelete: Restrict)
+
+  @@index([caseId])
+  @@map("verification_case_documents")
+}
+
+model VpInspection {
+  id           String    @id @default(uuid())
+  caseId       String    @map("case_id")
+  providerId   String    @map("provider_id")
+  officerId    String    @map("officer_id")
+  scheduledFor DateTime  @map("scheduled_for")
+  completedAt  DateTime? @map("completed_at")
+  notes        String    @default("")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  case         VpCase    @relation(fields: [caseId], references: [id], onDelete: Restrict)
+
+  @@index([caseId])
+  @@map("verification_inspections")
+}
+
+/// The provider's professional report for a case. Its versions are kept for ever; a released version never changes.
+model VpReport {
+  id              String            @id @default(uuid())
+  caseId          String            @unique @map("case_id")
+  providerId      String            @map("provider_id")
+  publicRef       String            @unique @map("public_ref")
+  releasedVersion Int?              @map("released_version")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  case            VpCase            @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  versions        VpReportVersion[]
+
+  @@map("verification_reports")
+}
+
+model VpReportVersion {
+  id                  String    @id @default(uuid())
+  reportId            String    @map("report_id")
+  caseId              String    @map("case_id")
+  providerId          String    @map("provider_id")
+  version             Int
+  content             Json      @default("{}")
+  outcome             String    @default("")
+  preparedById        String    @map("prepared_by_id")
+  reviewedById        String?   @map("reviewed_by_id")
+  reviewNote          String    @default("") @map("review_note")
+  providerApprovedAt  DateTime? @map("provider_approved_at")
+  platformReviewerId  String?   @map("platform_reviewer_id")
+  platformNote        String    @default("") @map("platform_note")
+  platformApprovedAt  DateTime? @map("platform_approved_at")
+  releasedAt          DateTime? @map("released_at")
+  sha256              String    @default("")
+  correctionOf        Int?      @map("correction_of")
+  correctionReason    String    @default("") @map("correction_reason")
+  supersededAt        DateTime? @map("superseded_at")
+  revokedAt           DateTime? @map("revoked_at")
+  revokedReason       String    @default("") @map("revoked_reason")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at")
+  report              VpReport  @relation(fields: [reportId], references: [id], onDelete: Restrict)
+
+  @@unique([reportId, version])
+  @@map("verification_report_versions")
+}
+
+/// A provider's declaration that it has a conflict of interest with a case (it is then never offered that case).
+model VpConflict {
+  id           String   @id @default(uuid())
+  providerId   String   @map("provider_id")
+  caseId       String   @map("case_id")
+  declaredById String   @map("declared_by_id")
+  description  String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([providerId, caseId])
+  @@map("verification_conflict_declarations")
+}

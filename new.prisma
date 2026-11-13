@@ -768,6 +768,10 @@ model ServiceProvider {
   allowedStates   String[]  @default([]) @map("allowed_states")
   suspendedAt     DateTime? @map("suspended_at")
   suspendedReason String    @default("") @map("suspended_reason")
+  payoutBankName      String    @default("") @map("payout_bank_name")
+  payoutAccountName   String    @default("") @map("payout_account_name")
+  payoutAccountNumber String    @default("") @map("payout_account_number")
+  payoutUpdatedAt     DateTime? @map("payout_updated_at")
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
   members         ProviderMember[]
   application     VpApplication?
@@ -4753,6 +4757,7 @@ model WatchedListing {
 enum InvoicePurpose {
   SUBSCRIPTION
   AD_CAMPAIGN
+  VERIFICATION
 }
 
 enum BillingInvoiceStatus {
@@ -4782,6 +4787,7 @@ enum RefundStatus {
 enum FinanceLedger {
   SUBSCRIPTION
   ADVERTISING
+  VERIFICATION
 }
 
 enum FinanceEntryKind {
@@ -6133,6 +6139,9 @@ model VpCase {
   acceptBy           DateTime?    @map("accept_by")
   infoRequest        String       @default("") @map("info_request")
   closingNote        String       @default("") @map("closing_note")
+  priceKobo          BigInt?      @map("price_kobo")
+  feeKobo            BigInt?      @map("fee_kobo")
+  invoiceId          String?      @unique @map("invoice_id")
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at")
   deliveredAt        DateTime?    @map("delivered_at")
@@ -6285,4 +6294,74 @@ model VpConflict {
 
   @@unique([providerId, caseId])
   @@map("verification_conflict_declarations")
+}
+
+// ---------- Verification network, stage 7: the provider's earnings and payouts ----------
+
+enum VpEarningStatus {
+  PENDING
+  HELD
+  PAYABLE
+  IN_PAYOUT
+  PAID
+  VOID
+}
+
+enum VpPayoutStatus {
+  PREPARED
+  PAID
+  CANCELLED
+}
+
+/// What a provider earns for a delivered case: the customer's price less Housy's fee, both fixed when the case was quoted.
+/// It becomes payable when the customer confirms the report or the waiting time passes without a dispute.
+model VpEarning {
+  id           String          @id @default(uuid())
+  caseId       String          @unique @map("case_id")
+  providerId   String          @map("provider_id")
+  invoiceId    String          @map("invoice_id")
+  grossKobo    BigInt          @map("gross_kobo")
+  feeKobo      BigInt          @map("fee_kobo")
+  netKobo      BigInt          @map("net_kobo")
+  status       VpEarningStatus @default(PENDING)
+  heldReason   String          @default("") @map("held_reason")
+  payableFrom  DateTime?       @map("payable_from")
+  recognisedAt DateTime?       @map("recognised_at")
+  payoutId     String?         @map("payout_id")
+  paidAt       DateTime?       @map("paid_at")
+  voidedAt     DateTime?       @map("voided_at")
+  voidReason   String          @default("") @map("void_reason")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at")
+  payout       VpPayout?       @relation(fields: [payoutId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, status])
+  @@index([status, payableFrom])
+  @@map("verification_earnings")
+}
+
+/// Money paid to a provider by Housy for payable earnings, to the bank account recorded when it was prepared. Housy's finance
+/// team makes the transfer and records its reference; a paid payout never changes.
+model VpPayout {
+  id                String         @id @default(uuid())
+  ref               String         @unique
+  providerId        String         @map("provider_id")
+  totalKobo         BigInt         @map("total_kobo")
+  status            VpPayoutStatus @default(PREPARED)
+  bankName          String         @map("bank_name")
+  accountName       String         @map("account_name")
+  accountNumber     String         @map("account_number")
+  transferReference String         @default("") @map("transfer_reference")
+  preparedById      String         @map("prepared_by_id")
+  preparedAt        DateTime       @default(now()) @map("prepared_at")
+  paidById          String?        @map("paid_by_id")
+  paidAt            DateTime?      @map("paid_at")
+  cancelledById     String?        @map("cancelled_by_id")
+  cancelledAt       DateTime?      @map("cancelled_at")
+  cancelReason      String         @default("") @map("cancel_reason")
+  earnings          VpEarning[]
+
+  @@index([providerId, preparedAt])
+  @@index([status])
+  @@map("verification_payouts")
 }

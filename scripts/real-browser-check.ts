@@ -432,6 +432,8 @@ async function main() {
     for (const [name, dev] of screens) {
       const ctx = await browser.newContext({ ...dev, locale: "en-NG", timezoneId: "Africa/Lagos" });
       await ctx.addInitScript({ content: "Object.defineProperty(navigator, 'webdriver', { get: function () { return false; } });" });
+      // tsx compiles the functions passed to the page with a __name helper the page does not have.
+      await ctx.addInitScript({ content: "window.__name = function (f) { return f; };" });
       await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
       const s = await ctx.newPage(); watch(s, `compare bar ${name}`);
       await s.goto(BASE + "/browse", { waitUntil: "load" }); await s.waitForTimeout(800);

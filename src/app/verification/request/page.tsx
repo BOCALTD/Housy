@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { STATES } from "@/lib/geo-rules";
 import { PROPERTY_TYPES, SERVICE_CATEGORIES } from "@/lib/verification-network-rules";
@@ -13,8 +14,10 @@ const typeWord = (t: string) => t.charAt(0) + t.slice(1).toLowerCase().replace(/
 
 export default async function RequestVerification({ searchParams: s }: { searchParams?: Promise<SP> }) {
   const searchParams = await s;
-  await requireUser();
-  const listing = await listingForRequest(sp(searchParams, "listing") ?? "");
+  const listingParam = sp(searchParams, "listing") ?? "";
+  // Signed-out visitors sign in (or join) and come straight back here, to the same property.
+  if (!(await getSession())) redirect(`/login?next=${encodeURIComponent(`/verification/request${listingParam ? `?listing=${encodeURIComponent(listingParam)}` : ""}`)}`);
+  const listing = await listingForRequest(listingParam);
   return (
     <div className="wrap stack-lg vp" style={{ maxWidth: 860 }}>
       <div className="stack" style={{ gap: 6 }}>

@@ -194,8 +194,10 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
           <strong>What has been checked:</strong> this listing was submitted by a registered company and reviewed by the platform
           before publication{listing.publishedAt ? ` on ${formatDate(listing.publishedAt)}` : ""}. Title and ownership have <strong>not</strong> been verified by the platform.
           {" "}<Link href={`/trust?category=SUSPICIOUS_LISTING&targetKind=LISTING&targetRef=${listing.publicRef}`}>Report this listing</Link>.
-          {" "}<Link href={`/verification/request?listing=${encodeURIComponent(listing.publicRef)}`}>Ask for an independent verification</Link> by a vetted professional.
-          {providerView ? <> <VerifyModal provider={providerView} listingRef={listing.publicRef} autoOpen={autoOpen} /></> : null}
+          {/* With a featured provider vetted through the network, its offer opens here; otherwise the button goes straight to
+              Housy's request form, where Housy chooses a vetted firm. Either way a listing always offers verification. */}
+          {providerView ? <> <VerifyModal provider={providerView} listingRef={listing.publicRef} autoOpen={autoOpen} /> or <Link href={`/verification/request?listing=${encodeURIComponent(listing.publicRef)}`}>ask Housy for an independent verification</Link> by a vetted professional.</>
+            : <> <Link className="linkbtn" href={`/verification/request?listing=${encodeURIComponent(listing.publicRef)}`}>Verify this property</Link>: Housy has it checked by a vetted professional firm.</>}
         </div>
       </article>
 

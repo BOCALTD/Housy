@@ -415,6 +415,32 @@ async function main() {
     await ctx.close();
   });
 
+  await step("Signed in on a phone: the compare bar sits above the bottom menu and its buttons can be tapped", async () => {
+    const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const seeker = out.trim().split("\n")[2];
+    const ctx = await newContext(browser, "phone");
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    const s = await ctx.newPage(); watch(s, "compare bar");
+    await s.goto(BASE + "/properties", { waitUntil: "load" }); await s.waitForTimeout(800);
+    const refs = await s.$$eval('a[href^="/properties/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?")))].slice(0, 2));
+    await s.evaluate((r) => { localStorage.setItem("compare-refs", JSON.stringify(r)); window.dispatchEvent(new Event("compare-change")); }, refs);
+    await s.reload({ waitUntil: "load" }); await s.waitForTimeout(1000);
+    const bar = s.locator(".compare-bar");
+    const shown = refs.length > 0 && (await bar.count()) > 0 && (await bar.isVisible());
+    // Tappable means the button is what a finger on its centre actually hits: nothing (the bottom menu) lies on top of it.
+    const check = shown ? await s.evaluate(() => {
+      const hit = (el: Element | null) => { if (!el) return false; const r = el.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!top && (el === top || el.contains(top)); };
+      const bar = document.querySelector(".compare-bar")!.getBoundingClientRect();
+      const tab = document.querySelector(".tabbar")?.getBoundingClientRect();
+      return { compare: hit(document.querySelector(".compare-bar a")), clear: hit(document.querySelector(".compare-bar button")), tabbar: !!tab && tab.height > 0, clearOfMenu: !tab || bar.bottom <= tab.top, inView: bar.right <= innerWidth && bar.left >= 0 };
+    }) : null;
+    let opened = false;
+    if (check?.compare) { await bar.locator("a").click(); opened = await s.waitForURL((u) => u.pathname === "/compare", { timeout: 10000 }).then(() => true).catch(() => false); }
+    await record(s, "compare bar", !!check && check.tabbar && check.compare && check.clear && check.clearOfMenu && check.inView && opened,
+      `picked ${refs.length}; bar shown ${shown}; bottom menu shown ${check?.tabbar}; above the menu ${check?.clearOfMenu}; Compare tappable ${check?.compare}; Clear tappable ${check?.clear}; on screen ${check?.inView}; opened the comparison ${opened}`);
+    await ctx.close();
+  });
+
   await step("Signed in on a phone: sharing a reel opens the phone's share sheet straight from the tap, and only a real share counts", async () => {
     const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const seeker = out.trim().split("\n")[2];

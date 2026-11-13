@@ -146,6 +146,9 @@ body:has(.ai-page:not(.ai-in-workspace)) .site-footer { display: none; }
 .to-top { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 66px); }
 @media (max-width: 760px) {
   .ai-fab { bottom: calc(76px + env(safe-area-inset-bottom)); right: 12px; padding: 0 8px; }
+  /* The compare bar sits above the bottom menu (it was underneath it and could not be tapped), beside the assistant button. */
+  body:has(.tabbar) .compare-bar { bottom: calc(76px + env(safe-area-inset-bottom)); right: calc(80px + env(safe-area-inset-right)); left: max(12px, env(safe-area-inset-left)); justify-content: flex-start; flex-wrap: wrap; }
+  body:has(.tabbar) .compare-bar .btn { min-height: 44px; }
   .ai-fab > span:last-child { display: none; }
   .ai-panel { inset: 0; width: auto; height: auto; border-radius: 0; z-index: 90; }
   .ai-page { height: calc(100dvh - var(--bar-h) - 70px - env(safe-area-inset-bottom) - 24px); border-radius: 16px; }

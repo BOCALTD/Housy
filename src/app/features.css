@@ -144,6 +144,8 @@ body:has(.ai-page:not(.ai-in-workspace)) .site-footer { display: none; }
 .ai-panel-head a { margin-left: auto; min-height: 44px; display: inline-flex; align-items: center; }
 .ai-x { width: 44px; height: 44px; border-radius: 12px; border: 0; background: transparent; color: var(--ink); font-size: 26px; cursor: pointer; }
 .to-top { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 66px); }
+/* Signed in on a wide screen the side menu stays open on the left: the compare bar sits just past it, not under it. */
+@media (min-width: 1101px) { body:has(.frame:not(.site) .rail) .compare-bar { left: calc(var(--rail-w) + 16px); } }
 @media (max-width: 760px) {
   .ai-fab { bottom: calc(76px + env(safe-area-inset-bottom)); right: 12px; padding: 0 8px; }
   /* The compare bar sits above the bottom menu (it was underneath it and could not be tapped), beside the assistant button. */

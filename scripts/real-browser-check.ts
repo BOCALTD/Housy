@@ -415,39 +415,69 @@ async function main() {
     await ctx.close();
   });
 
-  await step("Signed in on a phone: the compare bar sits above the bottom menu and its buttons can be tapped", async () => {
+  await step("Signed in, on phones, tablets and computers: the compare bar shows only once something is picked, can be tapped, covers nothing, and goes away after comparing", async () => {
     const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const seeker = out.trim().split("\n")[2];
-    const ctx = await newContext(browser, "phone");
-    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
-    const s = await ctx.newPage(); watch(s, "compare bar");
-    await s.goto(BASE + "/properties", { waitUntil: "load" }); await s.waitForTimeout(800);
-    const before = await s.locator(".compare-bar").count();
-    const refs = await s.$$eval('a[href^="/properties/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?")))].slice(0, 2));
-    await s.evaluate((r) => { localStorage.setItem("compare-refs", JSON.stringify(r)); window.dispatchEvent(new Event("compare-change")); }, refs);
-    await s.reload({ waitUntil: "load" }); await s.waitForTimeout(1000);
-    const bar = s.locator(".compare-bar");
-    const shown = refs.length > 0 && (await bar.count()) > 0 && (await bar.isVisible());
-    // Tappable means the button is what a finger on its centre actually hits: nothing (the bottom menu) lies on top of it.
-    const check = shown ? await s.evaluate(() => {
-      const hit = (el: Element | null) => { if (!el) return false; const r = el.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!top && (el === top || el.contains(top)); };
-      const bar = document.querySelector(".compare-bar")!.getBoundingClientRect();
-      const tab = document.querySelector(".tabbar")?.getBoundingClientRect();
-      return { compare: hit(document.querySelector(".compare-bar a")), clear: hit(document.querySelector(".compare-bar button")), tabbar: !!tab && tab.height > 0, clearOfMenu: !tab || bar.bottom <= tab.top, inView: bar.right <= innerWidth && bar.left >= 0 };
-    }) : null;
-    let opened = false, goneAfter = false, hiddenWhenNone = false;
-    if (check?.compare) {
-      await bar.locator("a").click();
-      opened = await s.waitForURL((u) => u.pathname === "/compare", { timeout: 10000 }).then(() => true).catch(() => false);
-      // Once the comparison is open, the bar has done its job: it is not on the comparison, nor on pages after it.
-      const onCompare = await s.locator(".compare-bar").count();
+    const screens: [string, Parameters<Browser["newContext"]>[0]][] = [
+      ["iPhone SE", devices["iPhone SE"]],
+      ["iPhone 15 Pro Max", devices["iPhone 15 Pro Max"]],
+      ["Pixel 7", devices["Pixel 7"]],
+      ["iPad Mini", devices["iPad Mini"]],
+      ["iPad Pro 11 landscape", devices["iPad Pro 11 landscape"]],
+      ["Laptop 1366", { viewport: { width: 1366, height: 768 } }],
+      ["Wide 1920", { viewport: { width: 1920, height: 1080 } }],
+    ];
+    const results: string[] = [];
+    let allOk = true, flowDone = false;
+    for (const [name, dev] of screens) {
+      const ctx = await browser.newContext({ ...dev, locale: "en-NG", timezoneId: "Africa/Lagos" });
+      await ctx.addInitScript({ content: "Object.defineProperty(navigator, 'webdriver', { get: function () { return false; } });" });
+      await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+      const s = await ctx.newPage(); watch(s, `compare bar ${name}`);
       await s.goto(BASE + "/properties", { waitUntil: "load" }); await s.waitForTimeout(800);
-      goneAfter = onCompare === 0 && (await s.locator(".compare-bar").count()) === 0;
-      hiddenWhenNone = goneAfter; // nothing picked now, and no bar
+      const before = await s.locator(".compare-bar").count();
+      const refs = await s.$$eval('a[href^="/properties/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?")))].slice(0, 2));
+      await s.evaluate((r) => { localStorage.setItem("compare-refs", JSON.stringify(r)); }, refs);
+      await s.reload({ waitUntil: "load" }); await s.waitForTimeout(1000);
+      // Tappable: what a finger on the button's centre hits is the button. Covers nothing: it does not overlap the bottom
+      // menu, the side menu, the assistant button or the back-to-top button where those are showing.
+      const c = await s.evaluate(() => {
+        const bar = document.querySelector(".compare-bar");
+        if (!bar) return null;
+        const hit = (el: Element | null) => { if (!el) return false; const r = el.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!top && (el === top || el.contains(top)); };
+        const b = bar.getBoundingClientRect();
+        const shown = (el: Element | null) => { if (!el) return null; const st = getComputedStyle(el); const r = el.getBoundingClientRect(); return st.display !== "none" && st.visibility !== "hidden" && Number(st.opacity) > 0 && r.width > 0 && r.right > 0 && r.left < innerWidth ? r : null; };
+        const overlaps = [".tabbar", ".rail", ".ai-fab", ".to-top"].filter((sel) => { const r = shown(document.querySelector(sel)); return r && !(b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom); });
+        return { compare: hit(bar.querySelector("a")), clear: hit(bar.querySelector("button")), inView: b.left >= 0 && b.right <= innerWidth && b.bottom <= innerHeight, overlaps, small: Math.min(...[...bar.querySelectorAll("a, button")].map((x) => x.getBoundingClientRect().height)) };
+      });
+      const ok = refs.length === 2 && before === 0 && !!c && c.compare && c.clear && c.inView && c.overlaps.length === 0 && c.small >= 44;
+      if (!ok) allOk = false;
+      results.push(`${name}: ${ok ? "ok" : `before ${before}, ${JSON.stringify(c)}`}`);
+      if (c && name === "iPhone SE") await s.screenshot({ path: `${OUT}/compare-bar-iphone-se.jpg`, quality: 70, type: "jpeg" }).catch(() => {});
+      if (c && name === "iPad Mini") await s.screenshot({ path: `${OUT}/compare-bar-ipad-mini.jpg`, quality: 70, type: "jpeg" }).catch(() => {});
+      // Once, on a phone: opening the comparison clears the picks, so the bar is gone there and afterwards.
+      if (!flowDone && name === "Pixel 7" && c?.compare) {
+        flowDone = true;
+        await s.locator(".compare-bar a").click();
+        const opened = await s.waitForURL((u) => u.pathname === "/compare", { timeout: 10000 }).then(() => true).catch(() => false);
+        const onCompare = await s.locator(".compare-bar").count();
+        await s.goto(BASE + "/properties", { waitUntil: "load" }); await s.waitForTimeout(800);
+        const after = await s.locator(".compare-bar").count();
+        if (!(opened && onCompare === 0 && after === 0)) allOk = false;
+        results.push(`after comparing: opened ${opened}, bar on the comparison ${onCompare > 0}, bar afterwards ${after > 0}`);
+      }
+      await ctx.close();
     }
-    await record(s, "compare bar", !!check && check.tabbar && check.compare && check.clear && check.clearOfMenu && check.inView && opened && goneAfter && hiddenWhenNone && before === 0,
-      `bar before picking ${before > 0}; picked ${refs.length}; bar shown ${shown}; bottom menu shown ${check?.tabbar}; above the menu ${check?.clearOfMenu}; Compare tappable ${check?.compare}; Clear tappable ${check?.clear}; on screen ${check?.inView}; opened the comparison ${opened}; bar gone afterwards ${goneAfter}`);
-    await ctx.close();
+    // The picture for the report: a small iPhone with two properties picked.
+    const pctx = await browser.newContext({ ...devices["iPhone SE"], locale: "en-NG", timezoneId: "Africa/Lagos" });
+    await pctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    const s = await pctx.newPage();
+    await s.goto(BASE + "/properties", { waitUntil: "load" });
+    const two = await s.$$eval('a[href^="/properties/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?")))].slice(0, 2));
+    await s.evaluate((r) => { localStorage.setItem("compare-refs", JSON.stringify(r)); }, two);
+    await s.reload({ waitUntil: "load" }); await s.waitForTimeout(1200);
+    await record(s, "compare bar", allOk && flowDone, results.join(" | "));
+    await pctx.close();
   });
 
   await step("Signed in on a phone: sharing a reel opens the phone's share sheet straight from the tap, and only a real share counts", async () => {

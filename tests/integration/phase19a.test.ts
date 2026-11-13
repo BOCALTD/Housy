@@ -6,7 +6,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { prisma, withInviteToken, withUser } from "../../src/lib/db";
+import { prisma, withInviteToken, withPlatformAdmin, withUser } from "../../src/lib/db";
 import { hashToken } from "../../src/lib/tokens";
 import {
   acceptProviderInvitation, addApplicationDocument, addProviderDocument, applicationForAdmin, applicationForApplicant, approveApplication,
@@ -51,7 +51,7 @@ test("an organisation applies, Housy asks for more, the applicant answers, and H
   assert.equal(await startApplication(applicant.id), ref, "one open application at a time: the same one carries on");
   // Nothing can be sent half-filled.
   await assert.rejects(submitApplication(applicant.id, ref), /Before sending/);
-  await assert.rejects(saveApplicationPart(applicant.id, ref, "operations", { states: ["Atlantis"], propertyTypes: ["LAND"], professionalStaff: "1", monthlyCapacity: "1", previousProjects: "Twenty characters or more here." }), /Choose states from the list/);
+  await assert.rejects(saveApplicationPart(applicant.id, ref, "operations", { states: ["Atlantis"], propertyTypes: ["LAND"], fieldInvestigators: "0", professionalStaff: "1", monthlyCapacity: "1", previousProjects: "Twenty characters or more here." }), /Choose states from the list/);
 
   const ref2 = await filledApplication(applicant.id, applicant.email);
   const draft = await applicationForApplicant(applicant.id, ref2);
@@ -85,7 +85,7 @@ test("an organisation applies, Housy asks for more, the applicant answers, and H
   assert.ok(p.vettedAt, "approved through an application: vetted");
   assert.deepEqual(p.allowedServices, ["TITLE"]);
   // Approval comes before activation: nobody is in the organisation until the representative accepts.
-  assert.equal(await prisma.providerMember.count({ where: { providerId } }), 0);
+  assert.equal(await withPlatformAdmin(admin.id, (tx) => tx.providerMember.count({ where: { providerId } })), 0);
   assert.equal(await providerContext(applicant.id, code), null);
   const inv = await findProviderInvitation(token);
   assert.equal(inv!.role, "OWNER");
@@ -147,11 +147,11 @@ test("the owner sets up the profile, services and coverage only within what Hous
   await assert.rejects(inviteProviderStaff(investigator, { email: "z@example.test", role: "INVESTIGATOR" }), /does not allow/);
   // An administrator manages staff but cannot create or touch owners and administrators, in the service or in the database.
   await assert.rejects(inviteProviderStaff(orgAdmin, { email: "boss@example.test", role: "OWNER" }), /Only an organisation owner/);
-  const ownerRow = await prisma.providerMember.findFirstOrThrow({ where: { providerId, role: "OWNER" } });
+  const ownerRow = await withPlatformAdmin(admin.id, (tx) => tx.providerMember.findFirstOrThrow({ where: { providerId, role: "OWNER" } }));
   await assert.rejects(setProviderStaffStatus(orgAdmin, ownerRow.id, false), /Only an organisation owner/);
   const dbTry = await withUser(adminMemberId, (tx) => tx.providerMember.updateMany({ where: { id: ownerRow.id }, data: { status: "SUSPENDED" } }));
   assert.equal(dbTry.count, 0, "the database refuses an administrator changing an owner");
-  const invRow = await prisma.providerMember.findFirstOrThrow({ where: { providerId, userId: investigatorId } });
+  const invRow = await withPlatformAdmin(admin.id, (tx) => tx.providerMember.findFirstOrThrow({ where: { providerId, userId: investigatorId } }));
   await changeProviderStaffRole(orgAdmin, invRow.id, "REVIEWER");
   assert.equal((await providerContext(investigatorId, code))!.role, "REVIEWER");
   // The last owner stays.
@@ -170,7 +170,7 @@ test("one provider cannot reach another's staff, invitations, documents or appli
   const a = await approvedOrg(admin, "alpha");
   const b = await approvedOrg(admin, "bravo");
   await addProviderDocument(b.ctx, { kind: "LICENCE", title: "Bravo licence", expiresOn: "2031-01-01" }, pdf("bravo.pdf"));
-  const bDoc = await prisma.vpDocument.findFirstOrThrow({ where: { providerId: b.providerId, title: "Bravo licence" } });
+  const bDoc = await withPlatformAdmin(admin.id, (tx) => tx.vpDocument.findFirstOrThrow({ where: { providerId: b.providerId, title: "Bravo licence" } }));
   await inviteProviderStaff(b.ctx, { email: `b-${randomUUID().slice(0, 6)}@example.test`, role: "MANAGER" });
 
   // Using Bravo's provider ID with Alpha's owner gets nothing.

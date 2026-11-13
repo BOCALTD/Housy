@@ -22,7 +22,7 @@ import { newPlatformAdmin, PDF_BYTES } from "./helpers";
 
 after(() => prisma.$disconnect());
 
-const person = (label: string) => prisma.user.create({ data: { email: `${label}-${randomUUID().slice(0, 8)}@example.test`, name: `${label} Person`, passwordHash: "x" } });
+const person = (label: string) => prisma.user.create({ data: { email: `${label}-${randomUUID().slice(0, 8)}@example.test`.toLowerCase(), name: `${label} Person`, passwordHash: "x" } });
 const pdf = (name: string) => ({ name, type: "application/pdf", bytes: PDF_BYTES });
 
 async function approvedOrg(admin: { id: string }, label: string, opts: { offer?: boolean; cover?: boolean } = {}) {

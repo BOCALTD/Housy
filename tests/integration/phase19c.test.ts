@@ -13,10 +13,10 @@ import { randomUUID } from "node:crypto";
 import { prisma, withPlatformAdmin, withPublic, withUser } from "../../src/lib/db";
 import {
   acceptProviderInvitation, addApplicationDocument, approveApplication, providerContext, saveApplicationPart, setProviderCoverage,
-  setProviderOfferings, startApplication, startReview, submitApplication,
+  setProviderOfferings, setProviderSuspended, startApplication, startReview, submitApplication,
 } from "../../src/lib/services/verification-network";
 import {
-  addCustomerDocument, answerOffer, assignCase, decideIntake, requestVerification,
+  addCustomerDocument, answerOffer, assignCase, caseForCustomer, caseForProvider, decideIntake, moveProviderCase, requestVerification,
 } from "../../src/lib/services/verification-cases";
 import { fileComplaint } from "../../src/lib/services/verification-quality";
 import { setPayoutDetails } from "../../src/lib/services/verification-finance";
@@ -127,4 +127,31 @@ test("the case history is append-only and the money tables are written only by H
   // A customer cannot hand their own case to a provider or move it on.
   await assert.rejects(withUser(customer.id, (tx) => tx.vpCase.update({ where: { id: caseId }, data: { providerId: a.providerId } })));
   await assert.rejects(withUser(customer.id, (tx) => tx.vpCase.update({ where: { id: caseId }, data: { status: "READY_FOR_ASSIGNMENT" } })));
+});
+
+test("suspending a provider stops new work on its cases and new assignments, and keeps every record", async () => {
+  const admin = await newPlatformAdmin();
+  const a = await approvedOrg(admin, `nova${randomUUID().slice(0, 4)}`);
+  const customer = await person("suspension");
+  const ref = await requestVerification(customer.id, { propertyAddress: "11 Bourdillon Road, Ikoyi", state: "Lagos", propertyType: "LAND", services: ["TITLE"] });
+  await decideIntake(admin.id, ref, "READY_FOR_ASSIGNMENT", "Paid under a corporate agreement.");
+  await assignCase(admin.id, ref, { providerId: a.providerId, method: "MANUAL" });
+  await answerOffer(a.owner, ref, true, "");
+  await setProviderSuspended(admin.id, a.providerId, true, "Complaint under investigation by Housy.");
+  const suspended = (await providerContext(a.owner.userId, (await prisma.serviceProvider.findUniqueOrThrow({ where: { id: a.providerId } })).providerCode!))!;
+  assert.equal(suspended.active, false);
+  // No new work, through the service or straight through the database.
+  await assert.rejects(moveProviderCase(suspended, ref, "DOCUMENT_REVIEW", ""), /suspended/);
+  await assert.rejects(withUser(a.owner.userId, (tx) => tx.vpCase.updateMany({ where: { ref }, data: { status: "DOCUMENT_REVIEW" } }).then((r) => { if (!r.count) throw new Error("refused"); })));
+  // No new cases.
+  const ref2 = await requestVerification(customer.id, { propertyAddress: "13 Bourdillon Road, Ikoyi", state: "Lagos", propertyType: "LAND", services: ["TITLE"] });
+  await decideIntake(admin.id, ref2, "READY_FOR_ASSIGNMENT", "Paid under a corporate agreement.");
+  await assert.rejects(assignCase(admin.id, ref2, { providerId: a.providerId, method: "MANUAL", reason: "Overriding the suspension on purpose." }), /cannot take the case/);
+  // Its records are all still there and still readable by it and by the customer.
+  assert.ok(await caseForProvider(suspended, ref));
+  assert.equal((await caseForCustomer(customer.id, ref))!.status, "ACCEPTED");
+  // Lifting the suspension lets the work continue.
+  await setProviderSuspended(admin.id, a.providerId, false, "");
+  const back = (await providerContext(a.owner.userId, suspended.code))!;
+  await moveProviderCase(back, ref, "DOCUMENT_REVIEW", "");
 });

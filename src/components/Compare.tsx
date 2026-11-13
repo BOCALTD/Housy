@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const KEY = "compare-refs";
 const MAX = 4;
@@ -26,13 +27,20 @@ export function CompareToggle({ refId, compact = false }: { refId: string; compa
   );
 }
 
-/** A small bar that appears once something is picked, linking to the comparison page. */
+/**
+ * A small bar that appears only once something is picked for comparison, never before. With one picked it asks for
+ * another; with two or more it opens the comparison, and opening it clears the picks, so the bar goes away afterwards.
+ * It never shows on the comparison page itself.
+ */
 export function CompareBar() {
   const refs = useRefs();
-  if (refs.length === 0) return null;
+  const path = usePathname();
+  if (refs.length === 0 || path === "/compare") return null;
   return (
     <div className="compare-bar" role="region" aria-label="Comparison">
-      <Link className="btn primary" href={`/compare?refs=${refs.join(",")}`}>Compare {refs.length} {refs.length === 1 ? "property" : "properties"}</Link>
+      {refs.length < 2
+        ? <p className="compare-hint">1 property picked. Pick another to compare.</p>
+        : <Link className="btn primary" href={`/compare?refs=${refs.join(",")}`} onClick={() => write([])}>Compare {refs.length} properties</Link>}
       <button type="button" className="btn" onClick={() => write([])}>Clear</button>
     </div>
   );

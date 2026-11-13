@@ -422,6 +422,7 @@ async function main() {
     await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
     const s = await ctx.newPage(); watch(s, "compare bar");
     await s.goto(BASE + "/properties", { waitUntil: "load" }); await s.waitForTimeout(800);
+    const before = await s.locator(".compare-bar").count();
     const refs = await s.$$eval('a[href^="/properties/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?")))].slice(0, 2));
     await s.evaluate((r) => { localStorage.setItem("compare-refs", JSON.stringify(r)); window.dispatchEvent(new Event("compare-change")); }, refs);
     await s.reload({ waitUntil: "load" }); await s.waitForTimeout(1000);
@@ -434,10 +435,18 @@ async function main() {
       const tab = document.querySelector(".tabbar")?.getBoundingClientRect();
       return { compare: hit(document.querySelector(".compare-bar a")), clear: hit(document.querySelector(".compare-bar button")), tabbar: !!tab && tab.height > 0, clearOfMenu: !tab || bar.bottom <= tab.top, inView: bar.right <= innerWidth && bar.left >= 0 };
     }) : null;
-    let opened = false;
-    if (check?.compare) { await bar.locator("a").click(); opened = await s.waitForURL((u) => u.pathname === "/compare", { timeout: 10000 }).then(() => true).catch(() => false); }
-    await record(s, "compare bar", !!check && check.tabbar && check.compare && check.clear && check.clearOfMenu && check.inView && opened,
-      `picked ${refs.length}; bar shown ${shown}; bottom menu shown ${check?.tabbar}; above the menu ${check?.clearOfMenu}; Compare tappable ${check?.compare}; Clear tappable ${check?.clear}; on screen ${check?.inView}; opened the comparison ${opened}`);
+    let opened = false, goneAfter = false, hiddenWhenNone = false;
+    if (check?.compare) {
+      await bar.locator("a").click();
+      opened = await s.waitForURL((u) => u.pathname === "/compare", { timeout: 10000 }).then(() => true).catch(() => false);
+      // Once the comparison is open, the bar has done its job: it is not on the comparison, nor on pages after it.
+      const onCompare = await s.locator(".compare-bar").count();
+      await s.goto(BASE + "/properties", { waitUntil: "load" }); await s.waitForTimeout(800);
+      goneAfter = onCompare === 0 && (await s.locator(".compare-bar").count()) === 0;
+      hiddenWhenNone = goneAfter; // nothing picked now, and no bar
+    }
+    await record(s, "compare bar", !!check && check.tabbar && check.compare && check.clear && check.clearOfMenu && check.inView && opened && goneAfter && hiddenWhenNone && before === 0,
+      `bar before picking ${before > 0}; picked ${refs.length}; bar shown ${shown}; bottom menu shown ${check?.tabbar}; above the menu ${check?.clearOfMenu}; Compare tappable ${check?.compare}; Clear tappable ${check?.clear}; on screen ${check?.inView}; opened the comparison ${opened}; bar gone afterwards ${goneAfter}`);
     await ctx.close();
   });
 

@@ -773,7 +773,7 @@ model ServiceProvider {
   application     VpApplication?
   invitations     VpInvitation[]
   documents       VpDocument[]
-  services        VpProviderService[]
+  offerings       VpProviderService[]
 
   @@map("service_providers")
 }

@@ -23,6 +23,7 @@
     bar.appendChild(msg); bar.appendChild(again); bar.appendChild(close);
     document.body.appendChild(bar);
   }
+  window.__housyHealth = show; // so the device check can show the bar on every screen size and measure it
   function check() {
     if (document.documentElement.dataset.hydrated === "1") return;
     if (failed.length && window.console) console.warn("Housy: these scripts did not load:", failed);

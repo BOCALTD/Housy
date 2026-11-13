@@ -192,3 +192,22 @@ body::before { opacity: .6; }
   .cfm-actions { flex-direction: column-reverse; }
   .cfm-actions .btn { flex: none; width: 100%; }
 }
+
+/* ---------- Messages that fit every screen ---------- */
+/* Page messages: long words and addresses wrap instead of pushing past the edge; warnings have their own colour. */
+.flash { overflow-wrap: anywhere; line-height: 1.5; }
+.flash.warn, .flash.warning { background: var(--warn-bg, #FDF3E1); color: var(--warn, #8A5A0B); }
+.field-error { display: block; margin-top: 4px; color: var(--bad); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 18%, transparent); }
+.art-empty { overflow-wrap: anywhere; }
+/* Pop-up messages: words wrap, and the close button is a full finger-sized target on the right. */
+[data-sonner-toast].app-toast { overflow-wrap: anywhere; padding-right: 54px !important; }
+[data-sonner-toast].app-toast [data-close-button] { left: auto !important; right: 4px !important; top: 50% !important; transform: translateY(-50%) !important; width: 44px !important; height: 44px !important;
+  border: 0 !important; background: transparent !important; color: inherit; display: grid; place-items: center; }
+[data-sonner-toast].app-toast [data-close-button] svg { width: 16px; height: 16px; }
+[data-sonner-toast].app-toast [data-description] { font-size: 14px; }
+/* The "page not working" bar sits above the bottom menu on phones, not over it. */
+@media (max-width: 760px) { body:has(.tabbar) #js-health { bottom: calc(76px + env(safe-area-inset-bottom)) !important; } }
+/* Windows never run past a short screen (a phone on its side): they scroll inside instead. */
+.cfm, .share-sheet { max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.cfm h2, .cfm p, .share-sheet { overflow-wrap: anywhere; }

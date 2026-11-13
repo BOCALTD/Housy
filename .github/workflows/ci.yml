@@ -29,6 +29,7 @@ jobs:
       SETUP_TOKEN: ci-setup-token-long-enough
       SEED_ADMIN_EMAIL: admin@example.test
       SEED_ADMIN_PASSWORD: ci-admin-password
+      QA_STATES: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -118,6 +119,11 @@ jobs:
         env:
           REAL_STRICT: ${{ vars.REAL_STRICT || 'false' }}
         run: scripts/ci-run.sh "Real-browser check" scripts/real-browser-check.sh
+
+      - name: Messages and windows on every screen size
+        env:
+          STATES_STRICT: ${{ vars.STATES_STRICT || 'true' }}
+        run: scripts/ci-run.sh "Messages and windows" scripts/states-check.sh
 
       - name: Save device screenshots and report
         if: always()

@@ -1,0 +1,16 @@
+name: Prisma diff
+on: { push: { branches: [prisma-diff] } }
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: |
+          npm i -s prisma@5.22.0 >/dev/null
+          (npx prisma validate --schema new.prisma && npx prisma format --schema new.prisma && cp new.prisma formatted.prisma) > validate.txt 2>&1 || true
+          npx prisma migrate diff --from-schema-datamodel old.prisma --to-schema-datamodel new.prisma --script > out.sql 2> err.txt || true
+          git config user.name probe; git config user.email probe@users.noreply.github.com
+          git checkout --orphan prisma-diff-out; git rm -rqf --cached .; git add out.sql err.txt validate.txt formatted.prisma 2>/dev/null; git add out.sql err.txt validate.txt; git commit -qm out; git push -qf origin prisma-diff-out

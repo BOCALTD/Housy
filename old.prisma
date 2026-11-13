@@ -6180,6 +6180,7 @@ model VpAssignment {
 
   @@index([caseId])
   @@index([providerId, status])
+  @@index([status, respondBy])
   @@map("verification_assignments")
 }
 
@@ -6284,6 +6285,7 @@ model VpReportVersion {
   report              VpReport  @relation(fields: [reportId], references: [id], onDelete: Restrict)
 
   @@unique([reportId, version])
+  @@index([caseId, version])
   @@map("verification_report_versions")
 }
 

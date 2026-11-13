@@ -107,7 +107,7 @@ open_page() {
 }
 for p in $PAGES; do
   case "$p" in
-    /me*|/portal*|/flatmates*|/directory*|/messages*|/referrals*|/rewards*|/vacancies*|/feedback*|/reviews*) open_page "seeker" "$SEEKER_TOKEN" "$p"; continue ;;
+    /me*|/portal*|/flatmates*|/directory*|/messages*|/referrals*|/rewards*|/vacancies*|/feedback*|/reviews*|/verification/*) open_page "seeker" "$SEEKER_TOKEN" "$p"; continue ;;
     /admin*) open_page "platform administrator" "$PLATFORM_TOKEN" "$p"; continue ;;
   esac
   open_page "administrator" "$TOKEN" "$p"

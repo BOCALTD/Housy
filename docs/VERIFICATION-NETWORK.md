@@ -83,6 +83,30 @@ BOCA has no code of its own; this applies to any provider listed before the netw
 What only the owner can do: BOCA applies with its real documents, and a Housy administrator reviews it. No credentials or
 documents are invented here.
 
-## Still to build
+## Built (stage 10: security, performance, end-to-end)
 
-10. Further security, performance and end-to-end tests across the whole flow.
+- The case guard (database trigger) now checks who makes each move, not only that the move exists: Housy's moves, the
+  customer's (cancel early, answer a question, confirm or dispute) and each provider role's, generated from the rules and
+  held equal to them by `tests/unit/verification-hardening.test.ts`. Customers and providers may change only the columns
+  their moves need. So, even straight through the database, a customer cannot skip payment and a provider cannot approve or
+  release its own report.
+- Payout bank accounts moved out of the public provider record into `verification_payout_accounts`, readable only by the
+  provider's owner and finance staff and by Housy, written only through Housy's service (accounts already recorded were
+  carried over).
+- `tests/integration/phase19c.test.ts` finds every verification table from the database and checks row-level security is on
+  and forced, that the public, a signed-in stranger and another provider's owner see none of a case's or a provider's rows
+  in any of them, that the history is append-only even with Housy's context, and that nobody writes earnings, payouts,
+  complaints or someone else's case without Housy.
+- Indexes for the queries that run on every case page (offers past their answer time; report versions by case).
+- The public verification pages are in the screen-size checks (desktop, iPhone, Android, tablet; three browsers), and the
+  customer's request form and list and Housy's case, payout and quality consoles are opened by the smoke test.
+
+The full flow (request, quote, payment, assignment, investigation, both reviews, release, dispute, correction, revocation,
+earnings, payouts, refunds, complaints, credential lapses) runs end to end through the services in
+`tests/integration/phase19b.test.ts`. It is not clicked through in a browser; the pages themselves are rendered and checked.
+
+## Not done, and what it needs
+
+- Automatic bank transfers to providers: needs a payout provider account (for example a transfer API from the payment
+  provider) and its keys as GitHub secrets. Until then Housy's finance team pays by bank and records the reference.
+- BOCA's application: BOCA applies with its own documents; a Housy administrator reviews it.

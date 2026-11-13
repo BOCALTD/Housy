@@ -16,7 +16,7 @@
  * never change once paid; a case's price is fixed once quoted).
  */
 import { z } from "zod";
-import { prisma, withPlatformAdmin, withUser, type Tx } from "../db";
+import { withPlatformAdmin, withUser, type Tx } from "../db";
 import { lockKey } from "../locks";
 import { parseNairaToKobo, formatKobo } from "../money";
 import { logActivity } from "../audit";
@@ -197,12 +197,14 @@ export async function payoutOverview(adminId: string) {
       tx.vpEarning.findMany({ where: { status: "HELD" }, select: { id: true, caseId: true, providerId: true, netKobo: true, heldReason: true } }),
     ]);
     const ids = [...new Set([...groups.map((g) => g.providerId), ...payouts.map((p) => p.providerId), ...held.map((h) => h.providerId)])];
-    const providers = new Map((await tx.serviceProvider.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, providerCode: true, payoutBankName: true, payoutAccountName: true, payoutAccountNumber: true } })).map((p) => [p.id, p]));
+    const providers = new Map((await tx.serviceProvider.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, providerCode: true } })).map((p) => [p.id, p]));
+    const accounts = new Map((await tx.vpPayoutAccount.findMany({ where: { providerId: { in: ids } } })).map((a) => [a.providerId, a]));
     const cases = new Map((await tx.vpCase.findMany({ where: { id: { in: held.map((h) => h.caseId) } }, select: { id: true, ref: true } })).map((c) => [c.id, c.ref]));
     return {
       payable: groups.map((g) => {
         const p = providers.get(g.providerId);
-        return { providerId: g.providerId, name: p?.name ?? "", code: p?.providerCode ?? "", totalKobo: g._sum.netKobo ?? 0n, count: g._count._all, account: p && !payoutDetailsProblem({ bankName: p.payoutBankName, accountName: p.payoutAccountName, accountNumber: p.payoutAccountNumber }) ? `${p.payoutBankName} · ${p.payoutAccountName} · ${maskAccount(p.payoutAccountNumber)}` : null };
+        const acct = accounts.get(g.providerId);
+        return { providerId: g.providerId, name: p?.name ?? "", code: p?.providerCode ?? "", totalKobo: g._sum.netKobo ?? 0n, count: g._count._all, account: acct && !payoutDetailsProblem(acct) ? `${acct.bankName} · ${acct.accountName} · ${maskAccount(acct.accountNumber)}` : null };
       }),
       payouts: payouts.map((p) => ({ ...p, providerName: providers.get(p.providerId)?.name ?? "" })),
       held: held.map((h) => ({ ...h, providerName: providers.get(h.providerId)?.name ?? "", caseRef: cases.get(h.caseId) ?? "" })),
@@ -214,9 +216,11 @@ export async function payoutOverview(adminId: string) {
 export async function preparePayout(adminId: string, providerId: string) {
   return withPlatformAdmin(adminId, async (tx) => {
     await lockKey(tx, `vr-payout:${providerId}`);
-    const p = await tx.serviceProvider.findUnique({ where: { id: providerId }, select: { name: true, payoutBankName: true, payoutAccountName: true, payoutAccountNumber: true } });
-    if (!p) throw new Error("That provider was not found.");
-    if (payoutDetailsProblem({ bankName: p.payoutBankName, accountName: p.payoutAccountName, accountNumber: p.payoutAccountNumber })) throw new Error("This provider has not recorded a complete bank account for payouts. Its owner or finance staff add it on their Finance page.");
+    const provider = await tx.serviceProvider.findUnique({ where: { id: providerId }, select: { name: true } });
+    if (!provider) throw new Error("That provider was not found.");
+    const acct = await tx.vpPayoutAccount.findUnique({ where: { providerId } });
+    const p = { payoutBankName: acct?.bankName ?? "", payoutAccountName: acct?.accountName ?? "", payoutAccountNumber: acct?.accountNumber ?? "" };
+    if (!acct || payoutDetailsProblem(acct)) throw new Error("This provider has not recorded a complete bank account for payouts. Its owner or finance staff add it on their Finance page.");
     if (await tx.vpPayout.findFirst({ where: { providerId, status: "PREPARED" } })) throw new Error("A payout for this provider is already prepared. Record it as paid or cancel it first.");
     const earnings = await tx.vpEarning.findMany({ where: { providerId, status: "PAYABLE" }, select: { id: true, netKobo: true } });
     if (!earnings.length) throw new Error("Nothing is ready to pay this provider.");
@@ -301,7 +305,7 @@ export async function setPayoutDetails(ctx: VpCtx, input: z.input<typeof details
   await system(async (tx) => {
     await lockKey(tx, `vr-payout:${ctx.providerId}`);
     if (await tx.vpPayout.findFirst({ where: { providerId: ctx.providerId, status: "PREPARED" } })) throw new Error("A payout to your current account is being prepared. Change the account after it has been paid.");
-    await tx.serviceProvider.update({ where: { id: ctx.providerId }, data: { payoutBankName: d.bankName, payoutAccountName: d.accountName, payoutAccountNumber: d.accountNumber, payoutUpdatedAt: new Date() } });
+    await tx.vpPayoutAccount.upsert({ where: { providerId: ctx.providerId }, create: { providerId: ctx.providerId, bankName: d.bankName, accountName: d.accountName, accountNumber: d.accountNumber, updatedById: ctx.userId }, update: { bankName: d.bankName, accountName: d.accountName, accountNumber: d.accountNumber, updatedById: ctx.userId } });
     await logActivity(tx, { companyId: null, actorId: ctx.userId, entityType: "verification_provider", entityId: ctx.providerId, action: "provider.payout_account_changed", detail: { bank: d.bankName, account: maskAccount(d.accountNumber) } });
     // Everyone who handles the organisation's money hears about a change of account, so a wrong change is noticed.
     await notifyProviderFinance(tx, ctx.providerId, { kind: "verification.finance", title: "Payout bank account changed", body: `Payouts now go to ${d.bankName}, ${maskAccount(d.accountNumber)}. If you did not expect this, tell Housy at once.`, link: `/provider/${ctx.code}/finance` });
@@ -319,7 +323,8 @@ export async function providerFinance(ctx: VpCtx) {
     ]);
     const cases = new Map((await system((t2) => t2.vpCase.findMany({ where: { id: { in: earnings.map((e) => e.caseId) }, providerId: ctx.providerId }, select: { id: true, ref: true, propertyAddress: true } }))).map((c) => [c.id, c]));
     const sum = (st: string[]) => earnings.filter((e) => st.includes(e.status)).reduce((n, e) => n + e.netKobo, 0n);
-    const p = await prisma.serviceProvider.findUniqueOrThrow({ where: { id: ctx.providerId }, select: { payoutBankName: true, payoutAccountName: true, payoutAccountNumber: true, payoutUpdatedAt: true } });
+    const a = await tx.vpPayoutAccount.findUnique({ where: { providerId: ctx.providerId } });
+    const p = { payoutBankName: a?.bankName ?? "", payoutAccountName: a?.accountName ?? "", payoutAccountNumber: a?.accountNumber ?? "", payoutUpdatedAt: a?.updatedAt ?? null };
     return {
       totals: { pending: sum(["PENDING"]), held: sum(["HELD"]), payable: sum(["PAYABLE"]), inPayout: sum(["IN_PAYOUT"]), paid: sum(["PAID"]) },
       earnings: earnings.map((e) => ({ ...e, caseRef: cases.get(e.caseId)?.ref ?? "", property: cases.get(e.caseId)?.propertyAddress ?? "" })),

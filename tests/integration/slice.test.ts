@@ -161,6 +161,8 @@ test("verification requests need explicit consent, and preselection is never cou
   const provider = await saveProvider(null, {
     name: "Test Verification Ltd", shortName: "TVL", services: "Title checks", status: "APPROVED", placement: "AFFILIATED", featured: false,
   });
+  // Recommended to buyers only once vetted through the verification network.
+  await prisma.serviceProvider.update({ where: { id: provider.id }, data: { vettedAt: new Date(), vettedById: admin.id } });
   const before = await verificationMetrics();
   await recordRecommendationEvent({ providerId: provider.id, listingRef: listing.publicRef, userId: null, visitorKey: "v-1", trigger: "view", event: "IMPRESSION" });
   const mid = await verificationMetrics();

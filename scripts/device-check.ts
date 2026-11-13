@@ -148,7 +148,7 @@ async function main() {
   const token = lines[0];
   const seekerToken = lines[2];
   const platformToken = lines[3];
-  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/flatmates") || p.startsWith("/portal") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
+  const tokenFor = (p: string) => (p.startsWith("/me") || p.startsWith("/flatmates") || p.startsWith("/portal") || p.startsWith("/directory") || p.startsWith("/messages") || p.startsWith("/referrals") || p.startsWith("/rewards") || p.startsWith("/vacancies") || p.startsWith("/feedback") || p.startsWith("/reviews") || p.startsWith("/verification/") ? seekerToken : p.startsWith("/admin") ? platformToken : token);
   const all = lines.slice(4).filter((p) => !p.endsWith(".csv") && !p.includes("/statement") && !p.endsWith("/calendar"));
   const seen = new Set<string>();
   const signedIn: string[] = [];
@@ -161,7 +161,7 @@ async function main() {
   const landing = await (await fetch(`${BASE}/`)).text();
   const prop = landing.match(/properties\/PROP-[A-Z0-9]+/)?.[0];
   const marketCity = (await (await fetch(`${BASE}/market`)).text()).match(/href="(\/market\/[a-z0-9-]+)"/)?.[1];
-  const publicPages = ["/", "/?intro=1", "/pricing", "/login", "/login?as=agent", "/login?as=company", "/forgot", "/support", "/join", "/join?as=personal", "/join?as=agent", "/join?as=company", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", "/offline", "/market", "/field", "/reels", "/blog", "/legal", "/legal/terms", "/legal/privacy", "/legal/delete-account", "/artisans", "/directory?kind=agents", "/assistant", ...(marketCity ? [marketCity] : []), ...(prop ? [`/${prop}`] : [])];
+  const publicPages = ["/", "/?intro=1", "/pricing", "/login", "/login?as=agent", "/login?as=company", "/forgot", "/support", "/join", "/join?as=personal", "/join?as=agent", "/join?as=company", "/trust", "/calculators", "/calculators?tab=develop", "/compare", "/browse", "/browse/buy", "/browse/rent?minBeds=1&amenity=SECURITY", "/browse/land", "/faq", "/how-it-works", "/about", "/safety", "/reviews", "/offline", "/market", "/field", "/reels", "/blog", "/legal", "/legal/terms", "/legal/privacy", "/legal/delete-account", "/artisans", "/directory?kind=agents", "/assistant", "/verification-partners", "/verification/check", "/verification/check?ref=NOT-A-REF", ...(marketCity ? [marketCity] : []), ...(prop ? [`/${prop}`] : [])];
   // A visitor with no account who opened a shared property: the sign-up invitation and the locked photos.
   const guestPages = prop ? [`/${prop}?shared=1`] : [];
   const pages = [...publicPages.map((p) => ({ p, auth: false, guest: false })), ...guestPages.map((p) => ({ p, auth: false, guest: true })), ...signedIn.map((p) => ({ p, auth: true, guest: false }))];

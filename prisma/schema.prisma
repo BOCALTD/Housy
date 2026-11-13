@@ -768,10 +768,6 @@ model ServiceProvider {
   allowedStates   String[]  @default([]) @map("allowed_states")
   suspendedAt     DateTime? @map("suspended_at")
   suspendedReason String    @default("") @map("suspended_reason")
-  payoutBankName      String    @default("") @map("payout_bank_name")
-  payoutAccountName   String    @default("") @map("payout_account_name")
-  payoutAccountNumber String    @default("") @map("payout_account_number")
-  payoutUpdatedAt     DateTime? @map("payout_updated_at")
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
   members         ProviderMember[]
   application     VpApplication?
@@ -6180,6 +6176,7 @@ model VpAssignment {
 
   @@index([caseId])
   @@index([providerId, status])
+  @@index([status, respondBy])
   @@map("verification_assignments")
 }
 
@@ -6284,6 +6281,7 @@ model VpReportVersion {
   report              VpReport  @relation(fields: [reportId], references: [id], onDelete: Restrict)
 
   @@unique([reportId, version])
+  @@index([caseId, version])
   @@map("verification_report_versions")
 }
 
@@ -6405,4 +6403,17 @@ model VpComplaint {
   @@index([status, createdAt])
   @@index([complainantId])
   @@map("verification_complaints")
+}
+
+/// The bank account Housy pays a provider to. Kept apart from the public provider record, behind row-level security:
+/// only the provider's owner and finance staff, and Housy's administrators, can read it.
+model VpPayoutAccount {
+  providerId    String   @id @map("provider_id")
+  bankName      String   @map("bank_name")
+  accountName   String   @map("account_name")
+  accountNumber String   @map("account_number")
+  updatedById   String   @map("updated_by_id")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("verification_payout_accounts")
 }

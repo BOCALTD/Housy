@@ -6142,6 +6142,8 @@ model VpCase {
   priceKobo          BigInt?      @map("price_kobo")
   feeKobo            BigInt?      @map("fee_kobo")
   invoiceId          String?      @unique @map("invoice_id")
+  customerRating     Int?         @map("customer_rating")
+  customerFeedback   String       @default("") @map("customer_feedback")
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at")
   deliveredAt        DateTime?    @map("delivered_at")
@@ -6364,4 +6366,41 @@ model VpPayout {
   @@index([providerId, preparedAt])
   @@index([status])
   @@map("verification_payouts")
+}
+
+// ---------- Verification network, stage 8: complaints ----------
+
+enum VpComplaintStatus {
+  OPEN
+  INVESTIGATING
+  UPHELD
+  NOT_UPHELD
+  WITHDRAWN
+}
+
+/// A complaint about a provider, by a customer it worked for (about a case) or by Housy. The provider sees it and answers;
+/// Housy decides. Upheld complaints count against the provider's performance.
+model VpComplaint {
+  id                  String            @id @default(uuid())
+  ref                 String            @unique
+  providerId          String            @map("provider_id")
+  caseId              String?           @map("case_id")
+  complainantId       String            @map("complainant_id")
+  byHousy             Boolean           @default(false) @map("by_housy")
+  category            String
+  description         String
+  status              VpComplaintStatus @default(OPEN)
+  providerResponse    String            @default("") @map("provider_response")
+  providerResponderId String?           @map("provider_responder_id")
+  providerRespondedAt DateTime?         @map("provider_responded_at")
+  resolution          String            @default("")
+  resolvedById        String?           @map("resolved_by_id")
+  resolvedAt          DateTime?         @map("resolved_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  @@index([providerId, createdAt])
+  @@index([status, createdAt])
+  @@index([complainantId])
+  @@map("verification_complaints")
 }

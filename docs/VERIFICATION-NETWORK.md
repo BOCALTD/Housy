@@ -39,11 +39,23 @@ security on all eight tables. Tests: `tests/unit/verification-cases.test.ts` (th
 `tests/integration/phase19b.test.ts` (the whole flow, overrides, conflicts, expiry, isolation between providers and from
 investigators not on the case, the customer never seeing evidence or unreleased versions, immutability through the database).
 
-Payment for a case is recorded as a note at intake until stage 7 adds invoices and payments.
+## Built (stage 7: money)
+
+| What | How |
+|---|---|
+| Quote | Housy quotes a new request (`/admin/verification/cases/[ref]`). Housy's fee (15%, `PLATFORM_FEE_BPS`) and the provider's share are fixed on the case; the database refuses any later change. The provider sees its share on the offer before accepting. |
+| Invoice and payment | The quote is an ordinary platform invoice (purpose VERIFICATION) the customer pays from `/me/billing/[id]`: online through the configured payment provider (verified provider messages only), or by bank transfer an administrator confirms in Payments. A paid invoice moves the case to "Ready for a provider" by itself. The money is held (FUNDS_HELD in the VERIFICATION ledger). A case can also be taken on as paid outside Housy, with a note. Cancelling an unpaid case withdraws its invoice; cancelling a paid one tells Housy to refund. |
+| Earning | Created when the report is released: price, fee, share. Waiting for the customer; payable when the customer confirms or 7 days pass without a dispute (scheduled job and on page load); held by a dispute or revocation; cancelled by a full refund. Becoming payable recognises it in the books: held money out, Housy's fee to REVENUE, the share to PROVIDER_PAYABLE. |
+| Refund | Through Payments as for any invoice, while the money is still held. Once it is the provider's earning the refund is refused with an explanation. |
+| Payout | `/admin/verification/payouts`: Housy prepares a payout of a provider's payable earnings to its bank account on record, makes the bank transfer itself (no automatic transfer exists), and records the transfer reference and date. A paid payout and its earnings never change (trigger). Cancelling a prepared payout returns its earnings. |
+| Provider | `/provider/[code]/finance` for the owner and finance staff: totals by state, earnings (paged), payouts, the payout bank account (10-digit NUBAN; everyone handling money is told of a change; no change while a payout is prepared) and a CSV statement. |
+| Books | `reconcileFinance` also checks that what is owed to providers equals their recognised unpaid earnings, every paid payout is booked, and nothing unrecognised is paid. |
+
+Migration `20270101000000_verification_finance`; tests in `tests/unit/verification-finance.test.ts` (split, moves equal the trigger)
+and the money test in `tests/integration/phase19b.test.ts`.
 
 ## Still to build
 
-7. Pricing, invoices, payments, settlement, refunds and payouts as separate recorded states.
 8. Complaints, performance indicators, credential expiry monitoring.
 9. BOCA: apply through the network and be linked to its existing record (supported now) and its existing data carried over.
 10. Further security, performance and end-to-end tests across the whole flow.

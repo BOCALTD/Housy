@@ -5,7 +5,7 @@ import { Field, Flash, sp, type SP } from "@/components/ui";
 import { caseForProvider, providerCaseContext } from "@/lib/services/verification-cases";
 import { FINDING_BASES, OUTCOMES, nextCaseStatuses, reportGaps, CASE_STATUS_WORDS, type CaseStatus, type ReportContent } from "@/lib/verification-case-rules";
 import { VP_ROLE_LABELS, vpCan } from "@/lib/verification-network-rules";
-import { CaseStatusPill, CaseTimeline, day, kb, outcomeName, serviceName, when } from "@/app/verification/case-ui";
+import { CaseStatusPill, CaseTimeline, day, kb, naira, outcomeName, serviceName, when } from "@/app/verification/case-ui";
 import { OrgHeader } from "../../[code]/shared";
 import {
   answerOfferAction, assignStaffAction, completeInspectionAction, evidenceAction, moveCaseAction, reviewAction, saveReportAction, scheduleInspectionAction,
@@ -61,6 +61,7 @@ export default async function ProviderCase({ params: p, searchParams: s }: { par
         <section className="card stack vp-ask">
           <h2>Housy offers you this case</h2>
           <p>Answer by <strong>{when(c.acceptBy)}</strong>. If you do not, it is offered to another provider.</p>
+          {c.priceKobo !== null ? <p>Your share: <strong>{naira(c.priceKobo - (c.feeKobo ?? 0n))}</strong> <span className="small muted">(the customer pays {naira(c.priceKobo)}; Housy&apos;s fee is {naira(c.feeKobo)}). Paid to you after delivery, once the customer confirms or the waiting time passes.</span></p> : <p className="small muted">This case is paid for outside Housy&apos;s invoicing; Housy will agree your fee with you directly.</p>}
           <form action={answerOfferAction} className="stack">{hidden}
             <Field label="Reason" hint="Required to decline; Housy sees it"><textarea name="reason" maxLength={1500} rows={2} /></Field>
             <div className="row" style={{ flexWrap: "wrap" }}>

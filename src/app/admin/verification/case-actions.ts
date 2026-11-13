@@ -5,6 +5,7 @@ import { act, str, withNotice } from "@/lib/forms";
 import {
   assignCase, cancelByAdmin, decideIntake, platformDecision, releaseReport, resolveDispute, revokeReport, startPlatformReview, withdrawOffer,
 } from "@/lib/services/verification-cases";
+import { quoteCase } from "@/lib/services/verification-finance";
 
 const casePage = (ref: string) => `/admin/verification/cases/${encodeURIComponent(ref)}`;
 function run(form: FormData, fn: (adminId: string, ref: string) => Promise<unknown>, done: string) {
@@ -13,8 +14,11 @@ function run(form: FormData, fn: (adminId: string, ref: string) => Promise<unkno
 }
 
 export async function intakeAction(form: FormData) {
-  const to = str(form, "to") as "READY_FOR_ASSIGNMENT" | "PENDING_PAYMENT" | "REJECTED";
-  return run(form, (a, ref) => decideIntake(a, ref, to, str(form, "note")), to === "REJECTED" ? "Request declined. The customer has been told why." : to === "PENDING_PAYMENT" ? "Waiting for payment. The customer has been told." : "Confirmed. Offer it to a provider below.");
+  const to = str(form, "to") === "REJECTED" ? "REJECTED" : "READY_FOR_ASSIGNMENT";
+  return run(form, (a, ref) => decideIntake(a, ref, to, str(form, "note")), to === "REJECTED" ? "Request declined. The customer has been told why." : "Confirmed. Offer it to a provider below.");
+}
+export async function quoteAction(form: FormData) {
+  return run(form, (a, ref) => quoteCase(a, ref, str(form, "price"), str(form, "note")), "Quoted. The customer has the invoice; the case moves on when it is paid.");
 }
 export async function assignAction(form: FormData) {
   return run(form, (a, ref) => assignCase(a, ref, { providerId: str(form, "providerId"), method: (str(form, "method") || "MANUAL") as never, reason: str(form, "reason"), requiredBy: str(form, "requiredBy") || undefined }), "Offered. The provider has 48 hours to accept or decline.");

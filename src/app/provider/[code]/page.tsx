@@ -46,6 +46,7 @@ export default async function ProviderDashboard({ params: p, searchParams: s }: 
       ) : null}
       <section className="vp-grid">
         <Link className="card vp-tile" href={`/provider/${ctx.code}/cases`}><strong>Verification cases</strong><span className="small muted">Offers from Housy, investigations, evidence and reports</span></Link>
+        {vpCan(ctx.role, "finance.view") ? <Link className="card vp-tile" href={`/provider/${ctx.code}/finance`}><strong>Earnings and payouts</strong><span className="small muted">What you have earned, what is ready to pay, and your payout account</span></Link> : null}
         <Link className="card vp-tile" href={`/provider/${ctx.code}/profile`}><strong>Profile, services and coverage</strong><span className="small muted">How customers see you, what you offer and where</span></Link>
         {vpCan(ctx.role, "staff.view") ? <Link className="card vp-tile" href={`/provider/${ctx.code}/staff`}><strong>Staff and roles</strong><span className="small muted">{VP_ROLES.filter((r) => o.staff[r]).map((r) => `${o.staff[r]} ${VP_ROLE_LABELS[r].toLowerCase()}${o.staff[r]! > 1 ? "s" : ""}`).join(", ") || "Invite your team"}</span></Link> : null}
         <Link className="card vp-tile" href={`/provider/${ctx.code}/documents`}><strong>Documents</strong><span className="small muted">{o.docs} on file</span></Link>

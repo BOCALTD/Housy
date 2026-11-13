@@ -25,6 +25,7 @@ import {
   type Candidate, type CaseStatus, type Mover, type ReportContent,
 } from "../verification-case-rules";
 import { renderVerificationReport } from "../verification-report-pdf";
+import { asHousy, earningOnRelease, earningPayable, holdEarning } from "./verification-finance";
 
 const SYSTEM = "system";
 const system = <T>(fn: (tx: Tx) => Promise<T>) => withPlatformAdmin(SYSTEM, fn);
@@ -114,29 +115,36 @@ export async function caseForCustomer(userId: string, ref: string) {
   });
 }
 
-async function customerMove(userId: string, ref: string, to: CaseStatus, action: string, note: string, extra: Record<string, unknown> = {}) {
+async function customerMove(userId: string, ref: string, to: CaseStatus, action: string, note: string, extra: Record<string, unknown> = {}, then?: (tx: Tx, caseId: string) => Promise<void>) {
   await withUser(userId, async (tx) => {
     const c = await tx.vpCase.findFirst({ where: { ref, requesterId: userId }, select: { id: true, status: true, providerId: true } });
     if (!c) throw new Error("That request was not found.");
     if (!canMoveCase(c.status as CaseStatus, to, { kind: "customer" })) throw new Error("That cannot be done at this stage of the request.");
     await tx.vpCase.update({ where: { id: c.id }, data: { status: to, ...extra } });
     await activity(tx, { caseId: c.id, actorId: userId, actorKind: "customer", action, from: c.status, to, note });
+    if (then) await then(tx, c.id);
     if (c.providerId && to !== "CANCELLED") await system((t2) => notifyProviderLeads(t2, c.providerId!, { kind: "verification.case", title: `Case ${ref}: ${action.replace(/_/g, " ")}`, body: note.slice(0, 200), link: `/provider/cases/${ref}` }));
   });
   await system((tx) => notifyAdmins(tx, { kind: "verification.case", title: `Case ${ref}: customer ${action.replace(/_/g, " ")}`, body: note.slice(0, 200), link: `/admin/verification/cases/${ref}` }));
 }
 
 export async function cancelByCustomer(userId: string, ref: string, reason: string) {
-  await customerMove(userId, ref, "CANCELLED", "cancelled", z.string().trim().max(1000).parse(reason), { closingNote: reason.slice(0, 1000) });
+  await customerMove(userId, ref, "CANCELLED", "cancelled", z.string().trim().max(1000).parse(reason), { closingNote: reason.slice(0, 1000) }, (tx, id) => asHousy(tx, async () => {
+    await voidOpenInvoice(tx, id, "Cancelled by the customer");
+    const paid = await tx.invoice.findFirst({ where: { subjectId: id, purpose: "VERIFICATION", status: "PAID" }, select: { ref: true } });
+    if (paid) await notifyAdmins(tx, { kind: "verification.case", title: `Case ${ref} cancelled after payment`, body: `Refund invoice ${paid.ref} from Payments.`, link: "/admin/payments" });
+  }));
 }
 export async function answerInformationRequest(userId: string, ref: string, answer: string) {
   await customerMove(userId, ref, "DOCUMENT_REVIEW", "information_provided", z.string().trim().min(5, "Write your answer (5 characters or more)").max(3000).parse(answer));
 }
 export async function acknowledgeReport(userId: string, ref: string) {
-  await customerMove(userId, ref, "COMPLETED", "completed", "The customer confirmed they have the report.", { completedAt: new Date() });
+  // The provider's earning becomes payable now: the customer has accepted the report.
+  await customerMove(userId, ref, "COMPLETED", "completed", "The customer confirmed they have the report.", { completedAt: new Date() }, (tx, id) => asHousy(tx, () => earningPayable(tx, id, userId, new Date())));
 }
 export async function disputeReport(userId: string, ref: string, reason: string) {
-  await customerMove(userId, ref, "DISPUTED", "disputed", z.string().trim().min(20, "Explain what you dispute and why (20 characters or more)").max(3000).parse(reason));
+  const text = z.string().trim().min(20, "Explain what you dispute and why (20 characters or more)").max(3000).parse(reason);
+  await customerMove(userId, ref, "DISPUTED", "disputed", text, {}, (tx, id) => asHousy(tx, () => holdEarning(tx, id, `Disputed by the customer: ${text}`)));
 }
 
 export async function addCustomerDocument(userId: string, ref: string, title: string, file: { name: string; type: string; bytes: Uint8Array }) {
@@ -223,8 +231,15 @@ export async function caseForAdmin(adminId: string, ref: string) {
     const people = await tx.user.findMany({ where: { id: { in: [...new Set([...activities.map((a) => a.actorId), ...assignments.map((a) => a.assignedById)])] } }, select: { id: true, name: true } });
     const pnames = new Map((await tx.serviceProvider.findMany({ where: { id: { in: [...new Set([c.providerId, c.preferredProviderId, ...assignments.map((a) => a.providerId)].filter(Boolean) as string[])] } }, select: { id: true, name: true, providerCode: true } })).map((p) => [p.id, p]));
     const names = new Map(people.map((u) => [u.id, u.name]));
-    return { ...c, activities: activities.map((a) => ({ ...a, actor: a.actorId === SYSTEM ? "Housy" : names.get(a.actorId) ?? a.actorKind })), files, assignments: assignments.map((a) => ({ ...a, providerName: pnames.get(a.providerId)?.name ?? "", by: names.get(a.assignedById) ?? "Housy" })), report, requester, inspections, ranked, provider: c.providerId ? pnames.get(c.providerId) ?? null : null, preferred: c.preferredProviderId ? pnames.get(c.preferredProviderId) ?? null : null };
+    const invoice = c.invoiceId ? await tx.invoice.findUnique({ where: { id: c.invoiceId }, select: { id: true, ref: true, status: true, amountKobo: true, paidAt: true, dueOn: true } }) : null;
+    const earning = await tx.vpEarning.findUnique({ where: { caseId: c.id } });
+    return { ...c, invoice, earning, activities: activities.map((a) => ({ ...a, actor: a.actorId === SYSTEM ? "Housy" : names.get(a.actorId) ?? a.actorKind })), files, assignments: assignments.map((a) => ({ ...a, providerName: pnames.get(a.providerId)?.name ?? "", by: names.get(a.assignedById) ?? "Housy" })), report, requester, inspections, ranked, provider: c.providerId ? pnames.get(c.providerId) ?? null : null, preferred: c.preferredProviderId ? pnames.get(c.preferredProviderId) ?? null : null };
   });
+}
+
+/** An unpaid quote is withdrawn when the case will not be paid through it (cancelled, or paid for another way). */
+async function voidOpenInvoice(tx: Tx, caseId: string, reason: string) {
+  await tx.invoice.updateMany({ where: { subjectId: caseId, purpose: "VERIFICATION", status: "OPEN" }, data: { status: "VOID", voidedAt: new Date(), voidReason: reason } });
 }
 
 async function platformMove(tx: Tx, adminId: string, ref: string, to: CaseStatus, action: string, note: string, data: Record<string, unknown> = {}, visible = true) {
@@ -236,12 +251,20 @@ async function platformMove(tx: Tx, adminId: string, ref: string, to: CaseStatus
   return c;
 }
 
-/** Housy confirms a request: ready for a provider (billing arranged), waiting for payment, or not taken on (with a reason). */
-export async function decideIntake(adminId: string, ref: string, to: "READY_FOR_ASSIGNMENT" | "PENDING_PAYMENT" | "REJECTED", note: string) {
-  const text = to === "REJECTED" ? z.string().trim().min(10, "Give the reason (10 characters or more): the customer sees it").max(2000).parse(note) : note.trim().slice(0, 2000);
+/**
+ * Housy decides on a new request without a quote: not taken on (with a reason the customer sees), or taken on with the fee
+ * arranged outside Housy's invoicing (for example a corporate agreement), which needs a note saying how. To charge the customer
+ * through Housy, quote the case instead (verification-finance quoteCase): it waits for payment and moves on when paid.
+ */
+export async function decideIntake(adminId: string, ref: string, to: "READY_FOR_ASSIGNMENT" | "REJECTED", note: string) {
+  const text = to === "REJECTED"
+    ? z.string().trim().min(10, "Give the reason (10 characters or more): the customer sees it").max(2000).parse(note)
+    : z.string().trim().min(10, "Say how this verification is paid for (10 characters or more), or quote it instead").max(2000).parse(note);
   await withPlatformAdmin(adminId, async (tx) => {
-    const c = await platformMove(tx, adminId, ref, to, to === "READY_FOR_ASSIGNMENT" ? "billing_confirmed" : to === "PENDING_PAYMENT" ? "payment_requested" : "rejected", text, to === "REJECTED" ? { closingNote: text } : {});
-    await notify(tx, c.requesterId, { kind: "verification.case", title: `Verification request ${ref}`, body: to === "READY_FOR_ASSIGNMENT" ? "Confirmed. Housy is now choosing a qualified provider." : to === "PENDING_PAYMENT" ? `Waiting for payment.${text ? ` ${text}` : ""}` : `Not taken on: ${text}`, link: `/verification/cases/${ref}` });
+    const c = await platformMove(tx, adminId, ref, to, to === "READY_FOR_ASSIGNMENT" ? "billing_confirmed" : "rejected", to === "REJECTED" ? text : "Paid for outside Housy's invoicing.", to === "REJECTED" ? { closingNote: text } : {});
+    if (to === "READY_FOR_ASSIGNMENT") await activity(tx, { caseId: c.id, actorId: adminId, actorKind: "platform", action: "billing_note", note: text, visible: false });
+    if (c.status === "PENDING_PAYMENT") await voidOpenInvoice(tx, c.id, "Paid for outside Housy's invoicing");
+    await notify(tx, c.requesterId, { kind: "verification.case", title: `Verification request ${ref}`, body: to === "READY_FOR_ASSIGNMENT" ? "Confirmed. Housy is now choosing a qualified provider." : `Not taken on: ${text}`, link: `/verification/cases/${ref}` });
   });
 }
 
@@ -310,6 +333,7 @@ export async function cancelByAdmin(adminId: string, ref: string, reason: string
   const text = z.string().trim().min(10, "Give the reason (10 characters or more): the customer and the provider see it").max(2000).parse(reason);
   await withPlatformAdmin(adminId, async (tx) => {
     const c = await platformMove(tx, adminId, ref, "CANCELLED", "cancelled", text, { closingNote: text });
+    await voidOpenInvoice(tx, c.id, "Cancelled by Housy");
     await tx.vpAssignment.updateMany({ where: { caseId: c.id, status: "OFFERED" }, data: { status: "WITHDRAWN", decidedAt: new Date(), decidedById: adminId } });
     await notify(tx, c.requesterId, { kind: "verification.case", title: `Verification ${ref} cancelled`, body: text.slice(0, 300), link: `/verification/cases/${ref}` });
     if (c.providerId) await notifyProviderLeads(tx, c.providerId, { kind: "verification.case", title: `Case ${ref} cancelled by Housy`, body: text.slice(0, 200), link: `/provider/cases/${ref}` });
@@ -623,6 +647,7 @@ export async function releaseReport(adminId: string, ref: string) {
     await tx.vpReportVersion.update({ where: { id: v.id }, data: { releasedAt: now, sha256: fingerprint } });
     await tx.vpReport.update({ where: { id: report.id }, data: { releasedVersion: v.version } });
     await platformMove(tx, adminId, ref, "DELIVERED", "report_released", `Version ${v.version}`, { deliveredAt: now });
+    await earningOnRelease(tx, c.id, now);
     await notify(tx, c.requesterId, { kind: "verification.case", title: `Your verification report for ${ref} is ready`, body: "Download it from the request page. Anyone can check it is genuine with its report reference.", link: `/verification/cases/${ref}` });
     if (c.providerId) await notifyProviderLeads(tx, c.providerId, { kind: "verification.case", title: `Report for ${ref} released`, body: `Version ${v.version} was delivered to the customer.`, link: `/provider/cases/${ref}` });
   });
@@ -637,6 +662,7 @@ export async function revokeReport(adminId: string, ref: string, reason: string)
     const v = await tx.vpReportVersion.findFirst({ where: { caseId: c.id, releasedAt: { not: null }, supersededAt: null, revokedAt: null }, orderBy: { version: "desc" } });
     if (!v) throw new Error("There is no current released report to revoke.");
     await tx.vpReportVersion.update({ where: { id: v.id }, data: { revokedAt: new Date(), revokedReason: text } });
+    await holdEarning(tx, c.id, `Report revoked: ${text}`);
     await activity(tx, { caseId: c.id, providerId: c.providerId, actorId: adminId, actorKind: "platform", action: "report_revoked", note: text, visible: true });
     await notify(tx, c.requesterId, { kind: "verification.case", title: `Report for ${ref} revoked`, body: text.slice(0, 300), link: `/verification/cases/${ref}` });
   });
@@ -647,6 +673,7 @@ export async function resolveDispute(adminId: string, ref: string, reopen: boole
   const text = z.string().trim().min(10, "Record the decision (10 characters or more): the customer sees it").max(3000).parse(note);
   await withPlatformAdmin(adminId, async (tx) => {
     const c = await platformMove(tx, adminId, ref, reopen ? "PLATFORM_REVIEW" : "COMPLETED", reopen ? "dispute_reopened" : "dispute_closed", text, reopen ? {} : { completedAt: new Date(), closingNote: text });
+    if (!reopen) await earningPayable(tx, c.id, adminId, new Date());
     await notify(tx, c.requesterId, { kind: "verification.case", title: `Your dispute on ${ref}`, body: text.slice(0, 300), link: `/verification/cases/${ref}` });
   });
 }

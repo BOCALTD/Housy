@@ -64,6 +64,7 @@ export async function requestRefund(adminId: string, paymentId: string, input: {
     const pay = await tx.payment.findUnique({ where: { id: paymentId }, include: { invoice: true } });
     if (!pay) throw new Error("Payment not found");
     if (pay.status !== "SUCCEEDED" && pay.status !== "REVIEW") throw new Error("Only a payment that was received can be refunded");
+    if (pay.invoice.purpose === "VERIFICATION") { const { assertVerificationRefundable } = await import("./verification-finance"); await assertVerificationRefundable(tx, pay.invoiceId); }
     const limit = await limitFor(tx, pay);
     if (amount > limit) throw new Error(limit <= 0n ? "Nothing is left to refund on this payment" : "That is more than can still be refunded on this payment");
     const refund = await tx.refund.create({ data: { ref: randomRef("RFD"), paymentId: pay.id, invoiceId: pay.invoiceId, amountKobo: amount, reason: reason.slice(0, 500), requestedById: adminId } });
@@ -127,6 +128,10 @@ export async function completeRefundIn(tx: Tx, refundId: string, by: { actorId?:
   const full = pay.refundedKobo >= (pay.receivedKobo ?? pay.amountKobo);
   if (pay.status === "REVIEW" && full) await tx.payment.update({ where: { id: pay.id }, data: { status: "FAILED", failureReason: "Refunded in full after review" } });
   if (inv.purpose === "SUBSCRIPTION" && pay.status === "SUCCEEDED" && full) await revokeSubscriptionTime(tx, inv, by.now);
+  if (inv.purpose === "VERIFICATION" && pay.status === "SUCCEEDED") {
+    const { applyVerificationRefund } = await import("./verification-finance");
+    await applyVerificationRefund(tx, inv, full, by.actorId ?? "system", by.now);
+  }
   if (inv.purpose === "AD_CAMPAIGN" && pay.status === "SUCCEEDED" && rest > 0n) {
     const { applyCampaignRefund } = await import("./ads");
     await applyCampaignRefund(tx, inv.subjectId, rest, by.now);

@@ -158,6 +158,7 @@ export function adminSection(): NavSection {
       { href: "/admin/partners", label: "Partners", icon: "handshake" },
       { href: "/admin/verification", label: "Verification network", icon: "shield" },
       { href: "/admin/verification/cases", label: "Verification cases", icon: "clipboard" },
+      { href: "/admin/verification/payouts", label: "Verification payouts", icon: "money" },
     ] },
     { label: "Trust and safety", items: [
       { href: "/admin/cases", label: "Trust and Safety cases", icon: "shield" },

@@ -211,23 +211,23 @@ export const VP_ROLE_SUMMARY: Record<VpRole, string> = {
   MANAGER: "Coordinates cases: allocates investigations, follows progress and deadlines.",
   INVESTIGATOR: "Works on the cases given to them: field photographs, findings and field reports.",
   REVIEWER: "Reviews findings, asks for corrections, approves reports for submission.",
-  FINANCE: "Sees the organisation's invoices, earnings and payments.",
+  FINANCE: "Sees the organisation's earnings and payouts, and keeps the bank account payouts go to.",
 };
 
 export type VpAction =
   | "org.view" | "org.profile" | "org.services" | "org.documents"
   | "staff.view" | "staff.manage" | "staff.manage.senior"
   | "case.view.all" | "case.view.assigned" | "case.accept" | "case.assign" | "case.work" | "case.review" | "case.submit"
-  | "finance.view" | "performance.view";
+  | "finance.view" | "finance.manage" | "performance.view";
 
-const ALL: VpAction[] = ["org.view", "org.profile", "org.services", "org.documents", "staff.view", "staff.manage", "staff.manage.senior", "case.view.all", "case.view.assigned", "case.accept", "case.assign", "case.work", "case.review", "case.submit", "finance.view", "performance.view"];
+const ALL: VpAction[] = ["org.view", "org.profile", "org.services", "org.documents", "staff.view", "staff.manage", "staff.manage.senior", "case.view.all", "case.view.assigned", "case.accept", "case.assign", "case.work", "case.review", "case.submit", "finance.view", "finance.manage", "performance.view"];
 const PERMS: Record<VpRole, VpAction[]> = {
   OWNER: ALL,
   ADMIN: ["org.view", "org.services", "org.documents", "staff.view", "staff.manage", "case.view.all", "case.view.assigned", "case.accept", "case.assign", "case.work", "case.submit", "performance.view"],
   MANAGER: ["org.view", "staff.view", "case.view.all", "case.view.assigned", "case.accept", "case.assign", "performance.view"],
   INVESTIGATOR: ["org.view", "case.view.assigned", "case.work"],
   REVIEWER: ["org.view", "case.view.all", "case.view.assigned", "case.review", "case.submit"],
-  FINANCE: ["org.view", "finance.view"],
+  FINANCE: ["org.view", "finance.view", "finance.manage"],
 };
 export function vpCan(role: VpRole, action: VpAction): boolean {
   return PERMS[role]?.includes(action) ?? false;

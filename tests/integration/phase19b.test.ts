@@ -19,6 +19,12 @@ import {
   resolveDispute, revokeReport, reviewerDecision, saveReportDraft, startPlatformReview, submitForInternalReview,
 } from "../../src/lib/services/verification-cases";
 import { newPlatformAdmin, PDF_BYTES } from "./helpers";
+import { recordOfflinePayment } from "../../src/lib/services/billing";
+import { confirmRefund, requestRefund } from "../../src/lib/services/refunds";
+import { acknowledgeReport } from "../../src/lib/services/verification-cases";
+import {
+  cancelPayout, markPayoutPaid, preparePayout, providerFinance, quoteCase, reconcileVerification, setPayoutDetails,
+} from "../../src/lib/services/verification-finance";
 
 after(() => prisma.$disconnect());
 
@@ -169,7 +175,8 @@ test("a declined offer needs a reason; a conflict keeps the provider off the cas
   const a = await approvedOrg(admin, `Delta${randomUUID().slice(0, 4)}`);
   const b = await approvedOrg(admin, `Echo${randomUUID().slice(0, 4)}`);
   const ref = await requestVerification(customer.id, { propertyAddress: "12 Bourdillon Road, Ikoyi", state: "Lagos", propertyType: "LAND", services: ["TITLE"] });
-  await decideIntake(admin.id, ref, "READY_FOR_ASSIGNMENT", "");
+  await assert.rejects(decideIntake(admin.id, ref, "READY_FOR_ASSIGNMENT", ""), /how this verification is paid for/);
+  await decideIntake(admin.id, ref, "READY_FOR_ASSIGNMENT", "Paid under the bank's framework agreement.");
   await assignCase(admin.id, ref, { providerId: a.providerId, method: "MANUAL" });
   await assert.rejects(answerOffer(a.owner, ref, false, ""), /reason/);
   await answerOffer(a.owner, ref, false, "We act for the seller of this property.", true);
@@ -188,4 +195,103 @@ test("a declined offer needs a reason; a conflict keeps the provider off the cas
   assert.ok(again.assignments.some((x) => x.providerId === b.providerId && x.status === "EXPIRED"));
   // A provider can never hand a case to itself or move a case it does not hold, even straight through the database.
   await assert.rejects(withUser(b.owner.userId, (tx) => tx.vpCase.update({ where: { id: view.id }, data: { providerId: b.providerId, status: "ACCEPTED" } })));
+});
+
+test("money: a quote is paid, the provider's share is earned on delivery, held by a dispute, refunded only while held, and paid out once", async () => {
+  const admin = await newPlatformAdmin();
+  const a = await approvedOrg(admin, `fox${randomUUID().slice(0, 4)}`);
+  const other = await approvedOrg(admin, `golf${randomUUID().slice(0, 4)}`);
+  const inv = await a.staff("INVESTIGATOR");
+  const rev = await a.staff("REVIEWER");
+  const finance = await (async () => {
+    const u = await person("finance");
+    const t = await inviteProviderStaff(a.owner, { email: u.email, role: "FINANCE" as never });
+    await acceptProviderInvitation(t, { existingUserId: u.id });
+    return (await providerContext(u.id, a.code))!;
+  })();
+
+  /** A paid case, delivered by provider A. */
+  async function deliveredCase(label: string) {
+    const customer = await person(label);
+    const ref = await requestVerification(customer.id, { propertyAddress: `Plot ${label}, Lekki Phase 1`, state: "Lagos", propertyType: "LAND", services: ["TITLE"] });
+    await assert.rejects(quoteCase(admin.id, ref, "100", ""), /between/);
+    const invoiceId = await quoteCase(admin.id, ref, "200,000", "Title search and report.");
+    await assert.rejects(quoteCase(admin.id, ref, "250,000", ""), /already been quoted/);
+    // The price is fixed once quoted, even straight through the database.
+    await assert.rejects(withPlatformAdmin(admin.id, (tx) => tx.vpCase.updateMany({ where: { ref }, data: { priceKobo: 1n } })));
+    assert.equal((await caseForCustomer(customer.id, ref))!.status, "PENDING_PAYMENT");
+    await recordOfflinePayment(admin.id, invoiceId, { amount: "200,000", reference: `NIP-${randomUUID().slice(0, 10)}` });
+    assert.equal((await caseForCustomer(customer.id, ref))!.status, "READY_FOR_ASSIGNMENT", "payment moves the case on");
+    await assignCase(admin.id, ref, { providerId: a.providerId, method: "MANUAL" });
+    const offered = (await caseForProvider(a.owner, ref))!;
+    assert.equal(offered.priceKobo! - offered.feeKobo!, 17_000_000n, "the provider sees its share (₦170,000) before accepting");
+    await answerOffer(a.owner, ref, true, "");
+    await assignStaff(a.owner, ref, inv.userId, rev.userId);
+    await moveProviderCase(inv, ref, "DOCUMENT_REVIEW", "");
+    await moveProviderCase(inv, ref, "INVESTIGATION_IN_PROGRESS", "");
+    await saveReportDraft(inv, ref, fullReport);
+    await moveProviderCase(inv, ref, "REPORT_DRAFT", "");
+    await submitForInternalReview(inv, ref);
+    await reviewerDecision(rev, ref, true, "");
+    await startPlatformReview(admin.id, ref);
+    await platformDecision(admin.id, ref, true, "");
+    await releaseReport(admin.id, ref);
+    const id = (await caseForAdmin(admin.id, ref))!.id;
+    return { customer, ref, invoiceId, id };
+  }
+  const earningOf = (caseId: string) => withPlatformAdmin(admin.id, (tx) => tx.vpEarning.findUniqueOrThrow({ where: { caseId } }));
+  const paymentOf = (invoiceId: string) => withPlatformAdmin(admin.id, (tx) => tx.payment.findFirstOrThrow({ where: { invoiceId } }));
+
+  // Case 1: delivered, confirmed by the customer, paid out.
+  const one = await deliveredCase("hotel");
+  let e1 = await earningOf(one.id);
+  assert.equal(e1.status, "PENDING");
+  assert.equal(e1.netKobo, 17_000_000n);
+  assert.ok(e1.payableFrom! > new Date(Date.now() + 6 * 86_400_000));
+  await assert.rejects(preparePayout(admin.id, a.providerId), /bank account|Nothing is ready/);
+  await acknowledgeReport(one.customer.id, one.ref);
+  e1 = await earningOf(one.id);
+  assert.equal(e1.status, "PAYABLE");
+  assert.ok(e1.recognisedAt);
+  const books = await withPlatformAdmin(admin.id, (tx) => tx.financeEntry.findMany({ where: { invoiceId: one.invoiceId } }));
+  const bal = (acct: string) => books.filter((x) => x.account === acct).reduce((n, x) => n + x.amountKobo, 0n);
+  assert.deepEqual([bal("FUNDS_HELD"), bal("REVENUE"), bal("PROVIDER_PAYABLE")], [0n, 3_000_000n, 17_000_000n], "Housy's fee is revenue; the provider's share is owed to it");
+  await assert.rejects(requestRefund(admin.id, (await paymentOf(one.invoiceId)).id, { amount: "200,000", reason: "Customer changed their mind" }), /provider's earning/);
+
+  // Payout account: owner and finance only; a proper NUBAN.
+  await assert.rejects(setPayoutDetails(inv, { bankName: "GTBank", accountName: "Fox Ltd", accountNumber: "0123456789" }), /owner or finance/);
+  await assert.rejects(setPayoutDetails(finance, { bankName: "GTBank", accountName: "Fox Ltd", accountNumber: "12345" }), /10-digit/);
+  await assert.rejects(preparePayout(admin.id, a.providerId), /bank account/);
+  await setPayoutDetails(finance, { bankName: "GTBank", accountName: "Fox Verification Ltd", accountNumber: "0123 456 789" });
+  const po = await preparePayout(admin.id, a.providerId);
+  await assert.rejects(preparePayout(admin.id, a.providerId), /already prepared/);
+  await assert.rejects(setPayoutDetails(finance, { bankName: "Access", accountName: "Someone Else", accountNumber: "9876543210" }), /being prepared/);
+  assert.equal((await providerFinance(finance)).totals.inPayout, 17_000_000n);
+  await assert.rejects(providerFinance(inv), /does not allow/);
+  assert.equal(await withUser(other.owner.userId, (tx) => tx.vpEarning.count({ where: { providerId: a.providerId } })), 0, "another provider sees none of it");
+  assert.equal(await withUser(inv.userId, (tx) => tx.vpPayout.count({ where: { providerId: a.providerId } })), 0, "an investigator sees no payouts");
+  // Cancelling returns the earnings; preparing again works.
+  await cancelPayout(admin.id, po, "Wrong batch date.");
+  const po2 = await preparePayout(admin.id, a.providerId);
+  await assert.rejects(markPayoutPaid(admin.id, po2, { reference: "FT123", paidOn: "2999-01-01" }), /future/);
+  await markPayoutPaid(admin.id, po2, { reference: `FT${randomUUID().slice(0, 8)}`, paidOn: new Date().toISOString().slice(0, 10) });
+  await assert.rejects(markPayoutPaid(admin.id, po2, { reference: "FT999", paidOn: new Date().toISOString().slice(0, 10) }), /prepared payout/);
+  assert.equal((await earningOf(one.id)).status, "PAID");
+  // A paid payout never changes, not even for Housy's administrators.
+  await assert.rejects(withPlatformAdmin(admin.id, (tx) => tx.vpPayout.updateMany({ where: { ref: po2 }, data: { transferReference: "CHANGED" } })));
+  await assert.rejects(withPlatformAdmin(admin.id, (tx) => tx.vpEarning.updateMany({ where: { caseId: one.id }, data: { status: "PAYABLE" } })));
+  const f = await providerFinance(a.owner);
+  assert.equal(f.totals.paid, 17_000_000n);
+
+  // Case 2: delivered then disputed: the earning is held, and the customer can still be refunded; the earning is then cancelled.
+  const two = await deliveredCase("india");
+  await disputeReport(two.customer.id, two.ref, "The report misses the government acquisition notice for this area.");
+  assert.equal((await earningOf(two.id)).status, "HELD");
+  const r = await requestRefund(admin.id, (await paymentOf(two.invoiceId)).id, { amount: "200,000", reason: "Dispute upheld: full refund" });
+  await confirmRefund(admin.id, r.refundId);
+  assert.equal((await earningOf(two.id)).status, "VOID");
+
+  // The books agree with the earnings and payouts.
+  const all = await withPlatformAdmin(admin.id, (tx) => tx.financeEntry.findMany({ where: { ledger: "VERIFICATION" } }));
+  assert.deepEqual(await reconcileVerification(admin.id, all), []);
 });

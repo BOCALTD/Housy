@@ -5,8 +5,9 @@ import { caseForAdmin } from "@/lib/services/verification-cases";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { CaseStatusPill, CaseTimeline, day, kb, naira, outcomeName, serviceName, when } from "@/app/verification/case-ui";
 import { FINDING_BASES, type ReportContent } from "@/lib/verification-case-rules";
+import { EARNING_WORDS, PLATFORM_FEE_BPS, type EarningStatus } from "@/lib/verification-finance-rules";
 import {
-  assignAction, cancelCaseAdminAction, disputeDecisionAction, intakeAction, platformDecisionAction, releaseAction, revokeAction, startPlatformReviewAction, withdrawOfferAction,
+  quoteAction, assignAction, cancelCaseAdminAction, disputeDecisionAction, intakeAction, platformDecisionAction, releaseAction, revokeAction, startPlatformReviewAction, withdrawOfferAction,
 } from "../../case-actions";
 
 export const metadata = { title: "Verification case" };
@@ -34,18 +35,39 @@ export default async function AdminCase({ params: p, searchParams: s }: { params
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 
-      {c.status === "REQUESTED" || c.status === "PENDING_PAYMENT" ? (
+      {c.status === "REQUESTED" ? (
         <section className="card stack vp-ask">
-          <h2>Confirm the request</h2>
-          <p className="small muted">Confirm when the request is in scope and its billing is arranged. Payments through the network open in a later stage; until then, record how it is paid for in the note.</p>
-          <form action={intakeAction} className="stack">{hidden}
-            <Field label="Note" hint="Required when declining: the customer sees it"><textarea name="note" maxLength={2000} rows={2} /></Field>
-            <div className="row" style={{ flexWrap: "wrap" }}>
-              <button className="btn primary" name="to" value="READY_FOR_ASSIGNMENT" type="submit">Confirm: find a provider</button>
-              {c.status === "REQUESTED" ? <button className="btn" name="to" value="PENDING_PAYMENT" type="submit">Waiting for payment</button> : null}
-              <button className="btn" name="to" value="REJECTED" type="submit" data-confirm="Decline this request?" data-confirm-body="The customer is told, with your note. This cannot be undone." data-confirm-ok="Decline">Decline</button>
+          <h2>Quote or decide</h2>
+          <p className="small muted">Quote the customer: the price is fixed with Housy&apos;s {PLATFORM_FEE_BPS / 100}% fee and the provider&apos;s share, an invoice is raised, and the case moves on by itself when it is paid (online, or a bank transfer you confirm in Payments).</p>
+          <form action={quoteAction} className="stack">{hidden}
+            <div className="grid-2">
+              <Field label="Price to the customer (₦)" hint="For all the checks requested"><input name="price" required inputMode="decimal" placeholder="150,000" /></Field>
+              <Field label="Note for the customer" hint="Optional: what the price covers"><input name="note" maxLength={1000} /></Field>
             </div>
+            <div className="row"><button className="btn primary" type="submit" data-confirm="Send this quote?" data-confirm-body="The customer gets an invoice for this amount. The price cannot be changed afterwards." data-confirm-ok="Send quote" data-confirm-tone="default">Quote and invoice</button></div>
           </form>
+          <details className="vp-fold"><summary>Take it on without an invoice, or decline</summary>
+            <form action={intakeAction} className="stack">{hidden}
+              <Field label="Note" hint="Taking it on: how it is paid for (not shown to the customer). Declining: the reason (the customer sees it)."><textarea name="note" required minLength={10} maxLength={2000} rows={2} /></Field>
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                <button className="btn" name="to" value="READY_FOR_ASSIGNMENT" type="submit" data-confirm="Take this on without an invoice?" data-confirm-body="No provider earning is recorded through Housy for a case paid for outside its invoicing." data-confirm-ok="Take it on" data-confirm-tone="default">Paid for outside Housy</button>
+                <button className="btn" name="to" value="REJECTED" type="submit" data-confirm="Decline this request?" data-confirm-body="The customer is told, with your note. This cannot be undone." data-confirm-ok="Decline">Decline</button>
+              </div>
+            </form>
+          </details>
+        </section>
+      ) : null}
+
+      {c.status === "PENDING_PAYMENT" ? (
+        <section className="card stack">
+          <h2>Waiting for payment</h2>
+          <p>{c.invoice ? <>Invoice {c.invoice.ref} for {naira(c.invoice.amountKobo)}, due {day(c.invoice.dueOn)}. Confirm a bank transfer in <Link href="/admin/payments">Payments</Link>; an online payment moves the case on by itself.</> : "No invoice."}</p>
+          <details className="vp-fold"><summary>Paid for outside Housy instead</summary>
+            <form action={intakeAction} className="stack">{hidden}
+              <Field label="How it is paid for" hint="The invoice is withdrawn"><textarea name="note" required minLength={10} maxLength={2000} rows={2} /></Field>
+              <button className="btn" name="to" value="READY_FOR_ASSIGNMENT" type="submit" data-confirm="Withdraw the invoice and take the case on?" data-confirm-ok="Take it on" data-confirm-tone="default">Take it on</button>
+            </form>
+          </details>
         </section>
       ) : null}
 
@@ -157,6 +179,9 @@ export default async function AdminCase({ params: p, searchParams: s }: { params
             {c.notes ? <><dt>Notes</dt><dd>{c.notes}</dd></> : null}
             <dt>Provider</dt><dd>{c.provider ? <Link href={`/admin/verification/providers/${c.providerId}`}>{c.provider.name}</Link> : "—"}{c.selectionMethod ? <span className="small muted"> · {c.selectionMethod.toLowerCase()}</span> : null}</dd>
             {c.requiredBy ? <><dt>Due</dt><dd>{day(c.requiredBy)}</dd></> : null}
+            {c.priceKobo !== null ? <><dt>Price</dt><dd>{naira(c.priceKobo)} · Housy&apos;s fee {naira(c.feeKobo)} · provider&apos;s share {naira(c.priceKobo - (c.feeKobo ?? 0n))}</dd></> : null}
+            {c.invoice ? <><dt>Invoice</dt><dd>{c.invoice.ref} · {c.invoice.status.toLowerCase()}{c.invoice.paidAt ? ` ${day(c.invoice.paidAt)}` : ""}</dd></> : null}
+            {c.earning ? <><dt>Provider&apos;s earning</dt><dd>{EARNING_WORDS[c.earning.status as EarningStatus]}{c.earning.heldReason ? `: ${c.earning.heldReason}` : ""}</dd></> : null}
           </dl>
         </section>
         <section className="card stack">

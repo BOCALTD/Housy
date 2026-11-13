@@ -10,8 +10,8 @@ import { reconcile as reconcileRewards } from "./rewards";
  * rewards in the reward ledger, shown here beside these but never mixed with them.
  */
 
-export const LEDGERS = ["SUBSCRIPTION", "ADVERTISING"] as const;
-export const ACCOUNTS = ["REVENUE", "FUNDS_HELD", "SUSPENSE"] as const;
+export const LEDGERS = ["SUBSCRIPTION", "ADVERTISING", "VERIFICATION"] as const;
+export const ACCOUNTS = ["REVENUE", "FUNDS_HELD", "SUSPENSE", "PROVIDER_PAYABLE"] as const;
 const PAGE = 25;
 
 async function adminOnly(id: string) {
@@ -118,9 +118,11 @@ export async function reconcileFinance(adminId: string, now = new Date()) {
   add("CAMPAIGN_NOT_BOOKED", "Adverts whose spending has not been fully entered in the books.", data.campaigns.filter((c) => c.postedKobo > c.spentKobo || (c.status === "ENDED" && c.postedKobo !== c.spentKobo)).map((c) => c.ref));
   add("CAMPAIGN_LEDGER_MISMATCH", "Adverts whose ledger spending differs from what was booked on the campaign.", data.campaigns.filter((c) => { const b = byCampaign.get(c.id) ?? { spendRevenue: 0n, spendHeld: 0n }; return b.spendRevenue !== c.postedKobo || b.spendHeld !== -c.postedKobo; }).map((c) => c.ref));
 
-  const held = data.entries.filter((e) => e.account === "FUNDS_HELD").reduce((n, e) => n + e.amountKobo, 0n);
+  const held = data.entries.filter((e) => e.account === "FUNDS_HELD" && e.ledger === "ADVERTISING").reduce((n, e) => n + e.amountKobo, 0n);
   const expectedHeld = data.campaigns.reduce((n, c) => n + c.fundedKobo - c.postedKobo, 0n);
   if (held !== expectedHeld) findings.push({ code: "FUNDS_HELD_MISMATCH", message: `Money held for adverts is ${formatKobo(held)} but campaigns say ${formatKobo(expectedHeld)}.`, refs: [] });
+  const { reconcileVerification } = await import("./verification-finance");
+  for (const f of await reconcileVerification(adminId, data.entries)) findings.push(f);
   const rewards = await reconcileRewards(adminId);
   for (const f of rewards.findings) findings.push({ code: `REWARDS_${f.code}`, message: f.message, refs: f.refs });
   return { findings, balanced: findings.length === 0, checkedAt: now };

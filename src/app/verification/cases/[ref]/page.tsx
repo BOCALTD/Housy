@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { caseForCustomer } from "@/lib/services/verification-cases";
-import { CaseStatusPill, CaseTimeline, day, kb, outcomeName, serviceName } from "../../case-ui";
+import { CaseStatusPill, CaseTimeline, day, kb, naira, outcomeName, serviceName } from "../../case-ui";
 import { acknowledgeAction, answerInfoAction, cancelCaseAction, customerDocAction, disputeAction } from "../../actions";
 
 export const metadata = { title: "Verification request", robots: { index: false } };
@@ -28,6 +28,14 @@ export default async function CustomerCase({ params: p, searchParams: s }: { par
         <div className="row" style={{ flexWrap: "wrap" }}><CaseStatusPill status={c.status} /><span className="small muted">{c.ref} · sent {day(c.createdAt)}</span></div>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+
+      {c.status === "PENDING_PAYMENT" && c.invoiceId ? (
+        <section className="card stack vp-ask">
+          <h2>Pay to start: {naira(c.priceKobo)}</h2>
+          <p className="small muted">Once it is paid, Housy offers your case to a qualified provider. The price covers every check listed below.</p>
+          <div className="row"><Link className="btn primary" href={`/me/billing/${c.invoiceId}`}>See the invoice and pay</Link></div>
+        </section>
+      ) : null}
 
       {c.status === "INFORMATION_REQUIRED" ? (
         <form action={answerInfoAction} className="card stack vp-ask">
@@ -77,6 +85,7 @@ export default async function CustomerCase({ params: p, searchParams: s }: { par
           <dt>Property type</dt><dd>{c.propertyType.toLowerCase().replace(/_/g, " ")}</dd>
           <dt>Checks</dt><dd><ul className="plain">{c.services.map((x) => <li key={x}>{serviceName(x)}</li>)}</ul></dd>
           {c.listingRef ? <><dt>Listing</dt><dd><Link href={`/properties/${c.listingRef}`}>{c.listingRef}</Link></dd></> : null}
+          {c.priceKobo !== null ? <><dt>Price</dt><dd>{naira(c.priceKobo)}{c.invoiceId ? <> · <Link href={`/me/billing/${c.invoiceId}`}>invoice</Link></> : null}</dd></> : null}
           <dt>Provider</dt><dd>{c.provider ? c.provider.name : "Not yet chosen"}</dd>
           {c.requiredBy ? <><dt>Expected by</dt><dd>{day(c.requiredBy)}</dd></> : null}
           {c.closingNote && ["REJECTED", "CANCELLED", "COMPLETED"].includes(c.status) ? <><dt>Note</dt><dd>{c.closingNote}</dd></> : null}

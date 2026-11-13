@@ -59,7 +59,7 @@ const billingLink = (o: Owner) => (o.kind === "USER" ? "/me/billing" : "/app/bil
 // ---------- The books ----------
 
 export type Posting = {
-  ledger: "SUBSCRIPTION" | "ADVERTISING"; kind: "PAYMENT" | "REFUND" | "SPEND" | "ADJUSTMENT"; account: "REVENUE" | "FUNDS_HELD" | "SUSPENSE";
+  ledger: "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION"; kind: "PAYMENT" | "REFUND" | "SPEND" | "ADJUSTMENT"; account: "REVENUE" | "FUNDS_HELD" | "SUSPENSE" | "PROVIDER_PAYABLE";
   amountKobo: bigint; entryKey?: string; invoiceId?: string; paymentId?: string; refundId?: string; campaignId?: string; eventId?: string; actorId?: string; note?: string;
 };
 
@@ -68,8 +68,10 @@ export async function post(tx: Tx, e: Posting) {
   if (!e.eventId && !e.actorId) throw new Error("A ledger entry needs a verified event or an authorising person");
   return tx.financeEntry.create({ data: { ledger: e.ledger, kind: e.kind, account: e.account, amountKobo: e.amountKobo, entryKey: e.entryKey ?? null, invoiceId: e.invoiceId ?? null, paymentId: e.paymentId ?? null, refundId: e.refundId ?? null, campaignId: e.campaignId ?? null, eventId: e.eventId ?? null, actorId: e.actorId ?? null, note: (e.note ?? "").slice(0, 300) } });
 }
-export const ledgerFor = (purpose: "SUBSCRIPTION" | "AD_CAMPAIGN") => (purpose === "SUBSCRIPTION" ? "SUBSCRIPTION" : "ADVERTISING") as "SUBSCRIPTION" | "ADVERTISING";
-export const accountFor = (purpose: "SUBSCRIPTION" | "AD_CAMPAIGN") => (purpose === "SUBSCRIPTION" ? "REVENUE" : "FUNDS_HELD") as "REVENUE" | "FUNDS_HELD";
+type Purpose = "SUBSCRIPTION" | "AD_CAMPAIGN" | "VERIFICATION";
+export const ledgerFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" ? "SUBSCRIPTION" : purpose === "VERIFICATION" ? "VERIFICATION" : "ADVERTISING") as "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION";
+/** Subscriptions are earned when paid. Advertising budgets and verification fees are held until spent or the work is delivered. */
+export const accountFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" ? "REVENUE" : "FUNDS_HELD") as "REVENUE" | "FUNDS_HELD";
 
 // ---------- Raising an invoice ----------
 
@@ -200,6 +202,11 @@ export async function settlePaymentIn(tx: Tx, paymentId: string, s: SettleInput)
 /** What a paid invoice switches on. */
 export async function applyInvoice(tx: Tx, inv: Prisma.InvoiceGetPayload<object>, now: Date): Promise<{ planName: string | null }> {
   if (inv.purpose === "SUBSCRIPTION") return applySubscription(tx, inv, now);
+  if (inv.purpose === "VERIFICATION") {
+    const { applyVerificationPayment } = await import("./verification-finance");
+    await applyVerificationPayment(tx, inv, now);
+    return { planName: null };
+  }
   const { fundCampaign } = await import("./ads");
   await fundCampaign(tx, inv, now);
   return { planName: null };

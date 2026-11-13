@@ -396,8 +396,16 @@ export async function answerOffer(ctx: VpCtx, ref: string, accept: boolean, reas
     await tx.vpAssignment.update({ where: { id: offer.id }, data: { status: accept ? "ACCEPTED" : "DECLINED", declineReason: accept ? "" : text, decidedAt: new Date(), decidedById: ctx.userId } });
     if (conflict && !accept) await tx.vpConflict.create({ data: { providerId: ctx.providerId, caseId: c.id, declaredById: ctx.userId, description: text } });
     await activity(tx, { caseId: c.id, providerId: ctx.providerId, actorId: ctx.userId, actorKind: "provider", action: accept ? "accepted" : conflict ? "declined_conflict" : "declined", from: c.status, to, note: text, visible: accept });
-    // updateMany: after declining, the case is no longer this provider's to read, so nothing is read back.
-    await tx.vpCase.updateMany({ where: { id: c.id }, data: accept ? { status: to, acceptBy: null } : { status: to, providerId: null, acceptBy: null, officerId: null, reviewerId: null } });
+    if (accept) await tx.vpCase.update({ where: { id: c.id }, data: { status: to, acceptBy: null } });
+    else {
+      // A declined case goes back to Housy, so the provider can no longer read it, and row-level security refuses an update
+      // whose result the person could not read. Everything above was checked under the provider's own access (the case is
+      // theirs, the offer open, their role may answer it); handing the case back is then done as Housy, in the same
+      // transaction, and the trigger still checks the move.
+      await tx.$queryRaw`SELECT set_config('app.platform_admin', 'on', true)`;
+      await tx.vpCase.update({ where: { id: c.id }, data: { status: to, providerId: null, acceptBy: null, officerId: null, reviewerId: null } });
+      await tx.$queryRaw`SELECT set_config('app.platform_admin', '', true)`;
+    }
   });
   await system((tx) => notifyAdmins(tx, { kind: "verification.case", title: `Case ${ref} ${accept ? "accepted" : "declined"}`, body: accept ? "The provider accepted the case." : `Reason: ${text.slice(0, 200)}. Offer it to another provider.`, link: `/admin/verification/cases/${ref}` }));
   if (accept) await system(async (tx) => { const c = await tx.vpCase.findUnique({ where: { ref }, select: { requesterId: true } }); if (c) await notify(tx, c.requesterId, { kind: "verification.case", title: `Verification ${ref}: provider found`, body: "A qualified provider has accepted your case and will start with the documents.", link: `/verification/cases/${ref}` }); });

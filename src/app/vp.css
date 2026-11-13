@@ -80,3 +80,6 @@
 .vp-rating .check { min-height: 44px; }
 .vp-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 12px; }
 .vp-kpis .card { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* Every fold-out heading in the verification network's pages is a full touch target, on every screen. */
+.vp details > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }

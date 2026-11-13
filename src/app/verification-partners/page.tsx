@@ -52,7 +52,7 @@ export default async function VerificationPartners() {
         </div>
       </section>
 
-      <details className="card">
+      <details className="card vp-fold">
         <summary><h2 className="inline-h">Services partners can be approved for ({cats.length})</h2></summary>
         <ul className="vp-cats">{cats.map((c) => <li key={c.code}><strong>{c.name}</strong><span className="small muted">{c.summary} Needs: {c.qualifications.toLowerCase()}.</span></li>)}</ul>
       </details>

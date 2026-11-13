@@ -5628,6 +5628,8 @@ model VpDocument {
   bytes         Bytes
   sha256        String
   expiresOn     DateTime?        @map("expires_on") @db.Date
+  /// Which expiry notice has been sent: "", "expiring" or "expired", so each is sent once.
+  expiryNotice  String           @default("") @map("expiry_notice")
   uploadedById  String           @map("uploaded_by_id")
   createdAt     DateTime         @default(now()) @map("created_at")
   application   VpApplication?   @relation(fields: [applicationId], references: [id], onDelete: Restrict)

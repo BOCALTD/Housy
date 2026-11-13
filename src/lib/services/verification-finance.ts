@@ -37,7 +37,10 @@ const INVOICE_DAYS = 14;
 /** Run one step as Housy inside a transaction a person started, after the person's right to take the action was checked. */
 export async function asHousy<T>(tx: Tx, fn: () => Promise<T>): Promise<T> {
   await tx.$queryRaw`SELECT set_config('app.platform_admin', 'on', true)`;
-  try { return await fn(); } finally { await tx.$queryRaw`SELECT set_config('app.platform_admin', '', true)`; }
+  // On failure the transaction is already aborted and rolls back with everything in it, so only reset on success.
+  const out = await fn();
+  await tx.$queryRaw`SELECT set_config('app.platform_admin', '', true)`;
+  return out;
 }
 
 async function notifyProviderFinance(tx: Tx, providerId: string, n: Parameters<typeof notify>[2]) {
@@ -150,7 +153,8 @@ export async function holdEarning(tx: Tx, caseId: string, reason: string) {
 /** Recognise an earning in the books: Housy's fee is revenue, the provider's share is owed to the provider. Once per earning. */
 async function recognise(tx: Tx, e: { id: string; invoiceId: string; grossKobo: bigint; feeKobo: bigint; netKobo: bigint; recognisedAt: Date | null }, actorId: string, now: Date) {
   if (e.recognisedAt) return;
-  const base = { ledger: "VERIFICATION" as const, kind: "ADJUSTMENT" as const, invoiceId: e.invoiceId, actorId, note: "Verification delivered" };
+  // Booked like advertising spend: held money is used up, part as Housy's revenue and part owed onward to the provider.
+  const base = { ledger: "VERIFICATION" as const, kind: "SPEND" as const, invoiceId: e.invoiceId, actorId, note: "Verification delivered" };
   await post(tx, { ...base, account: "FUNDS_HELD", amountKobo: -e.grossKobo, entryKey: `vr-earn:${e.id}:held` });
   if (e.feeKobo > 0n) await post(tx, { ...base, account: "REVENUE", amountKobo: e.feeKobo, entryKey: `vr-earn:${e.id}:fee` });
   await post(tx, { ...base, account: "PROVIDER_PAYABLE", amountKobo: e.netKobo, entryKey: `vr-earn:${e.id}:net` });

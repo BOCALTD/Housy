@@ -109,6 +109,9 @@ test("a buyer asks an approved provider to verify a property, and nothing person
 
   // Not approved: no request can be made.
   await assert.rejects(submitLead({ ...base, providerId: pending.id, consent: "yes" }, null, `${key}-p`), /not available/);
+  // Approved in the earlier listing but never vetted through the verification network: not offered to buyers either.
+  await assert.rejects(submitLead({ ...base, providerId: approved.id, consent: "yes" }, null, `${key}-u`), /not available/);
+  await prisma.serviceProvider.update({ where: { id: approved.id }, data: { vettedAt: new Date(), vettedById: platform.id } });
 
   const before = await verificationMetrics();
   await recordRecommendationEvent({ providerId: approved.id, listingRef: listing.publicRef, userId: null, visitorKey: key, trigger: "enquiry", event: "IMPRESSION" });

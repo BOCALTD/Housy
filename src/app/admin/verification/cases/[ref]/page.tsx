@@ -4,7 +4,7 @@ import { requirePlatformAdmin } from "@/lib/auth";
 import { caseForAdmin } from "@/lib/services/verification-cases";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { CaseStatusPill, CaseTimeline, day, kb, naira, outcomeName, serviceName, when } from "@/app/verification/case-ui";
-import { FINDING_BASES, type ReportContent } from "@/lib/verification-case-rules";
+import { FINDING_BASES, isHardReason, type ReportContent } from "@/lib/verification-case-rules";
 import { EARNING_WORDS, PLATFORM_FEE_BPS, type EarningStatus } from "@/lib/verification-finance-rules";
 import {
   quoteAction, assignAction, cancelCaseAdminAction, disputeDecisionAction, intakeAction, platformDecisionAction, releaseAction, revokeAction, startPlatformReviewAction, withdrawOfferAction,
@@ -74,7 +74,7 @@ export default async function AdminCase({ params: p, searchParams: s }: { params
       {c.status === "READY_FOR_ASSIGNMENT" ? (
         <section className="card stack vp-ask">
           <h2>Offer the case to a provider</h2>
-          <p className="small muted">Ranked from each provider&apos;s records: approval for these services and this state, what it offers, where it works, conflicts, open cases against capacity, and its track record (on time, declines). Providers that are not vetted, suspended, not approved for a service or the state, or have a conflict can never be chosen. Choosing anyone else who is not eligible is an override: give the reason; it is recorded.</p>
+          <p className="small muted">Ranked from each provider&apos;s records: approval for these services and this state, what it offers, where it works, conflicts, open cases against capacity, and its track record (on time, declines). Providers that are not vetted, suspended, not approved for a service or the state, conflicted, or whose licence or certificate has expired can never be chosen. Choosing anyone else who is not eligible is an override: give the reason; it is recorded.</p>
           {c.preferred ? <p className="small">The customer asked for <strong>{c.preferred.name}</strong>.</p> : null}
           {c.ranked.length === 0 ? <p className="muted">No providers in the network yet.</p> : (
             <form action={assignAction} className="stack">{hidden}
@@ -88,7 +88,7 @@ export default async function AdminCase({ params: p, searchParams: s }: { params
                         <span className="small muted">{r.eligible ? `Score ${r.score} · ${r.openCases}/${r.monthlyCapacity} open · ${r.completed} done (${r.onTime} on time) · ${naira(r.priceKobo)} · about ${r.turnaroundDays} days` : r.reasons.join("; ")}</span>
                       </span>
                     </label>
-                    <span className={`pill ${r.eligible ? "ok" : /not vetted|suspended|not approved|conflict/.test(r.reasons.join()) ? "bad" : "warn"}`}>{r.eligible ? "Eligible" : /not vetted|suspended|not approved|conflict/.test(r.reasons.join()) ? "Cannot take it" : "Override needed"}</span>
+                    <span className={`pill ${r.eligible ? "ok" : r.reasons.some(isHardReason) ? "bad" : "warn"}`}>{r.eligible ? "Eligible" : r.reasons.some(isHardReason) ? "Cannot take it" : "Override needed"}</span>
                   </li>
                 ))}
               </ul>

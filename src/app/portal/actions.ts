@@ -2,7 +2,7 @@
 
 import { requireUser } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
-import { acceptPortalInvite, saveVendorProfile, submitVendorWork, updateProviderLead } from "@/lib/services/portals";
+import { acceptPortalInvite, saveVendorProfile, submitVendorWork, updateProviderLead, suggestVerificationToLead } from "@/lib/services/portals";
 import type { LeadStatus } from "@/lib/portal-rules";
 
 function upload(form: FormData, name: string) {
@@ -50,5 +50,15 @@ export async function providerLeadAction(form: FormData) {
     const user = await requireUser();
     await updateProviderLead(user.id, providerId, str(form, "ref"), str(form, "status") as LeadStatus, str(form, "note"));
     return withNotice(back, "Request updated. The person has been told.");
+  });
+}
+
+export async function suggestVerificationAction(form: FormData) {
+  const providerId = str(form, "providerId");
+  const back = `/portal/provider/${encodeURIComponent(providerId)}`;
+  return act(back, async () => {
+    const user = await requireUser();
+    await suggestVerificationToLead(user.id, providerId, str(form, "ref"));
+    return withNotice(back, "Suggestion sent. They can ask for a full verification from the link in their notifications.");
   });
 }

@@ -109,7 +109,7 @@ export function VerifyModal({ provider, listingRef, autoOpen }: { provider: Prov
                 <p className="eyebrow">Property verification</p>
                 <h2 id="verify-title">Before You Buy, Verify the Property.</h2>
                 <p className="muted">Property verification and risk assessment can help you identify documentation issues, possible encumbrances, inconsistencies and other risks before you commit funds.</p>
-                <div className="provider" aria-label="Approved service provider">
+                <div className="provider" aria-label="Provider vetted through Housy's verification network">
                   <div className="row" style={{ flexWrap: "nowrap" }}>
                     <div className="provider-logo" aria-hidden="true">{provider.shortName}</div>
                     <div>
@@ -122,7 +122,7 @@ export function VerifyModal({ provider, listingRef, autoOpen }: { provider: Prov
                   {provider.coverage ? <p className="small muted">Coverage: {provider.coverage}</p> : null}
                   <p className="small muted">Findings depend on the scope of checks and the records available. Verification reduces uncertainty but does not guarantee a risk-free purchase.</p>
                   {disclosure ? <p className="small muted">{disclosure} It is not independent verification, a platform guarantee, or a ranking of providers.</p> : null}
-                  {provider.link ? <a href={provider.link} target="_blank" rel="noopener noreferrer" className="small">View approved profile</a> : null}
+                  {provider.link ? <a href={provider.link} target="_blank" rel="noopener noreferrer" className="small">View the provider's profile</a> : null}
                 </div>
                 <fieldset style={{ border: 0, padding: 0, margin: "0 0 8px", display: "grid", gap: 8 }}>
                   <legend className="small muted" style={{ marginBottom: 6 }}>Would you like to request verification?</legend>

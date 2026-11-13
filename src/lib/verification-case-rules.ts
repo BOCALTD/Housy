@@ -97,6 +97,8 @@ export type Candidate = {
   allowedStates: string[];
   coveredStates: string[];
   conflict: boolean;
+  /** Licences or professional certificates on file that have passed their expiry date. */
+  expiredCredentials?: number;
   openCases: number;
   monthlyCapacity: number;
   completed: number;
@@ -115,6 +117,9 @@ export type Ranked = Candidate & { eligible: boolean; reasons: string[]; score: 
  * Eligible ones are ranked by measured performance (finished on time, rarely declining), spare capacity, then price and
  * speed. Every reason is given in words, so a choice can be explained and audited.
  */
+/** Reasons no override can set aside: the provider is not vetted, suspended, not approved, conflicted or its credentials have expired. */
+export const isHardReason = (r: string) => /not vetted|suspended|not approved|conflict|expired/.test(r);
+
 export function rankProviders(c: { services: string[]; state: string }, list: Candidate[]): Ranked[] {
   const out = list.map((p): Ranked => {
     const reasons: string[] = [];
@@ -127,6 +132,7 @@ export function rankProviders(c: { services: string[]; state: string }, list: Ca
     if (!p.allowedStates.includes(c.state)) reasons.push(`not approved for ${c.state}`);
     else if (!p.coveredStates.includes(c.state)) reasons.push(`does not work in ${c.state}`);
     if (p.conflict) reasons.push("declared a conflict of interest");
+    if ((p.expiredCredentials ?? 0) > 0) reasons.push("a licence or professional certificate has expired");
     if (p.monthlyCapacity > 0 && p.openCases >= p.monthlyCapacity) reasons.push("at full capacity");
     const eligible = reasons.length === 0;
     // Performance counts only once there is a record; a new provider starts in the middle, neither helped nor harmed.

@@ -33,10 +33,13 @@ export function parsePrefs(raw: string | undefined): Prefs {
   }
 }
 
-/** The approved, featured provider to recommend, or null if none is approved. */
+/**
+ * The featured provider to recommend on listings, or null. Only a provider vetted through the verification network and not
+ * suspended is ever recommended: one listed before the network existed is not presented as approved until it has been vetted.
+ */
 export async function getFeaturedProvider() {
   return prisma.serviceProvider.findFirst({
-    where: { status: "APPROVED" },
+    where: { status: "APPROVED", vettedAt: { not: null }, suspendedAt: null },
     orderBy: [{ featured: "desc" }, { createdAt: "asc" }],
   });
 }
@@ -79,7 +82,7 @@ export async function submitLead(input: z.input<typeof leadSchema>, userId: stri
   if (data.contactMethod === "email" && !z.string().email().safeParse(data.contactValue).success) {
     throw new Error("Enter a valid email address");
   }
-  const provider = await prisma.serviceProvider.findFirst({ where: { id: data.providerId, status: "APPROVED" } });
+  const provider = await prisma.serviceProvider.findFirst({ where: { id: data.providerId, status: "APPROVED", vettedAt: { not: null }, suspendedAt: null } });
   if (!provider) throw new Error("This provider is not available right now");
   const listing = await getPublicListing(data.listingRef);
   if (!listing) throw new Error("This property is no longer available");

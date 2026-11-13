@@ -25,6 +25,11 @@ import { acknowledgeReport } from "../../src/lib/services/verification-cases";
 import {
   cancelPayout, markPayoutPaid, preparePayout, providerFinance, quoteCase, reconcileVerification, setPayoutDetails,
 } from "../../src/lib/services/verification-finance";
+import {
+  complaintsForAdmin, credentialSweep, decideComplaint, fileComplaint, myComplaints, providerComplaints, providerPerformance, qualityOverview, rateCase,
+  respondToComplaint, withdrawComplaint,
+} from "../../src/lib/services/verification-quality";
+import { addProviderDocument } from "../../src/lib/services/verification-network";
 
 after(() => prisma.$disconnect());
 
@@ -294,4 +299,82 @@ test("money: a quote is paid, the provider's share is earned on delivery, held b
   // The books agree with the earnings and payouts.
   const all = await withPlatformAdmin(admin.id, (tx) => tx.financeEntry.findMany({ where: { ledger: "VERIFICATION" } }));
   assert.deepEqual(await reconcileVerification(admin.id, all), []);
+});
+
+test("quality: ratings once, complaints answered by the provider and decided by Housy, performance figures, and expired credentials", async () => {
+  const admin = await newPlatformAdmin();
+  const a = await approvedOrg(admin, `hotel${randomUUID().slice(0, 4)}`);
+  const other = await approvedOrg(admin, `india${randomUUID().slice(0, 4)}`);
+  const inv = await a.staff("INVESTIGATOR");
+  const rev = await a.staff("REVIEWER");
+  const customer = await person("rater");
+  const ref = await requestVerification(customer.id, { propertyAddress: "5 Glover Road, Ikoyi", state: "Lagos", propertyType: "LAND", services: ["TITLE"] });
+  await assert.rejects(fileComplaint(customer.id, ref, { category: "DELAY", description: "Nobody has started on my request at all yet." }), /No provider has worked/);
+  await decideIntake(admin.id, ref, "READY_FOR_ASSIGNMENT", "Paid under a corporate agreement.");
+  await assignCase(admin.id, ref, { providerId: a.providerId, method: "MANUAL", requiredBy: "2030-12-31" });
+  await answerOffer(a.owner, ref, true, "");
+  await assignStaff(a.owner, ref, inv.userId, rev.userId);
+  await moveProviderCase(inv, ref, "DOCUMENT_REVIEW", "");
+  await moveProviderCase(inv, ref, "INVESTIGATION_IN_PROGRESS", "");
+  await saveReportDraft(inv, ref, fullReport);
+  await moveProviderCase(inv, ref, "REPORT_DRAFT", "");
+  await submitForInternalReview(inv, ref);
+  await reviewerDecision(rev, ref, true, "");
+  await startPlatformReview(admin.id, ref);
+  await platformDecision(admin.id, ref, false, "State the date of the registry search in the findings.");
+  await saveReportDraft(inv, ref, fullReport);
+  await submitForInternalReview(inv, ref);
+  await reviewerDecision(rev, ref, true, "");
+  await startPlatformReview(admin.id, ref);
+  await platformDecision(admin.id, ref, true, "");
+  await releaseReport(admin.id, ref);
+
+  // Ratings: once, 1 to 5, never by editing the case directly.
+  await assert.rejects(rateCase(customer.id, ref, 6, ""), /1 to 5/);
+  await assert.rejects(withUser(customer.id, (tx) => tx.vpCase.updateMany({ where: { ref }, data: { customerRating: 5 } })), Error, "a customer cannot write a rating straight to the database");
+  await rateCase(customer.id, ref, 4, "Clear report, a day late on the site visit.");
+  await assert.rejects(rateCase(customer.id, ref, 5, ""), /already rated/);
+
+  // A complaint: the provider answers, Housy upholds it; both see the decision.
+  const k = await fileComplaint(customer.id, ref, { category: "COMMUNICATION", description: "The officer did not return my calls for a week." });
+  await assert.rejects(fileComplaint(customer.id, ref, { category: "DELAY", description: "Another complaint about the same request." }), /already have an open complaint/);
+  assert.equal((await providerComplaints(a.owner)).length, 1);
+  await assert.rejects(providerComplaints(inv), /does not allow/);
+  assert.equal(await withUser(other.owner.userId, (tx) => tx.vpComplaint.count({ where: { ref: k } })), 0, "another provider does not see it");
+  await assert.rejects(respondToComplaint(inv, k, "The officer was on site visits all week, sorry."), /owner or an administrator/);
+  await respondToComplaint(a.owner, k, "Our officer was on site visits all week; we have since added a shared phone line.");
+  await decideComplaint(admin.id, k, "INVESTIGATING", "");
+  await assert.rejects(decideComplaint(admin.id, k, "UPHELD", "short"), /10 characters/);
+  await decideComplaint(admin.id, k, "UPHELD", "Calls went unanswered for a week; the provider has fixed it.");
+  await assert.rejects(withdrawComplaint(customer.id, k), /already been decided/);
+  await assert.rejects(withPlatformAdmin(admin.id, (tx) => tx.vpComplaint.updateMany({ where: { ref: k }, data: { status: "NOT_UPHELD" } })), Error, "a decided complaint never changes");
+  const mine = await myComplaints(customer.id, ref);
+  assert.equal(mine[0].status, "UPHELD");
+  assert.match(mine[0].providerResponse, /shared phone line/);
+  assert.ok(!(await complaintsForAdmin(admin.id)).some((c) => c.ref === k), "decided complaints leave the queue");
+
+  // Performance from the records.
+  const perf = await providerPerformance(a.owner);
+  assert.equal(perf.kpis.accepted, 1);
+  assert.equal(perf.kpis.delivered, 1);
+  assert.equal(perf.kpis.onTimeRate, 100);
+  assert.equal(perf.kpis.correctionRate, 100, "Housy sent the one report back once");
+  assert.equal(perf.kpis.averageRating, 4);
+  assert.equal(perf.kpis.complaintsUpheld, 1);
+
+  // An expired licence (with nothing current) stops the provider being offered cases, and is announced once.
+  await assert.rejects(addProviderDocument(a.owner, { kind: "LICENCE", title: "Old licence", expiresOn: "2020-01-01" }, pdf("old-licence.pdf")), /already expired/);
+  await withPlatformAdmin(admin.id, (tx) => tx.vpDocument.updateMany({ where: { providerId: a.providerId, kind: "LICENCE", expiresOn: { gte: new Date() } }, data: { expiresOn: new Date("2020-06-01") } }));
+  const sweep1 = await credentialSweep();
+  assert.ok(sweep1.expired >= 1);
+  const sweep2 = await credentialSweep();
+  assert.equal(sweep2.expired, 0, "each notice is sent once");
+  const ref2 = await requestVerification(customer.id, { propertyAddress: "7 Glover Road, Ikoyi", state: "Lagos", propertyType: "LAND", services: ["TITLE"] });
+  await decideIntake(admin.id, ref2, "READY_FOR_ASSIGNMENT", "Paid under a corporate agreement.");
+  await assert.rejects(assignCase(admin.id, ref2, { providerId: a.providerId, method: "MANUAL", reason: "They know the area better than anyone." }), /expired/);
+  const q = (await qualityOverview(admin.id)).find((p) => p.id === a.providerId)!;
+  assert.deepEqual(q.credentials.expired, ["LICENCE"]);
+  // Filing a current licence lifts it.
+  await addProviderDocument(a.owner, { kind: "LICENCE", title: "ESVARBON practising licence 2030", expiresOn: "2031-01-01" }, pdf("licence-2030.pdf"));
+  await assignCase(admin.id, ref2, { providerId: a.providerId, method: "MANUAL" });
 });

@@ -7,7 +7,7 @@ import { formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { MoreMenu } from "@/components/MoreMenu";
 import { CardMore, Flash, Pill, sp, type SP } from "@/components/ui";
-import { providerLeadAction } from "../../actions";
+import { providerLeadAction, suggestVerificationAction } from "../../actions";
 
 export const metadata = { title: "Provider portal", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -36,6 +36,7 @@ export default async function ProviderPortal({ params, searchParams }: { params:
         <Link className="btn" href="/portal">All portals</Link>
       </div>
       <Flash searchParams={{ error: sp(s, "error"), notice: sp(s, "notice") }} />
+      {provider.providerCode ? <div className="flash" role="status">{provider.shortName} is on Housy&apos;s verification network. Cases, reports, staff and payouts are in the <Link href={`/provider/${provider.providerCode}`}>organisation&apos;s dashboard</Link>; enquiries from listings stay here. For someone with a Housy account, you can suggest a full verification.</div> : null}
       <nav className="nav workspace-nav" aria-label="Filter requests">
         <Link className="tap" href={`/portal/provider/${provider.id}`} aria-current={!status ? "page" : undefined}>All ({total})</Link>
         {FILTERS.slice(0, 3).map((f) => <Link key={f} className="tap" href={`/portal/provider/${provider.id}?status=${f}`} aria-current={status === f ? "page" : undefined}>{LEAD_STATUS_LABELS[f]} ({counts[f] ?? 0})</Link>)}
@@ -63,6 +64,12 @@ export default async function ProviderPortal({ params, searchParams }: { params:
                   <select name="status" aria-label={`New status for ${l.ref}`} defaultValue={next[0]}>{next.map((n) => <option key={n} value={n}>{LEAD_STATUS_LABELS[n]}</option>)}</select>
                   <input name="note" placeholder="Note for the person (optional)" aria-label="Note for the person" maxLength={1000} style={{ flex: "1 1 200px", minWidth: 0, maxWidth: "100%" }} />
                   <button className="btn primary" type="submit">Update</button>
+                </form>
+              ) : null}
+              {provider.providerCode && l.userId && !["WITHDRAWN", "DECLINED"].includes(l.status) ? (
+                <form action={suggestVerificationAction}>
+                  <input type="hidden" name="providerId" value={provider.id} /><input type="hidden" name="ref" value={l.ref} />
+                  <button className="btn small" type="submit" data-confirm="Suggest a full verification?" data-confirm-body="They get a notice with a link to ask Housy for one. Nothing is started for them." data-confirm-ok="Send suggestion" data-confirm-tone="default">Suggest a full verification</button>
                 </form>
               ) : null}
             </li>

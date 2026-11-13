@@ -5,6 +5,7 @@ import { act, str, withNotice } from "@/lib/forms";
 import {
   acknowledgeReport, addCustomerDocument, answerInformationRequest, cancelByCustomer, disputeReport, requestVerification,
 } from "@/lib/services/verification-cases";
+import { fileComplaint, rateCase, withdrawComplaint } from "@/lib/services/verification-quality";
 
 const page = (ref: string) => `/verification/cases/${encodeURIComponent(ref)}`;
 
@@ -48,4 +49,17 @@ export async function acknowledgeAction(form: FormData) {
 export async function disputeAction(form: FormData) {
   const ref = str(form, "ref");
   return act(page(ref), async () => { const user = await requireUser(); await disputeReport(user.id, ref, str(form, "reason")); return withNotice(page(ref), "Dispute sent. Housy will review the report and reply."); });
+}
+
+export async function rateAction(form: FormData) {
+  const ref = str(form, "ref");
+  return act(page(ref), async () => { const user = await requireUser(); await rateCase(user.id, ref, Number(str(form, "rating")), str(form, "feedback")); return withNotice(page(ref), "Thank you for rating the report."); });
+}
+export async function complaintAction(form: FormData) {
+  const ref = str(form, "ref");
+  return act(page(ref), async () => { const user = await requireUser(); const c = await fileComplaint(user.id, ref, { category: str(form, "category"), description: str(form, "description") }); return withNotice(page(ref), `Complaint ${c} sent. The provider will give its account and Housy will decide.`); });
+}
+export async function withdrawComplaintAction(form: FormData) {
+  const ref = str(form, "ref");
+  return act(page(ref), async () => { const user = await requireUser(); await withdrawComplaint(user.id, str(form, "complaint")); return withNotice(page(ref), "Complaint withdrawn."); });
 }

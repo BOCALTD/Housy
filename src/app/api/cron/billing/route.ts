@@ -5,6 +5,7 @@ import { purgeFlatmateCheckImages } from "@/lib/services/flatmates";
 import { remindUnconfirmedListings } from "@/lib/services/listings";
 import { expireOffers } from "@/lib/services/verification-cases";
 import { matureEarnings } from "@/lib/services/verification-finance";
+import { credentialSweep } from "@/lib/services/verification-quality";
 
 export const dynamic = "force-dynamic";
 
@@ -21,5 +22,7 @@ export async function GET(req: Request) {
   // Verification network: unanswered offers go back to Housy; earnings past their waiting time become payable.
   await expireOffers().catch(() => null);
   const earningsMatured = await matureEarnings().catch(() => null);
-  return Response.json({ renewals, pending, ads, idImagesDeleted, listingReminders, earningsMatured });
+  // Licences and certificates: a reminder before expiry, a notice when one lapses (the provider is then not offered cases).
+  const credentials = await credentialSweep().catch(() => null);
+  return Response.json({ renewals, pending, ads, idImagesDeleted, listingReminders, earningsMatured, credentials });
 }

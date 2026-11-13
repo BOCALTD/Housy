@@ -21,10 +21,11 @@ import { STATES } from "../geo-rules";
 import { providerContext, type VpCtx } from "./verification-network";
 import { SERVICE_CODES, PROPERTY_TYPES, vpCan, type VpRole } from "../verification-network-rules";
 import {
-  canMoveCase, canonicalReport, caseRef, isCaseRef, rankProviders, reportGaps, FINDING_BASES, OPEN_PROVIDER_STATUSES, OUTCOME_CODES,
+  canMoveCase, canonicalReport, caseRef, isHardReason, isCaseRef, rankProviders, reportGaps, FINDING_BASES, OPEN_PROVIDER_STATUSES, OUTCOME_CODES,
   type Candidate, type CaseStatus, type Mover, type ReportContent,
 } from "../verification-case-rules";
 import { renderVerificationReport } from "../verification-report-pdf";
+import { EXPIRING_KINDS, expiredKinds } from "../verification-quality-rules";
 import { asHousy, earningOnRelease, earningPayable, holdEarning } from "./verification-finance";
 
 const SYSTEM = "system";
@@ -186,13 +187,15 @@ export async function casesForAdmin(adminId: string, f: { status?: string; q?: s
 async function candidates(tx: Tx, c: { id: string; services: string[]; state: string }): Promise<Candidate[]> {
   const providers = await tx.serviceProvider.findMany({ where: { providerCode: { not: null } }, select: { id: true, name: true, status: true, suspendedAt: true, vettedAt: true, allowedServices: true, allowedStates: true, application: { select: { answers: true } } } });
   const ids = providers.map((p) => p.id);
-  const [offerings, coverage, conflicts, open, done, offers] = await Promise.all([
+  const today = new Date();
+  const [offerings, coverage, conflicts, open, done, offers, expired] = await Promise.all([
     tx.vpProviderService.findMany({ where: { providerId: { in: ids }, active: true }, select: { providerId: true, categoryCode: true, priceKobo: true, turnaroundDays: true } }),
     tx.vpProviderCoverage.findMany({ where: { providerId: { in: ids } }, select: { providerId: true, state: true } }),
     tx.vpConflict.findMany({ where: { caseId: c.id }, select: { providerId: true } }),
     tx.vpCase.groupBy({ by: ["providerId"], where: { providerId: { in: ids }, status: { in: OPEN_PROVIDER_STATUSES } }, _count: { _all: true } }),
     tx.vpCase.findMany({ where: { providerId: { in: ids }, status: { in: ["DELIVERED", "COMPLETED"] } }, select: { providerId: true, deliveredAt: true, requiredBy: true } }),
     tx.vpAssignment.groupBy({ by: ["providerId", "status"], where: { providerId: { in: ids } }, _count: { _all: true } }),
+    tx.vpDocument.findMany({ where: { providerId: { in: ids }, kind: { in: [...EXPIRING_KINDS] } }, select: { providerId: true, kind: true, expiresOn: true } }),
   ]);
   return providers.map((p) => {
     const mine = offerings.filter((o) => o.providerId === p.id);
@@ -205,6 +208,7 @@ async function candidates(tx: Tx, c: { id: string; services: string[]; state: st
       providerId: p.id, name: p.name, vetted: !!p.vettedAt, active: p.status === "APPROVED" && !p.suspendedAt,
       allowedServices: p.allowedServices, offeredServices: mine.map((o) => o.categoryCode), allowedStates: p.allowedStates,
       coveredStates: coverage.filter((x) => x.providerId === p.id).map((x) => x.state), conflict: conflicts.some((x) => x.providerId === p.id),
+      expiredCredentials: expiredKinds(expired.filter((x) => x.providerId === p.id), today).length,
       openCases: open.find((o) => o.providerId === p.id)?._count._all ?? 0, monthlyCapacity: ans?.operations?.monthlyCapacity ?? 10,
       completed: finished.length, onTime: finished.filter((d) => !d.requiredBy || (d.deliveredAt && d.deliveredAt <= d.requiredBy)).length,
       declined: count("DECLINED") + count("EXPIRED"), offered: count("DECLINED") + count("EXPIRED") + count("ACCEPTED"),
@@ -289,7 +293,7 @@ export async function assignCase(adminId: string, ref: string, input: z.input<ty
     const ranked = rankProviders({ services: c.services, state: c.state }, await candidates(tx, c));
     const pick = ranked.find((r) => r.providerId === d.providerId);
     if (!pick) throw new Error("That provider was not found in the network.");
-    const hard = pick.reasons.filter((r) => /not vetted|suspended|not approved|conflict/.test(r));
+    const hard = pick.reasons.filter(isHardReason);
     if (hard.length) throw new Error(`This provider cannot take the case: ${hard.join("; ")}.`);
     if (!pick.eligible && d.reason.length < 10) throw new Error(`This choice overrides the eligibility rules (${pick.reasons.join("; ")}). Give the reason (10 characters or more); it is recorded.`);
     if (d.method === "CUSTOMER" && c.preferredProviderId !== d.providerId) throw new Error("That is not the provider the customer chose.");

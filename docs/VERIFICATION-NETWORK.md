@@ -54,8 +54,35 @@ investigators not on the case, the customer never seeing evidence or unreleased 
 Migration `20270101000000_verification_finance`; tests in `tests/unit/verification-finance.test.ts` (split, moves equal the trigger)
 and the money test in `tests/integration/phase19b.test.ts`.
 
+## Built (stage 8: quality)
+
+| What | How |
+|---|---|
+| Credentials | Licences and professional certificates on file are watched (`credentialSweep`, scheduled). Owners and administrators are told once when one expires within 30 days, and again (with Housy) once when it lapses with nothing current of that kind. A provider with no current licence or certificate of a kind it filed is not eligible for cases; no override sets that aside. An already-expired document cannot be uploaded. |
+| Ratings | The customer rates a delivered report once, 1 to 5, with an optional comment the provider sees. Only Housy's service writes it (trigger). |
+| Complaints | About a provider's conduct, delays, quality, communication, confidentiality or suspected fraud: by the customer it worked for (one open complaint per case) or by Housy. The provider's owner or an administrator gives its account; Housy looks into it and upholds it or not, with reasons both sides see. A decided complaint never changes (trigger). Separate from disputing a report. |
+| Performance | From the records for each provider: cases accepted, typical time to answer an offer, reports on time, typical time to deliver, reports Housy sent back, disputes and how many were reopened, revocations, average rating, complaints and how many were upheld. Flags on enough cases to be fair. Housy sees every provider (`/admin/verification/quality`, flagged first); each provider sees its own (`/provider/[code]/performance`). On-time delivery and declines already feed the ranking. |
+
+Migration `20270102000000_verification_quality`; tests in `tests/unit/verification-quality.test.ts` and the quality test in
+`tests/integration/phase19b.test.ts`.
+
+## Built (stage 9: BOCA and the earlier provider listing)
+
+BOCA has no code of its own; this applies to any provider listed before the network existed.
+
+- The listing-page recommendation and its enquiry form offer only a provider vetted through the network and not suspended. A
+  provider approved in the earlier listing alone is no longer presented as approved; it applies at `/verification-partners`
+  like any other, and on approval Housy links the application to its existing record (its id, enquiries and staff are kept).
+- People who used the earlier provider portal are members of the organisation (they became administrators when the network
+  arrived), so they reach the new dashboard straight away; its owner can change their roles.
+- Enquiries from listings stay in the earlier portal, linked from the dashboard; once the provider is on the network the portal
+  points to the dashboard, and for an enquirer with a Housy account the provider can suggest a full verification (a notice with
+  the link; nothing is started for them; once a month per enquiry).
+- Setup no longer suggests approving BOCA directly.
+
+What only the owner can do: BOCA applies with its real documents, and a Housy administrator reviews it. No credentials or
+documents are invented here.
+
 ## Still to build
 
-8. Complaints, performance indicators, credential expiry monitoring.
-9. BOCA: apply through the network and be linked to its existing record (supported now) and its existing data carried over.
 10. Further security, performance and end-to-end tests across the whole flow.

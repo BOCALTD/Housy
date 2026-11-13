@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { caseForCustomer } from "@/lib/services/verification-cases";
+import { myComplaints } from "@/lib/services/verification-quality";
+import { COMPLAINT_CATEGORIES, COMPLAINT_WORDS, type ComplaintStatus } from "@/lib/verification-quality-rules";
 import { CaseStatusPill, CaseTimeline, day, kb, naira, outcomeName, serviceName } from "../../case-ui";
-import { acknowledgeAction, answerInfoAction, cancelCaseAction, customerDocAction, disputeAction } from "../../actions";
+import { acknowledgeAction, answerInfoAction, cancelCaseAction, complaintAction, customerDocAction, disputeAction, rateAction, withdrawComplaintAction } from "../../actions";
 
 export const metadata = { title: "Verification request", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -18,6 +20,8 @@ export default async function CustomerCase({ params: p, searchParams: s }: { par
   const user = await requireUser();
   const c = await caseForCustomer(user.id, decodeURIComponent(ref));
   if (!c) notFound();
+  const complaints = await myComplaints(user.id, c.ref);
+  const providerWorked = !!c.provider && !["REQUESTED", "PENDING_PAYMENT", "READY_FOR_ASSIGNMENT", "ASSIGNED"].includes(c.status);
   const current = c.report?.versions.find((v) => !v.supersededAt && !v.revokedAt);
   const hidden = (name: string, value: string) => <input type="hidden" name={name} value={value} />;
   return (
@@ -109,10 +113,51 @@ export default async function CustomerCase({ params: p, searchParams: s }: { par
         ) : null}
       </section>
 
+      {["DELIVERED", "COMPLETED"].includes(c.status) && c.customerRating === null ? (
+        <section className="card stack">
+          <h2>How was the report?</h2>
+          <form action={rateAction} className="stack">{hidden("ref", c.ref)}
+            <fieldset className="vp-rating"><legend className="small">Your rating</legend>
+              {[1, 2, 3, 4, 5].map((n) => <label key={n} className="check"><input type="radio" name="rating" value={n} required /> {n} {n === 1 ? "star" : "stars"}</label>)}
+            </fieldset>
+            <Field label="Comment" hint="Optional; the provider sees it"><textarea name="feedback" maxLength={1000} rows={2} /></Field>
+            <div className="row"><button className="btn" type="submit">Send rating</button></div>
+          </form>
+        </section>
+      ) : c.customerRating !== null ? <p className="small muted">You rated this report {c.customerRating} out of 5.</p> : null}
+
+      {complaints.length ? (
+        <section className="card stack">
+          <h2>Your complaints</h2>
+          <ul className="vp-list">{complaints.map((k) => (
+            <li key={k.ref} className="stack" style={{ alignItems: "stretch" }}>
+              <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}><strong>{k.ref} · {COMPLAINT_CATEGORIES.find((x) => x[0] === k.category)?.[1]}</strong><span className="pill">{COMPLAINT_WORDS[k.status as ComplaintStatus]}</span></div>
+              <p className="small">{k.description}</p>
+              {k.providerResponse ? <p className="small"><strong>The provider&apos;s account:</strong> {k.providerResponse}</p> : null}
+              {k.resolution ? <p className="small"><strong>Housy&apos;s decision:</strong> {k.resolution}</p> : null}
+              {["OPEN", "INVESTIGATING"].includes(k.status) ? (
+                <form action={withdrawComplaintAction}>{hidden("ref", c.ref)}{hidden("complaint", k.ref)}<button className="btn small" type="submit" data-confirm="Withdraw this complaint?" data-confirm-ok="Withdraw">Withdraw</button></form>
+              ) : null}
+            </li>
+          ))}</ul>
+        </section>
+      ) : null}
+
       <section className="card stack">
         <h2>Progress</h2>
         <CaseTimeline items={c.activities} />
       </section>
+
+      {providerWorked && !complaints.some((k) => ["OPEN", "INVESTIGATING"].includes(k.status)) ? (
+        <details className="card vp-fold"><summary>Complain about the provider</summary>
+          <form action={complaintAction} className="stack">{hidden("ref", c.ref)}
+            <p className="small muted">For how the provider behaved or worked. To challenge what the report says, use &quot;Dispute the report&quot; instead. The provider sees your complaint and gives its account; Housy decides.</p>
+            <Field label="What is it about?"><select name="category" required defaultValue=""><option value="" disabled>Choose…</option>{COMPLAINT_CATEGORIES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+            <Field label="What happened?"><textarea name="description" required minLength={20} maxLength={4000} rows={4} /></Field>
+            <button className="btn" type="submit" data-confirm="Send this complaint?" data-confirm-body="The provider will see it." data-confirm-ok="Send complaint" data-confirm-tone="default">Send complaint</button>
+          </form>
+        </details>
+      ) : null}
 
       {CAN_CANCEL.includes(c.status) ? (
         <details className="card vp-fold"><summary>Cancel this request</summary>

@@ -20,7 +20,7 @@ export const naira = (kobo: bigint | null) => (kobo === null ? "Quoted per case"
 
 const ACTION_WORDS: Record<string, string> = {
   requested: "Request sent", billing_confirmed: "Confirmed by Housy", payment_requested: "Payment requested", quoted: "Quoted: invoice sent",
-  payment_received: "Payment received", refunded: "Refunded", billing_note: "How it is paid for", rejected: "Not taken on",
+  payment_received: "Payment received", refunded: "Refunded", complaint_filed: "Complaint sent", billing_note: "How it is paid for", rejected: "Not taken on",
   offered: "Offered to a provider", offered_with_override: "Offered to a provider (override recorded)", offer_expired: "Offer not answered in time",
   offer_withdrawn: "Offer withdrawn", accepted: "Accepted by the provider", declined: "Declined by the provider", declined_conflict: "Declined: conflict of interest",
   staff_assigned: "Officer and reviewer chosen", document_review: "Reviewing documents", information_required: "More information needed",

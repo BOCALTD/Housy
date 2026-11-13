@@ -507,7 +507,7 @@ async function holdProvider(userId: string, providerId: string) {
   const m = await withUser(userId, (tx) => tx.providerMember.findFirst({ where: { userId, providerId } }));
   if (!m) return null;
   // Onboarding: only an approved provider sees its leads; a pending or suspended one sees none.
-  return prisma.serviceProvider.findFirst({ where: { id: providerId, status: "APPROVED" }, select: { id: true, name: true, shortName: true } });
+  return prisma.serviceProvider.findFirst({ where: { id: providerId, status: "APPROVED" }, select: { id: true, name: true, shortName: true, providerCode: true } });
 }
 
 export async function providerLeads(userId: string, providerId: string, status: LeadStatus | null) {
@@ -516,7 +516,7 @@ export async function providerLeads(userId: string, providerId: string, status: 
   const [leads, counts] = await Promise.all([
     prisma.providerLead.findMany({
       where: { providerId, ...(status ? { status } : {}) }, orderBy: { createdAt: "desc" }, take: 200,
-      select: { id: true, ref: true, listingRef: true, name: true, contactMethod: true, contactValue: true, note: true, status: true, providerNote: true, createdAt: true, consentGivenAt: true, updatedAt: true },
+      select: { id: true, ref: true, listingRef: true, name: true, contactMethod: true, contactValue: true, note: true, status: true, providerNote: true, createdAt: true, consentGivenAt: true, updatedAt: true, userId: true },
     }),
     prisma.providerLead.groupBy({ by: ["status"], where: { providerId }, _count: { _all: true } }),
   ]);
@@ -534,6 +534,26 @@ export async function updateProviderLead(userId: string, providerId: string, ref
   if (lead.userId) {
     await withUser(lead.userId, (tx) => notify(tx, lead.userId!, { kind: "verification.update", title: `${provider.name} updated your request ${lead.ref}`, body: note, link: "/me", email: false }));
   }
+}
+
+/**
+ * Suggest to someone who sent an enquiry (and has a Housy account) that they ask for a full verification through Housy's
+ * network for that property. They get a notice with the link; nothing is started for them. Once per enquiry a month.
+ */
+export async function suggestVerificationToLead(userId: string, providerId: string, ref: string) {
+  const provider = await holdProvider(userId, providerId);
+  if (!provider) throw new Error("Provider access not found");
+  const lead = await prisma.providerLead.findFirst({ where: { ref, providerId } });
+  if (!lead) throw new Error("Request not found");
+  if (!lead.userId) throw new Error("This person did not use a Housy account, so they cannot be sent a suggestion here. Contact them the way they asked.");
+  if (lead.status === "WITHDRAWN" || lead.status === "DECLINED") throw new Error("This request is closed.");
+  const { rateLimit } = await import("../ratelimit");
+  if (!(await rateLimit(`vr-suggest:${lead.id}`, 1, 30 * 86_400_000))) throw new Error("A suggestion was already sent for this request in the last month.");
+  await withUser(lead.userId, (tx) => notify(tx, lead.userId!, {
+    kind: "verification.update", title: `${provider.name} suggests a full verification`,
+    body: `For the property you asked about (${lead.listingRef}). A vetted firm investigates and writes a report that Housy checks before you get it.`,
+    link: `/verification/request?listing=${encodeURIComponent(lead.listingRef)}`,
+  }));
 }
 
 // ---------- Platform administration of provider members ----------

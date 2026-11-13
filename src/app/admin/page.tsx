@@ -126,7 +126,7 @@ export default async function AdminPage({ searchParams: searchP }: { searchParam
 
       <section className="card stack" id="providers">
         <h2>Verification providers</h2>
-        <p className="small muted">Show only approved, verified information. Use Affiliated when the provider shares owners or directors with the platform operator.</p>
+        <p className="small muted">Show only approved, verified information. Use Affiliated when the provider shares owners or directors with the platform operator. A provider is recommended to buyers only once it has been vetted through the <a href="/admin/verification">verification network</a>; approving it here alone does not.</p>
         {[...providers, null].map((p) => (
           <details key={p?.id ?? "new"} className="inline" open={providers.length === 0 && !p}>
             <summary>

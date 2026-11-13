@@ -45,6 +45,6 @@ export async function setupAction(form: FormData) {
     await createSession(admin.id, null);
     return withNotice("/admin", demo
       ? "Setup complete. Labelled demo companies and listings were added. Demo users sign in with demo-password-123."
-      : "Setup complete. Add BOCA's approved profile under Verification providers to show it to buyers.");
+      : "Setup complete. Verification providers, BOCA included, apply through Verification partners; once Housy has vetted them they can take cases and be shown to buyers.");
   });
 }

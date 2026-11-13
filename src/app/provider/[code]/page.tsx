@@ -38,13 +38,14 @@ export default async function ProviderDashboard({ params: p, searchParams: s }: 
         <div className="card"><span className="vp-stat">{leadsOpen}</span><span className="small muted">Open enquiries from listings</span></div>
         {vpCan(ctx.role, "staff.manage") ? <div className="card"><span className="vp-stat">{o.pendingInvites}</span><span className="small muted">Invitations not yet accepted</span></div> : null}
       </section>
-      <p className="small muted">Verification cases assigned by Housy, reports and payments arrive here as those parts of the network open. Every number on this page is counted from your organisation&apos;s own records.</p>
+      <p className="small muted">Every number on this page is counted from your organisation&apos;s own records.</p>
       {o.expiring.length ? (
         <section className="card stack"><h2>Licences and certificates expiring soon</h2>
           <ul className="vp-docs">{o.expiring.map((d) => <li key={d.id}><span><strong>{d.title}</strong><span className={`small ${d.expiresOn! < new Date() ? "bad-text" : "warn-text"}`}>{d.expiresOn! < new Date() ? "Expired" : "Expires"} {d.expiresOn!.toISOString().slice(0, 10)}</span></span></li>)}</ul>
         </section>
       ) : null}
       <section className="vp-grid">
+        <Link className="card vp-tile" href={`/provider/${ctx.code}/cases`}><strong>Verification cases</strong><span className="small muted">Offers from Housy, investigations, evidence and reports</span></Link>
         <Link className="card vp-tile" href={`/provider/${ctx.code}/profile`}><strong>Profile, services and coverage</strong><span className="small muted">How customers see you, what you offer and where</span></Link>
         {vpCan(ctx.role, "staff.view") ? <Link className="card vp-tile" href={`/provider/${ctx.code}/staff`}><strong>Staff and roles</strong><span className="small muted">{VP_ROLES.filter((r) => o.staff[r]).map((r) => `${o.staff[r]} ${VP_ROLE_LABELS[r].toLowerCase()}${o.staff[r]! > 1 ? "s" : ""}`).join(", ") || "Invite your team"}</span></Link> : null}
         <Link className="card vp-tile" href={`/provider/${ctx.code}/documents`}><strong>Documents</strong><span className="small muted">{o.docs} on file</span></Link>

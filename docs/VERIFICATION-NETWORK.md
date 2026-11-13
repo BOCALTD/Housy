@@ -24,16 +24,26 @@ limited to what Housy approved. Applicants see only their own application, never
 it to approved. `provider_members` is not forced on its owner so the role lookup does not loop; the app's role is bound by
 every policy. Tests: `tests/integration/phase19a.test.ts` (including direct database attempts across providers).
 
+## Built (stages 4 to 6)
+
+| Stage | What | Where |
+|---|---|---|
+| 4 | A customer asks for a verification from any listing or for any property (address, state, type, the checks wanted, documents held, owner, transaction). Reference HVR-YYYY-NNNNNN. Housy confirms it (or waits for payment, or declines with a reason), then offers it to a provider. Providers are ranked from their records: vetted, not suspended, approved for every service and the state, offering the services, covering the state, no declared conflict, open cases against capacity, then on-time record, declines, price and turnaround. Ineligible for a hard reason (not vetted, suspended, not approved, conflict) can never be chosen; otherwise ineligible is an override that needs a reason, recorded with the administrator and time. Methods: Housy's choice, the recommended provider, the customer's choice. The provider accepts, or declines with a reason, or declares a conflict (it is then never offered the case). Unanswered offers expire after 48 hours and come back to Housy. | `/verification/request`, `/verification/cases`, `/admin/verification/cases` |
+| 5 | Twenty statuses with the allowed moves in `src/lib/verification-case-rules.ts`, checked by the services and again by a database trigger. The provider names an officer and a different reviewer; field investigators see only cases given to them. Document review, questions to the customer (who answers on their page), site visits booked and recorded, evidence with what kind of finding it supports, location and time taken, fingerprinted on upload. Append-only history; the customer sees the steps meant for them. | `/provider/[code]/cases`, `/provider/cases/[ref]` |
+| 6 | The report: scope, documents examined, sources, registry search, site inspection, findings each labelled documentary / registry / physical / opinion, risks, limitations, outstanding issues, observations, recommendations, conclusion and one of seven outcomes. It cannot go for review incomplete. The provider's reviewer (never the person who wrote that version) approves it, after which its content is locked. Housy's quality and compliance review is separate and shown separately on the PDF. Release fingerprints the version (SHA-256 of its canonical content) and fixes it for ever; a correction is a new version that records what it corrects, and the old one is marked superseded. Housy can revoke a released report. Anyone can check a report by its VR- reference: genuine, current version, superseded or revoked, fingerprint; nothing confidential. Disputes reopen the case to Housy's review. | `/verification/report/[ref]/[version]`, `/verification/check` |
+
+Migration `20261231000000_verification_cases`: the case guard trigger (allowed moves, requester and reference never change,
+only Housy changes the provider except a provider declining), the report version guard (no deletes, content locked after the
+provider's approval, a released version never changes except being marked superseded or revoked once), and row-level
+security on all eight tables. Tests: `tests/unit/verification-cases.test.ts` (the trigger's moves equal the rules) and
+`tests/integration/phase19b.test.ts` (the whole flow, overrides, conflicts, expiry, isolation between providers and from
+investigators not on the case, the customer never seeing evidence or unreleased versions, immutability through the database).
+
+Payment for a case is recorded as a note at intake until stage 7 adds invoices and payments.
+
 ## Still to build
 
-4. Verification requests from customers, the allocation engine (eligibility by approval, services, states, workload,
-   performance, conflicts), manual / automatic / customer-chosen assignment with recorded overrides, accept or decline
-   with a reason, reassignment on time-out.
-5. The case workflow (REQUESTED … COMPLETED, DISPUTED) with enforced transitions, inspections and evidence.
-6. Reports: templates, findings labelled by kind (documentary, registry, physical, opinion), nuanced outcomes, internal
-   review, Housy's quality review kept separate, immutable released versions with hashes, PDF, public verification by
-   reference or QR code, revocation and supersession.
 7. Pricing, invoices, payments, settlement, refunds and payouts as separate recorded states.
-8. Complaints, disputes, performance indicators, credential expiry monitoring, conflict-of-interest declarations.
+8. Complaints, performance indicators, credential expiry monitoring.
 9. BOCA: apply through the network and be linked to its existing record (supported now) and its existing data carried over.
 10. Further security, performance and end-to-end tests across the whole flow.

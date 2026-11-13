@@ -21,6 +21,7 @@ export default async function VerificationConsole({ searchParams: s }: { searchP
       <div className="stack" style={{ gap: 6 }}>
         <h1>Verification network</h1>
         <p className="muted">Independent provider organisations apply here, are vetted by Housy, and run their own dashboards. Every provider, BOCA included, goes through the same process.</p>
+        <p><Link className="btn" href="/admin/verification/cases">Verification cases from customers</Link></p>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <section className="vp-stats" aria-label="Network at a glance">

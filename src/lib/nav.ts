@@ -46,6 +46,7 @@ export function accountSection(c: { incoming: number; portals: number; flatmateW
       { href: "/me", label: "Overview", icon: "grid" },
       { href: "/me/settings", label: "Profile and settings", icon: "gear" },
       { href: "/me/inspections", label: "Inspections", icon: "calendar" },
+      { href: "/verification/cases", label: "Property verifications", icon: "shield" },
       { href: "/me/saved", label: "Saved and alerts", icon: "heart" },
       { href: "/me/artisans", label: "Artisans for my home", icon: "wrench" },
       { href: "/me/notifications", label: "Notifications", icon: "bell" },
@@ -156,6 +157,7 @@ export function adminSection(): NavSection {
       { href: "/admin/reference", label: "Reference data", icon: "gear" },
       { href: "/admin/partners", label: "Partners", icon: "handshake" },
       { href: "/admin/verification", label: "Verification network", icon: "shield" },
+      { href: "/admin/verification/cases", label: "Verification cases", icon: "clipboard" },
     ] },
     { label: "Trust and safety", items: [
       { href: "/admin/cases", label: "Trust and Safety cases", icon: "shield" },

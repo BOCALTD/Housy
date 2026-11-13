@@ -194,6 +194,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
           <strong>What has been checked:</strong> this listing was submitted by a registered company and reviewed by the platform
           before publication{listing.publishedAt ? ` on ${formatDate(listing.publishedAt)}` : ""}. Title and ownership have <strong>not</strong> been verified by the platform.
           {" "}<Link href={`/trust?category=SUSPICIOUS_LISTING&targetKind=LISTING&targetRef=${listing.publicRef}`}>Report this listing</Link>.
+          {" "}<Link href={`/verification/request?listing=${encodeURIComponent(listing.publicRef)}`}>Ask for an independent verification</Link> by a vetted professional.
           {providerView ? <> <VerifyModal provider={providerView} listingRef={listing.publicRef} autoOpen={autoOpen} /></> : null}
         </div>
       </article>

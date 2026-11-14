@@ -6,7 +6,7 @@ import { listTeam } from "@/lib/services/companies";
 import { formatReference } from "@/lib/correspondence-rules";
 import { todayInLagos } from "@/lib/dates";
 import { Field, Flash, ShowMore, TableMore, sp, type SP } from "@/components/ui";
-import { departmentAction, memberDepartmentAction, prefixAction, reminderSettingsAction } from "./actions";
+import { closeWorkspaceAction, departmentAction, memberDepartmentAction, pauseWorkspaceAction, prefixAction, reminderSettingsAction } from "./actions";
 
 export const metadata = { title: "Company settings" };
 
@@ -86,6 +86,35 @@ export default async function SettingsPage({ searchParams: searchP }: { searchPa
         <p className="small muted">Platform administrators can open your company&apos;s records only after stating why, for one hour at a time. Each opening is listed here and your administrators are told.</p>
         {accessLog.length === 0 ? <p className="muted">Never opened.</p> : <ul className="timeline">{accessLog.slice(0, 10).map((g) => <li key={g.id}><span>{fmtAccess(g.createdAt)} · {ACCESS_PURPOSES[g.purpose as keyof typeof ACCESS_PURPOSES]}{g.caseRef ? ` · ${g.caseRef}` : ""}<div className="small muted">{g.note}</div></span></li>)}</ul>}
       </section>
+      {member.role === "COMPANY_SUPER_ADMIN" ? (
+        <section className="card stack" id="leave" aria-labelledby="leave-h">
+          <h2 id="leave-h">Pause or close this workspace</h2>
+          <div className="leave-grid">
+            <details className="leave-card">
+              <summary><h3>Pause</h3><span className="muted small">Take a break. You can resume whenever you like.</span></summary>
+              <form action={pauseWorkspaceAction} className="stack" style={{ marginTop: 10 }}>
+                <ul className="check-list small">
+                  <li>Your listings and profiles leave public view; nothing is deleted.</li>
+                  <li>Your team cannot work in the workspace; API keys and portals stop.</li>
+                  <li>Your plan is not renewed while paused.</li>
+                </ul>
+                <Field label="Note for your team (optional)"><input name="note" maxLength={500} /></Field>
+                <div className="row"><button className="btn" type="submit" data-confirm="Pause this workspace?" data-confirm-body="Listings and profiles are hidden and your team is told. You can resume it from the same place." data-confirm-ok="Pause workspace" data-confirm-tone="default">Pause workspace</button></div>
+              </form>
+            </details>
+            <details className="leave-card danger-zone">
+              <summary><h3>Close for good</h3><span className="muted small">For a business that has stopped.</span></summary>
+              <form action={closeWorkspaceAction} className="stack" style={{ marginTop: 10 }}>
+                <p className="small">Everything is hidden, waiting payment links are cancelled and the plan stops. Records (leases, receipts, invoices) are kept as the law requires. Only Housy support can reopen it. Unpaid Housy invoices stay owed.</p>
+                <Field label="Why are you closing it?"><input name="reason" required minLength={3} maxLength={500} /></Field>
+                <Field label="Type CLOSE to confirm"><input name="confirm" required autoComplete="off" pattern="[Cc][Ll][Oo][Ss][Ee]" /></Field>
+                <Field label="Your password"><input name="password" type="password" required autoComplete="current-password" /></Field>
+                <div className="row"><button className="btn danger" type="submit" data-confirm="Close this workspace for good?" data-confirm-body="Your team loses access, listings are hidden and the plan stops. Only Housy support can reopen it." data-confirm-ok="Close workspace">Close workspace</button></div>
+              </form>
+            </details>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

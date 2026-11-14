@@ -44,6 +44,8 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 - *CRM*: clients, leads, deals, commissions.
 
 ## Your team and company (administrators)
+- *Settings → Pause or close this workspace* (top administrator only). **Pause**: listings and profiles leave public view, the team cannot work in it, the plan is not renewed; resume it from the page shown when you open the workspace. **Close for good**: type CLOSE and your password; waiting payment links and the plan stop, records are kept, and only Housy support can reopen it. Each asks you to confirm first.
+- For yourself: *Profile and settings → Take a break* hides your profile and pauses emails until you sign in again; *Privacy → Delete your account* removes it. Both ask you to confirm.
 - *Team*: invite, change role, suspend. You cannot change your own role.
 - *Settings*, *Billing*, *Advertising*.
 - *Bring in records*: see `MIGRATION.md`.

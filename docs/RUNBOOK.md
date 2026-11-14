@@ -97,3 +97,9 @@ PGHOST=... PGUSER=... PGPASSWORD=... scripts/backup-restore-check.sh estate esta
 | Weekly | Review failed assistant runs; review new platform admins and any role changes |
 | Monthly | Run the restore check on a copy of production; check database size; review who has platform admin access |
 | Quarterly | Rotate the cron secret; read the security headers report; review dependencies for known problems (`npm audit`) |
+
+## 5. Upgrades and maintenance
+1. *Admin → Settings → Upgrades and maintenance*: set the start (at least 24 hours ahead), the end (up to 72 hours later) and an optional message. For something urgent, tick **Emergency**: it may start sooner and everyone is told at once.
+2. Everyone active is told in the app and by email 24 hours before (the notifications job, every 10 minutes, sends it; emails go whatever their email settings). A banner shows on every page in that last day.
+3. During the window, visitors see a "back soon" page and forms are refused. Platform administrators can sign in and use the admin pages to check the site. `/api` is never closed: Paystack's payment messages, the scheduled jobs and `/api/health` keep working.
+4. Deploy (`deploy/ubuntu/deploy.sh`), check `/api/health` and a few pages, then **End maintenance now**. Cancelling a window that people were told about sends them an in-app notice that it is off.

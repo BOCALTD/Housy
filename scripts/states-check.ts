@@ -118,6 +118,9 @@ async function run() {
       if (side) findings.push({ profile: P, item: "page", problem: "the page scrolls sideways" });
       // Messages on a page.
       for (const q of ["flash-notice", "flash-error", "flash-warn", "flash-plain", "field-error", "empty"]) await judge(page, P, `message: ${q}`, `[data-qa="${q}"]`);
+      // Planned maintenance: the banner in the day before, and the "back soon" page.
+      await judge(page, P, "message: maintenance banner", '[data-qa="maint-banner"]');
+      await judge(page, P, "page: maintenance", '[data-qa="maint-page"]');
       await page.locator('[data-qa="messages"]').scrollIntoViewIfNeeded().catch(() => {});
       if (S) { await page.screenshot({ path: `${OUT}/${P.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}--page-messages.jpg`, type: "jpeg", quality: 65, fullPage: false }).catch(() => {}); shots.push(`${P.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}--page-messages.jpg`); }
 

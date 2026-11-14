@@ -216,7 +216,7 @@ export async function myCompanies(userId: string) {
   return withUser(userId, (tx) =>
     tx.membership.findMany({
       where: { userId, status: "ACTIVE" },
-      select: { companyId: true, role: true, company: { select: { name: true } } },
+      select: { companyId: true, role: true, company: { select: { name: true, suspendedKind: true, suspendedAt: true } } },
       orderBy: { createdAt: "asc" },
     }),
   );

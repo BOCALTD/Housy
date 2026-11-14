@@ -6,7 +6,27 @@ import {
   CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
 } from "@/lib/services/platform-config";
 
+import { endMaintenance, scheduleMaintenance } from "@/lib/services/maintenance-mode";
+import { formatDateTime } from "@/lib/dates";
+
 const PAGE = "/admin/settings";
+
+export async function maintenanceAction(form: FormData) {
+  return act(PAGE, async () => {
+    const a = await requirePlatformAdmin();
+    const emergency = str(form, "emergency") === "1";
+    const r = await scheduleMaintenance(a.id, { start: str(form, "start"), end: str(form, "end"), message: str(form, "message"), emergency });
+    return withNotice(PAGE, emergency ? `Maintenance scheduled from ${formatDateTime(r.start)}. Everyone is being told now.` : `Maintenance scheduled from ${formatDateTime(r.start)}. Everyone is told 24 hours before.`);
+  });
+}
+
+export async function endMaintenanceAction() {
+  return act(PAGE, async () => {
+    const a = await requirePlatformAdmin();
+    const r = await endMaintenance(a.id);
+    return withNotice(PAGE, r === "ended" ? "Maintenance ended. The site is open to everyone." : "The planned maintenance is cancelled.");
+  });
+}
 
 export async function paystackAction(form: FormData) {
   const clear = str(form, "clear") === "1";

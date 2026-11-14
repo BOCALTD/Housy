@@ -31,7 +31,7 @@ export default async function SwitchPage({ searchParams: searchP }: { searchPara
               <input type="hidden" name="companyId" value={c.companyId} />
               <div>
                 <strong>{c.company.name}</strong>
-                <p className="small muted">{ROLE_LABELS[c.role as Role]}</p>
+                <p className="small muted">{ROLE_LABELS[c.role as Role]}{c.company.suspendedAt ? ` · ${c.company.suspendedKind === "PAUSED" ? "Paused" : c.company.suspendedKind === "CLOSED" ? "Closed" : "Suspended"}` : ""}</p>
               </div>
               <button className="btn" type="submit">Open</button>
             </form>

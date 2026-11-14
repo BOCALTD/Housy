@@ -3,7 +3,9 @@ import { headers } from "next/headers";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, configForAdmin } from "@/lib/services/platform-config";
-import { captchaAction, cloudflareAction, commissionAction, paystackAction } from "./actions";
+import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, paystackAction } from "./actions";
+import { maintenanceNow } from "@/lib/services/maintenance-mode";
+import { formatDateTime, toLagosLocal } from "@/lib/dates";
 
 export const metadata = { title: "Platform settings" };
 export const dynamic = "force-dynamic";
@@ -11,7 +13,9 @@ export const dynamic = "force-dynamic";
 export default async function PlatformSettings({ searchParams: s }: { searchParams?: Promise<SP> }) {
   const searchParams = await s;
   await requirePlatformAdmin();
-  const c = await configForAdmin();
+  const [c, m] = await Promise.all([configForAdmin(), maintenanceNow()]);
+  const w = m.window;
+  const soon = toLagosLocal(new Date(Date.now() + 25 * 3_600_000));
   const h = await headers();
   const origin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   return (
@@ -19,9 +23,40 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
       <div className="stack" style={{ gap: 6 }}>
         <Link className="small" href="/admin">Administration</Link>
         <h1>Platform settings</h1>
-        <p className="muted">Payments, the check that visitors are people, Cloudflare, and Housy&apos;s commission. Secret keys are stored encrypted and never shown again in full.</p>
+        <p className="muted">Upgrades and maintenance, payments, the check that visitors are people, Cloudflare, and Housy&apos;s commission. Secret keys are stored encrypted and never shown again in full.</p>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+
+      <section className="card stack" aria-labelledby="maint-h">
+        <h2 id="maint-h">Upgrades and maintenance</h2>
+        {w ? (
+          <div className="stack" style={{ gap: 8 }}>
+            <p>
+              {m.phase === "active" ? <span className="pill warn">On now</span> : <span className="pill">Scheduled</span>}{" "}
+              {formatDateTime(w.start)} to {formatDateTime(w.end)} (Lagos time){w.emergency ? " · emergency" : ""}
+            </p>
+            <p className="small muted">{w.notifiedAt ? `Everyone was told on ${formatDateTime(w.notifiedAt)}, in the app and by email.` : m.phase === "scheduled" ? `Everyone is told in the app and by email 24 hours before it starts (${formatDateTime(new Date(w.start.getTime() - 86_400_000))}).` : "The notice is going out now."}</p>
+            {w.message ? <p className="small">“{w.message}”</p> : null}
+            <form action={endMaintenanceAction} className="row">
+              <button className="btn danger" type="submit" data-confirm={m.phase === "active" ? "End maintenance now?" : "Cancel the planned maintenance?"} data-confirm-body={m.phase === "active" ? "The site opens to everyone again straight away." : w.notifiedAt ? "Everyone who was told gets a notice in the app that it is cancelled." : "Nobody has been told yet."} data-confirm-ok={m.phase === "active" ? "End maintenance" : "Cancel it"}>{m.phase === "active" ? "End maintenance now" : "Cancel it"}</button>
+            </form>
+          </div>
+        ) : <p className="small muted">Nothing scheduled. During maintenance, visitors see a “back soon” page; you can still sign in and check the site. Payment messages from Paystack, scheduled jobs and the health check keep working.</p>}
+        {m.phase !== "active" ? (
+          <details className="vp-fold" open={!w}>
+            <summary>{w ? "Change the time" : "Schedule maintenance"}</summary>
+            <form action={maintenanceAction} className="stack">
+              <div className="fields">
+                <Field label="Starts (Lagos time)" hint="At least 24 hours from now"><input type="datetime-local" name="start" required defaultValue={w ? toLagosLocal(w.start) : soon} /></Field>
+                <Field label="Ends (Lagos time)" hint="Up to 72 hours later"><input type="datetime-local" name="end" required defaultValue={w ? toLagosLocal(w.end) : toLagosLocal(new Date(Date.now() + 27 * 3_600_000))} /></Field>
+              </div>
+              <Field label="Message for everyone" hint="Optional, for example what is being improved"><textarea name="message" rows={2} maxLength={500} defaultValue={w?.message ?? ""} /></Field>
+              <label className="check"><input type="checkbox" name="emergency" value="1" /><span>Emergency: it may start sooner than 24 hours (everyone is told at once)</span></label>
+              <div className="row"><button className="btn primary" type="submit" data-confirm="Schedule this maintenance?" data-confirm-body="Everyone gets a notice in the app and by email 24 hours before it starts (at once for an emergency). During it, only administrators can use the site." data-confirm-ok="Schedule" data-confirm-tone="default">Schedule</button></div>
+            </form>
+          </details>
+        ) : null}
+      </section>
 
       <section className="card stack">
         <h2>Online payments (Paystack)</h2>

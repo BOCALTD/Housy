@@ -399,6 +399,8 @@ export async function generateRenewalInvoices(deps?: Deps): Promise<{ invoices: 
   for (const s of subs) {
     if (!renewalDue({ periodEnd: s.periodEnd, graceDays: s.plan.graceDays, now, cancelled: s.status === "CANCELLED" })) continue;
     const owner: Owner = s.ownerUserId ? { kind: "USER", userId: s.ownerUserId } : { kind: "COMPANY", companyId: s.ownerCompanyId! };
+    // A paused, closed or suspended workspace is not asked to renew.
+    if (owner.kind === "COMPANY" && (await system((tx) => tx.company.findUnique({ where: { id: owner.companyId }, select: { suspendedAt: true } })))?.suspendedAt) continue;
     const recipients = await billingRecipients(owner, s.createdById);
     const stage = reminderStage(s.periodEnd, now);
     const made = await system(async (tx) => {

@@ -380,3 +380,10 @@ body:has(.tabbar) .cookie-notice { bottom: calc(76px + env(safe-area-inset-botto
 @media (max-width: 360px) { .captcha:not(.captcha-v3) iframe[src*="recaptcha"] { transform: scale(.85); transform-origin: 0 0; } }
 /* Long addresses and keys wrap instead of pushing the page sideways. */
 code.break { overflow-wrap: anywhere; word-break: break-all; }
+
+/* Upgrade and maintenance */
+.maint-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; }
+.maint-card { max-width: 560px; width: 100%; text-align: center; align-items: center; }
+.maint-ico { font-size: 2.6rem; line-height: 1; }
+.maint-banner { background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--line); font-size: 0.875rem; }
+.maint-banner .wrap { padding-top: 8px; padding-bottom: 8px; overflow-wrap: anywhere; }

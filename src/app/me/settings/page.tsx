@@ -158,7 +158,7 @@ export default async function SettingsPage() {
                 <li>You are signed out on every device. Your chats, saved homes and data are kept.</li>
               </ul>
               <label className="check"><input type="checkbox" name="confirm" value="yes" required /><span>I want to take a break</span></label>
-              <button className="btn" type="submit">Start my break</button>
+              <button className="btn" type="submit" data-confirm="Start your break?" data-confirm-body="You are signed out on every device, your profile is hidden and emails pause. Signing in again ends the break." data-confirm-ok="Start my break" data-confirm-tone="default">Start my break</button>
             </form>
           </details>
           <div className="leave-card danger-zone">

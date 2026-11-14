@@ -1,6 +1,9 @@
 import { DemoStrip } from "@/components/DemoStrip";
 import { Suspense } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { maintenanceNow } from "@/lib/services/maintenance-mode";
+import { openDuringMaintenance } from "@/lib/site-maintenance-rules";
+import { MaintenanceBanner, MaintenancePage } from "@/components/MaintenanceNotice";
 import { AppToaster, UrlToasts } from "@/components/Toasts";
 import "./globals.css";
 import "./polish.css";
@@ -104,6 +107,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     home: member ? "/app" : session.user.isPlatformAdmin ? "/admin" : "/me",
   } : null;
   const jar = await cookies();
+  const path = (await headers()).get("x-housy-path") ?? "";
+  const maint = await maintenanceNow().catch(() => ({ phase: "none" as const, window: null }));
+  const closed = maint.phase === "active" && !!maint.window && !session?.user.isPlatformAdmin && !openDuringMaintenance(path);
+  const showBanner = !!maint.window && (maint.phase === "notice" || (maint.phase === "active" && !closed));
   const railMini = jar.get("rail")?.value === "mini";
   const themeCookie = jar.get("theme")?.value;
   const theme: "light" | "dark" | "system" = themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
@@ -130,6 +137,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ConfirmHost />
         <CookieNotice />
         <Suspense fallback={null}><UrlToasts /></Suspense>
+        {closed && maint.window ? <MaintenancePage window={maint.window} name={PLATFORM_NAME} /> : (<>
+        {showBanner && maint.window ? <MaintenanceBanner window={maint.window} active={maint.phase === "active"} /> : null}
         <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction} collapsed={railMini} theme={theme}>
           {rate ? (
             <aside className="rate-banner" aria-label="Rate the platform">
@@ -152,6 +161,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <SiteFooter />
         </Frame>
         <AssistantLauncher name={session?.user.name ?? null} workspace={!!member && can(member.role, "ai.use")} starters={member && can(member.role, "ai.use") ? STARTERS.workspace : STARTERS.public} />
+        </>)}
       </body>
     </html>
   );

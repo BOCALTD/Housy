@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { withPlatformAdmin, withTenant } from "../db";
 import { logActivity } from "../audit";
 import { notify } from "./notifications";
@@ -54,8 +55,9 @@ export async function suspendCompany(adminId: string, companyId: string, input: 
   await withPlatformAdmin(adminId, async (tx) => {
     const c = await tx.company.findUnique({ where: { id: companyId } });
     if (!c) throw new Error("Company not found");
-    if (c.suspendedAt) throw new Error("This company is already suspended");
-    await tx.company.update({ where: { id: companyId }, data: { suspendedAt: new Date(), suspendedReason: reason, suspendedById: adminId } });
+    // A workspace the owner paused or closed can still be suspended by Housy (it then needs Housy to restore it).
+    if (c.suspendedAt && (c.suspendedKind === "" || c.suspendedKind === "PLATFORM")) throw new Error("This company is already suspended");
+    await tx.company.update({ where: { id: companyId }, data: { suspendedAt: new Date(), suspendedReason: reason, suspendedById: adminId, suspendedKind: "PLATFORM", pauseHidden: Prisma.DbNull } });
     await tx.listing.updateMany({ where: { companyId }, data: { platformHidden: true } });
     await tx.agentProfile.updateMany({ where: { companyId }, data: { platformHidden: true } });
     await tx.companyProfile.updateMany({ where: { companyId }, data: { platformHidden: true } });
@@ -71,7 +73,7 @@ export async function restoreCompany(adminId: string, companyId: string, note: s
   await withPlatformAdmin(adminId, async (tx) => {
     const c = await tx.company.findUnique({ where: { id: companyId } });
     if (!c?.suspendedAt) throw new Error("This company is not suspended");
-    await tx.company.update({ where: { id: companyId }, data: { suspendedAt: null, suspendedReason: "", suspendedById: null } });
+    await tx.company.update({ where: { id: companyId }, data: { suspendedAt: null, suspendedReason: "", suspendedById: null, suspendedKind: "", pauseHidden: Prisma.DbNull } });
     await tx.listing.updateMany({ where: { companyId }, data: { platformHidden: false } });
     await tx.agentProfile.updateMany({ where: { companyId }, data: { platformHidden: false } });
     await tx.companyProfile.updateMany({ where: { companyId }, data: { platformHidden: false } });

@@ -120,6 +120,11 @@ model Company {
   suspendedAt      DateTime? @map("suspended_at")
   suspendedReason  String    @default("") @map("suspended_reason")
   suspendedById    String?   @map("suspended_by_id")
+  /// Who closed it: "" or PLATFORM (an administrator suspended it), PAUSED (the owner paused it and can resume), CLOSED (the owner
+  /// closed it for good; only Housy support can reopen it).
+  suspendedKind    String    @default("") @map("suspended_kind")
+  /// What the owner's pause hid (listing and profile ids), so resuming shows exactly those again and nothing hidden for other reasons.
+  pauseHidden      Json?     @map("pause_hidden")
   createdAt   DateTime     @default(now()) @map("created_at")
   memberships Membership[]
   invitations Invitation[]

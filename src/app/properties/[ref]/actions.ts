@@ -11,6 +11,7 @@ import { viewerKeyFor } from "@/lib/services/ads";
 import { unwatchListing, watchListing } from "@/lib/services/alerts";
 import { requireUser } from "@/lib/auth";
 import { parsePrefs, recordRecommendationEvent, submitLead } from "@/lib/services/verification";
+import { optionalCookiesAllowed } from "@/lib/consent-server";
 
 const PREF_COOKIE = "pv_pref";
 const VISITOR_COOKIE = "pv_vid";
@@ -24,6 +25,8 @@ async function visitorKey() {
   const existing = (await cookies()).get(VISITOR_COOKIE)?.value;
   if (existing) return existing;
   const id = randomUUID();
+  // Without permission for optional cookies the id is used for this one event only and not remembered.
+  if (!(await optionalCookiesAllowed())) return id;
   (await cookies()).set(VISITOR_COOKIE, id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365,
     secure: await secureCookies() });
   return id;

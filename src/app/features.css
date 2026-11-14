@@ -366,3 +366,11 @@ body:has(.ai-page:not(.ai-in-workspace)) .site-footer { display: none; }
   @keyframes pw-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   @keyframes pw-shake { 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
 }
+
+/* The cookie choice: a card at the bottom of the screen, above the phone menu bar, never under it. */
+.cookie-notice { position: fixed; z-index: 60; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); max-width: 640px; margin-inline: auto; padding: 14px 16px; border-radius: 14px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 10px; max-height: calc(100dvh - 120px); overflow-y: auto; }
+.cookie-notice p { margin: 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.cookie-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.cookie-actions .btn { min-height: 44px; flex: 1 1 140px; }
+body:has(.tabbar) .cookie-notice { bottom: calc(76px + env(safe-area-inset-bottom)); }
+@media (min-width: 1101px) { body:has(.frame:not(.site) .rail) .cookie-notice { left: calc(var(--rail-w) + 16px); } }

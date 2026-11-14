@@ -28,7 +28,7 @@ export default async function PromotionsPage({ searchParams: searchP }: { search
 
       <section className="card stack">
         <div className="row between"><h2>Your plan level: {perks.label} <GoldBadge tier={tier} /></h2></div>
-        <p className="muted">{perks.summary} {perks.freePromos ? "" : "Silver and Gold plans join promotions for free."}</p>
+        <p className="muted">{perks.summary} {perks.freePromos ? "" : "Pro and Elite plans join promotions for free."}</p>
       </section>
 
       <section className="card stack">

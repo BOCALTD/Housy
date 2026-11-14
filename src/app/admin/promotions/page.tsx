@@ -24,7 +24,7 @@ export default async function AdminPromotionsPage({ searchParams: searchP }: { s
         <Field label="Look"><select name="theme" defaultValue={c?.theme ?? "RED"}>{THEMES.map((t) => <option key={t} value={t}>{humanize(t)}</option>)}</select></Field>
         <Field label="Starts"><input name="startsOn" type="date" required defaultValue={c ? toDateOnlyString(c.startsOn) : ""} /></Field>
         <Field label="Ends"><input name="endsOn" type="date" required defaultValue={c ? toDateOnlyString(c.endsOn) : ""} /></Field>
-        <Field label="Fee per property (₦)" hint="Charged to Basic companies. Silver and Gold pay nothing."><input name="fee" inputMode="decimal" defaultValue={c ? String(Number(c.feeKobo) / 100) : "0"} /></Field>
+        <Field label="Fee per property (₦)" hint="Charged to Basic companies. Pro and Elite pay nothing."><input name="fee" inputMode="decimal" defaultValue={c ? String(Number(c.feeKobo) / 100) : "0"} /></Field>
         <Field label="Biggest discount allowed (%)"><input name="maxDiscountPct" inputMode="numeric" defaultValue={c?.maxDiscountPct ?? 60} /></Field>
       </div>
       <button className="btn primary" type="submit">{c ? "Save campaign" : "Create campaign"}</button>

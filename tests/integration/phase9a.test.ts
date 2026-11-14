@@ -74,7 +74,7 @@ test("a subscription moves through grace, read-only and suspended on the plan's 
   const company = await newCompany("audience");
   await assert.rejects(assignSubscription(admin.id, { planId: premium.id, periodEnd: relativeDate(30), companyId: company.companyId }), /for individuals/);
   const email = (await prisma.user.findUniqueOrThrow({ where: { id: s.userId } })).email;
-  await assert.rejects(assignSubscription(admin.id, { planId: (await planByCode("enterprise")).id, periodEnd: relativeDate(30), email }), /for companies/);
+  await assert.rejects(assignSubscription(admin.id, { planId: (await planByCode("company-gold")).id, periodEnd: relativeDate(30), email }), /for companies/);
 
   const none = await withUser(s.userId, (tx) => entitlementIn(tx, { kind: "USER", userId: s.userId }, "COLLAB_SEEKER_AGENT"));
   assert.equal(none.access, "NONE");
@@ -83,7 +83,7 @@ test("a subscription moves through grace, read-only and suspended on the plan's 
   const sub = await assignSubscription(admin.id, { planId: premium.id, periodEnd: relativeDate(30), email, note: "First month" });
   const check = (key: "COLLAB_SEEKER_AGENT" | "BULK_MESSAGING" = "COLLAB_SEEKER_AGENT") => withUser(s.userId, (tx) => entitlementIn(tx, { kind: "USER", userId: s.userId }, key));
   let e = await check();
-  assert.deepEqual([e.access, e.state, e.limit, e.planName], ["FULL", "ACTIVE", 3, "Premium Seeker"]);
+  assert.deepEqual([e.access, e.state, e.limit, e.planName], ["FULL", "ACTIVE", 3, "Pro"]);
   e = await check("BULK_MESSAGING");
   assert.equal(e.access, "NONE");
   assert.match(e.explanation, /does not include/);
@@ -130,7 +130,7 @@ test("a company's plan is read by that company alone, and a person's plan by tha
   const a = await newCompany("planA");
   const b = await newCompany("planB");
   const other = await seeker("other");
-  const pro = await planByCode("company-professional");
+  const pro = await planByCode("company-silver");
   await assignSubscription(admin.id, { planId: pro.id, periodEnd: relativeDate(30), companyId: a.companyId });
   const mineA = await companySubscription(a.companyId, a.userId);
   assert.equal(mineA.state, "ACTIVE");

@@ -6,6 +6,7 @@ import { ENTITLEMENT_KEYS, ENTITLEMENT_LABELS, COUNTED_ENTITLEMENTS } from "@/li
 import { formatDate } from "@/lib/dates";
 import { formatKobo } from "@/lib/money";
 import { humanize } from "@/lib/labels";
+import { tierLabel } from "@/lib/tier-rules";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { assignAction, cancelAction, renewAction, savePlanAction, settingsAction } from "./actions";
 
@@ -30,7 +31,7 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
         <Field label="Trial days"><input name="trialDays" inputMode="numeric" defaultValue={p?.trialDays ?? 0} /></Field>
         <Field label="Grace days" hint="Everything still works after expiry."><input name="graceDays" inputMode="numeric" defaultValue={p?.graceDays ?? 7} /></Field>
         <Field label="Read-only days" hint="After grace: look but not add."><input name="readOnlyDays" inputMode="numeric" defaultValue={p?.readOnlyDays ?? 30} /></Field>
-        <Field label="Perks level" hint="Silver: free promotions. Gold: Golden badge, Premium tag, automatic boost, free promotions. Applies to company plans."><select name="tier" defaultValue={p?.tier ?? "BASIC"}>{["BASIC", "SILVER", "GOLD"].map((b) => <option key={b} value={b}>{humanize(b)}</option>)}</select></Field>
+        <Field label="Perks level" hint="Basic: free. Pro: free promotions. Elite: Elite badge, Premium tag, automatic boost, free promotions."><select name="tier" defaultValue={p?.tier ?? "BASIC"}>{["BASIC", "SILVER", "GOLD"].map((b) => <option key={b} value={b}>{tierLabel(b)}</option>)}</select></Field>
         <Field label="Order"><input name="sortOrder" inputMode="numeric" defaultValue={p?.sortOrder ?? 100} /></Field>
       </div>
       <label className="row"><input type="checkbox" name="active" defaultChecked={p?.active ?? true} /> Available to assign</label>

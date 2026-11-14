@@ -34,7 +34,7 @@ export function PromoEnds({ endsOn }: { endsOn: Date }) {
 
 export function GoldBadge({ tier }: { tier: TierName }) {
   if (tier !== "GOLD") return null;
-  return <span className="gold-badge" title="Gold member: reviewed and subscribed at the top level"><span aria-hidden="true">★</span> Gold</span>;
+  return <span className="gold-badge" title="Elite member: subscribed at the top level"><span aria-hidden="true">★</span> Elite</span>;
 }
 export function PremiumTag({ tier }: { tier: TierName }) {
   if (tier !== "GOLD") return null;

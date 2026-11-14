@@ -47,7 +47,7 @@ export default async function CompanyPage({ params: paramsP, searchParams: searc
         <TrustBadge t={trust} full />
         <ScoreLine score={rep?.score ?? 0} count={rep?.reviewCount ?? 0} average={rep?.average ?? 0} />
         <BadgeRow badges={(rep?.badges as string[] | undefined) ?? []} />
-        <p className="small muted">The Gold badge reflects a paid plan. Reputation and review badges are earned and cannot be bought.</p>
+        <p className="small muted">The Elite badge reflects a paid plan. Reputation and review badges are earned and cannot be bought.</p>
         {company.about ? <p style={{ whiteSpace: "pre-line", maxWidth: "65ch" }}>{company.about}</p> : null}
         <div className="row">
           <ShareButton kind="company" path={here} signedIn={!guest} title={company.displayName}

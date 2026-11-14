@@ -1,15 +1,20 @@
 // Pure rules for perks tiers, promotions, ranking and the rating prompt.
 
+/**
+ * The three plan levels. The stored codes are historical; people see the labels: BASIC is Basic (free), SILVER is Pro,
+ * GOLD is Elite. Use tierLabel() for anything shown, never the code.
+ */
 export type TierName = "BASIC" | "SILVER" | "GOLD";
 export const TIERS: readonly TierName[] = ["BASIC", "SILVER", "GOLD"];
 
 export interface Perks { label: string; goldBadge: boolean; premiumTag: boolean; autoBoost: boolean; freePromos: boolean; summary: string }
 const PERKS: Record<TierName, Perks> = {
   BASIC: { label: "Basic", goldBadge: false, premiumTag: false, autoBoost: false, freePromos: false, summary: "Free. Promotions are charged per property." },
-  SILVER: { label: "Silver", goldBadge: false, premiumTag: false, autoBoost: false, freePromos: true, summary: "Promotions are free." },
-  GOLD: { label: "Gold", goldBadge: true, premiumTag: true, autoBoost: true, freePromos: true, summary: "Golden badge, Premium tag on every listing, automatic boost, and free promotions." },
+  SILVER: { label: "Pro", goldBadge: false, premiumTag: false, autoBoost: false, freePromos: true, summary: "Promotions are free." },
+  GOLD: { label: "Elite", goldBadge: true, premiumTag: true, autoBoost: true, freePromos: true, summary: "Elite badge, Premium tag on every listing, automatic boost, and free promotions." },
 };
 export const tierPerks = (t: TierName): Perks => PERKS[t];
+export const tierLabel = (t: string): string => PERKS[t as TierName]?.label ?? t;
 
 /** The tier a company has at a moment: what its subscription earned, until that subscription's period ends. */
 export function effectiveTier(row: { tier: TierName; validUntil: Date } | null | undefined, now: Date): TierName {

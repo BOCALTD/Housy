@@ -18,7 +18,7 @@ export const FEATURES: Record<Audience, Feature[]> = {
     { id: "bulk", label: "Bulk messaging to clients and tenants", entitlement: "BULK_MESSAGING" },
     { id: "ads", label: "Advertise properties in sponsored places", entitlement: "ADVERTISING" },
     { id: "promos", label: "Free promotions (festive offers on the home page)", tier: "SILVER" },
-    { id: "gold", label: "Gold badge and Premium tag on every listing", tier: "GOLD" },
+    { id: "gold", label: "Elite badge and Premium tag on every listing", tier: "GOLD" },
     { id: "boost", label: "Automatic boost in search results", tier: "GOLD" },
   ],
   SEEKER: [

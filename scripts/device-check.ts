@@ -175,7 +175,7 @@ async function main() {
     const context = await browsers[prof.engine].newContext({ ...d, reducedMotion: "reduce" });
     // tsx adds a __name helper to functions it compiles; the browser page does not have it.
     await context.addInitScript("window.__name = (f) => f;");
-    await context.addCookies([{ name: "sid", value: token, domain: "localhost", path: "/" }]);
+    await context.addCookies([{ name: "sid", value: token, domain: "localhost", path: "/" }, { name: "cookie_choice", value: "essential", domain: "localhost", path: "/" }]);
     const touch = !!d.hasTouch;
     let pageCount = 0;
     let signedInAs = token;
@@ -185,6 +185,7 @@ async function main() {
       const wanted = guest ? "" : auth ? tokenFor(p) : token;
       if (wanted !== signedInAs) {
         await context.clearCookies();
+        await context.addCookies([{ name: "cookie_choice", value: "essential", domain: "localhost", path: "/" }]);
         if (wanted) await context.addCookies([{ name: "sid", value: wanted, domain: "localhost", path: "/" }]);
         signedInAs = wanted;
       }

@@ -128,14 +128,19 @@ See the [Cookie notice](/legal/cookies).
 We will post changes here and, if they matter, tell you before they take effect.`,
     },
     {
-      slug: "cookies", title: "Cookie notice", summary: `${P} uses only the cookies and storage it needs to work. No advertising or cross-site tracking cookies.`,
-      body: `${P} uses a small number of cookies and similar browser storage. **All are needed for ${P} to work or remember choices you make.** We do not use advertising cookies or third-party tracking cookies, so there is nothing to opt in to.
+      slug: "cookies", title: "Cookie notice", summary: `${P} uses the cookies it needs to work, and two optional ones only if you allow them. No advertising or cross-site tracking cookies.`,
+      body: `${P} uses a small number of cookies and similar browser storage. The first time you visit you choose **Accept all** or **Essential only**; you can change your choice at any time with the button at the end of this page. We do not use advertising cookies or third-party tracking cookies.
 
-## Cookies
+## Essential cookies (always used)
 - **sid**: keeps you signed in. Removed when you sign out.
+- **cookie_choice**: remembers your cookie choice. Lasts a year.
+- **theme** and **pv_pref**: remember settings you choose yourself (light or dark, choices on property pages). Last up to a year.
+
+## Optional cookies (only with "Accept all")
 - **pv_vid**: a random code (not your name) so a property visit is counted once a day. Lasts up to a year.
-- **pv_pref**: remembers choices you make on property pages. Lasts up to a year.
 - **ref**: remembers who invited you when you open a shared link, so they can be thanked. Lasts 30 days and is removed when you sign up.
+
+With **Essential only**, neither is set, and any already set are removed.
 
 ## Storage in your browser
 Your browser also keeps a few settings on your device, such as whether you have seen the welcome tour, the map layer you chose, properties you are comparing, and your current conversation with the assistant. You can clear them in your browser settings at any time.
@@ -143,8 +148,10 @@ Your browser also keeps a few settings on your device, such as whether you have 
 ## Third parties
 Map pictures are loaded from map servers to draw the map. Those servers receive your IP address as any website would, but we do not let them set tracking cookies through ${P}.
 
+When you pay online, the payment page is run by our payment provider (Paystack), which uses its own cookies to process the payment safely. On sign-up, sign-in and some forms, a check that you are a person may be shown (Google reCAPTCHA or Cloudflare Turnstile, whichever ${P} uses); that check may use the provider's own cookies, under its privacy policy, to tell people from automated programs.
+
 ## Your choices
-You can block or delete cookies in your browser. If you block the sign-in cookie you will not be able to sign in.`,
+You can change your choice below, or block and delete cookies in your browser. If you block the sign-in cookie you will not be able to sign in.`,
     },
     {
       slug: "community", title: "Community guidelines", summary: `How to behave on ${P}: honest listings, respectful chat, real reviews, and what happens when someone breaks the rules.`,

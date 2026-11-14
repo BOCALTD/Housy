@@ -90,7 +90,7 @@ test("phone numbers and email addresses are hidden unless the sender's plan incl
   const admin = await newPlatformAdmin();
   const free = await newCompany("freeco");
   const paid = await newCompany("paidco");
-  await subscribe(admin, "company-professional", { companyId: paid.companyId });
+  await subscribe(admin, "company-silver", { companyId: paid.companyId });
   const target = await agentIn(free);
   const paidAgent = await agentIn(paid);
   const s = await seeker();
@@ -237,8 +237,8 @@ test("people in a live collaboration can message each other, and the conversatio
   const prof = (co: Awaited<ReturnType<typeof newCompany>>, label: string) => saveCompanyProfile(co, { kind: "COMPANY", displayName: `${label} ${uid()}`, tagline: "Homes", listed: true });
   const A = await newCompany("msgA"), B = await newCompany("msgB");
   await prof(A, "A"); await prof(B, "B");
-  await subscribe(admin, "company-professional", { companyId: A.companyId });
-  await subscribe(admin, "company-professional", { companyId: B.companyId });
+  await subscribe(admin, "company-silver", { companyId: A.companyId });
+  await subscribe(admin, "company-silver", { companyId: B.companyId });
   const bystander = await addMember(A, "AGENT", "bystander");
   const c = await createInvitation(asCompany(A), { kind: "COMPANY_COMPANY", purpose: "CO_BROKERAGE", title: "Joint listing", companyId: B.companyId }, true);
   await assert.rejects(startConversation(asCompany(A), { toUserId: B.userId, collaborationId: c.id, body: "Before acceptance" }), /both have access/);

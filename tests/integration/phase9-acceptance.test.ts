@@ -28,7 +28,7 @@ test("two companies collaborate on an authorised deal, and neither gains unrestr
   const B = await newCompany("accB");
   for (const [co, label] of [[A, "A"], [B, "B"]] as const) {
     await saveCompanyProfile(co, { kind: "COMPANY", displayName: `Acceptance ${label} ${uid()}`, tagline: "Homes", listed: true });
-    await subscribe(admin, "company-professional", { companyId: co.companyId });
+    await subscribe(admin, "company-silver", { companyId: co.companyId });
   }
   const aAgent = await addMember(A, "AGENT", "a-owner");
   const aOther = await addMember(A, "AGENT", "a-other");

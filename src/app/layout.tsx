@@ -20,6 +20,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { CompareBar } from "@/components/Compare";
 import { ServiceWorker } from "@/components/Pwa";
 import { ConfirmHost } from "@/components/Confirm";
+import { CookieNotice } from "@/components/CookieNotice";
 import { Frame, type FrameNotice } from "@/components/Frame";
 import { getMember } from "@/lib/auth";
 import { ROLE_LABELS, can } from "@/lib/permissions";
@@ -127,6 +128,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <DemoStrip />
         <AppToaster />
         <ConfirmHost />
+        <CookieNotice />
         <Suspense fallback={null}><UrlToasts /></Suspense>
         <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction} collapsed={railMini} theme={theme}>
           {rate ? (

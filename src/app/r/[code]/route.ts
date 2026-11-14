@@ -27,7 +27,15 @@ export async function GET(req: Request, { params: paramsP }: { params: Promise<{
   const reel = shared ? /^\/reels\/([0-9a-f-]{36})$/.exec(shared)?.[1] : undefined;
   if (reel) await sharedLinkOpened(owner, reel, visitor);
   if (await countClick(code)) {
-    res.cookies.set("ref", `${code}.${Date.now()}`, { path: "/", maxAge: 30 * 864e2, httpOnly: true, sameSite: "lax", secure: await secureCookies() });
+    const choice = /(?:^|;\s*)cookie_choice=([a-z]+)/.exec(req.headers.get("cookie") ?? "")?.[1];
+    if (choice === "all") {
+      res.cookies.set("ref", `${code}.${Date.now()}`, { path: "/", maxAge: 30 * 864e2, httpOnly: true, sameSite: "lax", secure: await secureCookies() });
+    } else if (choice !== "essential") {
+      // No choice made yet: the code travels in the address, and is remembered only if they then choose "Accept all".
+      const u = new URL(res.headers.get("location") ?? to, req.url);
+      u.searchParams.set("via", code);
+      return NextResponse.redirect(u, 302);
+    }
   }
   return res;
 }

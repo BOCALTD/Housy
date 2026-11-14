@@ -46,8 +46,8 @@ const invite = (purpose = "SEARCH_ASSISTANCE") => ({ kind: "SEEKER_AGENT" as con
 const pair = (to: string, purpose = "CO_BROKERAGE") => ({ kind: "COMPANY_COMPANY" as const, purpose: purpose as never, title: "Co-broke the Ikoyi duplex", companyId: to });
 const mutate = (admin: { id: string }, fn: (tx: Parameters<Parameters<typeof withPlatformAdmin>[1]>[0]) => Promise<unknown>) => withPlatformAdmin(admin.id, fn);
 async function liveWorkspace(admin: { id: string }) {
-  const A = await listedCompany("collabA", admin, "company-professional");
-  const B = await listedCompany("collabB", admin, "company-professional");
+  const A = await listedCompany("collabA", admin, "company-silver");
+  const B = await listedCompany("collabB", admin, "company-silver");
   const c = await createInvitation(asCompany(A), pair(B.companyId), true);
   await respondInvitation(asCompany(B), c.id, "accept");
   return { A, B, id: c.id, a: asCompany(A), b: asCompany(B) };
@@ -133,7 +133,7 @@ test("only the invited agent answers; declining, cancelling and expiry each clos
 
 test("two companies collaborate only when both plans allow it; the invited company picks who works on it", async () => {
   const admin = await newPlatformAdmin();
-  const A = await listedCompany("coA", admin, "company-professional");
+  const A = await listedCompany("coA", admin, "company-silver");
   const B = await listedCompany("coB", admin, null);
   const aAgent = await addMember(A, "AGENT", "a-agent");
   const bAgent = await addMember(B, "AGENT", "b-agent");
@@ -154,7 +154,7 @@ test("two companies collaborate only when both plans allow it; the invited compa
   await assert.rejects(respondInvitation(asCompany(B), c.id, "accept"), /plan/i, "the invited company's own plan must allow it too");
   await assert.rejects(createInvitation(asCompany(A), pair(B.companyId)), /already have an open/);
 
-  await subscribe(admin, "company-professional", { companyId: B.companyId });
+  await subscribe(admin, "company-silver", { companyId: B.companyId });
   await assert.rejects(respondInvitation(asCompany(bManager), c.id, "accept", "", [bOfficer.userId]), /agents, managers or administrators/);
   await respondInvitation(asCompany(bManager), c.id, "accept", "Glad to", [bAgent.userId]);
   const w = await getWorkspace(asCompany(bAgent), c.id);
@@ -274,7 +274,7 @@ test("access can be limited, expire and be taken away, and takes effect at once"
 test("a stranger, another company's manager and a non-participant colleague see nothing of the workspace", async () => {
   const admin = await newPlatformAdmin();
   const { A, id, a } = await liveWorkspace(admin);
-  const C = await listedCompany("coC", admin, "enterprise");
+  const C = await listedCompany("coC", admin, "company-gold");
   const colleague = await addMember(A, "AGENT", "nonpart");
   await shareNote(a, id, { title: "Private to the pair", body: "Reserve price 90m" });
   for (const who of [asCompany(C), asCompany(colleague)]) {

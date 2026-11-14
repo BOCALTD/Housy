@@ -24,6 +24,8 @@ async function newContext(browser: Browser, kind: "desktop" | "wide" | "phone"):
   // A real visitor: navigator.webdriver is false, so the loader and the welcome slides behave as they do for people.
   // Given as text: a function here would be compiled with helpers (__name) that do not exist in the page.
   await ctx.addInitScript({ content: "Object.defineProperty(navigator, 'webdriver', { get: function () { return false; } });" });
+  // The cookie choice is made up front so the page checks see the pages themselves; the choice itself is checked separately.
+  await ctx.addCookies([{ name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
   return ctx;
 }
 
@@ -229,7 +231,7 @@ async function main() {
     const seeker = lines[2];
     const chat = lines.find((l) => /^\/messages\/[0-9a-f-]{36}$/.test(l));
     const ctx = await newContext(browser, "desktop");
-    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
     const s = await ctx.newPage(); watch(s, "signed-in");
     if (!chat) { rows.push({ step: "chat", ok: false, note: "no conversation to open in the demo data" }); }
     else {
@@ -293,7 +295,7 @@ async function main() {
     const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const seeker = out.trim().split("\n")[2];
     const ctx = await newContext(browser, "phone");
-    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
     const s = await ctx.newPage(); watch(s, "signed-in phone");
     await s.goto(BASE + "/", { waitUntil: "load" });
     await s.waitForFunction(() => document.documentElement.classList.contains("boot-off"), null, { timeout: 15000 }).catch(() => {});
@@ -311,7 +313,7 @@ async function main() {
     const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const seeker = out.trim().split("\n")[2];
     const ctx = await newContext(browser, "desktop");
-    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
     const s = await ctx.newPage(); watch(s, "signed-in desktop");
     const railShown = async () => s.evaluate(() => { const r = document.getElementById("rail"); if (!r) return false; const b = r.getBoundingClientRect(); return getComputedStyle(r).visibility !== "hidden" && b.right > 10 && b.width > 40; });
     const results: string[] = []; let ok = true;
@@ -341,7 +343,7 @@ async function main() {
     const out = execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const agent = out.trim().split("\n")[0];
     const ctx = await newContext(browser, "desktop");
-    await ctx.addCookies([{ name: "sid", value: agent, domain: new URL(BASE).hostname, path: "/" }]);
+    await ctx.addCookies([{ name: "sid", value: agent, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
     const s = await ctx.newPage(); watch(s, "staff switch");
     await s.goto(BASE + "/auth/login", { waitUntil: "load" }); await s.waitForTimeout(800);
     const gate = s.locator("dialog.switch[open]");
@@ -385,7 +387,7 @@ async function main() {
     const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const seeker = out.trim().split("\n")[2];
     const ctx = await newContext(browser, "phone");
-    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
     const s = await ctx.newPage(); watch(s, "reel comments");
     await s.goto(BASE + "/reels?all=1", { waitUntil: "load" }); await s.waitForTimeout(1200);
     const notes: string[] = []; let ok = true;
@@ -434,7 +436,7 @@ async function main() {
       await ctx.addInitScript({ content: "Object.defineProperty(navigator, 'webdriver', { get: function () { return false; } });" });
       // tsx compiles the functions passed to the page with a __name helper the page does not have.
       await ctx.addInitScript({ content: "window.__name = function (f) { return f; };" });
-      await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+      await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
       const s = await ctx.newPage(); watch(s, `compare bar ${name}`);
       await s.goto(BASE + "/browse", { waitUntil: "load" }); await s.waitForTimeout(800);
       const before = await s.locator(".compare-bar").count();
@@ -472,7 +474,7 @@ async function main() {
     }
     // The picture for the report: a small iPhone with two properties picked.
     const pctx = await browser.newContext({ ...devices["iPhone SE"], locale: "en-NG", timezoneId: "Africa/Lagos" });
-    await pctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    await pctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
     const s = await pctx.newPage();
     await s.goto(BASE + "/browse", { waitUntil: "load" });
     const two = await s.$$eval('a[href^="/properties/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?")))].slice(0, 2));
@@ -486,7 +488,7 @@ async function main() {
     const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const seeker = out.trim().split("\n")[2];
     const ctx = await newContext(browser, "phone");
-    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
     // Stand in for the phone's share sheet: note what was shared and whether the tap was still "fresh" (the browser
     // refuses navigator.share otherwise), and answer as if the person cancelled or sent it.
     // Plain text, so the test runner's compiled helpers never end up inside the page.

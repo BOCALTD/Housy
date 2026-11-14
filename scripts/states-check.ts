@@ -106,7 +106,7 @@ async function run() {
   for (const prof of PROFILES) {
     const ctx = await browsers[prof.engine].newContext({ ...prof.opts, locale: "en-NG", timezoneId: "Africa/Lagos", reducedMotion: reduced });
     await ctx.addInitScript({ content: "Object.defineProperty(navigator, 'webdriver', { get: function () { return false; } }); try { localStorage.setItem('intro-done', '1'); } catch (e) {}" });
-    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }]);
+    await ctx.addCookies([{ name: "sid", value: seeker, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
     const page = await ctx.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message.slice(0, 200)));
@@ -196,6 +196,17 @@ async function run() {
       await page.waitForSelector(".intro", { timeout: 6000 }).catch(() => {});
       await page.waitForTimeout(600);
       await judge(page, P, "window: welcome slides", ".intro", { fixed: true }, S);
+
+      // The cookie choice, as a first-time visitor sees it: on screen, above the bottom menu, buttons 44px, and gone once chosen.
+      await ctx.clearCookies({ name: "cookie_choice" });
+      await page.goto(BASE + "/qa/states", { waitUntil: "load" });
+      await page.waitForSelector(".cookie-notice", { timeout: 6000 }).catch(() => {});
+      if (await judge(page, P, "window: cookie choice", ".cookie-notice", { fixed: true, notOverMenu: true }, S)) {
+        await page.locator(".cookie-notice button", { hasText: "Essential only" }).click().catch(() => {});
+        await gone(page, P, "window: cookie choice", ".cookie-notice");
+        const saved = (await ctx.cookies()).find((c) => c.name === "cookie_choice")?.value;
+        if (saved !== "essential") findings.push({ profile: P, item: "window: cookie choice", problem: "the choice was not remembered" });
+      }
       if (errors.length) findings.push({ profile: P, item: "page", problem: `script error: ${errors[0]}` });
     } catch (e) {
       findings.push({ profile: P, item: "check", problem: `the check itself stopped: ${(e as Error).message.split("\n")[0].slice(0, 160)}` });

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { legalDoc, legalDocs, LEGAL_UPDATED } from "@/lib/legal";
 import { parseBody } from "@/lib/blog-rules";
 import { RichBlocks } from "@/components/RichText";
+import { ChangeCookieChoice } from "@/components/CookieNotice";
 
 export function generateStaticParams() { return legalDocs().map((d) => ({ slug: d.slug })); }
 
@@ -27,7 +28,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
       </header>
       <div className="blog-layout">
         {toc.length > 2 ? <aside className="blog-toc" aria-label="On this page"><details open><summary>On this page</summary><ol>{toc.map((h) => <li key={h.id}><a href={`#${h.id}`}>{h.text}</a></li>)}</ol></details></aside> : null}
-        <div className="blog-body"><RichBlocks blocks={blocks} /></div>
+        <div className="blog-body"><RichBlocks blocks={blocks} />{d.slug === "cookies" ? <p><ChangeCookieChoice /></p> : null}</div>
       </div>
       <nav className="blog-tags" aria-label="Other policies">{legalDocs().filter((x) => x.slug !== d.slug).map((x) => <Link key={x.slug} href={`/legal/${x.slug}`}>{x.title}</Link>)}</nav>
     </article>

@@ -1,3 +1,4 @@
+import { Captcha } from "@/components/Captcha";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Field, Flash, sp, type SP } from "@/components/ui";
@@ -33,6 +34,7 @@ export default async function StaffSignIn({ searchParams: searchP }: { searchPar
           <Field label="Staff email"><CleanInput name="email" id="email" type="email" required inputMode="email" /></Field>
           <label className="field" htmlFor="password">Password<PasswordInput name="password" id="password" autoComplete="off" noPrefill /></label>
           <Field label="Authentication code" hint="From your authenticator app, or a recovery code. Needed once two-step sign-in is on."><input name="code" id="code" inputMode="text" autoComplete="one-time-code" /></Field>
+          <Captcha place="login" />
           <button className="btn primary auth-submit" type="submit">Sign in</button>
           <PendingOverlay text="Signing you in to the staff area…" />
         </form>

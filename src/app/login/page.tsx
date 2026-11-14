@@ -1,3 +1,4 @@
+import { Captcha } from "@/components/Captcha";
 import Link from "next/link";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { AuthShell } from "@/components/AuthShell";
@@ -36,6 +37,7 @@ export default async function LoginPage({ searchParams: searchP }: { searchParam
         <details className="inline"><summary>I use two-step sign-in</summary>
           <Field label="Authentication code" hint="From your authenticator app, or one of your recovery codes."><input name="code" id="code" inputMode="text" autoComplete="one-time-code" /></Field>
         </details>
+        <Captcha place="login" />
         <button className="btn primary auth-submit" type="submit">Sign in{as === "personal" ? "" : ` as ${copy.tab.toLowerCase()}`}</button>
         <p className="small muted">For your security, sign-in is locked for a while after 3 wrong passwords in a row, and for longer each time it happens again.</p>
       </form>

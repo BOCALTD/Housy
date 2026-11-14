@@ -4,7 +4,7 @@ import { logActivity } from "../audit";
 import { lockKey } from "../locks";
 import { parseNairaToKobo } from "../money";
 import { randomRef, refundable } from "../billing-rules";
-import { configuredProvider, type ParsedEvent, type PaymentProvider } from "../payment-providers";
+import { type ParsedEvent, type PaymentProvider } from "../payment-providers";
 import { notify } from "./notifications";
 import { system } from "./rewards";
 import { syncCompanyTier } from "./tiers";
@@ -13,7 +13,7 @@ import { accountFor, applyInvoice, ledgerFor, payerOf, post, type Deps } from ".
 // Giving money back, and settling a payment that did not match. Nothing here changes the books except by adding entries,
 // and a refund is always something a named person asked for or the provider confirmed.
 
-const providerOf = (d?: Deps): PaymentProvider | null => (d && "provider" in d ? d.provider ?? null : configuredProvider());
+const providerOf = async (d?: Deps): Promise<PaymentProvider | null> => (d && "provider" in d ? d.provider ?? null : (await import("./platform-config")).activePaymentProvider());
 const nowOf = (d?: Deps) => d?.now ?? new Date();
 
 async function assertAdmin(id: string) {
@@ -74,7 +74,7 @@ export async function requestRefund(adminId: string, paymentId: string, input: {
   });
   const { refund, pay } = created;
   if (pay.provider === "MANUAL") return { refundId: refund.id, status: "PENDING" as const, note: "Return the money to the payer, then confirm it here." };
-  const provider = providerOf(deps);
+  const provider = await providerOf(deps);
   if (!provider || !pay.providerRef) {
     await failRefund(refund.id, "No payment provider is connected, so the refund could not be sent");
     throw new Error("No payment provider is connected, so the refund could not be sent");

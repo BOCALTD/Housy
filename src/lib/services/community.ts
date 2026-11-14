@@ -1,3 +1,4 @@
+import { assertNotBlocked } from "./account-moderation";
 import { normalisePhone } from "../account-type-rules";
 import { z } from "zod";
 import { enqueueEmail } from "./notifications";
@@ -23,6 +24,7 @@ export async function registerSeeker(input: { name: string; email: string; passw
     }),
   }).parse(input);
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead.");
+  await assertNotBlocked(data.email, data.phone ?? "");
   const user = await prisma.user.create({ data: { email: data.email, name: data.name, phone: data.phone, passwordHash: await hashPassword(data.password) } });
   await enqueueEmail(prisma, user.id, { kind: "onboarding", template: "welcome", vars: { name: user.name, kind: "seeker" }, dedupeKey: "welcome" });
   return { userId: user.id };

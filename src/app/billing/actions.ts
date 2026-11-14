@@ -4,7 +4,7 @@ import { requireMember, requireUser } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
 import { baseUrl } from "@/lib/services/delivery";
 import { cancelOwn, createSubscriptionInvoice, startPayment, NO_PROVIDER, type Payer } from "@/lib/services/billing";
-import { configuredProvider } from "@/lib/payment-providers";
+import { activePaymentProvider } from "@/lib/services/platform-config";
 
 type From = "me" | "app";
 const fromOf = (form: FormData): From => (str(form, "from") === "app" ? "app" : "me");
@@ -35,7 +35,7 @@ export async function payInvoiceAction(form: FormData) {
 }
 
 async function payOrShow(payer: Payer, f: From, invoiceId: string): Promise<string> {
-  if (!configuredProvider()) return withNotice(`${home(f)}/${invoiceId}`, NO_PROVIDER);
+  if (!(await activePaymentProvider())) return withNotice(`${home(f)}/${invoiceId}`, NO_PROVIDER);
   const r = await startPayment(payer, invoiceId, `${baseUrl()}/billing/return`);
   return r.checkoutUrl;
 }

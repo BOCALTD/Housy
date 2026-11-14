@@ -1,3 +1,4 @@
+import { Captcha } from "@/components/Captcha";
 import Link from "next/link";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { forgotAction } from "./actions";
@@ -13,6 +14,7 @@ export default async function ForgotPage({ searchParams: searchP }: { searchPara
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <form action={forgotAction} className="card stack">
         <Field label="Email"><input name="email" id="email" type="email" required autoComplete="email" /></Field>
+        <Captcha place="reset" />
         <button className="btn primary" type="submit">Send the link</button>
       </form>
       <p className="small muted"><Link href="/login">Back to sign in</Link></p>

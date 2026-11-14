@@ -75,6 +75,14 @@ export async function deleteMyAccount(userId: string, password: string, confirm:
   if (!(await verifyPassword(password, user.passwordHash))) throw new Error("That password is not right");
   const blocker = await deletionBlocker(userId);
   if (blocker) throw new Error(blocker);
+  return eraseAccount(userId, userId, "privacy.account_deleted", {});
+}
+
+/**
+ * Erase an account's personal details, the same way whoever asks (the person, or a platform administrator removing it).
+ * Returns the steps done. The caller has already checked it may.
+ */
+export async function eraseAccount(userId: string, actorId: string, action: string, extra: Record<string, unknown>, removed = false) {
   const done: string[] = [];
   const step = async (label: string, fn: () => Promise<unknown>) => { try { await fn(); done.push(label); } catch { done.push(`${label} (left for support)`); } };
 
@@ -113,9 +121,9 @@ export async function deleteMyAccount(userId: string, password: string, confirm:
     prisma.session.deleteMany({ where: { userId } }),
     prisma.passwordReset.deleteMany({ where: { userId } }),
     prisma.mfaRecovery.deleteMany({ where: { userId } }),
-    prisma.user.update({ where: { id: userId }, data: { name: "Deleted user", bio: "", email: `deleted-${userId}@deleted.invalid`, passwordHash: await hashPassword(randomBytes(32).toString("base64url")), mfaSecret: null, mfaEnabledAt: null, mfaLastStep: null } }),
+    prisma.user.update({ where: { id: userId }, data: { name: "Deleted user", bio: "", phone: "", email: `deleted-${userId}@deleted.invalid`, passwordHash: await hashPassword(randomBytes(32).toString("base64url")), mfaSecret: null, mfaEnabledAt: null, mfaLastStep: null, ...(removed ? { removedAt: new Date() } : {}) } }),
   ]);
-  await system((tx) => logActivity(tx, { companyId: null, actorId: userId, entityType: "user", entityId: userId, action: "privacy.account_deleted", detail: { steps: done } }));
+  await system((tx) => logActivity(tx, { companyId: null, actorId, entityType: "user", entityId: userId, action, detail: { steps: done, ...extra } }));
   return done;
 }
 

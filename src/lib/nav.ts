@@ -166,6 +166,7 @@ export function adminSection(): NavSection {
       { href: "/admin/kyc", label: "Identity and business checks", icon: "key" },
       { href: "/admin/flatmate-checks", label: "ID checks (flatmates and artisans)", icon: "people" },
       { href: "/admin/blog", label: "Blog", icon: "book" },
+      { href: "/admin/people", label: "People", icon: "people" },
       { href: "/admin/sign-in-locks", label: "Sign-in locks", icon: "lock" },
       { href: "/admin/moderation", label: "Message reports", icon: "chat" },
       { href: "/admin/reviews", label: "Review moderation", icon: "star" },
@@ -175,6 +176,7 @@ export function adminSection(): NavSection {
     ] },
     { label: "Money", items: [
       { href: "/admin/payments", label: "Payments", icon: "money" },
+      { href: "/admin/settings", label: "Settings", icon: "gear" },
       { href: "/admin/finance", label: "Finance", icon: "chart" },
       { href: "/admin/plans", label: "Plans and limits", icon: "doc" },
       { href: "/admin/ads", label: "Advertising", icon: "megaphone" },

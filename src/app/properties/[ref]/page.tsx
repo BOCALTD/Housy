@@ -1,3 +1,5 @@
+import { Captcha } from "@/components/Captcha";
+import { visitorIp } from "@/lib/request-ip";
 import { recordSignal } from "@/lib/services/signals";
 import { EnquiryHelper } from "@/components/EnquiryHelper";
 import { LocationInsights } from "@/components/LocationInsights";
@@ -59,7 +61,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   const adRef = /^AD-[A-Z0-9]{8}$/.test(sp(searchParams, "ad") ?? "") ? (sp(searchParams, "ad") as string) : null;
   const ua = (await headers()).get("user-agent") ?? "";
   // One visit per visitor per day, remembered as coming from an advert or not, so paid and organic attention can be told apart.
-  if (!isBot(ua)) await recordView(listing.id, viewerKeyFor((await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua), adRef).catch(() => undefined);
+  if (!isBot(ua)) await recordView(listing.id, viewerKeyFor(await visitorIp(), ua), adRef).catch(() => undefined);
   const session = await getSession();
   // Shapes this person's own suggestions only (see Your data and privacy). Not recorded for visitors.
   if (session) void recordSignal(session.user.id, { kind: "PROPERTY_VIEW", listingId: listing.id });
@@ -249,6 +251,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
           <EnquiryHelper refId={listing.publicRef} title={listing.title} purpose={listing.purpose as "SALE" | "RENT" | "LEASE"} />
           <Field label="Message"><textarea name="message" id="enqMessage" rows={4} required defaultValue={`I am interested in ${listing.publicRef}. Is it still available?`} /></Field>
           <p className="small muted">Your details go only to the company that listed this property.</p>
+          <Captcha place="forms" />
           <button className="btn primary" type="submit">Send enquiry</button>
         </form>
       </aside>

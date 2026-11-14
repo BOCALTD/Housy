@@ -1,3 +1,4 @@
+import { visitorIp } from "@/lib/request-ip";
 import Link from "next/link";
 import { priceSuffix } from "@/lib/listing-rules";
 import { headers } from "next/headers";
@@ -17,7 +18,7 @@ export default async function FindPage({ searchParams: searchP }: { searchParams
   const searchParams = await searchP;
   const q = (sp(searchParams, "q") ?? "").slice(0, 300);
   const ua = (await headers()).get("user-agent") ?? "";
-  const r = q.trim().length >= 3 && !isBot(ua) ? await smartSearch(q, viewerKeyFor((await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua)) : null;
+  const r = q.trim().length >= 3 && !isBot(ua) ? await smartSearch(q, viewerKeyFor(await visitorIp(), ua)) : null;
   const covers = r ? await coverPhotoIdsByRef(r.found.map((f) => f.listing.publicRef)).catch(() => new Map<string, string>()) : new Map<string, string>();
   const u = r?.understood;
   const chips = u ? [

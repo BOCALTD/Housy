@@ -1,3 +1,4 @@
+import { requestIp } from "@/lib/request-ip";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { getMember, getSession } from "@/lib/auth";
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   const ua = h.get("user-agent") ?? "";
   if (isBot(ua)) return NextResponse.json({ error: "Not available" }, { status: 403 });
   // A person types a few questions a minute; anything faster is a script.
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = await requestIp(req);
   if (!(await rateLimit(`assistant:${ip}`, 20, 60_000)) || !(await rateLimit(`assistant-day:${ip}`, 400, 864e5))) {
     return NextResponse.json({ error: "That is a lot of questions in a short time. Wait a minute and ask again." }, { status: 429 });
   }
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
   const messages = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
   const session = await getSession();
   const member = session && body.workspace ? await getMember().catch(() => null) : null;
-  const visitorKey = viewerKeyFor(h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local", ua);
+  const visitorKey = viewerKeyFor(await requestIp(req), ua);
   try {
     const a = await assistantReply({ userId: session?.user.id ?? null, companyId: member?.companyId ?? null, visitorKey, name: session?.user.name ?? null, member }, messages);
     return NextResponse.json(a, { headers: { "Cache-Control": "no-store" } });

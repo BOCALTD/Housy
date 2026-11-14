@@ -374,3 +374,9 @@ body:has(.ai-page:not(.ai-in-workspace)) .site-footer { display: none; }
 .cookie-actions .btn { min-height: 44px; flex: 1 1 140px; }
 body:has(.tabbar) .cookie-notice { bottom: calc(76px + env(safe-area-inset-bottom)); }
 @media (min-width: 1101px) { body:has(.frame:not(.site) .rail) .cookie-notice { left: calc(var(--rail-w) + 16px); } }
+
+/* The person check: never wider than the form. reCAPTCHA's box is a fixed 304px, so it is scaled down on the narrowest phones. */
+.captcha { max-width: 100%; min-height: 0; overflow: hidden; }
+@media (max-width: 360px) { .captcha:not(.captcha-v3) iframe[src*="recaptcha"] { transform: scale(.85); transform-origin: 0 0; } }
+/* Long addresses and keys wrap instead of pushing the page sideways. */
+code.break { overflow-wrap: anywhere; word-break: break-all; }

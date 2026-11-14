@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { adminEvents, adminInvoices, adminPayments, readBankInstructions } from "@/lib/services/billing";
 import { pendingRefunds } from "@/lib/services/refunds";
-import { configuredProvider } from "@/lib/payment-providers";
+import { activePaymentProvider } from "@/lib/services/platform-config";
 import { refundable } from "@/lib/billing-rules";
 import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
@@ -22,7 +22,7 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
   const admin = await requirePlatformAdmin();
   const view: View = (VIEWS as readonly string[]).includes(sp(searchParams, "view") ?? "") ? (sp(searchParams, "view") as View) : "review";
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
-  const provider = configuredProvider();
+  const provider = await activePaymentProvider();
   const [pending, bank] = await Promise.all([pendingRefunds(admin.id), readBankInstructions()]);
   const link = (v: View, p = 0) => `/admin/payments?view=${v}&page=${p}`;
   const pager = (total: number) => (
@@ -59,7 +59,7 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
         <div className="stat"><b>{reviewCount}</b><span>Payments to decide</span></div>
         <div className="stat"><b>{pending.length}</b><span>Refunds waiting</span></div>
       </section>
-      {!provider ? <div className="card"><p className="small">No payment provider is connected. Set <code>PAYSTACK_SECRET_KEY</code> to take online payments. Until then people pay by bank transfer and you record it under Invoices.</p></div> : null}
+      {!provider ? <div className="card"><p className="small">No payment provider is connected. Add your Paystack keys in <Link href="/admin/settings">Settings</Link> to take online payments. Until then people pay by bank transfer and you record it under Invoices.</p></div> : null}
 
       {pending.length > 0 ? (
         <section className="card stack"><h2>Refunds waiting</h2>

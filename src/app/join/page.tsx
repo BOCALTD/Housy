@@ -1,3 +1,4 @@
+import { Captcha } from "@/components/Captcha";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { visitorCountry } from "@/lib/countries";
@@ -89,6 +90,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
           </>
         )}
         <label className="check consent"><input type="checkbox" name="agree" required /><span>I am 18 or over and I agree to the <Link href="/legal/terms" target="_blank">Terms of use</Link> and <Link href="/legal/privacy" target="_blank">Privacy policy</Link>.</span></label>
+        <Captcha place="signup" />
         <button className="btn primary auth-submit" type="submit">{as === "company" ? "Create the company workspace" : as === "agent" ? "Create my agent account" : "Create my account"}</button>
         <p className="small muted">Use {PLATFORM_NAME} honestly: read the <Link href="/legal/community">community guidelines</Link> and <Link href="/safety">how we verify</Link>.</p>
       </form>

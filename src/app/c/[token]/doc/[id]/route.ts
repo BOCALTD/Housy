@@ -1,3 +1,4 @@
+import { requestIp } from "@/lib/request-ip";
 import { clientLinkDocument } from "@/lib/services/client-files";
 import { rateLimit } from "@/lib/ratelimit";
 
@@ -6,7 +7,7 @@ export const dynamic = "force-dynamic";
 /** A document shared through a client link. The secret in the link is the key; only that property's documents, only while the link is open. */
 export async function GET(req: Request, { params }: { params: Promise<{ token: string; id: string }> }) {
   const { token, id } = await params;
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = await requestIp(req);
   if (!(await rateLimit(`clientdoc:${ip}`, 60, 60_000))) return new Response("Too many requests", { status: 429 });
   const d = await clientLinkDocument(token, id).catch(() => null);
   if (!d) return new Response("Not found", { status: 404 });

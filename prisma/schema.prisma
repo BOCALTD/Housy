@@ -42,6 +42,12 @@ model User {
   breakStartedAt  DateTime?    @map("break_started_at")
   breakUntil      DateTime?    @map("break_until")
   isPlatformAdmin Boolean      @default(false) @map("is_platform_admin")
+  /// Set by a platform administrator for shady activity: sign-in is refused, sessions end, and their profiles are hidden until restored.
+  suspendedAt     DateTime?    @map("suspended_at")
+  suspendedReason String       @default("") @map("suspended_reason")
+  suspendedById   String?      @map("suspended_by_id")
+  /// Set when a platform administrator removed the account for good. Its details are erased; the row stays for the records.
+  removedAt       DateTime?    @map("removed_at")
   createdAt       DateTime     @default(now()) @map("created_at")
   /// Two-step sign-in: the secret is stored encrypted; it only counts once mfaEnabledAt is set. mfaLastStep stops a code being used twice.
   mfaSecret       String?      @map("mfa_secret")
@@ -6416,4 +6422,18 @@ model VpPayoutAccount {
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("verification_payout_accounts")
+}
+
+/// An email address or phone number that may not be used to create an account again, after an account was removed for
+/// shady activity. Only a hash is kept, never the address or number itself.
+model BlockedIdentity {
+  id          String   @id @default(uuid())
+  kind        String
+  valueHash   String   @unique @map("value_hash")
+  reason      String
+  userId      String?  @map("user_id")
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("blocked_identities")
 }

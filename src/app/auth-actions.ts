@@ -1,9 +1,10 @@
 "use server";
 
+import { checkCaptcha } from "@/lib/captcha";
+import { visitorIp } from "@/lib/request-ip";
 import { recordConsent } from "@/lib/services/privacy";
 import { LEGAL_VERSION } from "@/lib/legal";
 
-import { headers } from "next/headers";
 import { safeLocalPath } from "@/lib/security";
 import { prisma, withUser } from "@/lib/db";
 import { ADMIN_SESSION_HOURS, createSession, destroySession, getSession, setActiveCompany, verifyPassword, hashPassword } from "@/lib/auth";
@@ -40,7 +41,7 @@ function confirmedPassword(form: FormData): string {
 }
 
 async function clientIp() {
-  return (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  return await visitorIp();
 }
 
 /** Kept for old links and forms: a company sign-up. */
@@ -55,6 +56,7 @@ export async function joinAction(form: FormData) {
   const nextParam = safeLocalPath(str(form, "next"), "");
   return act(`/join?as=${as}${nextParam ? `&next=${encodeURIComponent(nextParam)}` : ""}`, async () => {
     if (!(await rateLimit(`signup:${await clientIp()}`, 5, 60 * 60 * 1000))) throw new Error("Too many sign-up attempts. Try again later.");
+    await checkCaptcha(form, "signup", await clientIp());
     if (form.get("agree") !== "on") throw new Error("Confirm you are 18 or over and agree to the Terms of use and Privacy policy.");
     const email = str(form, "email"), name = str(form, "name");
     if (as === "company") {
@@ -92,6 +94,7 @@ export async function loginAction(form: FormData) {
     if (!(await rateLimit(`login:${await clientIp()}:${email}`, 8, 15 * 60 * 1000))) {
       throw new Error("Too many sign-in attempts. Wait 15 minutes and try again.");
     }
+    await checkCaptcha(form, "login", await clientIp());
     // A locked or closed sign-in is refused before the password is even checked, so attempts during a lock never count.
     const locked = lockedMessage(await signInState(email));
     if (locked) throw new Error(locked);
@@ -139,6 +142,7 @@ export async function adminLoginAction(form: FormData) {
     if (!(await rateLimit(`admin-login:${ip}`, 10, 60 * 60 * 1000)) || !(await rateLimit(`admin-login:${ip}:${email}`, 5, 15 * 60 * 1000))) {
       throw new Error("Too many sign-in attempts. Wait and try again later.");
     }
+    await checkCaptcha(form, "login", ip);
     const locked = lockedMessage(await signInState(email));
     if (locked) throw new Error(locked);
     const user = await prisma.user.findUnique({ where: { email } });

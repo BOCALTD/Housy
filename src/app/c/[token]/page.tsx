@@ -1,3 +1,4 @@
+import { visitorIp } from "@/lib/request-ip";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { viewClientLink } from "@/lib/services/client-files";
@@ -17,7 +18,7 @@ export default async function ClientView({ params }: { params: Promise<{ token: 
   const { token } = await params;
   // Links are long random secrets; the limit stops anyone trying many of them quickly.
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = await visitorIp();
   const allowed = await rateLimit(`clientlink:${ip}`, 60, 60_000);
   const v = allowed ? await viewClientLink(token, { count: !isBot(h.get("user-agent")) }).catch(() => null) : null;
   if (!v) {

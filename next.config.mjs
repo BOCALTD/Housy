@@ -17,14 +17,15 @@ const satHost = (() => {
 })();
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://accounts.google.com",
+  // Google Sign-In; the person check (Google reCAPTCHA or Cloudflare Turnstile) when the administrator turns one on.
+  "script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.google.com https://www.gstatic.com https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
   `img-src 'self' data: blob: ${tileHost}${satHost && satHost !== tileHost ? ` ${satHost}` : ""}`,
   "font-src 'self' data: https://fonts.gstatic.com",
   // Reel previews play the chosen clip from the device before it is uploaded.
   "media-src 'self' blob:",
-  "connect-src 'self' https://www.googleapis.com https://accounts.google.com",
-  "frame-src https://accounts.google.com",
+  "connect-src 'self' https://www.googleapis.com https://accounts.google.com https://www.google.com https://challenges.cloudflare.com",
+  "frame-src https://accounts.google.com https://www.google.com https://challenges.cloudflare.com",
   "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
 ].join("; ");
 const securityHeaders = [

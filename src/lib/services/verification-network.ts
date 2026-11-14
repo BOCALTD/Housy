@@ -1,3 +1,4 @@
+import { assertNotBlocked } from "./account-moderation";
 /**
  * The verification network, stages 1 to 3 (docs/VERIFICATION-NETWORK.md):
  *  1. Organisations apply to become verification partners; Housy reviews, asks for more, approves or rejects.
@@ -662,6 +663,7 @@ export async function acceptProviderInvitation(token: string, opts: { existingUs
     userId = existing.id;
   } else {
     const data = acceptNew.parse({ name: opts.name, password: opts.password });
+    await assertNotBlocked(inv.email, "");
     userId = (await prisma.user.create({ data: { email: inv.email, name: data.name, passwordHash: await hashPassword(data.password) }, select: { id: true } })).id;
   }
   await withInviteTokenAs(hashToken(token), userId, async (tx) => {

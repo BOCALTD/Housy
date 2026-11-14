@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 // Published listings inside the visible map area, at blurred positions. Public and read-only; rate limited per visitor.
 export async function GET(req: Request) {
-  if (!(await rateLimit(`map:${requestIp(req)}`, 240, 60_000))) return Response.json({ error: "Too many requests" }, { status: 429 });
+  if (!(await rateLimit(`map:${await requestIp(req)}`, 240, 60_000))) return Response.json({ error: "Too many requests" }, { status: 429 });
   const q = new URL(req.url).searchParams;
   const filters = { purpose: q.get("purpose") ?? "", maxPrice: q.get("maxPrice") ?? "", minBeds: q.get("minBeds") ?? "", type: q.get("type") ?? "" };
   // Radius search: ?near=lat,lng&km=5 (1, 2, 5, 10, 20 or 50 km).

@@ -1,3 +1,4 @@
+import { requestIp } from "./request-ip";
 import { API_ERRORS, API_RATE_KEY_PER_MINUTE, API_RATE_PUBLIC_PER_MINUTE, API_VERSION, bearerFrom, hasScope, type ApiErrorName, type ApiScope } from "./api-rules";
 import { rateLimit } from "./ratelimit";
 import { authenticateApiKey, type ApiCaller } from "./services/api-keys";
@@ -14,9 +15,7 @@ export function originOf(req: Request) {
   return (configured && /^https?:\/\//.test(configured) ? configured : new URL(req.url).origin).replace(/\/$/, "");
 }
 
-function clientId(req: Request) {
-  return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-}
+const clientId = requestIp;
 
 type Options = { scope?: ApiScope };
 
@@ -30,12 +29,12 @@ export async function apiRoute(req: Request, opts: Options, run: (c: { caller: A
     let caller: ApiCaller | null = null;
     if (opts.scope) {
       // Limit by network address first, so guessing keys is slow, then by key.
-      if (!(await rateLimit(`api:ip:${clientId(req)}`, API_RATE_KEY_PER_MINUTE * 2, 60_000))) return apiError("rate_limited", { "Retry-After": "60" });
+      if (!(await rateLimit(`api:ip:${await clientId(req)}`, API_RATE_KEY_PER_MINUTE * 2, 60_000))) return apiError("rate_limited", { "Retry-After": "60" });
       caller = await authenticateApiKey(bearerFrom(req.headers.get("authorization")));
       if (!caller) return apiError("unauthorized", { "WWW-Authenticate": 'Bearer realm="api"' });
       if (!hasScope(caller.scopes.join(","), opts.scope)) return apiError("forbidden");
       if (!(await rateLimit(`api:key:${caller.keyId}`, API_RATE_KEY_PER_MINUTE, 60_000))) return apiError("rate_limited", { "Retry-After": "60" });
-    } else if (!(await rateLimit(`api:public:${clientId(req)}`, API_RATE_PUBLIC_PER_MINUTE, 60_000))) {
+    } else if (!(await rateLimit(`api:public:${await clientId(req)}`, API_RATE_PUBLIC_PER_MINUTE, 60_000))) {
       return apiError("rate_limited", { "Retry-After": "60" });
     }
     const res = await run({ caller, url, origin: originOf(req) });

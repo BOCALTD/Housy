@@ -1,3 +1,4 @@
+import { requestIp } from "@/lib/request-ip";
 import { safeLocalPath } from "@/lib/security";
 import { getSession } from "@/lib/auth";
 import { recordClick, viewerKeyFor } from "@/lib/services/ads";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request, { params: paramsP }: { params: Promise<{ ref: string }> }) {
   const params = await paramsP;
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = await requestIp(req);
   const ua = req.headers.get("user-agent") ?? "";
   const session = await getSession().catch(() => null);
   let to = "/";

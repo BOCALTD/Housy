@@ -1,3 +1,4 @@
+import { platformConfig } from "@/lib/services/platform-config";
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { readinessChecks, readinessSummary, type Level } from "@/lib/readiness";
@@ -14,7 +15,9 @@ const PILL: Record<Level, { status: string; label: string }> = { fail: { status:
 export default async function LaunchPage() {
   const admin = await requirePlatformAdmin();
   const [detail, mfa] = await Promise.all([healthDetail(), mfaStatus(admin.id)]);
-  const checks = readinessChecks(process.env).sort((a, b) => ORDER[a.level] - ORDER[b.level]);
+  // A Paystack key saved in Admin → Settings counts as much as one set on the server.
+  const cfg = await platformConfig();
+  const checks = readinessChecks({ ...process.env, PAYSTACK_SECRET_KEY: cfg.paystack.secret }).sort((a, b) => ORDER[a.level] - ORDER[b.level]);
   const sum = readinessSummary(checks);
   return (
     <div className="stack-lg">

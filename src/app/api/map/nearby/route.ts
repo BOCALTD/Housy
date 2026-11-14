@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // Landmarks, schools, hospitals, markets and other places near a published property, from public map data. Public, read-only, rate limited.
 export async function GET(req: Request) {
-  if (!(await rateLimit(`nearby:${requestIp(req)}`, 60, 60_000))) return Response.json({ error: "Too many requests" }, { status: 429 });
+  if (!(await rateLimit(`nearby:${await requestIp(req)}`, 60, 60_000))) return Response.json({ error: "Too many requests" }, { status: 429 });
   const ref = new URL(req.url).searchParams.get("ref") ?? "";
   if (!/^PROP-[A-Z0-9]{4,20}$/.test(ref)) return Response.json({ error: "ref must be a property reference" }, { status: 400 });
   // Wait a few seconds at most. If the map server is slower (the free ones often are), the page hears "pending" and asks

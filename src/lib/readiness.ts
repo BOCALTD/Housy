@@ -61,7 +61,7 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
 
   const pk = env.PAYSTACK_SECRET_KEY ?? "";
   add("payments", "Payment provider", /^sk_live_/.test(pk) ? "ok" : /^sk_test_/.test(pk) ? "warn" : "warn",
-    /^sk_live_/.test(pk) ? "A live key is set. Prove it with one small real payment." : /^sk_test_/.test(pk) ? "A TEST key is set: no real money moves." : "No key: payments stay manual (bank transfer recorded by hand).", "provider");
+    /^sk_live_/.test(pk) ? "A live key is set. Prove it with one small real payment." : /^sk_test_/.test(pk) ? "A TEST key is set: no real money moves." : "No key: payments stay manual (bank transfer recorded by hand). Add the Paystack keys in Admin, Settings, or set PAYSTACK_SECRET_KEY on the server.", "provider");
 
   add("cron", "Scheduled-job secret", long(env.CRON_SECRET, 24) ? "ok" : "fail",
     long(env.CRON_SECRET, 24) ? "Set." : "CRON_SECRET is missing or short. Reminders, renewals, email sending and the detailed health report will not run.", "hosting");

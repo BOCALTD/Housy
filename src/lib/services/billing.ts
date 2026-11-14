@@ -6,7 +6,7 @@ import { lockKey } from "../locks";
 import { parseNairaToKobo } from "../money";
 import { can, type Role } from "../permissions";
 import { PERIOD_MONTHS, REVIEW_TEXT, checkReceived, newPeriodEnd, randomRef, renewalDue, reminderStage, sha256, type Period } from "../billing-rules";
-import { configuredProvider, type ParsedEvent, type PaymentProvider } from "../payment-providers";
+import { type ParsedEvent, type PaymentProvider } from "../payment-providers";
 import { notify } from "./notifications";
 import { system } from "./rewards";
 import { syncCompanyTier } from "./tiers";
@@ -22,7 +22,7 @@ import type { Owner } from "./subscriptions";
 export interface Payer { userId: string; companyId: string | null; role: Role | null }
 export interface Deps { provider?: PaymentProvider | null; now?: Date }
 
-const providerOf = (d?: Deps): PaymentProvider | null => (d && "provider" in d ? d.provider ?? null : configuredProvider());
+const providerOf = async (d?: Deps): Promise<PaymentProvider | null> => (d && "provider" in d ? d.provider ?? null : (await import("./platform-config")).activePaymentProvider());
 const nowOf = (d?: Deps) => d?.now ?? new Date();
 
 export const ownerOf = (p: Payer): Owner => (p.companyId ? { kind: "COMPANY", companyId: p.companyId } : { kind: "USER", userId: p.userId });
@@ -139,7 +139,7 @@ async function authoriseInvoice(p: Payer, invoiceId: string, action: "billing.vi
 
 /** Begin an online payment. Returns where to send the person. A payment started a few minutes ago is reused, so a double click does not make two. */
 export async function startPayment(p: Payer, invoiceId: string, callbackUrl: string, deps?: Deps): Promise<{ paymentRef: string; checkoutUrl: string }> {
-  const provider = providerOf(deps);
+  const provider = await providerOf(deps);
   if (!provider) throw new Error(NO_PROVIDER);
   const inv = await authoriseInvoice(p, invoiceId, "billing.manage");
   const user = await prisma.user.findUnique({ where: { id: p.userId }, select: { email: true } });
@@ -241,7 +241,7 @@ export type EventResult = { status: number; body: { received: boolean; duplicate
 
 /** A message from the provider arrives here. It is accepted only if the signature proves it came from the provider and was not altered. */
 export async function receiveProviderEvent(rawBody: string, signature: string | null, deps?: Deps): Promise<EventResult> {
-  const provider = providerOf(deps);
+  const provider = await providerOf(deps);
   if (!provider) return { status: 503, body: { received: false } };
   if (!provider.verifySignature(rawBody, signature)) return { status: 401, body: { received: false } };
   const ev = provider.parseEvent(rawBody);
@@ -304,7 +304,7 @@ async function markFailedIn(tx: Tx, paymentId: string, reason: string): Promise<
  * that may have been lost. A payment is settled only on the provider's own answer.
  */
 export async function verifyPayment(paymentRef: string, deps?: Deps): Promise<"SUCCEEDED" | "FAILED" | "PENDING" | "REVIEW" | "UNKNOWN"> {
-  const provider = providerOf(deps);
+  const provider = await providerOf(deps);
   const pay = await system((tx) => tx.payment.findUnique({ where: { ref: paymentRef } }));
   if (!pay) return "UNKNOWN";
   if (pay.status !== "PENDING") return pay.status;

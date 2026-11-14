@@ -16,6 +16,10 @@ export { hashPassword, verifyPassword } from "./auth-hash";
 export const ADMIN_SESSION_HOURS = 8;
 
 export async function createSession(userId: string, companyId: string | null, opts: { hours?: number } = {}) {
+  // A suspended or removed account never gets a session, whichever way it signs in.
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { suspendedAt: true, removedAt: true } });
+  if (u?.removedAt) throw new Error("That email and password do not match an account.");
+  if (u?.suspendedAt) throw new Error("This account is suspended. If you think this is a mistake, contact support from the email address on the account.");
   const token = newToken();
   const expiresAt = new Date(Date.now() + (opts.hours ? opts.hours * 36e5 : SESSION_DAYS * 864e5));
   await prisma.session.create({ data: { userId, companyId, tokenHash: hashToken(token), expiresAt } });
@@ -45,9 +49,9 @@ export const getSession = cache(async () => {
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { user: { select: { id: true, email: true, name: true, isPlatformAdmin: true, mfaEnabledAt: true } } },
+    include: { user: { select: { id: true, email: true, name: true, isPlatformAdmin: true, mfaEnabledAt: true, suspendedAt: true } } },
   });
-  if (!session || session.expiresAt < new Date()) return null;
+  if (!session || session.expiresAt < new Date() || session.user.suspendedAt) return null;
   return session;
 });
 

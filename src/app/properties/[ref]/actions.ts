@@ -1,4 +1,6 @@
 "use server";
+import { checkCaptcha } from "@/lib/captcha";
+import { visitorIp } from "@/lib/request-ip";
 import { secureCookies } from "@/lib/cookie-security";
 
 import { recordSignal } from "@/lib/services/signals";
@@ -17,7 +19,7 @@ const PREF_COOKIE = "pv_pref";
 const VISITOR_COOKIE = "pv_vid";
 
 async function clientKey() {
-  return (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  return await visitorIp();
 }
 
 /** An anonymous, random visitor id used only to separate analytics events. Not linked to personal data. */
@@ -37,6 +39,7 @@ export async function enquiryAction(form: FormData) {
   const back = `/properties/${encodeURIComponent(ref)}`;
   return act(back, async () => {
     const ad = str(form, "ad");
+    await checkCaptcha(form, "forms", await clientKey());
     await createEnquiry(ref, { name: str(form, "name"), contact: str(form, "contact"), message: str(form, "message") }, await clientKey(), ad ? { adRef: ad, viewerKey: viewerKeyFor(await clientKey(), (await headers()).get("user-agent") ?? "") } : undefined);
     const s = await getSession();
     if (s) await recordSignal(s.user.id, { kind: "ENQUIRY", publicRef: ref });

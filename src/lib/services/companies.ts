@@ -1,3 +1,4 @@
+import { assertNotBlocked } from "./account-moderation";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { enqueueEmail } from "./notifications";
@@ -51,6 +52,7 @@ export async function registerCompany(input: z.input<typeof registerSchema>) {
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) throw new Error("An account with that email already exists. Sign in instead.");
 
+  await assertNotBlocked(data.email, data.contactPhone ?? "");
   const user = await prisma.user.create({
     data: { email: data.email, name: data.name, passwordHash: await hashPassword(data.password), phone: data.contactPhone },
   });
@@ -82,6 +84,7 @@ const agentSchema = z.object({
 export async function registerAgent(input: z.input<typeof agentSchema>) {
   const data = agentSchema.parse(input);
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead.");
+  await assertNotBlocked(data.email, data.phone ?? "");
   const user = await prisma.user.create({ data: { email: data.email, name: data.name, phone: data.phone, passwordHash: await hashPassword(data.password) } });
   const companyId = randomUUID();
   const business = data.tradingName || data.name;
@@ -163,6 +166,7 @@ export async function acceptInvitation(
     userId = existing.id;
   } else {
     const data = acceptNewSchema.parse({ name: opts.name, password: opts.password });
+    await assertNotBlocked(inv.email, "");
     const user = await prisma.user.create({
       data: { email: inv.email, name: data.name, passwordHash: await hashPassword(data.password) },
     });

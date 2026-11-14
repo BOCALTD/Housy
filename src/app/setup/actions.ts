@@ -1,5 +1,6 @@
 "use server";
 
+import { visitorIp } from "@/lib/request-ip";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -8,7 +9,6 @@ import { createSession } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
 import { rateLimit } from "@/lib/ratelimit";
 import { createDemoData, ensureBocaProvider } from "@/lib/demo";
-import { headers } from "next/headers";
 
 function tokenMatches(given: string) {
   const expected = process.env.SETUP_TOKEN ?? "";
@@ -27,7 +27,7 @@ const schema = z.object({
 /** One-time creation of the first Platform Super Super Admin on a new deployment. */
 export async function setupAction(form: FormData) {
   return act("/setup", async () => {
-    const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    const ip = await visitorIp();
     if (!(await rateLimit(`setup:${ip}`, 5, 15 * 60 * 1000))) throw new Error("Too many attempts. Wait 15 minutes and try again.");
     if (await prisma.user.count({ where: { isPlatformAdmin: true } })) {
       throw new Error("Setup is already complete. Sign in instead.");

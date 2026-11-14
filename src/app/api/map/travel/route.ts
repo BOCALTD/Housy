@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 // How long it takes to get from a place the visitor chose to a published property. The visitor's point is used for this answer
 // only and is not stored. Public, read-only, rate limited.
 export async function GET(req: Request) {
-  if (!(await rateLimit(`travel:${requestIp(req)}`, 60, 60_000))) return Response.json({ error: "Too many requests" }, { status: 429 });
+  if (!(await rateLimit(`travel:${await requestIp(req)}`, 60, 60_000))) return Response.json({ error: "Too many requests" }, { status: 429 });
   const q = new URL(req.url).searchParams;
   const ref = q.get("ref") ?? "";
   const [lat, lng] = (q.get("from") ?? "").split(",").map(Number);

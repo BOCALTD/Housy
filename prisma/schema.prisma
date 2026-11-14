@@ -4760,6 +4760,7 @@ enum InvoicePurpose {
   SUBSCRIPTION
   AD_CAMPAIGN
   VERIFICATION
+  COMMISSION
 }
 
 enum BillingInvoiceStatus {
@@ -4790,6 +4791,7 @@ enum FinanceLedger {
   SUBSCRIPTION
   ADVERTISING
   VERIFICATION
+  COMMISSION
 }
 
 enum FinanceEntryKind {
@@ -6436,4 +6438,61 @@ model BlockedIdentity {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("blocked_identities")
+}
+
+// ---------- Payments from clients to companies and agents ----------
+
+/// How a company or agent is paid by its clients: the bank account shown for direct transfers, the Paystack settlement account
+/// that online payments are split to, and its inspection fee (0 for free inspections).
+model CompanyPaymentSettings {
+  companyId          String   @id @map("company_id")
+  bankName           String   @default("") @map("bank_name")
+  bankCode           String   @default("") @map("bank_code")
+  accountName        String   @default("") @map("account_name")
+  accountNumber      String   @default("") @map("account_number")
+  paystackSubaccount String   @default("") @map("paystack_subaccount")
+  inspectionFeeKobo  BigInt   @default(0) @map("inspection_fee_kobo")
+  updatedById        String   @map("updated_by_id")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("company_payment_settings")
+}
+
+/// One payment from a client to a company or agent: rent, an inspection fee or another amount. Paid online (Paystack splits
+/// Housy's commission off automatically) or by direct transfer the company confirms (Housy then invoices its commission monthly).
+model ClientPayment {
+  id                  String    @id @default(uuid())
+  ref                 String    @unique
+  companyId           String    @map("company_id")
+  kind                String
+  description         String
+  leaseId             String?   @map("lease_id")
+  chargeId            String?   @map("charge_id")
+  bookingId           String?   @map("booking_id")
+  payerName           String    @default("") @map("payer_name")
+  payerEmail          String    @default("") @map("payer_email")
+  payerUserId         String?   @map("payer_user_id")
+  amountKobo          BigInt    @map("amount_kobo")
+  commissionBps       Int       @map("commission_bps")
+  commissionKobo      BigInt    @map("commission_kobo")
+  method              String    @default("")
+  status              String    @default("PENDING")
+  tokenHash           String?   @unique @map("token_hash")
+  checkoutUrl         String    @default("") @map("checkout_url")
+  paidAt              DateTime? @map("paid_at")
+  receiptId           String?   @map("receipt_id")
+  recordedById        String?   @map("recorded_by_id")
+  commissionInvoiceId String?   @map("commission_invoice_id")
+  cancelReason        String    @default("") @map("cancel_reason")
+  createdById         String    @map("created_by_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([companyId, status, createdAt])
+  @@index([chargeId])
+  @@index([bookingId])
+  @@index([payerUserId])
+  @@index([commissionInvoiceId])
+  @@index([method, status, paidAt])
+  @@map("client_payments")
 }

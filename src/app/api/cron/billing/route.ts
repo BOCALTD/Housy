@@ -5,6 +5,7 @@ import { purgeFlatmateCheckImages } from "@/lib/services/flatmates";
 import { remindUnconfirmedListings } from "@/lib/services/listings";
 import { expireOffers } from "@/lib/services/verification-cases";
 import { matureEarnings } from "@/lib/services/verification-finance";
+import { invoiceCommissions } from "@/lib/services/client-payments";
 import { credentialSweep } from "@/lib/services/verification-quality";
 
 export const dynamic = "force-dynamic";
@@ -24,5 +25,7 @@ export async function GET(req: Request) {
   const earningsMatured = await matureEarnings().catch(() => null);
   // Licences and certificates: a reminder before expiry, a notice when one lapses (the provider is then not offered cases).
   const credentials = await credentialSweep().catch(() => null);
-  return Response.json({ renewals, pending, ads, idImagesDeleted, listingReminders, earningsMatured, credentials });
+  // Housy's commission on last month's payments companies received directly (online ones were split at payment time).
+  const commissionInvoices = await invoiceCommissions().catch(() => null);
+  return Response.json({ commissionInvoices, renewals, pending, ads, idImagesDeleted, listingReminders, earningsMatured, credentials });
 }

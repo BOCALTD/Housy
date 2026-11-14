@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { act, messageFor, str, withNotice } from "@/lib/forms";
 import { cancelByRequester } from "@/lib/services/inspection-bookings";
+import { myPaymentLink } from "@/lib/services/client-payments";
 import { checkIn, endSession, raiseEmergency, recordPing, startSafetySession } from "@/lib/services/safety";
 
 export async function cancelInspectionAction(form: FormData) {
@@ -37,4 +38,13 @@ export async function endSafetyAction(sessionId: string, how: "CHECKED_OUT" | "S
 }
 export async function emergencyAction(sessionId: string, note: string) {
   try { const u = await requireUser(); const ref = await raiseEmergency(u.id, sessionId, note); revalidatePath(`/safety/session/${sessionId}`); return { ok: true, ref }; } catch (e) { return { ok: false, error: messageFor(e) }; }
+}
+
+/** Pay a company's inspection fee: a fresh payment link for the person's own waiting payment. */
+export async function payInspectionFeeAction(form: FormData) {
+  const ref = str(form, "ref");
+  return act(`/me/inspections/${encodeURIComponent(str(form, "booking"))}`, async () => {
+    const u = await requireUser();
+    return myPaymentLink(u.id, ref);
+  });
 }

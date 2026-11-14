@@ -10,7 +10,9 @@ import { formatDateTime } from "@/lib/dates";
 import { Flash, sp, type SP } from "@/components/ui";
 import { BookingTimeline } from "@/components/BookingTimeline";
 import { SafetyStartForm } from "@/components/SafetyStartForm";
-import { cancelInspectionAction } from "../actions";
+import { cancelInspectionAction, payInspectionFeeAction } from "../actions";
+import { myInspectionPayments } from "@/lib/services/client-payments";
+import { formatKobo } from "@/lib/money";
 
 export const metadata = { title: "Inspection" };
 export const dynamic = "force-dynamic";
@@ -21,7 +23,8 @@ export default async function MyInspection({ params, searchParams }: { params: P
   const user = await requireUser();
   const b = await myBooking(user.id, ref);
   if (!b) notFound();
-  const sessions = await ownSessionsForBooking(user.id, b.id);
+  const [sessions, fees] = await Promise.all([ownSessionsForBooking(user.id, b.id), myInspectionPayments(user.id, [b.id])]);
+  const fee = fees.find((f) => f.status === "PENDING") ?? fees.find((f) => f.status === "PAID");
   const live = sessions.find((x) => sessionLive(x));
   const canCancel = nextSteps(b.status as BookingStatus, "REQUESTER").includes("CANCELLED");
   const safetyOk = ["CONFIRMED", "EN_ROUTE", "ARRIVED", "IN_PROGRESS"].includes(b.status);
@@ -50,10 +53,22 @@ export default async function MyInspection({ params, searchParams }: { params: P
               <p className="small muted">The exact spot is shared with you because your inspection is confirmed. Please keep it to yourself.</p>
             </div>
           ) : null}
+          {fee ? (
+            <div className="stack" style={{ gap: 8 }}>
+              <h3>Inspection fee</h3>
+              {fee.status === "PAID" ? <p className="small"><span className="pill ok">Paid</span> {formatKobo(fee.amountKobo)}{fee.paidAt ? ` on ${formatDateTime(fee.paidAt)}` : ""}.</p> : (
+                <form action={payInspectionFeeAction} className="stack" style={{ gap: 8 }}>
+                  <input type="hidden" name="ref" value={fee.ref} /><input type="hidden" name="booking" value={b.ref} />
+                  <p className="small">The company charges {formatKobo(fee.amountKobo)} for this inspection. Pay it only through Housy, never in cash or to a personal account at the property.</p>
+                  <div className="row"><button className="btn primary" type="submit">Pay {formatKobo(fee.amountKobo)}</button></div>
+                </form>
+              )}
+            </div>
+          ) : null}
           <BookingTimeline status={b.status} events={b.events} />
           {canCancel ? (
             <details className="inline"><summary>Cancel this inspection</summary>
-              <form action={cancelInspectionAction} className="stack"><input type="hidden" name="ref" value={b.ref} /><label className="field">Reason (optional)<input name="reason" maxLength={500} /></label><button className="btn danger" type="submit">Cancel inspection</button></form>
+              <form action={cancelInspectionAction} className="stack"><input type="hidden" name="ref" value={b.ref} /><label className="field">Reason (optional)<input name="reason" maxLength={500} /></label><button className="btn danger" type="submit" data-confirm="Cancel this inspection?" data-confirm-body="The company is told. A fee you have not paid yet is cancelled too." data-confirm-ok="Cancel inspection">Cancel inspection</button></form>
             </details>
           ) : null}
         </section>

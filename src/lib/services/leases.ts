@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { noteRecordedRentIn } from "./client-payments";
 import { withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { parseNairaToKobo } from "../money";
@@ -113,14 +114,14 @@ const paymentSchema = z.object({
   payerName: z.string().trim().max(200).default(""),
 });
 
-type PaymentData = z.output<typeof paymentSchema>;
+export type PaymentData = z.output<typeof paymentSchema>;
 
 /**
  * Issue a receipt for money received on a lease and apply it to charges. Callers hold row locks on
  * the charges involved. A payment needs evidence, the same evidence cannot be recorded twice, and a
  * reminder or status change is never treated as proof of payment (master prompt Section 12.2).
  */
-async function postReceipt(tx: Tx, ctx: Ctx, leaseId: string, data: PaymentData, onlyChargeId: string | null) {
+export async function postReceiptIn(tx: Tx, ctx: Ctx, leaseId: string, data: PaymentData, onlyChargeId: string | null) {
   const today = todayInLagos();
   if (data.paidOn > today) throw new Error("The payment date cannot be in the future");
   const key = evidenceKey(data.evidence);
@@ -184,7 +185,7 @@ async function postReceipt(tx: Tx, ctx: Ctx, leaseId: string, data: PaymentData,
  */
 export async function postOpeningReceipt(tx: Tx, ctx: Ctx, leaseId: string, amountKobo: bigint, evidence: string) {
   const data = paymentSchema.parse({ amount: (amountKobo / 100n).toString() + "." + String(amountKobo % 100n).padStart(2, "0"), paidOn: todayInLagos().toISOString().slice(0, 10), evidence, method: "Opening balance", payerName: "" });
-  return postReceipt(tx, ctx, leaseId, data, null);
+  return postReceiptIn(tx, ctx, leaseId, data, null);
 }
 
 /** Record a payment against one specific charge. */
@@ -196,7 +197,9 @@ export async function recordPayment(ctx: Ctx, chargeId: string, input: z.input<t
     const rows = await tx.$queryRaw<{ id: string; lease_id: string }[]>`
       SELECT id, lease_id FROM rent_charges WHERE id = ${chargeId} AND company_id = ${ctx.companyId} FOR UPDATE`;
     if (rows.length === 0) throw new Error("Rent charge not found");
-    return postReceipt(tx, ctx, rows[0].lease_id, data, chargeId);
+    const receipt = await postReceiptIn(tx, ctx, rows[0].lease_id, data, chargeId);
+    await noteRecordedRentIn(tx, ctx, receipt);
+    return receipt;
   });
 }
 
@@ -209,7 +212,9 @@ export async function recordLeasePayment(ctx: Ctx, leaseId: string, input: z.inp
     if (!lease) throw new Error("Lease not found");
     // Lock every charge on the lease, in a fixed order, so concurrent payments cannot overpay.
     await tx.$queryRaw`SELECT id FROM rent_charges WHERE lease_id = ${leaseId} AND company_id = ${ctx.companyId} ORDER BY id FOR UPDATE`;
-    return postReceipt(tx, ctx, leaseId, data, null);
+    const receipt = await postReceiptIn(tx, ctx, leaseId, data, null);
+    await noteRecordedRentIn(tx, ctx, receipt);
+    return receipt;
   });
 }
 

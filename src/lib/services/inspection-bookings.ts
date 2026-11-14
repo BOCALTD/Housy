@@ -8,6 +8,8 @@ import { BOOKING_LABEL, DURATIONS, canMove, checkRequestedTime, dueForReminder, 
 import { assertCan, type Ctx } from "./context";
 import { notify } from "./notifications";
 import { system } from "./rewards";
+import { requestInspectionFeeIn } from "./client-payments";
+import { formatKobo } from "../money";
 
 const requestSchema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(120),
@@ -78,6 +80,7 @@ export async function cancelByRequester(userId: string, ref: string, reason: str
     await tx.inspectionBookingEvent.create({ data: { bookingId: b.id, companyId: b.companyId, requesterId: userId, actorId: userId, fromStatus: b.status, toStatus: "CANCELLED", note: r } });
     return b;
   });
+  await withTenant(b.companyId, "system", (tx) => tx.clientPayment.updateMany({ where: { bookingId: b.id, companyId: b.companyId, status: "PENDING" }, data: { status: "CANCELLED", cancelReason: "The inspection was cancelled", tokenHash: null } }));
   await system(async (tx) => { for (const u of await bookingDesk(b.companyId, [b.assignedUserId])) await notify(tx, u, { kind: "inspection.cancelled", title: `Inspection ${b.ref} cancelled`, body: r, link: `/app/bookings/${b.id}` }); });
 }
 
@@ -150,10 +153,12 @@ export async function confirmBooking(ctx: Ctx, id: string, input: z.input<typeof
     } else {
       await move(tx, ctx, b, "CONFIRMED", fields, d.note);
     }
-    return { b, rescheduled: b.status === "CONFIRMED" };
+    // A company that charges for inspections asks for the fee through Housy (never in cash at the property).
+    const fee = await requestInspectionFeeIn(tx, ctx, { id: b.id, ref: b.ref, requesterId: b.requesterId, requesterName: b.requesterName });
+    return { b, rescheduled: b.status === "CONFIRMED", fee: fee?.payment.amountKobo ?? null };
   });
   await system(async (tx) => {
-    await notify(tx, out.b.requesterId, { kind: "inspection.confirmed", title: out.rescheduled ? `New time for your inspection ${out.b.ref}` : `Inspection ${out.b.ref} confirmed`, body: `${formatDateTime(d.scheduledAt)}${d.meetingPoint ? ` · Meet at: ${d.meetingPoint}` : ""}`, link: `/me/inspections/${out.b.ref}` });
+    await notify(tx, out.b.requesterId, { kind: "inspection.confirmed", title: out.rescheduled ? `New time for your inspection ${out.b.ref}` : `Inspection ${out.b.ref} confirmed`, body: `${formatDateTime(d.scheduledAt)}${d.meetingPoint ? ` · Meet at: ${d.meetingPoint}` : ""}${out.fee ? ` · Inspection fee ${formatKobo(out.fee)}: pay it from the booking page, only through Housy.` : ""}`, link: `/me/inspections/${out.b.ref}` });
     if (d.assignedUserId !== ctx.userId) await notify(tx, d.assignedUserId, { kind: "inspection.assigned", title: `You are meeting someone for inspection ${out.b.ref}`, body: formatDateTime(d.scheduledAt), link: `/app/bookings/${out.b.id}` });
   });
 }
@@ -167,6 +172,7 @@ export async function advanceBooking(ctx: Ctx, id: string, to: BookingStatus, no
     const b = await tx.inspectionBooking.findFirst({ where: { id, companyId: ctx.companyId } });
     if (!b) throw new Error("Booking not found");
     if (ctx.role === "AGENT" && b.assignedUserId !== ctx.userId) throw new Error("Only the person meeting them, or a manager, can update this booking");
+    if (to === "CANCELLED") await tx.clientPayment.updateMany({ where: { bookingId: b.id, companyId: ctx.companyId, status: "PENDING" }, data: { status: "CANCELLED", cancelReason: "The inspection was cancelled", tokenHash: null } });
     await move(tx, ctx, b, to, to === "CANCELLED" ? { cancelReason: note.trim().slice(0, 500) } : to === "COMPLETED" ? { outcome: note.trim().slice(0, 1000) } : {}, note);
     return b;
   });
@@ -183,7 +189,7 @@ export async function inspectionReminders(now = new Date()) {
     for (const b of soon) {
       if (!dueForReminder({ status: b.status as BookingStatus, scheduledAt: b.scheduledAt, remindedAt: b.remindedAt }, now)) continue;
       const when = formatDateTime(b.scheduledAt!);
-      await notify(tx, b.requesterId, { kind: "inspection.reminder", title: `Reminder: inspection ${b.ref} on ${when}`, body: `${b.meetingPoint ? `Meet at: ${b.meetingPoint}. ` : ""}Inspect before you pay anything. You can turn on a safety session from the booking page.`, link: `/me/inspections/${b.ref}` });
+      await notify(tx, b.requesterId, { kind: "inspection.reminder", title: `Reminder: inspection ${b.ref} on ${when}`, body: `${b.meetingPoint ? `Meet at: ${b.meetingPoint}. ` : ""}Pay nothing in cash: an inspection fee, if any, is paid only through Housy. You can turn on a safety session from the booking page.`, link: `/me/inspections/${b.ref}` });
       if (b.assignedUserId) await notify(tx, b.assignedUserId, { kind: "inspection.reminder", title: `Reminder: inspection ${b.ref} on ${when}`, body: b.requesterName, link: `/app/bookings/${b.id}` });
       // Platform administrators may read bookings but not change them, so the mark is written as the company.
       await withTenant(b.companyId, "system", (c) => c.inspectionBooking.updateMany({ where: { id: b.id, companyId: b.companyId }, data: { remindedAt: now } }));

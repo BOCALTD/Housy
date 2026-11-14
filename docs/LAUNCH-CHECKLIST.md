@@ -45,6 +45,10 @@ Each line says who does it and how you know it is done. The page `/admin/launch`
 - [ ] With the **test** key first: pay a test invoice; it shows paid, once, and the books check (`/admin/finance?check=1`) says Balanced.
 - [ ] Switch to the live key. Pay one real small invoice with a real card, then refund it. Confirm the books check still says Balanced.
 - [ ] If Paystack is not ready, launch with bank-transfer payments recorded by the administrator. Say so in the pilot brief.
+- [ ] The keys can be entered in *Admin → Settings → Paystack* instead of the env file (stored encrypted; the env file wins if both are set).
+- [ ] Set Housy's commission in *Admin → Settings → Commission* (rent, inspection fees, other payments).
+- [ ] Online payments to companies (split payments) need the Paystack account to be **live and approved for subaccounts**. With the test key: a test company saves a test bank account, sends itself a payment link, pays it with a test card; the company's share and Housy's commission appear in the Paystack dashboard.
+- [ ] Person check: create Google reCAPTCHA or Cloudflare Turnstile keys for your domain and enter them in *Admin → Settings*. If Housy sits behind Cloudflare, switch on "Behind Cloudflare" there.
 
 ## E. People and procedures (you)
 - [ ] `ONBOARDING.md` read; the training session booked.

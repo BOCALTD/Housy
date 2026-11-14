@@ -32,9 +32,9 @@ export interface PaymentProvider {
 const toKobo = (v: unknown): bigint | null => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? BigInt(v) : typeof v === "string" && /^\d{1,15}$/.test(v) ? BigInt(v) : null);
 const asStr = (v: unknown, max = 200) => (typeof v === "string" || typeof v === "number" ? String(v).slice(0, max) : "");
 
-export function paystackProvider(secretKey: string, fetchImpl: typeof fetch = fetch): PaymentProvider {
+function paystackCaller(secretKey: string, fetchImpl: typeof fetch) {
   const base = "https://api.paystack.co";
-  async function call(path: string, init?: { method?: string; body?: unknown }) {
+  return async function call(path: string, init?: { method?: string; body?: unknown }) {
     try {
       const res = await fetchImpl(`${base}${path}`, {
         method: init?.method ?? "GET",
@@ -47,7 +47,11 @@ export function paystackProvider(secretKey: string, fetchImpl: typeof fetch = fe
     } catch (e) {
       return { http: 0, ok: false, message: e instanceof Error ? e.message.slice(0, 200) : "network error", data: {} as Record<string, unknown> };
     }
-  }
+  };
+}
+
+export function paystackProvider(secretKey: string, fetchImpl: typeof fetch = fetch): PaymentProvider {
+  const call = paystackCaller(secretKey, fetchImpl);
   return {
     name: "PAYSTACK",
     async initialize(i) {
@@ -92,4 +96,52 @@ export function paystackProvider(secretKey: string, fetchImpl: typeof fetch = fe
 export function configuredProvider(env: NodeJS.ProcessEnv = process.env): PaymentProvider | null {
   if (env.PAYSTACK_SECRET_KEY) return paystackProvider(env.PAYSTACK_SECRET_KEY);
   return null;
+}
+
+
+// ---------- Split payments for companies and agents (Paystack subaccounts) ----------
+
+export type Bank = { name: string; code: string };
+export type SplitApi = {
+  banks(): Promise<Bank[]>;
+  /** The account holder's name as the bank has it, to show before saving. */
+  resolveAccount(accountNumber: string, bankCode: string): Promise<{ ok: true; accountName: string } | { ok: false; error: string }>;
+  /** A settlement account for a company: payments split to it go to its bank, less Housy's share. */
+  createSubaccount(i: { businessName: string; bankCode: string; accountNumber: string; contactEmail: string }): Promise<{ ok: true; code: string } | { ok: false; error: string }>;
+  updateSubaccount(code: string, i: { businessName: string; bankCode: string; accountNumber: string }): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Start a payment that Paystack splits: Housy keeps `housyShareKobo`, the subaccount gets the rest, less Paystack's fee (which the subaccount bears). */
+  initializeSplit(i: { reference: string; amountKobo: bigint; email: string; callbackUrl: string; subaccount: string; housyShareKobo: bigint; metadata?: Record<string, string> }): Promise<{ ok: true; checkoutUrl: string } | { ok: false; error: string }>;
+};
+
+export function paystackSplitApi(secretKey: string, fetchImpl: typeof fetch = fetch): SplitApi {
+  const call = paystackCaller(secretKey, fetchImpl);
+  const fail = (r: { http: number; message: string }) => `${r.message || "The payment provider did not answer"}`.slice(0, 300);
+  return {
+    async banks() {
+      const r = await call("/bank?country=nigeria&currency=NGN&perPage=200");
+      const list = (r as unknown as { data: unknown }).data;
+      const rows = Array.isArray(list) ? list : [];
+      return rows.map((b: Record<string, unknown>) => ({ name: asStr(b.name, 120), code: asStr(b.code, 20) })).filter((b) => b.name && b.code).sort((a, b) => a.name.localeCompare(b.name));
+    },
+    async resolveAccount(accountNumber, bankCode) {
+      const r = await call(`/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`);
+      const name = asStr(r.data.account_name, 200);
+      return r.ok && name ? { ok: true, accountName: name } : { ok: false, error: "The bank did not confirm that account number. Check the number and the bank." };
+    },
+    async createSubaccount(i) {
+      const r = await call("/subaccount", { method: "POST", body: { business_name: i.businessName.slice(0, 100), settlement_bank: i.bankCode, account_number: i.accountNumber, percentage_charge: 0, primary_contact_email: i.contactEmail || undefined } });
+      const code = asStr(r.data.subaccount_code, 60);
+      return r.ok && code ? { ok: true, code } : { ok: false, error: fail(r) };
+    },
+    async updateSubaccount(code, i) {
+      const r = await call(`/subaccount/${encodeURIComponent(code)}`, { method: "PUT", body: { business_name: i.businessName.slice(0, 100), settlement_bank: i.bankCode, account_number: i.accountNumber } });
+      return r.ok ? { ok: true } : { ok: false, error: fail(r) };
+    },
+    async initializeSplit(i) {
+      const r = await call("/transaction/initialize", { method: "POST", body: { email: i.email, amount: Number(i.amountKobo), currency: "NGN", reference: i.reference, callback_url: i.callbackUrl, subaccount: i.subaccount, transaction_charge: Number(i.housyShareKobo), bearer: "subaccount", metadata: i.metadata ?? {} } });
+      const url = asStr(r.data.authorization_url, 1000);
+      if (r.ok && url.startsWith("https://")) return { ok: true, checkoutUrl: url };
+      return { ok: false, error: `The payment provider did not start the payment${r.message ? `: ${r.message}` : ""}`.slice(0, 300) };
+    },
+  };
 }

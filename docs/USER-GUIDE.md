@@ -19,6 +19,13 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 - **Wrong payment?** Reverse the receipt (a manager does this), then record the right one. The history shows both.
 - **Late fees, waivers, discounts:** request an adjustment; a second person approves it.
 - Renewals, notices, move-in and move-out handovers and deposits are on the lease page.
+- **Send a payment link** (on the lease): the tenant pays online or by bank transfer through Housy. Paid online, the receipt is issued on the lease automatically.
+
+## Client payments (company administrators)
+- *Client payments*: add the bank account clients pay into. With online payments switched on for Housy, choose the bank and enter the 10-digit account number; the bank confirms the account name and online payments settle there through Paystack. Otherwise clients see the account for bank transfers.
+- **Inspection fee**: 0 keeps inspections free. With a fee, the person is asked to pay through Housy when you confirm the time; it is cancelled if the inspection is.
+- **Ask for a payment** for a deposit, service charge or fee, and send the link. Mark it paid once a transfer arrives, with the bank reference.
+- **Housy's commission** (a percentage set by Housy for rent, inspection fees and other payments) is taken automatically on online payments. On transfers you confirm and rent you record as received directly, it is invoiced on the first days of the next month under *Billing*.
 - *Reports → Rent*: billed, collected and arrears for a period, 25 properties a page, saved as a spreadsheet with "Save or share".
 
 ## Maintenance, inspections, inventory, projects

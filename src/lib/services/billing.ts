@@ -59,7 +59,7 @@ const billingLink = (o: Owner) => (o.kind === "USER" ? "/me/billing" : "/app/bil
 // ---------- The books ----------
 
 export type Posting = {
-  ledger: "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION"; kind: "PAYMENT" | "REFUND" | "SPEND" | "ADJUSTMENT"; account: "REVENUE" | "FUNDS_HELD" | "SUSPENSE" | "PROVIDER_PAYABLE";
+  ledger: "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION" | "COMMISSION"; kind: "PAYMENT" | "REFUND" | "SPEND" | "ADJUSTMENT"; account: "REVENUE" | "FUNDS_HELD" | "SUSPENSE" | "PROVIDER_PAYABLE";
   amountKobo: bigint; entryKey?: string; invoiceId?: string; paymentId?: string; refundId?: string; campaignId?: string; eventId?: string; actorId?: string; note?: string;
 };
 
@@ -68,10 +68,10 @@ export async function post(tx: Tx, e: Posting) {
   if (!e.eventId && !e.actorId) throw new Error("A ledger entry needs a verified event or an authorising person");
   return tx.financeEntry.create({ data: { ledger: e.ledger, kind: e.kind, account: e.account, amountKobo: e.amountKobo, entryKey: e.entryKey ?? null, invoiceId: e.invoiceId ?? null, paymentId: e.paymentId ?? null, refundId: e.refundId ?? null, campaignId: e.campaignId ?? null, eventId: e.eventId ?? null, actorId: e.actorId ?? null, note: (e.note ?? "").slice(0, 300) } });
 }
-type Purpose = "SUBSCRIPTION" | "AD_CAMPAIGN" | "VERIFICATION";
-export const ledgerFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" ? "SUBSCRIPTION" : purpose === "VERIFICATION" ? "VERIFICATION" : "ADVERTISING") as "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION";
-/** Subscriptions are earned when paid. Advertising budgets and verification fees are held until spent or the work is delivered. */
-export const accountFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" ? "REVENUE" : "FUNDS_HELD") as "REVENUE" | "FUNDS_HELD";
+type Purpose = "SUBSCRIPTION" | "AD_CAMPAIGN" | "VERIFICATION" | "COMMISSION";
+export const ledgerFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" ? "SUBSCRIPTION" : purpose === "VERIFICATION" ? "VERIFICATION" : purpose === "COMMISSION" ? "COMMISSION" : "ADVERTISING") as "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION" | "COMMISSION";
+/** Subscriptions and commission are earned when paid. Advertising budgets and verification fees are held until spent or the work is delivered. */
+export const accountFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" || purpose === "COMMISSION" ? "REVENUE" : "FUNDS_HELD") as "REVENUE" | "FUNDS_HELD";
 
 // ---------- Raising an invoice ----------
 
@@ -202,6 +202,11 @@ export async function settlePaymentIn(tx: Tx, paymentId: string, s: SettleInput)
 /** What a paid invoice switches on. */
 export async function applyInvoice(tx: Tx, inv: Prisma.InvoiceGetPayload<object>, now: Date): Promise<{ planName: string | null }> {
   if (inv.purpose === "SUBSCRIPTION") return applySubscription(tx, inv, now);
+  if (inv.purpose === "COMMISSION") {
+    // Housy's commission on payments the company recorded as received directly: nothing to switch on, just settled.
+    await tx.invoice.update({ where: { id: inv.id }, data: { appliedAt: now } });
+    return { planName: null };
+  }
   if (inv.purpose === "VERIFICATION") {
     const { applyVerificationPayment } = await import("./verification-finance");
     await applyVerificationPayment(tx, inv, now);
@@ -264,7 +269,14 @@ export async function processEvent(ev: ParsedEvent, payloadHash: string, deps?: 
     let outcome: string = "IGNORED", note = "", settled: Awaited<ReturnType<typeof settlePaymentIn>> | null = null, paymentRef = ev.reference;
     if (ev.kind === "PAYMENT_SUCCEEDED" || ev.kind === "PAYMENT_FAILED") {
       const pay = ev.reference ? await tx.payment.findUnique({ where: { provider_providerRef: { provider: "PAYSTACK", providerRef: ev.reference } } }) : null;
-      if (!pay) { outcome = "UNKNOWN_REFERENCE"; note = "No payment has this reference"; }
+      if (!pay && ev.reference.startsWith("CP-")) {
+        // A client paying a company through a payment link (Paystack split): settled in client payments.
+        const { settleClientPaymentIn } = await import("./client-payments");
+        if (ev.kind !== "PAYMENT_SUCCEEDED") { outcome = "IGNORED"; note = "A client payment attempt did not go through"; }
+        else if (ev.amountKobo === null || ev.amountKobo <= 0n) { outcome = "MALFORMED"; note = "The message had no amount"; }
+        else outcome = await settleClientPaymentIn(tx, ev.reference, ev.amountKobo, ev.providerTxId, now);
+      }
+      else if (!pay) { outcome = "UNKNOWN_REFERENCE"; note = "No payment has this reference"; }
       else if (ev.kind === "PAYMENT_SUCCEEDED") {
         if (ev.amountKobo === null || ev.amountKobo <= 0n) { outcome = "MALFORMED"; note = "The message had no amount"; }
         else {

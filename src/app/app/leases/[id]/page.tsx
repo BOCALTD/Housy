@@ -16,6 +16,7 @@ import {
 } from "../actions";
 import { noticeAdequacy } from "@/lib/ledger-rules";
 
+import { requestRentAction } from "../../payments/actions";
 export const metadata = { title: "Lease" };
 
 function koboToInput(k: bigint) {
@@ -263,6 +264,28 @@ export default async function LeasePage({ params: paramsP, searchParams: searchP
                   <button className="btn primary" type="submit">Issue receipt</button>
                 </form>
               )}
+            </section>
+          ) : null}
+
+          {can(member.role, "payment.record") && openCharges.length ? (
+            <section className="card" aria-labelledby="link-h">
+              <details className="vp-fold">
+                <summary id="link-h">Send a payment link</summary>
+                <p className="small muted">The tenant pays online or by transfer through Housy. Paid online, the receipt is issued here automatically.</p>
+                <form action={requestRentAction} className="stack">
+                  <input type="hidden" name="leaseId" value={lease.id} />
+                  <Field label="For the charge">
+                    <select name="chargeId" defaultValue={openCharges[0].id}>
+                      {openCharges.map((c) => <option key={c.id} value={c.id}>Due {formatDate(c.dueDate)} ({formatKobo(outstandingOf(c))})</option>)}
+                    </select>
+                  </Field>
+                  <div className="fields">
+                    <Field label="Tenant's name"><input name="payerName" defaultValue={lease.occupantName} /></Field>
+                    <Field label="Tenant's email" hint="Optional"><input name="payerEmail" type="email" defaultValue={/@/.test(lease.occupantContact) ? lease.occupantContact : ""} /></Field>
+                  </div>
+                  <div className="row"><button className="btn" type="submit">Make payment link</button></div>
+                </form>
+              </details>
             </section>
           ) : null}
 

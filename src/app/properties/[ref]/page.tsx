@@ -237,7 +237,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
               <label className="field">Second choice (optional)<input name="alternativeAt" type="datetime-local" /></label>
               <label className="field">Anything they should know (optional)<textarea name="message" rows={2} maxLength={1000} /></label>
               <button className="btn primary" type="submit">Request inspection</button>
-              <p className="small muted">Never pay anything before you have inspected the property. You can turn on a safety session for the visit.</p>
+              <p className="small muted">Pay nothing in cash or to a personal account. If the company charges an inspection fee, you pay it through Housy once they confirm the time. You can turn on a safety session for the visit.</p>
             </form>
           ) : <p className="small"><Link href="/login">Sign in</Link> to request an inspection.</p>}
         </details>

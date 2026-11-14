@@ -10,7 +10,7 @@ import { reconcile as reconcileRewards } from "./rewards";
  * rewards in the reward ledger, shown here beside these but never mixed with them.
  */
 
-export const LEDGERS = ["SUBSCRIPTION", "ADVERTISING", "VERIFICATION"] as const;
+export const LEDGERS = ["SUBSCRIPTION", "ADVERTISING", "VERIFICATION", "COMMISSION"] as const;
 export const ACCOUNTS = ["REVENUE", "FUNDS_HELD", "SUSPENSE", "PROVIDER_PAYABLE"] as const;
 const PAGE = 25;
 

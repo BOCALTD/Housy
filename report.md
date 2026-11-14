@@ -1,0 +1,14 @@
+## Device check
+
+228 pages on 8 profiles.
+
+| Profile | Screen | Pages | Problems |
+|---|---|---|---|
+| Desktop Chrome | 1280x720 | 228 | 0 |
+| Pixel 7 (Android) | 412x839 | 228 | 0 |
+| iPhone SE (small iPhone) | 320x568 | 100 | 0 |
+| Desktop Safari | 1280x720 | 100 | 0 |
+| iPhone 14 Pro Max (large iPhone) | 430x740 | 100 | 0 |
+| Galaxy S9+ (small Android) | 320x658 | 100 | 0 |
+| iPad (tablet) | 810x1080 | 100 | 0 |
+| Desktop Firefox | 1280x720 | 100 | 0 |

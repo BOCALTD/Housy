@@ -34,6 +34,7 @@ import ShareButton from "@/components/ShareButton";
 import { LockedPhotos, SignupNudge } from "@/components/SignupNudge";
 import { GUEST_PHOTOS, shareText } from "@/lib/share-rules";
 import { PLATFORM_NAME } from "@/lib/labels";
+import { formatMoney } from "@/lib/regions";
 
 export const dynamic = "force-dynamic";
 
@@ -42,12 +43,12 @@ export async function generateMetadata({ params: paramsP }: { params: Promise<{ 
   const l = await getPublicListing(params.ref);
   if (!l) return { title: "Property not available" };
   // What a link preview shows on WhatsApp, Facebook, X and LinkedIn; the picture comes from opengraph-image.tsx beside this page.
-  const facts = [`${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}`, l.bedrooms != null ? `${l.bedrooms} bed` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ");
+  const facts = [`${formatMoney(l.priceKobo, l.currency)}${priceSuffix(l.pricePeriod)}`, l.bedrooms != null ? `${l.bedrooms} bed` : null, `${l.city}, ${l.state}`].filter(Boolean).join(" · ");
   const description = `${facts}. ${l.description ? l.description.slice(0, 160) : `See the photos and details on ${PLATFORM_NAME}.`}`;
   return {
     title: l.title, description,
     alternates: { canonical: `/properties/${l.publicRef}` },
-    openGraph: { type: "website", siteName: PLATFORM_NAME, title: `${l.title} · ${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}`, description, url: `/properties/${l.publicRef}` },
+    openGraph: { type: "website", siteName: PLATFORM_NAME, title: `${l.title} · ${formatMoney(l.priceKobo, l.currency)}${priceSuffix(l.pricePeriod)}`, description, url: `/properties/${l.publicRef}` },
     twitter: { card: "summary_large_image", title: l.title, description },
   };
 }
@@ -115,7 +116,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
         </div>
         <h1>{listing.title}</h1>
         <p className="price" style={{ fontSize: 26 }}>
-          <PriceBlock priceKobo={listing.priceKobo} promo={extras.promo} suffix={priceSuffix(listing.pricePeriod)} />
+          <PriceBlock priceKobo={listing.priceKobo} currency={listing.currency} promo={extras.promo} suffix={priceSuffix(listing.pricePeriod)} />
         </p>
         {verdict ? (
           <p className={`price-verdict v-${verdict.kind}`}>
@@ -142,7 +143,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
           const money = (k: bigint | null) => (k == null ? null : formatKobo(k));
           const rows: [string, string | null][] = [
             ["Type", listing.propertyType !== "OTHER" ? labelsOf(ref, "PROPERTY_TYPE")[listing.propertyType] ?? null : null],
-            ["Price", `${formatKobo(listing.priceKobo)}${priceSuffix(listing.pricePeriod)}${listing.negotiable ? " (negotiable)" : ""}`],
+            ["Price", `${formatMoney(listing.priceKobo, listing.currency)}${priceSuffix(listing.pricePeriod)}${listing.negotiable ? " (negotiable)" : ""}`],
             ["Caution deposit", money(listing.depositKobo)],
             ["Service charge", listing.serviceChargeKobo != null ? `${formatKobo(listing.serviceChargeKobo)} / year` : null],
             ["Other fees", listing.feesNote || null],
@@ -209,7 +210,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
             photos={pics.map((ph) => `/photos/${ph.id}`)}
             text={shareText("property", {
               title: listing.title,
-              price: `${formatKobo(listing.priceKobo)}${priceSuffix(listing.pricePeriod)}`,
+              price: `${formatMoney(listing.priceKobo, listing.currency)}${priceSuffix(listing.pricePeriod)}`,
               place: `${listing.city}, ${listing.state}`,
               details: [listing.bedrooms != null ? `${listing.bedrooms} bedrooms` : "", listing.bathrooms != null ? `${listing.bathrooms} bathrooms` : "", listing.purpose === "SALE" ? "For sale" : `For ${listing.purpose.toLowerCase()}`],
               by: company?.displayName,

@@ -3,12 +3,13 @@ import { requireMember } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { banks, clientPayments, paymentSettings } from "@/lib/services/client-payments";
 import { formatDate, formatDateTime } from "@/lib/dates";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { siteOrigin } from "@/lib/origin";
 import { KIND_WORDS, type ClientPaymentKind } from "@/lib/client-payment-rules";
 import { CopyButton } from "@/components/CopyButton";
 import { Field, Flash, Pager, Pill, sp, type SP } from "@/components/ui";
-import { cancelRequestAction, confirmTransferAction, newLinkAction, requestOtherAction, saveBankAction, saveFeeAction } from "./actions";
+import { cancelRequestAction, confirmTransferAction, newLinkAction, requestOtherAction, saveBankAction, saveFeeAction, stripeAction } from "./actions";
+import { countryName } from "@/lib/regions";
 
 export const metadata = { title: "Client payments" };
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export default async function ClientPaymentsPage({ searchParams: s }: { searchPa
   const m = await requireMember("billing.view");
   const status = ["PENDING", "PAID", "CANCELLED"].includes(sp(searchParams, "status") ?? "") ? sp(searchParams, "status")! : "";
   const page = Math.max(0, Number(sp(searchParams, "page")) || 0);
-  const [info, rows, bankList, origin] = await Promise.all([paymentSettings(m), clientPayments(m, { status }), banks(), siteOrigin()]);
+  const [info, rows, bankList, origin] = await Promise.all([paymentSettings(m), clientPayments(m, { status }), banks(m.country), siteOrigin()]);
   const manage = can(m.role, "billing.manage"), record = can(m.role, "payment.record");
   const link = sp(searchParams, "link");
   const fullLink = link && /^\/pay\/[A-Za-z0-9_-]{20,64}$/.test(link) ? `${origin}${link}` : null;
@@ -51,28 +52,38 @@ export default async function ClientPaymentsPage({ searchParams: s }: { searchPa
       <div className="grid-2">
         <section className="card stack" aria-labelledby="bank-h">
           <h2 id="bank-h">Where payments go</h2>
-          {st?.accountNumber ? (
-            <p className="small"><strong>{st.accountName}</strong><br />{st.bankName} · {st.accountNumber}<br />
-              {info.online ? <span className="pill ok">Online payments on</span> : <span className="pill">Bank transfer only</span>}</p>
+          <p className="small muted">{countryName(info.country)} · {info.currency}. <Link href="/app/settings#country">Change</Link></p>
+          {info.lines.length ? (
+            <dl className="stack" style={{ gap: 4, margin: 0 }}>
+              {info.lines.map((l) => <div key={l.label} className="row between" style={{ flexWrap: "wrap", gap: 8 }}><dt className="small muted">{l.label}</dt><dd className="small" style={{ margin: 0, overflowWrap: "anywhere" }}>{l.value}</dd></div>)}
+            </dl>
           ) : <p className="small muted">No account saved yet. Clients cannot pay you through Housy until you add one.</p>}
-          {!info.paystackConnected ? <p className="small muted">Online payments are not switched on for Housy yet, so clients pay by bank transfer to this account.</p> : null}
+          <p className="small">{info.online ? <span className="pill ok">Online payments on</span> : <span className="pill">Bank transfer only</span>}</p>
+          {info.provider === null ? <p className="small muted">Online payments are not switched on for {countryName(info.country)} yet, so clients pay by bank transfer to this account.</p> : null}
+          {manage && info.stripeConnected ? (
+            <div className="stack" style={{ gap: 6 }}>
+              <p className="small muted">{st?.stripeReady ? "Your Stripe account takes card payments and pays out to your bank." : st?.stripeAccount ? "Stripe is still checking your details. Continue the set-up if Stripe asked for more." : "To take card payments, set up your account with Stripe (our payment partner here). Stripe checks your business and pays out to your bank."}</p>
+              {!st?.stripeReady ? <form action={stripeAction}><button className="btn" type="submit" data-confirm="Continue to Stripe?" data-confirm-body="You give Stripe your business and bank details on its secure page, then come back here." data-confirm-ok="Continue" data-confirm-tone="default">{st?.stripeAccount ? "Continue Stripe set-up" : "Set up card payments with Stripe"}</button></form> : null}
+            </div>
+          ) : null}
           {manage ? (
-            <details className="vp-fold" open={!st?.accountNumber}>
-              <summary>{st?.accountNumber ? "Change the account" : "Add the account"}</summary>
+            <details className="vp-fold" open={!info.lines.length}>
+              <summary>{info.lines.length ? "Change the account" : "Add the account"}</summary>
               <form action={saveBankAction} className="stack">
                 {info.paystackConnected && bankList.length ? (
                   <>
                     <Field label="Bank"><select name="bankCode" required defaultValue={st?.bankCode ?? ""}><option value="" disabled>Choose the bank</option>{bankList.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}</select></Field>
-                    <Field label="Account number" hint="10 digits. The bank confirms the account name."><input name="accountNumber" required inputMode="numeric" pattern="[0-9 ]{10,13}" defaultValue={st?.accountNumber ?? ""} autoComplete="off" /></Field>
+                    <Field label="Account number" hint={info.country === "NG" ? "10 digits. The bank confirms the account name." : undefined}><input name="accountNumber" required inputMode="numeric" defaultValue={st?.accountNumber ?? ""} autoComplete="off" /></Field>
+                    {info.country !== "NG" ? <Field label="Account name" hint="Exactly as the bank shows it"><input name="accountName" required defaultValue={st?.accountName ?? ""} /></Field> : null}
                   </>
                 ) : (
-                  <>
-                    <Field label="Bank"><input name="bankName" required defaultValue={st?.bankName ?? ""} /></Field>
-                    <Field label="Account number" hint="10 digits"><input name="accountNumber" required inputMode="numeric" pattern="[0-9 ]{10,13}" defaultValue={st?.accountNumber ?? ""} autoComplete="off" /></Field>
-                    <Field label="Account name" hint="Exactly as the bank shows it"><input name="accountName" required defaultValue={st?.accountName ?? ""} /></Field>
-                  </>
+                  <div className="fields">
+                    {info.bankFields.map((f) => (
+                      <Field key={f.key} label={f.label} hint={f.hint}><input name={f.key} required={!/optional/i.test(f.hint ?? "")} inputMode={f.numeric ? "numeric" : undefined} defaultValue={info.details?.[f.key] ?? ""} autoComplete="off" autoCapitalize={f.key === "iban" || f.key === "bic" ? "characters" : undefined} /></Field>
+                    ))}
+                  </div>
                 )}
-                <div className="row"><button className="btn primary" type="submit" data-confirm="Save this bank account?" data-confirm-body="Client payments made from now on go to this account." data-confirm-ok="Save" data-confirm-tone="default">Save account</button></div>
+                <div className="row"><button className="btn primary" type="submit" data-confirm="Save this bank account?" data-confirm-body="Clients see it for transfers, and payments made from now on go to it." data-confirm-ok="Save" data-confirm-tone="default">Save account</button></div>
               </form>
             </details>
           ) : null}
@@ -80,10 +91,10 @@ export default async function ClientPaymentsPage({ searchParams: s }: { searchPa
 
         <section className="card stack" aria-labelledby="fee-h">
           <h2 id="fee-h">Inspection fee</h2>
-          <p className="small">{st && st.inspectionFeeKobo > 0n ? <>Each confirmed inspection asks for <strong>{formatKobo(st.inspectionFeeKobo)}</strong>, paid through Housy.</> : "Inspections are free."}</p>
+          <p className="small">{st && st.inspectionFeeKobo > 0n ? <>Each confirmed inspection asks for <strong>{formatKobo(st.inspectionFeeKobo, info.currency)}</strong>, paid through Housy.</> : "Inspections are free."}</p>
           {manage ? (
             <form action={saveFeeAction} className="stack">
-              <Field label="Fee (₦)" hint="0 keeps inspections free. The person is asked to pay when you confirm the time."><input name="fee" inputMode="decimal" defaultValue={koboText(st?.inspectionFeeKobo ?? 0n)} /></Field>
+              <Field label={`Fee (${moneySymbol()})`} hint="0 keeps inspections free. The person is asked to pay when you confirm the time."><input name="fee" inputMode="decimal" defaultValue={koboText(st?.inspectionFeeKobo ?? 0n)} /></Field>
               <div className="row"><button className="btn" type="submit" data-confirm="Save the inspection fee?" data-confirm-body="It applies to inspections you confirm from now on." data-confirm-ok="Save" data-confirm-tone="default">Save fee</button></div>
             </form>
           ) : null}
@@ -100,7 +111,7 @@ export default async function ClientPaymentsPage({ searchParams: s }: { searchPa
             <form action={requestOtherAction} className="stack">
               <Field label="What it is for"><input name="description" required minLength={3} maxLength={300} /></Field>
               <div className="fields">
-                <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" /></Field>
+                <Field label={`Amount (${moneySymbol()})`}><input name="amount" required inputMode="decimal" /></Field>
                 <Field label="Payer's name"><input name="payerName" required /></Field>
               </div>
               <Field label="Payer's email" hint="Optional: they can enter it when paying"><input name="payerEmail" type="email" /></Field>
@@ -124,9 +135,9 @@ export default async function ClientPaymentsPage({ searchParams: s }: { searchPa
             {shown.map((p) => (
               <li key={p.id} style={{ flexWrap: "wrap" }}>
                 <span className="stack" style={{ gap: 2, minWidth: 0, flex: "1 1 220px" }}>
-                  <strong>{formatKobo(p.amountKobo)} · {KIND_WORDS[p.kind as ClientPaymentKind] ?? p.kind}</strong>
+                  <strong>{formatKobo(p.amountKobo, p.currency)} · {KIND_WORDS[p.kind as ClientPaymentKind] ?? p.kind}</strong>
                   <span className="small muted" style={{ overflowWrap: "anywhere" }}>{p.description}{p.payerName ? ` · ${p.payerName}` : ""}</span>
-                  <span className="small muted">{p.ref} · {p.paidAt ? `paid ${formatDateTime(p.paidAt)}${p.method === "ONLINE" ? " online" : " directly"}` : `asked ${formatDate(p.createdAt)}`}{p.commissionKobo > 0n ? ` · Housy ${formatKobo(p.commissionKobo)}` : ""}</span>
+                  <span className="small muted">{p.ref} · {p.paidAt ? `paid ${formatDateTime(p.paidAt)}${p.method === "ONLINE" ? " online" : " directly"}` : `asked ${formatDate(p.createdAt)}`}{p.commissionKobo > 0n ? ` · Housy ${formatKobo(p.commissionKobo, p.currency)}` : ""}</span>
                 </span>
                 <Pill status={p.status === "PENDING" ? "PENDING" : p.status === "PAID" ? "PAID" : "CANCELLED"} label={STATUS_WORDS[p.status]} />
                 {record && p.status === "PENDING" ? (

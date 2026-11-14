@@ -8,7 +8,7 @@ import { bpsToPercent } from "@/lib/commission-rules";
 import { ACTIVITY_KINDS } from "@/lib/crm-rules";
 import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/dates";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { humanize } from "@/lib/labels";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { cancelAction, decideAction, payAction, proposeAction } from "../../../commissions/actions";
@@ -78,7 +78,7 @@ export default async function DealFilePage({ params: paramsP, searchParams: sear
             <form action={recordPaymentAction} className="stack">{hid}
               <div className="fields">
                 <Field label="Kind"><select name="kind" defaultValue="BOOKING_DEPOSIT"><EnumOptions values={DEAL_PAYMENT_KINDS} /></select></Field>
-                <Field label="Amount (₦)"><input name="amount" inputMode="decimal" required /></Field>
+                <Field label={`Amount (${moneySymbol()})`}><input name="amount" inputMode="decimal" required /></Field>
                 <Field label="Date paid"><input name="paidOn" type="date" required /></Field>
                 <Field label="Method"><input name="method" placeholder="Transfer, cash, cheque" /></Field>
                 <Field label="Reference"><input name="reference" /></Field>

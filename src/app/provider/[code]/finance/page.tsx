@@ -6,6 +6,7 @@ import { vpCan } from "@/lib/verification-network-rules";
 import { day, naira } from "@/app/verification/case-ui";
 import { OrgHeader, orgFor } from "../shared";
 import { payoutDetailsAction } from "./actions";
+import { COUNTRIES, COUNTRY_CODES, bankFieldsFor, countryName, isCountry } from "@/lib/regions";
 
 export const metadata = { title: "Earnings and payouts", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export default async function ProviderFinance({ params: p, searchParams: s }: { 
     return <div className="wrap stack-lg vp"><OrgHeader ctx={ctx} title="Earnings and payouts" /><div className="card"><p>Only the organisation&apos;s owner and finance staff see its money.</p></div></div>;
   }
   const f = await providerFinance(ctx);
+  const chosen = sp(searchParams, "bankCountry") ?? "";
+  const bankCountry = isCountry(chosen) ? chosen : isCountry(f.account.country) ? f.account.country : "NG";
   const page = Math.max(1, Number(sp(searchParams, "page") || 1));
   const shown = f.earnings.slice((page - 1) * PAGE, page * PAGE);
   const manage = vpCan(ctx.role, "finance.manage");
@@ -39,18 +42,29 @@ export default async function ProviderFinance({ params: p, searchParams: s }: { 
 
       <section className="card stack">
         <h2>Payout bank account</h2>
-        {f.account.complete ? <p>{f.account.bankName} · {f.account.accountName} · <span className="mono">{f.account.accountNumber}</span>{f.account.updatedAt ? <span className="small muted"> · changed {day(f.account.updatedAt)}</span> : null}</p> : <p className="warn-text">No complete bank account yet. Housy cannot pay you until one is recorded.</p>}
+        {f.account.complete ? (
+          <dl className="stack" style={{ gap: 4, margin: 0 }}>
+            <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}><dt className="small muted">Country</dt><dd className="small" style={{ margin: 0 }}>{countryName(f.account.country)}</dd></div>
+            {(f.account.lines.length ? f.account.lines : [{ label: "Bank", value: f.account.bankName }, { label: "Account name", value: f.account.accountName }, { label: "Account number", value: f.account.accountNumber }]).map((l) => <div key={l.label} className="row between" style={{ flexWrap: "wrap", gap: 8 }}><dt className="small muted">{l.label}</dt><dd className="small mono" style={{ margin: 0, overflowWrap: "anywhere" }}>{l.value}</dd></div>)}
+            {f.account.updatedAt ? <p className="small muted">Changed {day(f.account.updatedAt)}</p> : null}
+          </dl>
+        ) : <p className="warn-text">No complete bank account yet. Housy cannot pay you until one is recorded.</p>}
         {manage ? (
-          <details className="vp-fold" open={!f.account.complete}><summary>{f.account.complete ? "Change the account" : "Add the account"}</summary>
+          <details className="vp-fold" open={!f.account.complete || !!sp(searchParams, "bankCountry")}><summary>{f.account.complete ? "Change the account" : "Add the account"}</summary>
+            <form method="get" className="row" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+              <Field label="Country of the bank account"><select name="bankCountry" defaultValue={bankCountry}>{COUNTRY_CODES.map((c) => <option key={c} value={c}>{COUNTRIES[c].name}</option>)}</select></Field>
+              <button className="btn" type="submit">Show the fields</button>
+            </form>
             <form action={payoutDetailsAction} className="stack">
               <input type="hidden" name="code" value={ctx.code} />
-              <div className="grid-3">
-                <Field label="Bank"><input name="bankName" required maxLength={80} defaultValue={f.account.bankName} /></Field>
-                <Field label="Account name" hint="Exactly as the bank shows it"><input name="accountName" required maxLength={120} defaultValue={f.account.accountName} /></Field>
-                <Field label="Account number" hint="10-digit NUBAN"><input name="accountNumber" required inputMode="numeric" pattern="[0-9 ]{10,13}" maxLength={13} autoComplete="off" /></Field>
+              <input type="hidden" name="country" value={bankCountry} />
+              <div className="fields">
+                {bankFieldsFor(bankCountry).map((fl) => (
+                  <Field key={fl.key} label={fl.label} hint={fl.hint}><input name={fl.key} required={!/optional/i.test(fl.hint ?? "")} inputMode={fl.numeric ? "numeric" : undefined} autoComplete="off" defaultValue={bankCountry === f.account.country && !/number|iban/i.test(fl.key) ? f.account.details?.[fl.key] ?? (fl.key === "bankName" ? f.account.bankName : fl.key === "accountName" ? f.account.accountName : "") : ""} /></Field>
+                ))}
               </div>
-              <p className="small muted">Use the organisation&apos;s own corporate account. Everyone in your organisation who handles money is told whenever it changes.</p>
-              <div className="row"><button className="btn" type="submit" data-confirm="Change where Housy pays you?" data-confirm-body="Future payouts go to this account. Check the number carefully." data-confirm-ok="Save account" data-confirm-tone="default">Save</button></div>
+              <p className="small muted">Use the organisation&apos;s own corporate account. Earnings are in naira; for an account outside Nigeria, Housy converts when it pays. Everyone in your organisation who handles money is told whenever it changes.</p>
+              <div className="row"><button className="btn" type="submit" data-confirm="Change where Housy pays you?" data-confirm-body="Future payouts go to this account. Check the details carefully." data-confirm-ok="Save account" data-confirm-tone="default">Save</button></div>
             </form>
           </details>
         ) : null}

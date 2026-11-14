@@ -83,6 +83,8 @@ export type Filters = {
   minBeds?: number; minBaths?: number; furnishing?: keyof typeof FURNISHING; serviced?: boolean; amenities: Amenity[];
   minSize?: number; construction?: keyof typeof CONSTRUCTION; titleDoc?: keyof typeof TITLE_DOCUMENTS; estate?: string;
   availableBy?: string; verifiedOnly?: boolean; negotiable?: boolean; period?: PricePeriod; sort: Sort; page: number;
+  /** The currency the price range is in: listings in other currencies are left out when a range is set. Naira by default. */
+  currency?: string;
 };
 
 type Get = (k: string) => string | undefined;
@@ -101,7 +103,7 @@ export function parseFilters(get: Get, getAll: (k: string) => string[] = (k) => 
   return {
     q: text(get("q"), 80), city: text(get("city"), 80),
     purpose: purpose === "SALE" || purpose === "RENT" || purpose === "LEASE" ? purpose : undefined,
-    types: [...new Set(types)], minPrice: text(get("minPrice"), 20), maxPrice: text(get("maxPrice"), 20),
+    types: [...new Set(types)], minPrice: text(get("minPrice"), 20), maxPrice: text(get("maxPrice"), 20), currency: /^[A-Z]{3}$/.test(get("cur") ?? "") ? get("cur")! : undefined,
     minBeds: int(get("minBeds"), 50), minBaths: int(get("minBaths"), 50),
     furnishing: isCode(FURNISHING, get("furnishing")) && get("furnishing") !== "UNSPECIFIED" ? (get("furnishing") as keyof typeof FURNISHING) : undefined,
     serviced: get("serviced") === "1" ? true : undefined, amenities: [...new Set(amenities)], minSize: int(get("minSize"), 10_000_000),
@@ -123,7 +125,7 @@ export function extraFilterCount(f: Filters) {
 export function filtersToQuery(f: Partial<Filters>, change: Record<string, string | number | undefined> = {}) {
   const q = new URLSearchParams();
   const put = (k: string, v: unknown) => { if (v !== undefined && v !== "" && v !== false && !(Array.isArray(v) && v.length === 0)) q.set(k, Array.isArray(v) ? v.join(",") : v === true ? "1" : String(v)); };
-  put("q", f.q); put("city", f.city); put("purpose", f.purpose); put("type", f.types); put("minPrice", f.minPrice); put("maxPrice", f.maxPrice);
+  put("q", f.q); put("city", f.city); put("purpose", f.purpose); put("type", f.types); put("minPrice", f.minPrice); put("maxPrice", f.maxPrice); if (f.currency && f.currency !== "NGN") put("cur", f.currency);
   put("minBeds", f.minBeds); put("minBaths", f.minBaths); put("furnishing", f.furnishing); put("serviced", f.serviced); put("amenity", f.amenities);
   put("minSize", f.minSize); put("construction", f.construction); put("titleDoc", f.titleDoc); put("estate", f.estate); put("availableBy", f.availableBy);
   put("verified", f.verifiedOnly); put("negotiable", f.negotiable); put("period", f.period);

@@ -2,6 +2,7 @@
  * Money in the verification network (stage 7): the price Housy quotes a customer, Housy's fee and the provider's share,
  * when a provider's earning can be paid out, and payouts. Pure rules, used by the services and tested on their own.
  */
+import { checkBankDetails } from "./regions";
 
 /** Housy's fee, in basis points of the customer's price (1500 = 15%). Fixed on each case when it is quoted. */
 export const PLATFORM_FEE_BPS = 1500;
@@ -41,7 +42,16 @@ export const payableFrom = (deliveredAt: Date) => new Date(deliveredAt.getTime()
 export const payoutRef = (year: number, n: number) => `HVO-${year}-${String(n).padStart(6, "0")}`;
 
 /** A Nigerian bank account (NUBAN) is ten digits. */
-export function payoutDetailsProblem(d: { bankName: string; accountName: string; accountNumber: string }): string | null {
+/**
+ * Whether a payout account is complete. In Nigeria: bank, account name and the 10-digit NUBAN. Elsewhere: the details that
+ * country's banks need (a sort code in the UK, a routing number in the US, an IBAN in Europe…), kept in bank_details.
+ */
+export function payoutDetailsProblem(d: { bankName: string; accountName: string; accountNumber: string; country?: string; bankDetails?: unknown }): string | null {
+  if (d.country && d.country !== "NG") {
+    const details = d.bankDetails && typeof d.bankDetails === "object" ? (d.bankDetails as Record<string, string>) : {};
+    const r = checkBankDetails(d.country, details);
+    return r.ok ? null : r.problem;
+  }
   if (d.bankName.trim().length < 2) return "Enter the bank's name.";
   if (d.accountName.trim().length < 2) return "Enter the account name exactly as the bank shows it.";
   if (!/^\d{10}$/.test(d.accountNumber.replace(/\s+/g, ""))) return "The account number must be the 10-digit NUBAN.";

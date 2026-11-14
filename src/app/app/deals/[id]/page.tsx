@@ -5,7 +5,7 @@ import { getDeal } from "@/lib/services/deal";
 import { DEAL_STAGES, offerGapBps } from "@/lib/deal-rules";
 import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/dates";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { humanize } from "@/lib/labels";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import {
@@ -69,7 +69,7 @@ export default async function DealPage({ params: paramsP, searchParams: searchP 
                   <form action={requestAcceptanceAction}><input type="hidden" name="dealId" value={deal.id} /><input type="hidden" name="offerId" value={o.id} /><button className="btn" type="submit">Ask to accept this offer</button></form>
                   <details className="inline"><summary>Counter</summary>
                     <form action={counterOfferAction} className="stack">{hid}<input type="hidden" name="offerId" value={o.id} />
-                      <div className="fields"><Field label="Amount (₦)"><input name="amount" inputMode="decimal" required /></Field><Field label="Valid until"><input name="validUntil" type="date" /></Field></div>
+                      <div className="fields"><Field label={`Amount (${moneySymbol()})`}><input name="amount" inputMode="decimal" required /></Field><Field label="Valid until"><input name="validUntil" type="date" /></Field></div>
                       <Field label="Conditions"><input name="conditions" /></Field><Field label="Note"><input name="note" /></Field><button className="btn primary" type="submit">Record counteroffer</button></form></details>
                   <details className="inline"><summary>Reject or withdraw</summary>
                     <form action={rejectOfferAction} className="stack">{hid}<input type="hidden" name="offerId" value={o.id} /><Field label="Reason for rejecting"><input name="reason" required /></Field><button className="btn" type="submit" data-confirm="Reject this?" data-confirm-body="The person is told." data-confirm-ok="Reject">Reject</button></form>
@@ -94,7 +94,7 @@ export default async function DealPage({ params: paramsP, searchParams: searchP 
             <form action={recordOfferAction} className="stack">{hid}
               <div className="fields">
                 <Field label="Made by"><select name="side" defaultValue="CLIENT"><option value="CLIENT">The client</option><option value="OWNER">The owner</option></select></Field>
-                <Field label="Amount (₦)"><input name="amount" inputMode="decimal" required /></Field>
+                <Field label={`Amount (${moneySymbol()})`}><input name="amount" inputMode="decimal" required /></Field>
                 <Field label="Valid until"><input name="validUntil" type="date" /></Field>
               </div>
               <Field label="Conditions"><input name="conditions" /></Field><Field label="Note"><input name="note" /></Field>

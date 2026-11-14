@@ -4,7 +4,7 @@ import { adminEvents, adminInvoices, adminPayments, readBankInstructions } from 
 import { pendingRefunds } from "@/lib/services/refunds";
 import { activePaymentProvider } from "@/lib/services/platform-config";
 import { refundable } from "@/lib/billing-rules";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
@@ -43,7 +43,7 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
       <details className="inline"><summary>Refund</summary>
         <form action={refundAction} className="stack">
           <input type="hidden" name="paymentId" value={p.id} /><input type="hidden" name="view" value={view} />
-          <Field label="Amount (₦)" hint={`Up to ${formatKobo(room)}${p.invoice.purpose === "AD_CAMPAIGN" ? ", and only budget not yet spent" : ""}.`}><input name="amount" required inputMode="decimal" defaultValue={String(Number(room) / 100)} /></Field>
+          <Field label={`Amount (${moneySymbol(p.invoice.currency)})`} hint={`Up to ${formatKobo(room, p.invoice.currency)}${p.invoice.purpose === "AD_CAMPAIGN" ? ", and only budget not yet spent" : ""}.`}><input name="amount" required inputMode="decimal" defaultValue={String(Number(room) / 100)} /></Field>
           <Field label="Reason"><input name="reason" required minLength={5} maxLength={500} /></Field>
           <button className="btn" type="submit">Refund</button>
         </form></details>
@@ -65,7 +65,7 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
         <section className="card stack"><h2>Refunds waiting</h2>
           {pending.map((r) => (
             <div key={r.id} className="row between">
-              <div><strong>{r.ref}</strong> <span className="small muted">{formatKobo(r.amountKobo)} · {r.invoice.ref} · {r.payment.provider === "MANUAL" ? "return the money, then confirm" : "with the provider"} · {r.reason}</span></div>
+              <div><strong>{r.ref}</strong> <span className="small muted">{formatKobo(r.amountKobo, r.invoice.currency)} · {r.invoice.ref} · {r.payment.provider === "MANUAL" ? "return the money, then confirm" : "with the provider"} · {r.reason}</span></div>
               <div className="row">
                 <form action={confirmRefundAction}><input type="hidden" name="refundId" value={r.id} /><button className="btn" type="submit">Confirm it was refunded</button></form>
                 <form action={cancelRefundAction}><input type="hidden" name="refundId" value={r.id} /><button className="btn" type="submit">Cancel</button></form>
@@ -84,7 +84,7 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
           <p className="small muted">These arrived but did not match the invoice, so nothing was switched on. The money is held aside until you accept or refund it.</p>
           {pays.rows.length === 0 ? <p className="muted">Nothing to decide.</p> : pays.rows.map((p) => (
             <div key={p.id} className="card stack">
-              <div className="row between"><div><strong>{p.ref}</strong> <span className="small muted">{p.invoice.ref} · asked {formatKobo(p.amountKobo)} · received {p.receivedKobo ? formatKobo(p.receivedKobo) : "unknown"}</span></div><Pill status="PENDING" label="Being checked" /></div>
+              <div className="row between"><div><strong>{p.ref}</strong> <span className="small muted">{p.invoice.ref} · asked {formatKobo(p.amountKobo, p.invoice.currency)} · received {p.receivedKobo ? formatKobo(p.receivedKobo) : "unknown"}</span></div><Pill status="PENDING" label="Being checked" /></div>
               <p className="small">{p.reviewNote}</p>
               <div className="row">
                 {(p.receivedKobo ?? 0n) >= p.amountKobo && p.invoice.status === "OPEN" && p.refundedKobo === 0n ? (
@@ -104,12 +104,12 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
           <div className="row">{["", "OPEN", "PAID", "VOID"].map((s) => <Link key={s} className="btn" href={`/admin/payments?view=invoices&status=${s}`}>{s ? humanize(s) : "All"}</Link>)}</div>
           {invs.rows.length === 0 ? <p className="muted">No invoices.</p> : invs.rows.map((i) => (
             <div key={i.id} className="card stack">
-              <div className="row between"><div><strong>{i.ref}</strong> <span className="small muted">{i.ownerName} · {formatKobo(i.amountKobo)} · {formatDate(i.createdAt)}</span><div className="small">{i.description}</div></div><Pill status={i.status === "PAID" ? "ACTIVE" : i.status === "OPEN" ? "PENDING" : "SUSPENDED"} label={humanize(i.status)} /></div>
+              <div className="row between"><div><strong>{i.ref}</strong> <span className="small muted">{i.ownerName} · {formatKobo(i.amountKobo, i.currency)} · {formatDate(i.createdAt)}</span><div className="small">{i.description}</div></div><Pill status={i.status === "PAID" ? "ACTIVE" : i.status === "OPEN" ? "PENDING" : "SUSPENDED"} label={humanize(i.status)} /></div>
               {i.status === "OPEN" ? (
                 <div className="row">
                   <details className="inline"><summary>Record a bank transfer</summary>
                     <form action={recordOfflineAction} className="stack"><input type="hidden" name="invoiceId" value={i.id} />
-                      <Field label="Amount received (₦)" hint={`Must be exactly ${formatKobo(i.amountKobo)}.`}><input name="amount" required inputMode="decimal" /></Field>
+                      <Field label={`Amount received (${moneySymbol(i.currency)})`} hint={`Must be exactly ${formatKobo(i.amountKobo, i.currency)}.`}><input name="amount" required inputMode="decimal" /></Field>
                       <Field label="Bank reference" hint="Used once. The same transfer cannot be recorded twice."><input name="reference" required maxLength={80} /></Field>
                       <Field label="Note"><input name="note" maxLength={200} /></Field>
                       <button className="btn primary" type="submit">Record payment</button></form></details>
@@ -130,7 +130,7 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
           <div className="row">{["", "PENDING", "SUCCEEDED", "FAILED", "REVIEW"].map((s) => <Link key={s} className="btn" href={`/admin/payments?view=payments&status=${s}`}>{s ? humanize(s) : "All"}</Link>)}</div>
           {pays.rows.length === 0 ? <p className="muted">No payments.</p> : pays.rows.map((p) => (
             <div key={p.id} className="card stack">
-              <div className="row between"><div><strong>{p.ref}</strong> <span className="small muted">{p.invoice.ref} · {formatKobo(p.amountKobo)} · {humanize(p.provider)} · {formatDate(p.createdAt)}{p.refundedKobo > 0n ? ` · ${formatKobo(p.refundedKobo)} refunded` : ""}</span>{p.failureReason ? <div className="small">{p.failureReason}</div> : null}</div><Pill status={payTone(p.status)} label={p.status === "REVIEW" ? "Being checked" : humanize(p.status)} /></div>
+              <div className="row between"><div><strong>{p.ref}</strong> <span className="small muted">{p.invoice.ref} · {formatKobo(p.amountKobo, p.invoice.currency)} · {humanize(p.provider)} · {formatDate(p.createdAt)}{p.refundedKobo > 0n ? ` · ${formatKobo(p.refundedKobo)} refunded` : ""}</span>{p.failureReason ? <div className="small">{p.failureReason}</div> : null}</div><Pill status={payTone(p.status)} label={p.status === "REVIEW" ? "Being checked" : humanize(p.status)} /></div>
               {refundForm(p)}
             </div>
           ))}

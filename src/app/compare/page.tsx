@@ -13,6 +13,7 @@ import { RemoveFromCompare } from "@/components/Compare";
 import { PropPhoto, sp, type SP } from "@/components/ui";
 import { compareNotes } from "@/lib/compare-notes";
 import { marketOverview } from "@/lib/services/market";
+import { formatMoney } from "@/lib/regions";
 
 export const metadata = { title: "Compare properties" };
 export const dynamic = "force-dynamic";
@@ -73,7 +74,7 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
               ))}</tr>
             </thead>
             <tbody>
-              {line("Price", (l) => <strong>{formatKobo(l.promo?.promoKobo ?? l.priceKobo)}{priceSuffix(l.pricePeriod)}{l.promo ? ` (${l.promo.pct}% off)` : ""}{l.negotiable ? ", negotiable" : ""}</strong>)}
+              {line("Price", (l) => <strong>{formatMoney(l.promo?.promoKobo ?? l.priceKobo, l.currency)}{priceSuffix(l.pricePeriod)}{l.promo ? ` (${l.promo.pct}% off)` : ""}{l.negotiable ? ", negotiable" : ""}</strong>)}
               {line("Price per m²", (l) => { const v = perSqm(l); return v === null ? "—" : <span className={bestSqm !== null && v === bestSqm ? "best" : undefined}>{formatKobo(v)}{bestSqm !== null && v === bestSqm ? " (lowest)" : ""}</span>; })}
               {line("Yearly cost to occupy", (l) => { const y = yearly(l); return y === null ? "—" : formatKobo(y + (l.serviceChargeKobo ?? 0n)); })}
               {line("Caution deposit", (l) => (l.depositKobo != null ? formatKobo(l.depositKobo) : "—"))}

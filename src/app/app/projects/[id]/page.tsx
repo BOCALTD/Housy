@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { getProject } from "@/lib/services/project";
 import { WORK_STATUSES } from "@/lib/project-rules";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate, toDateOnlyString, todayInLagos } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -96,7 +96,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                 <Field label="Project manager"><select name="managerId" defaultValue={p.managerId ?? ""}><option value="">Not assigned</option>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></Field>
                 <Field label="Planned start"><input name="plannedStart" type="date" required defaultValue={toDateOnlyString(p.plannedStart)} /></Field>
                 <Field label="Planned end"><input name="plannedEnd" type="date" required defaultValue={toDateOnlyString(p.plannedEnd)} /></Field>
-                <Field label="Contingency (₦)"><input name="contingency" inputMode="decimal" defaultValue={nairaInput(p.contingencyKobo)} /></Field>
+                <Field label={`Contingency (${moneySymbol()})`}><input name="contingency" inputMode="decimal" defaultValue={nairaInput(p.contingencyKobo)} /></Field>
               </div>
               <Field label="Description"><textarea name="description" rows={3} defaultValue={p.description} /></Field>
               <button className="btn" type="submit">Save</button>
@@ -146,7 +146,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                   <details className="inline"><summary>Forecast the cost to complete</summary>
                     <form action={forecastAction} className="stack">
                       {hidden}<input type="hidden" name="packageId" value={w.id} />
-                      <Field label="Estimate to complete (₦)" hint={c?.etcKobo !== null && c?.etcKobo !== undefined ? `Currently ${formatKobo(c.etcKobo)}.` : "Not yet forecast."}><input name="etc" inputMode="decimal" required /></Field>
+                      <Field label={`Estimate to complete (${moneySymbol()})`} hint={c?.etcKobo !== null && c?.etcKobo !== undefined ? `Currently ${formatKobo(c.etcKobo)}.` : "Not yet forecast."}><input name="etc" inputMode="decimal" required /></Field>
                       <Field label="Basis"><input name="note" /></Field>
                       <button className="btn" type="submit">Record forecast</button>
                     </form>
@@ -162,7 +162,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                         <Field label="Contractor"><select name="contractorId" defaultValue={w.contractorId ?? ""}><option value="">None</option>{contractors.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
                         <Field label="Start"><input name="plannedStart" type="date" required defaultValue={toDateOnlyString(w.plannedStart)} /></Field>
                         <Field label="End"><input name="plannedEnd" type="date" required defaultValue={toDateOnlyString(w.plannedEnd)} /></Field>
-                        <Field label="Budget (₦)" hint={p.budgetStatus === "DRAFT" ? undefined : "Locked once the budget is submitted."}><input name="budget" inputMode="decimal" defaultValue={nairaInput(w.budgetKobo)} /></Field>
+                        <Field label={`Budget (${moneySymbol()})`} hint={p.budgetStatus === "DRAFT" ? undefined : "Locked once the budget is submitted."}><input name="budget" inputMode="decimal" defaultValue={nairaInput(w.budgetKobo)} /></Field>
                       </div>
                       <Field label="Description"><input name="description" defaultValue={w.description} /></Field>
                       <button className="btn" type="submit">Save</button>
@@ -184,7 +184,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                   <Field label="Contractor"><select name="contractorId" defaultValue=""><option value="">None</option>{contractors.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
                   <Field label="Start"><input name="plannedStart" type="date" required defaultValue={toDateOnlyString(p.plannedStart)} /></Field>
                   <Field label="End"><input name="plannedEnd" type="date" required defaultValue={toDateOnlyString(p.plannedEnd)} /></Field>
-                  <Field label="Budget (₦)" hint={p.budgetStatus === "DRAFT" ? undefined : "The budget is submitted, so new packages start at zero."}><input name="budget" inputMode="decimal" defaultValue={p.budgetStatus === "DRAFT" ? "" : "0"} /></Field>
+                  <Field label={`Budget (${moneySymbol()})`} hint={p.budgetStatus === "DRAFT" ? undefined : "The budget is submitted, so new packages start at zero."}><input name="budget" inputMode="decimal" defaultValue={p.budgetStatus === "DRAFT" ? "" : "0"} /></Field>
                 </div>
                 <Field label="Description"><input name="description" /></Field>
                 <button className="btn" type="submit">Add work package</button>
@@ -247,7 +247,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                 <div className="fields">
                   <Field label="Contractor"><select name="contractorId" defaultValue=""><option value="">Other supplier</option>{contractors.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
                   <Field label="Supplier name" hint="If not a listed contractor."><input name="supplierName" /></Field>
-                  <Field label="Amount (₦)"><input name="amount" inputMode="decimal" required /></Field>
+                  <Field label={`Amount (${moneySymbol()})`}><input name="amount" inputMode="decimal" required /></Field>
                   <Field label="Work package"><select name="workPackageId" defaultValue=""><option value="">General</option>{packages.map((w) => <option key={w.id} value={w.id}>{w.code} {w.title}</option>)}</select></Field>
                 </div>
                 <Field label="What is being bought"><input name="description" required /></Field>
@@ -283,7 +283,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                   <Field label="Invoice number"><input name="invoiceNo" required /></Field>
                   <Field label="Invoice date"><input name="invoiceDate" type="date" required /></Field>
                   <Field label="Due date"><input name="dueDate" type="date" /></Field>
-                  <Field label="Amount (₦)"><input name="amount" inputMode="decimal" required /></Field>
+                  <Field label={`Amount (${moneySymbol()})`}><input name="amount" inputMode="decimal" required /></Field>
                 </div>
                 <button className="btn" type="submit">Record invoice</button>
               </form>
@@ -316,7 +316,7 @@ export default async function ProjectPage({ params: paramsP, searchParams: searc
                   <Field label="Changes"><select name="target" defaultValue="COMMITMENT"><option value="COMMITMENT">A commitment&apos;s contract sum</option><option value="BUDGET">The project budget</option></select></Field>
                   <Field label="Commitment" hint="For a contract variation."><select name="commitmentId" defaultValue="">{<option value="">None</option>}{approvedCommitments.map((c) => <option key={c.id} value={c.id}>{c.ref} · {c.supplierName}</option>)}</select></Field>
                   <Field label="Work package" hint="For a budget variation, adds the funds to this package."><select name="workPackageId" defaultValue=""><option value="">None</option>{packages.map((w) => <option key={w.id} value={w.id}>{w.code} {w.title}</option>)}</select></Field>
-                  <Field label="Amount (₦)" hint="Use a minus sign for a reduction."><input name="amount" inputMode="decimal" required /></Field>
+                  <Field label={`Amount (${moneySymbol()})`} hint="Use a minus sign for a reduction."><input name="amount" inputMode="decimal" required /></Field>
                   <Field label="Extra days"><input name="timeImpactDays" inputMode="numeric" /></Field>
                 </div>
                 <Field label="Title"><input name="title" required /></Field>

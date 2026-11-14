@@ -12,7 +12,8 @@ export async function payoutDetailsAction(form: FormData) {
     const user = await requireUser();
     const ctx = await providerContext(user.id, code);
     if (!ctx) throw new Error("You are not a member of this organisation.");
-    await setPayoutDetails(ctx, { bankName: str(form, "bankName"), accountName: str(form, "accountName"), accountNumber: str(form, "accountNumber") });
+    const keys = ["country", "bankName", "accountName", "accountNumber", "routingNumber", "sortCode", "institutionNumber", "transitNumber", "iban", "bic", "bsb"];
+    await setPayoutDetails(ctx, Object.fromEntries(keys.map((k) => [k, str(form, k)])));
     return withNotice(page, "Payout bank account saved. Everyone who handles your organisation's money has been told.");
   });
 }

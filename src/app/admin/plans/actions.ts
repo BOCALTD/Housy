@@ -1,8 +1,10 @@
 "use server";
 
+import { CURRENCY_CODES } from "@/lib/regions";
+
 import { requirePlatformAdmin } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import { assignSubscription, cancelSubscription, renewSubscription, savePlan, setPlanEntitlements } from "@/lib/services/subscriptions";
+import { assignSubscription, cancelSubscription, renewSubscription, savePlan, setPlanEntitlements, setPlanPrices } from "@/lib/services/subscriptions";
 import { saveSettings } from "@/lib/services/platform-settings";
 import { ENTITLEMENT_KEYS } from "@/lib/subscription-rules";
 
@@ -18,6 +20,7 @@ export async function savePlanAction(form: FormData) {
       active: str(form, "active") === "on", sortOrder: (str(form, "sortOrder") || "100") as never, tier: (str(form, "tier") || "BASIC") as never,
     });
     await setPlanEntitlements(admin.id, plan.id, ENTITLEMENT_KEYS.map((key) => ({ key, enabled: str(form, `on_${key}`) === "on", limit: str(form, `limit_${key}`) })));
+    if (form.has("cur_USD")) await setPlanPrices(admin.id, plan.id, Object.fromEntries(CURRENCY_CODES.filter((c) => c !== "NGN").map((c) => [c, str(form, `cur_${c}`)])));
     return withNotice(BACK, "Plan saved.");
   });
 }

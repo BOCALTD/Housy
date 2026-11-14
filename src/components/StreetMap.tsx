@@ -226,7 +226,7 @@ export function StreetMap(props:
                 g.on("click", () => map?.setView([m.lat, m.lng], Math.min(19, z + 2)));
                 g.addTo(layer);
               } else {
-                const pin = L.marker([m.lat, m.lng], { icon: L.divIcon({ className: `map-price map-${m.purpose.toLowerCase()}`, html: `<span>₦${m.price}</span>`, iconSize: [76, 44], iconAnchor: [38, 44] }), keyboard: true, title: `${m.priceLabel}: ${m.title}, ${m.city}` });
+                const pin = L.marker([m.lat, m.lng], { icon: L.divIcon({ className: `map-price map-${m.purpose.toLowerCase()}`, html: `<span>${m.price}</span>`, iconSize: [76, 44], iconAnchor: [38, 44] }), keyboard: true, title: `${m.priceLabel}: ${m.title}, ${m.city}` });
                 pin.bindPopup(pinCard(m), { maxWidth: 260, minWidth: 220 });
                 pin.addTo(layer);
               }

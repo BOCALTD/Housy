@@ -12,12 +12,12 @@ import { payOnlineAction } from "./actions";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Make a payment", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
-/** What a client sees from a payment link: who is asking, for what, and how to pay (online through Paystack, or by transfer). */
+/** What a client sees from a payment link: who is asking, for what, and how to pay (online through Paystack or Stripe, or by transfer). */
 export default async function PayPage({ params, searchParams: s }: { params: Promise<{ token: string }>; searchParams?: Promise<SP> }) {
   const { token } = await params;
   const searchParams = await s;
   const allowed = await rateLimit(`paylink:${await visitorIp()}`, 60, 60_000);
-  // Back from Paystack: Housy asks Paystack what happened before showing the result.
+  // Back from checkout: Housy asks the provider what happened before showing the result.
   if (allowed && sp(searchParams, "checked")) await checkOnlinePayment(token).catch(() => null);
   const p = allowed ? await paymentForPayer(token).catch(() => null) : null;
   if (!p || p.status === "CANCELLED") {
@@ -38,7 +38,7 @@ export default async function PayPage({ params, searchParams: s }: { params: Pro
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <section className="card stack">
         <div className="row between" style={{ flexWrap: "wrap" }}>
-          <strong style={{ fontSize: "1.6rem" }}>{formatKobo(p.amountKobo)}</strong>
+          <strong style={{ fontSize: "1.6rem" }}>{formatKobo(p.amountKobo, p.currency)}</strong>
           {p.status === "PAID" ? <span className="pill ok">Paid</span> : <span className="pill warn">Waiting for payment</span>}
         </div>
         <p style={{ overflowWrap: "anywhere" }}>{p.description}</p>
@@ -57,14 +57,14 @@ export default async function PayPage({ params, searchParams: s }: { params: Pro
           {p.online ? (
             <section className="card stack" aria-labelledby="online-h">
               <h2 id="online-h">Pay online</h2>
-              <p className="small muted">By card, bank transfer or USSD on Paystack&apos;s secure page. The receipt goes to your email.</p>
+              <p className="small muted">{p.provider === "STRIPE" ? "By card, Apple Pay or Google Pay on Stripe's secure page." : "By card, bank transfer or USSD on Paystack's secure page."} The receipt goes to your email.</p>
               <form action={payOnlineAction} className="stack">
                 <input type="hidden" name="token" value={token} />
                 <div className="fields">
                   <Field label="Your name"><input name="name" required autoComplete="name" defaultValue={p.payerName} /></Field>
                   <Field label="Your email"><input name="email" type="email" required autoComplete="email" defaultValue={p.payerEmail} /></Field>
                 </div>
-                <div className="row"><button className="btn primary" type="submit" data-confirm={`Pay ${formatKobo(p.amountKobo)} to ${p.company}?`} data-confirm-body="You go to Paystack's secure page to pay, then come back here." data-confirm-ok="Continue to pay" data-confirm-tone="default">Pay {formatKobo(p.amountKobo)}</button></div>
+                <div className="row"><button className="btn primary" type="submit" data-confirm={`Pay ${formatKobo(p.amountKobo, p.currency)} to ${p.company}?`} data-confirm-body={`You go to ${p.provider === "STRIPE" ? "Stripe" : "Paystack"}'s secure page to pay, then come back here.`} data-confirm-ok="Continue to pay" data-confirm-tone="default">Pay {formatKobo(p.amountKobo, p.currency)}</button></div>
               </form>
             </section>
           ) : null}
@@ -72,12 +72,10 @@ export default async function PayPage({ params, searchParams: s }: { params: Pro
             <section className="card stack" aria-labelledby="transfer-h">
               <h2 id="transfer-h">{p.online ? "Or pay by bank transfer" : "Pay by bank transfer"}</h2>
               <dl className="stack" style={{ gap: 4, margin: 0 }}>
-                <div><dt className="small muted">Bank</dt><dd style={{ margin: 0 }}>{p.transfer.bankName}</dd></div>
-                <div><dt className="small muted">Account name</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{p.transfer.accountName}</dd></div>
-                <div><dt className="small muted">Account number</dt><dd style={{ margin: 0 }}><strong>{p.transfer.accountNumber}</strong></dd></div>
+                {p.transfer.lines.map((l) => <div key={l.label}><dt className="small muted">{l.label}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{/number|IBAN|code|BSB/i.test(l.label) ? <strong>{l.value}</strong> : l.value}</dd></div>)}
                 <div><dt className="small muted">Narration</dt><dd style={{ margin: 0 }}>{p.ref}</dd></div>
               </dl>
-              <div className="row" style={{ flexWrap: "wrap" }}><CopyButton text={p.transfer.accountNumber} label="Copy account number" done="Account number copied" /><CopyButton text={p.ref} label="Copy reference" done="Reference copied" /></div>
+              <div className="row" style={{ flexWrap: "wrap" }}>{p.transfer.copy ? <CopyButton text={p.transfer.copy} label="Copy account number" done="Account number copied" /> : null}<CopyButton text={p.ref} label="Copy reference" done="Reference copied" /></div>
               <p className="small muted">Check the account name matches {p.company} before you send. {p.company} marks this as paid once the money arrives.</p>
             </section>
           ) : null}

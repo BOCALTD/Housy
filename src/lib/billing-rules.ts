@@ -31,8 +31,8 @@ export function reminderStage(periodEnd: Date, now: Date): "NOTICE" | "LAST_DAY"
 export type Verdict = { ok: true } | { ok: false; reason: "AMOUNT" | "CURRENCY" | "INVOICE_CLOSED" };
 
 /** Whether a provider's report of money received matches what was asked for. Anything else goes to a person, and nothing is applied. */
-export function checkReceived(o: { expectedKobo: bigint; receivedKobo: bigint; currency: string; invoiceStatus: "OPEN" | "PAID" | "VOID" }): Verdict {
-  if (o.currency.toUpperCase() !== "NGN") return { ok: false, reason: "CURRENCY" };
+export function checkReceived(o: { expectedKobo: bigint; receivedKobo: bigint; currency: string; expectedCurrency?: string; invoiceStatus: "OPEN" | "PAID" | "VOID" }): Verdict {
+  if (o.currency.toUpperCase() !== (o.expectedCurrency ?? "NGN").toUpperCase()) return { ok: false, reason: "CURRENCY" };
   if (o.receivedKobo !== o.expectedKobo) return { ok: false, reason: "AMOUNT" };
   if (o.invoiceStatus !== "OPEN") return { ok: false, reason: "INVOICE_CLOSED" };
   return { ok: true };

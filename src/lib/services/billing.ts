@@ -22,7 +22,14 @@ import type { Owner } from "./subscriptions";
 export interface Payer { userId: string; companyId: string | null; role: Role | null }
 export interface Deps { provider?: PaymentProvider | null; now?: Date }
 
-const providerOf = async (d?: Deps): Promise<PaymentProvider | null> => (d && "provider" in d ? d.provider ?? null : (await import("./platform-config")).activePaymentProvider());
+type ProviderName = "PAYSTACK" | "STRIPE";
+/** The provider to use: the one a test passes in, or the named one with the keys saved in settings. */
+const providerOf = async (d?: Deps, name: ProviderName = "PAYSTACK"): Promise<PaymentProvider | null> => (d && "provider" in d ? d.provider ?? null : (await import("./platform-config")).paymentProviderNamed(name));
+/** Where an invoice's owner is, so it is paid through the provider serving that country (individuals pay through Paystack, in naira). */
+async function routeFor(tx: Tx, inv: { ownerCompanyId: string | null }): Promise<string> {
+  if (!inv.ownerCompanyId) return "NG";
+  return (await tx.company.findUnique({ where: { id: inv.ownerCompanyId }, select: { country: true } }))?.country ?? "NG";
+}
 const nowOf = (d?: Deps) => d?.now ?? new Date();
 
 export const ownerOf = (p: Payer): Owner => (p.companyId ? { kind: "COMPANY", companyId: p.companyId } : { kind: "USER", userId: p.userId });
@@ -60,13 +67,13 @@ const billingLink = (o: Owner) => (o.kind === "USER" ? "/me/billing" : "/app/bil
 
 export type Posting = {
   ledger: "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION" | "COMMISSION"; kind: "PAYMENT" | "REFUND" | "SPEND" | "ADJUSTMENT"; account: "REVENUE" | "FUNDS_HELD" | "SUSPENSE" | "PROVIDER_PAYABLE";
-  amountKobo: bigint; entryKey?: string; invoiceId?: string; paymentId?: string; refundId?: string; campaignId?: string; eventId?: string; actorId?: string; note?: string;
+  amountKobo: bigint; currency?: string; entryKey?: string; invoiceId?: string; paymentId?: string; refundId?: string; campaignId?: string; eventId?: string; actorId?: string; note?: string;
 };
 
 /** Add one entry. An entry with a key can be added once only: a second attempt fails and rolls the whole change back. */
 export async function post(tx: Tx, e: Posting) {
   if (!e.eventId && !e.actorId) throw new Error("A ledger entry needs a verified event or an authorising person");
-  return tx.financeEntry.create({ data: { ledger: e.ledger, kind: e.kind, account: e.account, amountKobo: e.amountKobo, entryKey: e.entryKey ?? null, invoiceId: e.invoiceId ?? null, paymentId: e.paymentId ?? null, refundId: e.refundId ?? null, campaignId: e.campaignId ?? null, eventId: e.eventId ?? null, actorId: e.actorId ?? null, note: (e.note ?? "").slice(0, 300) } });
+  return tx.financeEntry.create({ data: { ledger: e.ledger, kind: e.kind, account: e.account, amountKobo: e.amountKobo, currency: e.currency ?? "NGN", entryKey: e.entryKey ?? null, invoiceId: e.invoiceId ?? null, paymentId: e.paymentId ?? null, refundId: e.refundId ?? null, campaignId: e.campaignId ?? null, eventId: e.eventId ?? null, actorId: e.actorId ?? null, note: (e.note ?? "").slice(0, 300) } });
 }
 type Purpose = "SUBSCRIPTION" | "AD_CAMPAIGN" | "VERIFICATION" | "COMMISSION";
 export const ledgerFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" ? "SUBSCRIPTION" : purpose === "VERIFICATION" ? "VERIFICATION" : purpose === "COMMISSION" ? "COMMISSION" : "ADVERTISING") as "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION" | "COMMISSION";
@@ -96,19 +103,33 @@ export async function createSubscriptionInvoice(p: Payer, planId: string, deps?:
     if ((plan.audience === "COMPANY") !== (owner.kind === "COMPANY")) throw new Error(owner.kind === "COMPANY" ? "This plan is for individuals, not companies" : "This plan is for companies, not individuals");
     if (!plan.priceKobo || plan.priceKobo <= 0n || plan.billingPeriod === "NONE") throw new Error("This plan cannot be bought online. Ask the platform administrator.");
     await lockKey(tx, `invoice-owner:${owner.kind}:${owner.kind === "USER" ? owner.userId : owner.companyId}`);
+    const price = await planPriceFor(tx, plan, owner.kind === "COMPANY" ? owner.companyId : null);
     const open = await tx.invoice.findFirst({ where: { ...ownerWhere(owner), purpose: "SUBSCRIPTION", status: "OPEN" } });
-    if (open && open.subjectId === plan.id && open.amountKobo === plan.priceKobo) return open;
+    if (open && open.subjectId === plan.id && open.amountKobo === price.amount && open.currency === price.currency) return open;
     if (open) await tx.invoice.update({ where: { id: open.id }, data: { status: "VOID", voidedAt: now, voidReason: "Replaced by an invoice for another plan" } });
     const months = PERIOD_MONTHS[plan.billingPeriod as Period];
     const inv = await tx.invoice.create({
       data: {
         ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null,
-        ownerName: await ownerLabel(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}`, amountKobo: plan.priceKobo, periodMonths: months, dueOn: now, createdById: p.userId,
+        ownerName: await ownerLabel(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}`, amountKobo: price.amount, currency: price.currency, periodMonths: months, dueOn: now, createdById: p.userId,
       },
     });
     await logActivity(tx, { companyId: owner.kind === "COMPANY" ? owner.companyId : null, actorId: p.userId, entityType: "invoice", entityId: inv.id, action: "invoice.created", detail: { ref: inv.ref, plan: plan.code } });
     return inv;
   });
+}
+
+/**
+ * What a plan costs a workspace: in its own currency when the administrator has set a price in it, otherwise in naira (the plan's
+ * main price). Individuals pay in naira.
+ */
+export async function planPriceFor(tx: Tx, plan: { id: string; priceKobo: bigint | null }, companyId: string | null): Promise<{ amount: bigint; currency: string }> {
+  const naira = { amount: plan.priceKobo ?? 0n, currency: "NGN" };
+  if (!companyId) return naira;
+  const co = await tx.company.findUnique({ where: { id: companyId }, select: { currency: true } });
+  if (!co || co.currency === "NGN") return naira;
+  const local = await tx.planPrice.findUnique({ where: { planId_currency: { planId: plan.id, currency: co.currency } } });
+  return local ? { amount: local.amountMinor, currency: local.currency } : naira;
 }
 
 export async function voidInvoice(adminId: string, invoiceId: string, reasonInput: string) {
@@ -139,9 +160,11 @@ async function authoriseInvoice(p: Payer, invoiceId: string, action: "billing.vi
 
 /** Begin an online payment. Returns where to send the person. A payment started a few minutes ago is reused, so a double click does not make two. */
 export async function startPayment(p: Payer, invoiceId: string, callbackUrl: string, deps?: Deps): Promise<{ paymentRef: string; checkoutUrl: string }> {
-  const provider = await providerOf(deps);
-  if (!provider) throw new Error(NO_PROVIDER);
   const inv = await authoriseInvoice(p, invoiceId, "billing.manage");
+  const { onlineProviderFor } = await import("./platform-config");
+  const name: ProviderName | null = deps && "provider" in deps ? (deps.provider ? (deps.provider.name ?? "PAYSTACK") : null) : await onlineProviderFor(await system((tx) => routeFor(tx, inv)));
+  const provider = name ? await providerOf(deps, name) : null;
+  if (!provider || !name) throw new Error(NO_PROVIDER);
   const user = await prisma.user.findUnique({ where: { id: p.userId }, select: { email: true } });
   if (!user) throw new Error("Account not found");
   const now = nowOf(deps);
@@ -149,14 +172,14 @@ export async function startPayment(p: Payer, invoiceId: string, callbackUrl: str
     await lockKey(tx, `invoice:${inv.id}`);
     const fresh = await tx.invoice.findUnique({ where: { id: inv.id } });
     if (!fresh || fresh.status !== "OPEN") throw new Error("This invoice is not open for payment");
-    const recent = await tx.payment.findFirst({ where: { invoiceId: inv.id, provider: "PAYSTACK", status: "PENDING", checkoutUrl: { not: "" }, createdAt: { gt: new Date(now.getTime() - 30 * 60_000) } }, orderBy: { createdAt: "desc" } });
+    const recent = await tx.payment.findFirst({ where: { invoiceId: inv.id, provider: name, status: "PENDING", checkoutUrl: { not: "" }, createdAt: { gt: new Date(now.getTime() - 30 * 60_000) } }, orderBy: { createdAt: "desc" } });
     if (recent) return { payment: recent, reused: true };
     const ref = randomRef("PAY");
-    const payment = await tx.payment.create({ data: { ref, invoiceId: inv.id, provider: "PAYSTACK", providerRef: ref, amountKobo: fresh.amountKobo, initiatedById: p.userId } });
+    const payment = await tx.payment.create({ data: { ref, invoiceId: inv.id, provider: name, providerRef: ref, amountKobo: fresh.amountKobo, initiatedById: p.userId } });
     return { payment, reused: false };
   });
   if (pay.reused) return { paymentRef: pay.payment.ref, checkoutUrl: pay.payment.checkoutUrl };
-  const started = await provider.initialize({ reference: pay.payment.ref, amountKobo: pay.payment.amountKobo, email: user.email, callbackUrl: `${callbackUrl}${callbackUrl.includes("?") ? "&" : "?"}ref=${encodeURIComponent(pay.payment.ref)}`, metadata: { invoice: inv.ref } });
+  const started = await provider.initialize({ reference: pay.payment.ref, amountKobo: pay.payment.amountKobo, email: user.email, callbackUrl: `${callbackUrl}${callbackUrl.includes("?") ? "&" : "?"}ref=${encodeURIComponent(pay.payment.ref)}`, metadata: { invoice: inv.ref }, currency: inv.currency, description: inv.description });
   if (!started.ok) {
     await system((tx) => tx.payment.update({ where: { id: pay.payment.id }, data: { status: "FAILED", failureReason: started.error.slice(0, 500) } }));
     throw new Error(started.error);
@@ -182,16 +205,16 @@ export async function settlePaymentIn(tx: Tx, paymentId: string, s: SettleInput)
   const inv = await tx.invoice.findUniqueOrThrow({ where: { id: pay.invoiceId } });
   const ledger = ledgerFor(inv.purpose);
   const trace = { eventId: s.eventId, actorId: s.actorId };
-  const verdict = checkReceived({ expectedKobo: pay.amountKobo, receivedKobo: s.received, currency: s.currency, invoiceStatus: inv.status });
+  const verdict = checkReceived({ expectedKobo: pay.amountKobo, receivedKobo: s.received, currency: s.currency, expectedCurrency: inv.currency, invoiceStatus: inv.status });
   if (!verdict.ok) {
     await tx.payment.update({ where: { id: pay.id }, data: { status: "REVIEW", receivedKobo: s.received, settledAt: s.now, reviewNote: REVIEW_TEXT[verdict.reason], providerTxId: s.providerTxId ?? pay.providerTxId } });
-    await post(tx, { ledger, kind: "PAYMENT", account: "SUSPENSE", amountKobo: s.received, entryKey: `pay:${pay.id}`, invoiceId: inv.id, paymentId: pay.id, note: REVIEW_TEXT[verdict.reason], ...trace });
+    await post(tx, { ledger, kind: "PAYMENT", account: "SUSPENSE", amountKobo: s.received, currency: (s.currency || inv.currency).toUpperCase(), entryKey: `pay:${pay.id}`, invoiceId: inv.id, paymentId: pay.id, note: REVIEW_TEXT[verdict.reason], ...trace });
     const admins = await tx.user.findMany({ where: { isPlatformAdmin: true }, select: { id: true }, take: 50 });
     for (const a of admins) await notify(tx, a.id, { kind: "billing.review", title: "A payment needs a decision", body: `${inv.ref}: ${REVIEW_TEXT[verdict.reason]}`, link: "/admin/payments", dedupeKey: `review:${pay.id}` });
     return { result: "REVIEW" };
   }
   await tx.payment.update({ where: { id: pay.id }, data: { status: "SUCCEEDED", receivedKobo: s.received, settledAt: s.now, providerTxId: s.providerTxId ?? pay.providerTxId } });
-  await post(tx, { ledger, kind: "PAYMENT", account: accountFor(inv.purpose), amountKobo: s.received, entryKey: `pay:${pay.id}`, invoiceId: inv.id, paymentId: pay.id, ...trace });
+  await post(tx, { ledger, kind: "PAYMENT", account: accountFor(inv.purpose), amountKobo: s.received, currency: inv.currency, entryKey: `pay:${pay.id}`, invoiceId: inv.id, paymentId: pay.id, ...trace });
   await tx.invoice.update({ where: { id: inv.id }, data: { status: "PAID", paidAt: s.now } });
   const applied = await applyInvoice(tx, inv, s.now);
   const owner: Owner = inv.ownerUserId ? { kind: "USER", userId: inv.ownerUserId } : { kind: "COMPANY", companyId: inv.ownerCompanyId! };
@@ -245,13 +268,13 @@ async function applySubscription(tx: Tx, inv: Prisma.InvoiceGetPayload<object>, 
 export type EventResult = { status: number; body: { received: boolean; duplicate?: boolean; outcome?: string } };
 
 /** A message from the provider arrives here. It is accepted only if the signature proves it came from the provider and was not altered. */
-export async function receiveProviderEvent(rawBody: string, signature: string | null, deps?: Deps): Promise<EventResult> {
-  const provider = await providerOf(deps);
+export async function receiveProviderEvent(rawBody: string, signature: string | null, deps?: Deps, name: ProviderName = "PAYSTACK"): Promise<EventResult> {
+  const provider = await providerOf(deps, name);
   if (!provider) return { status: 503, body: { received: false } };
   if (!provider.verifySignature(rawBody, signature)) return { status: 401, body: { received: false } };
   const ev = provider.parseEvent(rawBody);
   if (!ev) return { status: 400, body: { received: false } };
-  const r = await processEvent(ev, sha256(rawBody), deps);
+  const r = await processEvent(ev, sha256(rawBody), deps, name);
   return { status: 200, body: { received: true, duplicate: r.duplicate, outcome: r.outcome } };
 }
 
@@ -259,22 +282,22 @@ export async function receiveProviderEvent(rawBody: string, signature: string | 
  * Apply one provider event, once. The event is recorded in the same transaction as its effects, and the pair (provider, event id) is
  * unique, so a message delivered twice, or two copies handled at the same moment, change nothing the second time.
  */
-export async function processEvent(ev: ParsedEvent, payloadHash: string, deps?: Deps): Promise<{ duplicate: boolean; outcome: string }> {
+export async function processEvent(ev: ParsedEvent, payloadHash: string, deps?: Deps, name: ProviderName = "PAYSTACK"): Promise<{ duplicate: boolean; outcome: string }> {
   const now = nowOf(deps);
   const { refundEventIn } = await import("./refunds");
   const out = await system(async (tx) => {
-    await lockKey(tx, `event:PAYSTACK:${ev.eventId}`);
-    if (await tx.paymentEvent.findUnique({ where: { provider_eventId: { provider: "PAYSTACK", eventId: ev.eventId } } })) return { duplicate: true, outcome: "DUPLICATE", settled: null as Awaited<ReturnType<typeof settlePaymentIn>> | null };
+    await lockKey(tx, `event:${name}:${ev.eventId}`);
+    if (await tx.paymentEvent.findUnique({ where: { provider_eventId: { provider: name, eventId: ev.eventId } } })) return { duplicate: true, outcome: "DUPLICATE", settled: null as Awaited<ReturnType<typeof settlePaymentIn>> | null };
     const id = randomUUID();
     let outcome: string = "IGNORED", note = "", settled: Awaited<ReturnType<typeof settlePaymentIn>> | null = null, paymentRef = ev.reference;
     if (ev.kind === "PAYMENT_SUCCEEDED" || ev.kind === "PAYMENT_FAILED") {
-      const pay = ev.reference ? await tx.payment.findUnique({ where: { provider_providerRef: { provider: "PAYSTACK", providerRef: ev.reference } } }) : null;
+      const pay = ev.reference ? await tx.payment.findUnique({ where: { provider_providerRef: { provider: name, providerRef: ev.reference } } }) : null;
       if (!pay && ev.reference.startsWith("CP-")) {
-        // A client paying a company through a payment link (Paystack split): settled in client payments.
+        // A client paying a company through a payment link (a Paystack split or a Stripe payment to the company): settled in client payments.
         const { settleClientPaymentIn } = await import("./client-payments");
         if (ev.kind !== "PAYMENT_SUCCEEDED") { outcome = "IGNORED"; note = "A client payment attempt did not go through"; }
         else if (ev.amountKobo === null || ev.amountKobo <= 0n) { outcome = "MALFORMED"; note = "The message had no amount"; }
-        else outcome = await settleClientPaymentIn(tx, ev.reference, ev.amountKobo, ev.providerTxId, now);
+        else outcome = await settleClientPaymentIn(tx, ev.reference, ev.amountKobo, ev.providerTxId, now, ev.currency);
       }
       else if (!pay) { outcome = "UNKNOWN_REFERENCE"; note = "No payment has this reference"; }
       else if (ev.kind === "PAYMENT_SUCCEEDED") {
@@ -290,7 +313,7 @@ export async function processEvent(ev: ParsedEvent, payloadHash: string, deps?: 
       const r = await refundEventIn(tx, ev, id, now);
       outcome = r.outcome; note = r.note;
     }
-    await tx.paymentEvent.create({ data: { id, provider: "PAYSTACK", eventId: ev.eventId, kind: ev.rawKind.slice(0, 100), reference: paymentRef.slice(0, 200), amountKobo: ev.amountKobo, outcome, note: note.slice(0, 500), payloadHash } });
+    await tx.paymentEvent.create({ data: { id, provider: name, eventId: ev.eventId, kind: ev.rawKind.slice(0, 100), reference: paymentRef.slice(0, 200), amountKobo: ev.amountKobo, outcome, note: note.slice(0, 500), payloadHash } });
     return { duplicate: false, outcome, settled };
   });
   if (out.settled?.referral) {
@@ -316,15 +339,16 @@ async function markFailedIn(tx: Tx, paymentId: string, reason: string): Promise<
  * that may have been lost. A payment is settled only on the provider's own answer.
  */
 export async function verifyPayment(paymentRef: string, deps?: Deps): Promise<"SUCCEEDED" | "FAILED" | "PENDING" | "REVIEW" | "UNKNOWN"> {
-  const provider = await providerOf(deps);
   const pay = await system((tx) => tx.payment.findUnique({ where: { ref: paymentRef } }));
   if (!pay) return "UNKNOWN";
   if (pay.status !== "PENDING") return pay.status;
-  if (!provider || pay.provider !== "PAYSTACK" || !pay.providerRef) return "PENDING";
+  if (pay.provider !== "PAYSTACK" && pay.provider !== "STRIPE") return "PENDING";
+  const provider = await providerOf(deps, pay.provider);
+  if (!provider || !pay.providerRef) return "PENDING";
   const v = await provider.verify(pay.providerRef);
   if (!v.ok || v.status === "pending") return "PENDING";
   const ev: ParsedEvent = { eventId: `verify:${pay.ref}:${v.status}`, kind: v.status === "success" ? "PAYMENT_SUCCEEDED" : "PAYMENT_FAILED", rawKind: `verify.${v.status}`, reference: pay.providerRef, amountKobo: v.amountKobo, currency: v.currency, providerTxId: v.providerTxId };
-  await processEvent(ev, sha256(JSON.stringify({ ref: pay.ref, status: v.status, amount: v.amountKobo.toString() })), deps);
+  await processEvent(ev, sha256(JSON.stringify({ ref: pay.ref, status: v.status, amount: v.amountKobo.toString() })), deps, pay.provider);
   const after = await system((tx) => tx.payment.findUnique({ where: { ref: paymentRef }, select: { status: true } }));
   return after?.status ?? "UNKNOWN";
 }
@@ -332,7 +356,7 @@ export async function verifyPayment(paymentRef: string, deps?: Deps): Promise<"S
 /** Payments still waiting after a few minutes: ask the provider. Covers a message that was lost or a person who closed the page. */
 export async function verifyPending(deps?: Deps): Promise<{ checked: number; settled: number; failed: number }> {
   const now = nowOf(deps);
-  const waiting = await system((tx) => tx.payment.findMany({ where: { status: "PENDING", provider: "PAYSTACK", createdAt: { lt: new Date(now.getTime() - 10 * 60_000), gt: new Date(now.getTime() - 3 * 864e5) } }, orderBy: { createdAt: "asc" }, take: 100, select: { ref: true } }));
+  const waiting = await system((tx) => tx.payment.findMany({ where: { status: "PENDING", provider: { in: ["PAYSTACK", "STRIPE"] }, createdAt: { lt: new Date(now.getTime() - 10 * 60_000), gt: new Date(now.getTime() - 3 * 864e5) } }, orderBy: { createdAt: "asc" }, take: 100, select: { ref: true } }));
   let settled = 0, failed = 0;
   for (const w of waiting) {
     const r = await verifyPayment(w.ref, deps);
@@ -376,7 +400,7 @@ export async function recordOfflinePayment(adminId: string, invoiceId: string, i
     if (amount !== inv.amountKobo) throw new Error("The amount must be exactly the invoice amount. Record a different amount as a refund or an adjustment instead.");
     if (await tx.payment.findUnique({ where: { provider_providerRef: { provider: "MANUAL", providerRef: reference } } })) throw new Error("That bank reference has already been recorded");
     const pay = await tx.payment.create({ data: { ref: randomRef("PAY"), invoiceId: inv.id, provider: "MANUAL", providerRef: reference, amountKobo: inv.amountKobo, initiatedById: adminId } });
-    const s = await settlePaymentIn(tx, pay.id, { received: amount, currency: "NGN", actorId: adminId, now });
+    const s = await settlePaymentIn(tx, pay.id, { received: amount, currency: inv.currency, actorId: adminId, now });
     await logActivity(tx, { companyId: inv.ownerCompanyId, actorId: adminId, entityType: "payment", entityId: pay.id, action: "payment.recorded_offline", detail: { invoice: inv.ref, reference, note: (input.note ?? "").slice(0, 200) } });
     return s;
   });

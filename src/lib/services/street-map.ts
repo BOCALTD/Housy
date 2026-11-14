@@ -7,6 +7,8 @@ import { circleBounds, distanceLabel } from "../location-rules";
 import { priceSuffix } from "../listing-rules";
 import { formatKobo } from "../money";
 import { coverPhotoIds } from "./listing-photos";
+import { CURRENCIES, formatMoney, isCurrency } from "../regions";
+const symbolOf = (c: string) => (isCurrency(c) ? CURRENCIES[c].symbol : "");
 
 export const MAP_MAX_PINS = 300;
 export const MAP_LIST = 24;
@@ -46,11 +48,11 @@ export async function mapView(b: Bounds, zoom: number, f: MapFilters) {
   const w = where(b, c);
   return withPublic(async (tx) => {
     const total = await tx.listing.count({ where: w });
-    const select = { id: true, publicRef: true, title: true, priceKobo: true, pricePeriod: true, bedrooms: true, city: true, purpose: true, lat: true, lng: true } as const;
+    const select = { id: true, publicRef: true, title: true, priceKobo: true, currency: true, pricePeriod: true, bedrooms: true, city: true, purpose: true, lat: true, lng: true } as const;
     const newest = await tx.listing.findMany({ where: w, select, orderBy: { publishedAt: "desc" }, take: total <= MAP_MAX_PINS ? MAP_MAX_PINS : MAP_LIST });
     const covers = await coverPhotoIds(newest.slice(0, total <= MAP_MAX_PINS ? MAP_MAX_PINS : MAP_LIST).map((l) => l.id));
     const pin = (l: (typeof newest)[number]): MapPin => ({
-      kind: "pin", ref: l.publicRef, lat: l.lat!, lng: l.lng!, price: shortMoney(l.priceKobo), title: l.title, priceLabel: `${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}`,
+      kind: "pin", ref: l.publicRef, lat: l.lat!, lng: l.lng!, price: `${symbolOf(l.currency)}${shortMoney(l.priceKobo)}`, title: l.title, priceLabel: `${formatMoney(l.priceKobo, l.currency)}${priceSuffix(l.pricePeriod)}`,
       beds: l.bedrooms, city: l.city, purpose: l.purpose, photo: covers.get(l.id) ?? null,
     });
     if (total <= MAP_MAX_PINS) return { total, markers: newest.map(pin), list: newest.slice(0, MAP_LIST).map(pin) };
@@ -79,12 +81,12 @@ export async function mapNear(centre: { lat: number; lng: number }, km: number, 
   const c = clean(f);
   const w = where(circleBounds(centre, km), c);
   return withPublic(async (tx) => {
-    const rows = await tx.listing.findMany({ where: w, select: { id: true, publicRef: true, title: true, priceKobo: true, pricePeriod: true, bedrooms: true, city: true, purpose: true, lat: true, lng: true, publishedAt: true }, orderBy: { publishedAt: "desc" }, take: 3000 });
+    const rows = await tx.listing.findMany({ where: w, select: { id: true, publicRef: true, title: true, priceKobo: true, currency: true, pricePeriod: true, bedrooms: true, city: true, purpose: true, lat: true, lng: true, publishedAt: true }, orderBy: { publishedAt: "desc" }, take: 3000 });
     const inside = rows.map((l) => ({ l, km: distanceKm(centre, { lat: l.lat!, lng: l.lng! }) })).filter((x) => x.km <= km).sort((a, b) => a.km - b.km);
     const listed = inside.slice(0, inside.length <= MAP_MAX_PINS ? MAP_MAX_PINS : MAP_LIST);
     const covers = await coverPhotoIds(listed.map((x) => x.l.id));
     const pin = ({ l, km: d }: (typeof inside)[number]): MapPin => ({
-      kind: "pin", ref: l.publicRef, lat: l.lat!, lng: l.lng!, price: shortMoney(l.priceKobo), title: l.title, priceLabel: `${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}`,
+      kind: "pin", ref: l.publicRef, lat: l.lat!, lng: l.lng!, price: `${symbolOf(l.currency)}${shortMoney(l.priceKobo)}`, title: l.title, priceLabel: `${formatMoney(l.priceKobo, l.currency)}${priceSuffix(l.pricePeriod)}`,
       beds: l.bedrooms, city: l.city, purpose: l.purpose, photo: covers.get(l.id) ?? null, distance: distanceLabel(d),
     });
     if (inside.length <= MAP_MAX_PINS) return { total: inside.length, markers: listed.map(pin), list: listed.slice(0, MAP_LIST).map(pin), near: { ...centre, km } };

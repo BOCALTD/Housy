@@ -3,6 +3,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { visitorCountry } from "@/lib/countries";
 import { PhoneField } from "@/components/PhoneField";
+import { BusinessCountry } from "@/components/BusinessCountry";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { AuthShell } from "@/components/AuthShell";
 import { signedInAs } from "@/lib/session-label";
@@ -58,8 +59,9 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
                   {Object.entries(BUSINESS_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </Field>
-              <Field label="Company name" hint="As registered with the CAC."><input name="companyName" id="companyName" required maxLength={160} autoComplete="organization" /></Field>
-              <Field label="CAC registration number (optional)" hint="For example RC 1234567 or BN 1234567. It is checked when you verify the company."><input name="cacNumber" id="cacNumber" maxLength={20} autoComplete="off" /></Field>
+              <Field label="Company name" hint="As registered with your country's company registry."><input name="companyName" id="companyName" required maxLength={160} autoComplete="organization" /></Field>
+              <BusinessCountry value={country} />
+              <Field label="CAC registration number (Nigeria, optional)" hint="For example RC 1234567 or BN 1234567. It is checked when you verify the company."><input name="cacNumber" id="cacNumber" maxLength={20} autoComplete="off" /></Field>
               <Field label="Company email" hint="Use your company's own email address. It is how you sign in and where we write to the company.">
                 <input name="email" id="email" type="email" required autoComplete="off" inputMode="email" placeholder="you@yourcompany.com" autoCapitalize="off" spellCheck={false} />
               </Field>
@@ -76,6 +78,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
           <>
             <Field label="Your full name" hint="As clients will see it on your profile."><input name="name" id="name" required maxLength={120} autoComplete="name" /></Field>
             <Field label="Business or trading name (optional)" hint="Leave blank if you trade under your own name."><input name="tradingName" id="tradingName" maxLength={160} autoComplete="off" /></Field>
+            <BusinessCountry value={country} label="Country where you work" />
             <Field label="Email"><input name="email" id="email" type="email" required autoComplete="off" inputMode="email" autoCapitalize="off" spellCheck={false} /></Field>
             <PhoneField label="Phone" required country={country} hint="Clients reach you through the platform; your number is used for verification." />
             <NewPassword />

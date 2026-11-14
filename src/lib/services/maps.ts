@@ -28,7 +28,7 @@ export async function publicMapPoints(f: PublicMapFilters) {
       ...(maxKobo !== undefined ? { priceKobo: { lte: maxKobo } } : {}),
       ...(Number.isInteger(beds) ? { bedrooms: { gte: beds } } : {}),
     },
-    select: { publicRef: true, title: true, city: true, state: true, purpose: true, pricePeriod: true, priceKobo: true, bedrooms: true, lat: true, lng: true },
+    select: { publicRef: true, title: true, city: true, state: true, purpose: true, pricePeriod: true, priceKobo: true, currency: true, bedrooms: true, lat: true, lng: true },
     orderBy: { publishedAt: "desc" }, take: 500,
   }));
   const points: MapPoint[] = [];

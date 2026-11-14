@@ -47,6 +47,10 @@ Each line says who does it and how you know it is done. The page `/admin/launch`
 - [ ] If Paystack is not ready, launch with bank-transfer payments recorded by the administrator. Say so in the pilot brief.
 - [ ] The keys can be entered in *Admin → Settings → Paystack* instead of the env file (stored encrypted; the env file wins if both are set).
 - [ ] Set Housy's commission in *Admin → Settings → Commission* (rent, inspection fees, other payments).
+- [ ] Outside Paystack's countries (US, UK, Canada, Europe, Australia, UAE): create a Stripe account for Housy, turn on **Connect (Express accounts)**, add a webhook endpoint `https://<your domain>/api/webhooks/stripe` with the events `payment_intent.succeeded`, `payment_intent.payment_failed` and `refund.updated`, then enter the secret key, publishable key and webhook signing secret in *Admin → Settings → Stripe* (or set `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` on the server).
+- [ ] *Admin → Settings → Payment method by country*: check which provider serves each country (Paystack for Nigeria, Ghana, Kenya, South Africa; Stripe elsewhere; or bank transfer only).
+- [ ] *Admin → Plans*: give company plans a price in each currency you sell in (US dollars, pounds, euros…). A workspace without a price in its currency pays the naira price.
+- [ ] With Stripe test keys: change a test company's country to the United States, add a US bank account, set up card payments (Stripe's test onboarding), send a payment link and pay it with Stripe's test card 4242 4242 4242 4242; check the business's share and Housy's application fee in the Stripe dashboard.
 - [ ] Online payments to companies (split payments) need the Paystack account to be **live and approved for subaccounts**. With the test key: a test company saves a test bank account, sends itself a payment link, pays it with a test card; the company's share and Housy's commission appear in the Paystack dashboard.
 - [ ] Person check: create Google reCAPTCHA or Cloudflare Turnstile keys for your domain and enter them in *Admin → Settings*. If Housy sits behind Cloudflare, switch on "Behind Cloudflare" there.
 

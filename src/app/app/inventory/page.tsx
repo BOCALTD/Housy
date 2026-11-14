@@ -1,3 +1,4 @@
+import { moneySymbol } from "@/lib/money";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { CONDITIONS, INVENTORY_KINDS, listInventory } from "@/lib/services/inventory";
@@ -107,7 +108,7 @@ export default async function InventoryPage({ searchParams: searchP }: { searchP
             <div className="fields">
               <Field label="Opening quantity"><input name="quantity" inputMode="numeric" defaultValue="1" /></Field>
               <Field label="Unit"><input name="unit" defaultValue="pcs" /></Field>
-              <Field label="Unit cost (₦)"><input name="unitCost" inputMode="decimal" /></Field>
+              <Field label={`Unit cost (${moneySymbol()})`}><input name="unitCost" inputMode="decimal" /></Field>
               <Field label="Reorder at" hint="For consumables."><input name="reorderLevel" inputMode="numeric" /></Field>
             </div>
             <div className="fields">

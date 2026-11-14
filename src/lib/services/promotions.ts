@@ -90,7 +90,7 @@ export async function eligibleListings(ctx: Ctx, campaignId: string) {
     const taken = await tx.promoEntry.findMany({ where: { campaignId, companyId: ctx.companyId, status: { in: ["REQUESTED", "APPROVED"] } }, select: { listingId: true } });
     return tx.listing.findMany({
       where: { companyId: ctx.companyId, status: "PUBLISHED", id: { notIn: taken.map((t) => t.listingId) } },
-      orderBy: { title: "asc" }, select: { id: true, publicRef: true, title: true, priceKobo: true, city: true }, take: 200,
+      orderBy: { title: "asc" }, select: { id: true, publicRef: true, title: true, priceKobo: true, currency: true, city: true }, take: 200,
     });
   });
 }
@@ -137,7 +137,7 @@ export async function myPromoEntries(ctx: Ctx) {
   assertCan(ctx, "listing.manage");
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const rows = await tx.promoEntry.findMany({ where: { companyId: ctx.companyId }, include: { campaign: true, payment: true }, orderBy: { createdAt: "desc" }, take: 200 });
-    const listings = await tx.listing.findMany({ where: { id: { in: rows.map((r) => r.listingId) } }, select: { id: true, title: true, publicRef: true, priceKobo: true, status: true } });
+    const listings = await tx.listing.findMany({ where: { id: { in: rows.map((r) => r.listingId) } }, select: { id: true, title: true, publicRef: true, priceKobo: true, currency: true, status: true } });
     return rows.map((r) => ({ ...r, listing: listings.find((l) => l.id === r.listingId) ?? null }));
   });
 }
@@ -148,7 +148,7 @@ export async function promoQueue(adminId: string, state: "REQUESTED" | "APPROVED
   await assertAdmin(adminId);
   return withPlatformAdmin(adminId, async (tx) => {
     const rows = await tx.promoEntry.findMany({ where: state === "ALL" ? {} : { status: state }, include: { campaign: true, payment: true }, orderBy: { createdAt: "asc" }, take: 300 });
-    const listings = await tx.listing.findMany({ where: { id: { in: rows.map((r) => r.listingId) } }, select: { id: true, title: true, publicRef: true, priceKobo: true, status: true } });
+    const listings = await tx.listing.findMany({ where: { id: { in: rows.map((r) => r.listingId) } }, select: { id: true, title: true, publicRef: true, priceKobo: true, currency: true, status: true } });
     const companies = await tx.company.findMany({ where: { id: { in: rows.map((r) => r.companyId) } }, select: { id: true, name: true } });
     return rows.map((r) => ({ ...r, listing: listings.find((l) => l.id === r.listingId) ?? null, companyName: companies.find((c) => c.id === r.companyId)?.name ?? "Company" }));
   });

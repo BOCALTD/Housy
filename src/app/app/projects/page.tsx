@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listProjects, PROJECT_KINDS } from "@/lib/services/project";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -55,7 +55,7 @@ export default async function ProjectsPage({ searchParams: searchP }: { searchPa
                 <Field label="Project manager"><select name="managerId" defaultValue=""><option value="">Not yet assigned</option>{d.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></Field>
                 <Field label="Planned start"><input name="plannedStart" type="date" required /></Field>
                 <Field label="Planned end"><input name="plannedEnd" type="date" required /></Field>
-                <Field label="Contingency (₦)" hint="A reserve inside the budget for overruns."><input name="contingency" inputMode="decimal" /></Field>
+                <Field label={`Contingency (${moneySymbol()})`} hint="A reserve inside the budget for overruns."><input name="contingency" inputMode="decimal" /></Field>
               </div>
               <Field label="Description"><textarea name="description" rows={3} /></Field>
               <button className="btn primary" type="submit">Create project</button>

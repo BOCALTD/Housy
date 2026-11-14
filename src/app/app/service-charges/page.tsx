@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listServicePeriods, SERVICE_METHODS } from "@/lib/services/service-charges";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -60,7 +60,7 @@ export default async function ServiceChargesPage({ searchParams: searchP }: { se
                 <Field label="Ends"><input name="endDate" type="date" required /></Field>
               </div>
               <div className="fields">
-                <Field label="Budget (₦)"><input name="budget" required inputMode="decimal" /></Field>
+                <Field label={`Budget (${moneySymbol()})`}><input name="budget" required inputMode="decimal" /></Field>
                 <Field label="Shared by"><select name="method" defaultValue="EQUAL"><EnumOptions values={SERVICE_METHODS} /></select></Field>
               </div>
               <button className="btn primary" type="submit">Create period</button>

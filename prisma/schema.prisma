@@ -123,6 +123,9 @@ model Company {
   /// Who closed it: "" or PLATFORM (an administrator suspended it), PAUSED (the owner paused it and can resume), CLOSED (the owner
   /// closed it for good; only Housy support can reopen it).
   suspendedKind    String    @default("") @map("suspended_kind")
+  /// Where the business works (ISO 3166-1 alpha-2) and the currency its prices, payments and plan are in (ISO 4217).
+  country          String    @default("NG")
+  currency         String    @default("NGN")
   /// What the owner's pause hid (listing and profile ids), so resuming shows exactly those again and nothing hidden for other reasons.
   pauseHidden      Json?     @map("pause_hidden")
   createdAt   DateTime     @default(now()) @map("created_at")
@@ -636,6 +639,8 @@ model Listing {
   title       String
   purpose     ListingPurpose
   priceKobo   BigInt         @map("price_kobo")
+  /// The currency of the price (minor units in price_kobo). The company's currency when the listing was made.
+  currency    String         @default("NGN")
   bedrooms    Int?
   bathrooms   Int?
   description String         @default("")
@@ -3254,8 +3259,23 @@ model SubscriptionPlan {
   updatedAt     DateTime           @updatedAt @map("updated_at")
   entitlements  PlanEntitlement[]
   subscriptions Subscription[]
+  prices        PlanPrice[]
 
   @@map("subscription_plans")
+}
+
+/// A plan's price in another currency (the main price, in naira, is on the plan). A workspace pays in its own currency when the
+/// plan has a price in it, and in naira otherwise.
+model PlanPrice {
+  planId      String           @map("plan_id")
+  currency    String
+  amountMinor BigInt           @map("amount_minor")
+  updatedById String           @map("updated_by_id")
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at")
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@id([planId, currency])
+  @@map("plan_prices")
 }
 
 /// One feature a plan allows. `limit` is a count where the feature is counted; null means no count applies.
@@ -4776,6 +4796,7 @@ enum BillingInvoiceStatus {
 
 enum PaymentProviderKind {
   PAYSTACK
+  STRIPE
   MANUAL
 }
 
@@ -4818,6 +4839,8 @@ model Invoice {
   subjectId    String            @map("subject_id")
   description  String
   amountKobo   BigInt            @map("amount_kobo")
+  /// The invoice's currency; amount_kobo is in its minor units.
+  currency     String            @default("NGN")
   periodMonths Int               @default(0) @map("period_months")
   renewal      Boolean           @default(false)
   reminderStage String           @default("") @map("reminder_stage")
@@ -4917,6 +4940,8 @@ model FinanceEntry {
   kind       FinanceEntryKind
   account    String
   amountKobo BigInt           @map("amount_kobo")
+  /// Ledgers are kept per currency: totals never add naira to dollars.
+  currency   String           @default("NGN")
   entryKey   String?          @unique @map("entry_key")
   invoiceId  String?          @map("invoice_id")
   paymentId  String?          @map("payment_id")
@@ -6422,6 +6447,10 @@ model VpComplaint {
 /// only the provider's owner and finance staff, and Housy's administrators, can read it.
 model VpPayoutAccount {
   providerId    String   @id @map("provider_id")
+  /// The country of the account and its details for that country (regions.ts); bank_name, account_name and account_number
+  /// are kept for every country, as the summary shown to finance staff.
+  country       String   @default("NG")
+  bankDetails   Json?    @map("bank_details")
   bankName      String   @map("bank_name")
   accountName   String   @map("account_name")
   accountNumber String   @map("account_number")
@@ -6456,6 +6485,14 @@ model CompanyPaymentSettings {
   accountName        String   @default("") @map("account_name")
   accountNumber      String   @default("") @map("account_number")
   paystackSubaccount String   @default("") @map("paystack_subaccount")
+  /// Where the account is and its currency; the details a payer needs for a transfer in that country (sort code, routing
+  /// number, IBAN and so on: see regions.ts).
+  country            String   @default("NG")
+  currency           String   @default("NGN")
+  bankDetails        Json?    @map("bank_details")
+  /// The company's Stripe account (outside Paystack's countries), and whether Stripe has finished checking it.
+  stripeAccount      String   @default("") @map("stripe_account")
+  stripeReady        Boolean  @default(false) @map("stripe_ready")
   inspectionFeeKobo  BigInt   @default(0) @map("inspection_fee_kobo")
   updatedById        String   @map("updated_by_id")
   updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
@@ -6478,6 +6515,9 @@ model ClientPayment {
   payerEmail          String    @default("") @map("payer_email")
   payerUserId         String?   @map("payer_user_id")
   amountKobo          BigInt    @map("amount_kobo")
+  currency            String    @default("NGN")
+  /// The online provider used for it (PAYSTACK or STRIPE), once the payer chose to pay online.
+  provider            String    @default("")
   commissionBps       Int       @map("commission_bps")
   commissionKobo      BigInt    @map("commission_kobo")
   method              String    @default("")

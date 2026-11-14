@@ -288,7 +288,7 @@ export async function ownerPortal(userId: string, grantId: string) {
   const result = await withTenant(companyId, SYSTEM, async (tx) => {
     const assets = await tx.asset.findMany({ where: { companyId, id: { in: assetIds } }, select: { id: true, ref: true, name: true, city: true, state: true, status: true, category: true }, orderBy: { name: "asc" } });
     const ids = assets.map((a) => a.id);
-    const listings = await tx.listing.findMany({ where: { companyId, assetId: { in: ids } }, select: { id: true, assetId: true, publicRef: true, title: true, status: true, priceKobo: true, purpose: true, pricePeriod: true } });
+    const listings = await tx.listing.findMany({ where: { companyId, assetId: { in: ids } }, select: { id: true, assetId: true, publicRef: true, title: true, status: true, priceKobo: true, currency: true, purpose: true, pricePeriod: true } });
     const listingIds = listings.map((l) => l.id);
     const [enquiries30, enquiriesAll, bookings, leases, workOrders, reports] = await Promise.all([
       tx.enquiry.groupBy({ by: ["listingId"], where: { companyId, listingId: { in: listingIds }, createdAt: { gte: since30 } }, _count: { _all: true } }),

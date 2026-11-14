@@ -6,7 +6,8 @@ import { listTeam } from "@/lib/services/companies";
 import { formatReference } from "@/lib/correspondence-rules";
 import { todayInLagos } from "@/lib/dates";
 import { Field, Flash, ShowMore, TableMore, sp, type SP } from "@/components/ui";
-import { closeWorkspaceAction, departmentAction, memberDepartmentAction, pauseWorkspaceAction, prefixAction, reminderSettingsAction } from "./actions";
+import { BusinessCountry } from "@/components/BusinessCountry";
+import { closeWorkspaceAction, countryAction, departmentAction, memberDepartmentAction, pauseWorkspaceAction, prefixAction, reminderSettingsAction } from "./actions";
 
 export const metadata = { title: "Company settings" };
 
@@ -86,6 +87,24 @@ export default async function SettingsPage({ searchParams: searchP }: { searchPa
         <p className="small muted">Platform administrators can open your company&apos;s records only after stating why, for one hour at a time. Each opening is listed here and your administrators are told.</p>
         {accessLog.length === 0 ? <p className="muted">Never opened.</p> : <ul className="timeline">{accessLog.slice(0, 10).map((g) => <li key={g.id}><span>{fmtAccess(g.createdAt)} · {ACCESS_PURPOSES[g.purpose as keyof typeof ACCESS_PURPOSES]}{g.caseRef ? ` · ${g.caseRef}` : ""}<div className="small muted">{g.note}</div></span></li>)}</ul>}
       </section>
+      {member.role === "COMPANY_SUPER_ADMIN" ? (
+        <section className="card stack" id="country" aria-labelledby="country-h">
+          <h2 id="country-h">Country and currency</h2>
+          <p className="small muted">Your prices, payment links, plan and Housy&apos;s commission are in this country&apos;s currency (now {member.currency}). Change it only if it is wrong or the business has moved.</p>
+          <details className="vp-fold">
+            <summary>Change the country</summary>
+            <form action={countryAction} className="stack">
+              <BusinessCountry value={member.country} />
+              <ul className="check-list small">
+                <li>The bank account clients pay into is cleared: add it again for the new country.</li>
+                <li>Not possible while a payment link is waiting or an invoice is unpaid in the current currency.</li>
+                <li>Published listings keep their price and currency until you edit them.</li>
+              </ul>
+              <div className="row"><button className="btn" type="submit" data-confirm="Change your country?" data-confirm-body="Your currency may change and your bank account for client payments is cleared." data-confirm-ok="Change country">Change country</button></div>
+            </form>
+          </details>
+        </section>
+      ) : null}
       {member.role === "COMPANY_SUPER_ADMIN" ? (
         <section className="card stack" id="leave" aria-labelledby="leave-h">
           <h2 id="leave-h">Pause or close this workspace</h2>

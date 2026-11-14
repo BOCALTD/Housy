@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listMaintenance, PRIORITIES, RISKS } from "@/lib/services/maintenance";
 import { inventorySummary } from "@/lib/services/inventory";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -99,7 +99,7 @@ export default async function MaintenancePage({ searchParams: searchP }: { searc
                 <Field label="Target date"><input name="targetDate" type="date" /></Field>
               </div>
               <label className="row" style={{ gap: 8 }}><input type="checkbox" name="safetyRisk" /> This is a safety risk</label>
-              <Field label="Estimated cost (₦)"><input name="estimatedCost" inputMode="decimal" /></Field>
+              <Field label={`Estimated cost (${moneySymbol()})`}><input name="estimatedCost" inputMode="decimal" /></Field>
               <button className="btn primary" type="submit">Raise work order</button>
             </form>
           )}

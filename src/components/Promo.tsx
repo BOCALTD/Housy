@@ -1,3 +1,4 @@
+import { formatMoney } from "@/lib/regions";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import type { TierName } from "@/lib/tier-rules";
@@ -17,7 +18,8 @@ export function PromoRibbon({ name, pct, theme }: { name: string; pct: number; t
 }
 
 /** The listed price struck through in red and the reviewed price in green. */
-export function PriceBlock({ priceKobo, promo, suffix }: { priceKobo: bigint; promo?: { originalKobo: bigint; promoKobo: bigint; pct: number } | null; suffix?: string }) {
+export function PriceBlock({ priceKobo, promo, suffix, currency = "NGN" }: { priceKobo: bigint; promo?: { originalKobo: bigint; promoKobo: bigint; pct: number } | null; suffix?: string; currency?: string }) {
+  const formatKobo = (k: bigint) => formatMoney(k, currency);
   if (!promo) return <span className="price">{formatKobo(priceKobo)}{suffix}</span>;
   return (
     <span className="price-promo">

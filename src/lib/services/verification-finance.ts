@@ -16,6 +16,7 @@
  * never change once paid; a case's price is fixed once quoted).
  */
 import { z } from "zod";
+import { bankLines, checkBankDetails, isCountry } from "../regions";
 import { withPlatformAdmin, withUser, type Tx } from "../db";
 import { lockKey } from "../locks";
 import { parseNairaToKobo, formatKobo } from "../money";
@@ -294,21 +295,35 @@ export async function decideHeldEarning(adminId: string, earningId: string, rele
 
 // ---------- The provider's side ----------
 
-const detailsSchema = z.object({ bankName: z.string().trim().max(80), accountName: z.string().trim().max(120), accountNumber: z.string().transform((s) => s.replace(/\s+/g, "")) });
-
-/** The bank account Housy pays this organisation to. Owner and finance staff only; not while a payout to the old account is being prepared. */
-export async function setPayoutDetails(ctx: VpCtx, input: z.input<typeof detailsSchema>) {
+/**
+ * The bank account Housy pays this organisation to, in the organisation's country (a NUBAN in Nigeria; a sort code, routing
+ * number, IBAN and so on elsewhere: see regions.ts). Owner and finance staff only; not while a payout to the old account is
+ * being prepared. Earnings are in naira; Housy converts when it pays an account abroad.
+ */
+export async function setPayoutDetails(ctx: VpCtx, input: Record<string, string | undefined>) {
   if (!vpCan(ctx.role, "finance.manage")) throw new Error("Only the organisation's owner or finance staff can change where payouts go.");
-  const d = detailsSchema.parse(input);
-  const problem = payoutDetailsProblem(d);
-  if (problem) throw new Error(problem);
+  const country = input.country && isCountry(input.country) ? input.country : "NG";
+  const raw = Object.fromEntries(Object.entries(input).map(([k, v]) => [k, (v ?? "").trim()]));
+  let details: Record<string, string>;
+  if (country === "NG") {
+    const d = { bankName: raw.bankName ?? "", accountName: raw.accountName ?? "", accountNumber: (raw.accountNumber ?? "").replace(/\s+/g, "") };
+    const problem = payoutDetailsProblem(d);
+    if (problem) throw new Error(problem);
+    details = d;
+  } else {
+    const r = checkBankDetails(country, raw);
+    if (!r.ok) throw new Error(r.problem);
+    details = r.details;
+  }
+  const summary = { bankName: (details.bankName ?? "").slice(0, 80), accountName: (details.accountName ?? "").slice(0, 120), accountNumber: details.accountNumber ?? details.iban ?? "" };
   await system(async (tx) => {
     await lockKey(tx, `vr-payout:${ctx.providerId}`);
     if (await tx.vpPayout.findFirst({ where: { providerId: ctx.providerId, status: "PREPARED" } })) throw new Error("A payout to your current account is being prepared. Change the account after it has been paid.");
-    await tx.vpPayoutAccount.upsert({ where: { providerId: ctx.providerId }, create: { providerId: ctx.providerId, bankName: d.bankName, accountName: d.accountName, accountNumber: d.accountNumber, updatedById: ctx.userId }, update: { bankName: d.bankName, accountName: d.accountName, accountNumber: d.accountNumber, updatedById: ctx.userId } });
-    await logActivity(tx, { companyId: null, actorId: ctx.userId, entityType: "verification_provider", entityId: ctx.providerId, action: "provider.payout_account_changed", detail: { bank: d.bankName, account: maskAccount(d.accountNumber) } });
+    const data = { ...summary, country, bankDetails: details, updatedById: ctx.userId };
+    await tx.vpPayoutAccount.upsert({ where: { providerId: ctx.providerId }, create: { providerId: ctx.providerId, ...data }, update: data });
+    await logActivity(tx, { companyId: null, actorId: ctx.userId, entityType: "verification_provider", entityId: ctx.providerId, action: "provider.payout_account_changed", detail: { bank: summary.bankName, account: maskAccount(summary.accountNumber), country } });
     // Everyone who handles the organisation's money hears about a change of account, so a wrong change is noticed.
-    await notifyProviderFinance(tx, ctx.providerId, { kind: "verification.finance", title: "Payout bank account changed", body: `Payouts now go to ${d.bankName}, ${maskAccount(d.accountNumber)}. If you did not expect this, tell Housy at once.`, link: `/provider/${ctx.code}/finance` });
+    await notifyProviderFinance(tx, ctx.providerId, { kind: "verification.finance", title: "Payout bank account changed", body: `Payouts now go to ${summary.bankName}, ${maskAccount(summary.accountNumber)}. If you did not expect this, tell Housy at once.`, link: `/provider/${ctx.code}/finance` });
   });
 }
 
@@ -325,11 +340,15 @@ export async function providerFinance(ctx: VpCtx) {
     const sum = (st: string[]) => earnings.filter((e) => st.includes(e.status)).reduce((n, e) => n + e.netKobo, 0n);
     const a = await tx.vpPayoutAccount.findUnique({ where: { providerId: ctx.providerId } });
     const p = { payoutBankName: a?.bankName ?? "", payoutAccountName: a?.accountName ?? "", payoutAccountNumber: a?.accountNumber ?? "", payoutUpdatedAt: a?.updatedAt ?? null };
+    const manageMoney = vpCan(ctx.role, "finance.manage");
+    const details = (a?.bankDetails ?? null) as Record<string, string> | null;
     return {
       totals: { pending: sum(["PENDING"]), held: sum(["HELD"]), payable: sum(["PAYABLE"]), inPayout: sum(["IN_PAYOUT"]), paid: sum(["PAID"]) },
       earnings: earnings.map((e) => ({ ...e, caseRef: cases.get(e.caseId)?.ref ?? "", property: cases.get(e.caseId)?.propertyAddress ?? "" })),
       payouts,
-      account: { bankName: p.payoutBankName, accountName: p.payoutAccountName, accountNumber: vpCan(ctx.role, "finance.manage") ? p.payoutAccountNumber : maskAccount(p.payoutAccountNumber), updatedAt: p.payoutUpdatedAt, complete: !payoutDetailsProblem({ bankName: p.payoutBankName, accountName: p.payoutAccountName, accountNumber: p.payoutAccountNumber }) },
+      account: { bankName: p.payoutBankName, accountName: p.payoutAccountName, accountNumber: vpCan(ctx.role, "finance.manage") ? p.payoutAccountNumber : maskAccount(p.payoutAccountNumber), updatedAt: p.payoutUpdatedAt,
+        complete: !!a && !payoutDetailsProblem(a), country: a?.country ?? "NG", details: manageMoney ? details : null,
+        lines: a && details ? bankLines(a.country, details).map((l) => (manageMoney || !/number|IBAN/i.test(l.label) ? l : { ...l, value: maskAccount(l.value) })) : [] },
     };
   });
 }

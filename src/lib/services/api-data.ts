@@ -20,7 +20,7 @@ const listingOut = (l: L, origin: string) => ({
   photos: l.photos.map((p) => ({ url: `${origin}/photos/${p.id}`, caption: p.caption })),
   url: `${origin}/properties/${l.publicRef}`,
 });
-const listingSelect = { publicRef: true, title: true, purpose: true, pricePeriod: true, propertyType: true, negotiable: true, depositKobo: true, serviceChargeKobo: true, toilets: true, buildingSqm: true, landSqm: true, furnishing: true, constructionStatus: true, amenities: true, titleDocument: true, availableFrom: true, priceKobo: true, bedrooms: true, bathrooms: true, description: true, city: true, state: true, lat: true, lng: true, publishedAt: true, photos: { where: { kind: "PHOTO" }, select: { id: true, caption: true }, orderBy: { position: "asc" as const }, take: 8 } };
+const listingSelect = { publicRef: true, title: true, purpose: true, pricePeriod: true, propertyType: true, negotiable: true, depositKobo: true, serviceChargeKobo: true, toilets: true, buildingSqm: true, landSqm: true, furnishing: true, constructionStatus: true, amenities: true, titleDocument: true, availableFrom: true, priceKobo: true, currency: true, bedrooms: true, bathrooms: true, description: true, city: true, state: true, lat: true, lng: true, publishedAt: true, photos: { where: { kind: "PHOTO" }, select: { id: true, caption: true }, orderBy: { position: "asc" as const }, take: 8 } };
 
 /** Published listings only. Row-level security gives nothing else to a program that is not signed in. */
 export async function apiListings(params: URLSearchParams, skip: number, take: number, origin: string) {

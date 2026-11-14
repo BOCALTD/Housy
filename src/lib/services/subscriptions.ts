@@ -87,7 +87,7 @@ const planSchema = z.object({
 export async function listPlans(adminId: string) {
   await assertPlatformAdmin(adminId);
   return withPlatformAdmin(adminId, async (tx) => {
-    const plans = await tx.subscriptionPlan.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { entitlements: true, _count: { select: { subscriptions: true } } } });
+    const plans = await tx.subscriptionPlan.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { entitlements: true, prices: true, _count: { select: { subscriptions: true } } } });
     return plans;
   });
 }
@@ -111,6 +111,31 @@ export async function savePlan(adminId: string, id: string | null, raw: z.input<
     const plan = await tx.subscriptionPlan.create({ data: { ...data, code: d.code } });
     await logActivity(tx, { companyId: null, actorId: adminId, entityType: "plan", entityId: plan.id, action: "plan.created", detail: { name: d.name } });
     return plan;
+  });
+}
+
+/**
+ * A plan's prices in other currencies, for workspaces outside Nigeria (empty removes one: those workspaces then pay the naira
+ * price). Invoices already raised keep their amount.
+ */
+export async function setPlanPrices(adminId: string, planId: string, raw: Record<string, string>) {
+  await assertPlatformAdmin(adminId);
+  const { CURRENCY_CODES, CURRENCIES, parseMoney } = await import("../regions");
+  const rows: { currency: string; amount: bigint | null }[] = [];
+  for (const c of CURRENCY_CODES.filter((c) => c !== "NGN")) {
+    const t = (raw[c] ?? "").trim();
+    if (!t) { rows.push({ currency: c, amount: null }); continue; }
+    let amount: bigint;
+    try { amount = parseMoney(t, c); } catch { throw new Error(`${CURRENCIES[c].name}: enter the price, for example 49 or 49.99.`); }
+    if (amount <= 0n) throw new Error(`${CURRENCIES[c].name}: a price must be more than 0, or leave it empty.`);
+    rows.push({ currency: c, amount });
+  }
+  await withPlatformAdmin(adminId, async (tx) => {
+    for (const r of rows) {
+      if (r.amount === null) await tx.planPrice.deleteMany({ where: { planId, currency: r.currency } });
+      else await tx.planPrice.upsert({ where: { planId_currency: { planId, currency: r.currency } }, create: { planId, currency: r.currency, amountMinor: r.amount, updatedById: adminId }, update: { amountMinor: r.amount, updatedById: adminId } });
+    }
+    await logActivity(tx, { companyId: null, actorId: adminId, entityType: "plan", entityId: planId, action: "plan.prices_set", detail: Object.fromEntries(rows.map((r) => [r.currency, r.amount?.toString() ?? null])) });
   });
 }
 

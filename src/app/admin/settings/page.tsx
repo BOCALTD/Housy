@@ -3,7 +3,8 @@ import { headers } from "next/headers";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, configForAdmin } from "@/lib/services/platform-config";
-import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, paystackAction } from "./actions";
+import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, paystackAction, routesAction, stripeAction } from "./actions";
+import { COUNTRIES, COUNTRY_CODES, providerCanServe } from "@/lib/regions";
 import { maintenanceNow } from "@/lib/services/maintenance-mode";
 import { formatDateTime, toLagosLocal } from "@/lib/dates";
 
@@ -76,6 +77,49 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
           </div>
         </form>
         <p className="small"><Link href="/admin/payments">Bank transfer details shown to payers</Link> are set on the Payments page.</p>
+      </section>
+
+      <section className="card stack">
+        <h2>Online payments (Stripe)</h2>
+        <p>
+          {c.stripe.source === "none" ? <span className="pill warn">Not connected</span> : <span className={`pill ${c.stripe.mode === "live" ? "ok" : "warn"}`}>{c.stripe.mode === "live" ? "Live" : "Test mode: no real money moves"}</span>}{" "}
+          {c.stripe.source === "server" ? <span className="small muted">Using the key set on the server, which takes priority over anything saved here.</span> : c.stripe.source === "settings" ? <span className="small muted">Secret key saved here, ending {c.stripe.secretTail}.</span> : <span className="small muted">For businesses outside Paystack&apos;s countries (the US, UK, Canada, Europe, Australia, the UAE). Until it is connected, they take bank transfers.</span>}
+          {c.stripe.source !== "none" && !c.stripe.webhookSet ? <span className="small" style={{ display: "block", color: "var(--warn, #b45309)" }}>Add the webhook signing secret: without it Stripe payments are not switched on.</span> : null}
+        </p>
+        <form action={stripeAction} className="stack" autoComplete="off">
+          <div className="grid-2">
+            <Field label="Secret key" hint="Starts sk_live_ or sk_test_. Leave empty to keep the saved one."><input name="secret" type="password" autoComplete="off" spellCheck={false} placeholder={c.stripe.secretTail || "sk_live_…"} /></Field>
+            <Field label="Publishable key" hint="Starts pk_live_ or pk_test_."><input name="public" autoComplete="off" spellCheck={false} defaultValue={c.stripe.public} /></Field>
+          </div>
+          <Field label="Webhook signing secret" hint={c.stripe.webhookSet ? "Saved. Leave empty to keep it." : "Starts whsec_."}><input name="webhook" type="password" autoComplete="off" spellCheck={false} placeholder={c.stripe.webhookSet ? "••••••••" : "whsec_…"} /></Field>
+          <p className="small muted">In Stripe (Developers, Webhooks), add the endpoint <code className="break">{origin}/api/webhooks/stripe</code> with the events payment_intent.succeeded, payment_intent.payment_failed and refund.updated, and paste its signing secret here. Turn on Connect (Express accounts) so businesses can be paid out.</p>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <button className="btn primary" type="submit" data-confirm="Save these Stripe keys?" data-confirm-body="Online payments in Stripe's countries use them straight away. With live keys, real money moves." data-confirm-ok="Save keys" data-confirm-tone="default">Save keys</button>
+            {c.stripe.source === "settings" ? <button className="btn" name="clear" value="1" type="submit" data-confirm="Remove the saved Stripe keys?" data-confirm-body="Online payments in Stripe's countries stop until keys are added again. Bank transfers still work." data-confirm-ok="Remove keys">Remove saved keys</button> : null}
+          </div>
+        </form>
+      </section>
+
+      <section className="card stack" aria-labelledby="routes-h">
+        <h2 id="routes-h">Payment method by country</h2>
+        <p className="small muted">Which online provider takes payments in each country Housy works in: plans, and clients paying businesses there. Bank transfer is always available. A provider that does not work in a country cannot be chosen for it.</p>
+        <details className="vp-fold">
+          <summary>Countries ({COUNTRY_CODES.length})</summary>
+          <form action={routesAction} className="stack">
+            <div className="fields">
+              {COUNTRY_CODES.map((code) => (
+                <Field key={code} label={`${COUNTRIES[code].name} (${COUNTRIES[code].currency})`}>
+                  <select name={`route_${code}`} defaultValue={c.routes[code]}>
+                    {providerCanServe("PAYSTACK", code) ? <option value="PAYSTACK">Paystack{c.paystack.source === "none" ? " (not connected)" : ""}</option> : null}
+                    {providerCanServe("STRIPE", code) ? <option value="STRIPE">Stripe{c.stripe.source === "none" ? " (not connected)" : ""}</option> : null}
+                    <option value="NONE">Bank transfer only</option>
+                  </select>
+                </Field>
+              ))}
+            </div>
+            <div className="row"><button className="btn" type="submit" data-confirm="Save the payment method for each country?" data-confirm-body="Payments started from now on use these choices." data-confirm-ok="Save" data-confirm-tone="default">Save countries</button></div>
+          </form>
+        </details>
       </section>
 
       <section className="card stack">

@@ -76,8 +76,9 @@ export async function saveListingDraft(ctx: Ctx, assetId: string, input: z.input
     // The public sees the asset's position blurred to about a kilometre, or, when none is set, the centre of the named area.
     const area = locate({ city: data.city, state: data.state });
     const shown = asset.lat !== null && asset.lng !== null ? publicPosition(asset.lat, asset.lng) : area ? publicPosition(area.lat, area.lng) : null;
+    const co = await tx.company.findUniqueOrThrow({ where: { id: ctx.companyId }, select: { currency: true } });
     const fields = {
-      title: data.title, purpose: data.purpose, priceKobo: data.price, bedrooms: data.bedrooms,
+      title: data.title, purpose: data.purpose, priceKobo: data.price, currency: co.currency, bedrooms: data.bedrooms,
       bathrooms: data.bathrooms, description: data.description, city: data.city, state: data.state,
       lat: shown?.lat ?? null, lng: shown?.lng ?? null,
       propertyType: data.propertyType as string, pricePeriod: data.pricePeriod, negotiable: data.negotiable, depositKobo: data.deposit, serviceChargeKobo: data.serviceCharge,
@@ -192,7 +193,7 @@ export async function searchListings(f: SearchFilters) {
         ...(purpose ? { purpose } : {}),
         ...(f.city ? { OR: [{ city: { contains: f.city, mode: "insensitive" } }, { state: { contains: f.city, mode: "insensitive" } }] } : {}),
         ...(f.q ? { title: { contains: f.q, mode: "insensitive" } } : {}),
-        ...(maxKobo !== undefined ? { priceKobo: { lte: maxKobo } } : {}),
+        ...(maxKobo !== undefined ? { priceKobo: { lte: maxKobo }, currency: "NGN" } : {}),
         ...(Number.isInteger(minBeds) ? { bedrooms: { gte: minBeds } } : {}),
       },
       orderBy: { publishedAt: "desc" },
@@ -216,7 +217,7 @@ export function listingWhere(f: Filters, rule: CategoryRule = {}, companyIds?: s
   if (f.q) and.push({ OR: [{ title: { contains: f.q, mode: "insensitive" } }, { description: { contains: f.q, mode: "insensitive" } }, { estateName: { contains: f.q, mode: "insensitive" } }] });
   const money = (v?: string) => { try { return v ? parseNairaToKobo(v) : undefined; } catch { return undefined; } };
   const min = money(f.minPrice), max = money(f.maxPrice);
-  if (min !== undefined || max !== undefined) and.push({ priceKobo: { ...(min !== undefined ? { gte: min } : {}), ...(max !== undefined ? { lte: max } : {}) } });
+  if (min !== undefined || max !== undefined) and.push({ currency: f.currency ?? "NGN" }, { priceKobo: { ...(min !== undefined ? { gte: min } : {}), ...(max !== undefined ? { lte: max } : {}) } });
   if (f.minBeds !== undefined) and.push({ bedrooms: { gte: f.minBeds } });
   if (f.minBaths !== undefined) and.push({ bathrooms: { gte: f.minBaths } });
   if (f.furnishing) and.push({ furnishing: f.furnishing });

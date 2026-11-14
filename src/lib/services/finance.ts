@@ -1,3 +1,4 @@
+import { isCurrency } from "../regions";
 import { withPlatformAdmin } from "../db";
 import { logActivity } from "../audit";
 import { parseNairaToKobo, formatKobo } from "../money";
@@ -23,13 +24,18 @@ async function adminOnly(id: string) {
 export async function balances(adminId: string) {
   await adminOnly(adminId);
   return withPlatformAdmin(adminId, async (tx) => {
-    const rows = await tx.financeEntry.groupBy({ by: ["ledger", "account"], _sum: { amountKobo: true }, _count: true });
+    // Kept per currency: naira and dollars are never added together.
+    const rows = await tx.financeEntry.groupBy({ by: ["ledger", "account", "currency"], _sum: { amountKobo: true }, _count: true });
+    const forCurrency = (ledger: string, currency: string) => ACCOUNTS.map((account) => {
+      const r = rows.find((x) => x.ledger === ledger && x.account === account && x.currency === currency);
+      return { account, kobo: r?._sum.amountKobo ?? 0n, entries: r?._count ?? 0 };
+    });
     return LEDGERS.map((ledger) => ({
       ledger,
-      accounts: ACCOUNTS.map((account) => {
-        const r = rows.find((x) => x.ledger === ledger && x.account === account);
-        return { account, kobo: r?._sum.amountKobo ?? 0n, entries: r?._count ?? 0 };
-      }),
+      /** Naira, always shown. */
+      accounts: forCurrency(ledger, "NGN"),
+      /** Any other currency with entries in this ledger. */
+      other: [...new Set(rows.filter((x) => x.ledger === ledger && x.currency !== "NGN").map((x) => x.currency))].sort().map((currency) => ({ currency, accounts: forCurrency(ledger, currency) })),
     }));
   });
 }
@@ -51,14 +57,16 @@ export async function entriesCsv(adminId: string, ledger?: string) {
   await adminOnly(adminId);
   const where = ledger && (LEDGERS as readonly string[]).includes(ledger) ? { ledger: ledger as (typeof LEDGERS)[number] } : {};
   const rows = await withPlatformAdmin(adminId, (tx) => tx.financeEntry.findMany({ where, orderBy: { createdAt: "asc" }, take: 20000 }));
-  const head = ["Date", "Ledger", "Kind", "Account", "Amount (NGN)", "Invoice", "Payment", "Campaign", "Verified event", "Authorised by", "Note"];
-  const body = rows.map((e) => [e.createdAt.toISOString(), e.ledger, e.kind, e.account, (Number(e.amountKobo) / 100).toFixed(2), e.invoiceId ?? "", e.paymentId ?? "", e.campaignId ?? "", e.eventId ?? "", e.actorId ?? "", e.note]);
+  const head = ["Date", "Ledger", "Kind", "Account", "Amount", "Currency", "Invoice", "Payment", "Campaign", "Verified event", "Authorised by", "Note"];
+  const body = rows.map((e) => [e.createdAt.toISOString(), e.ledger, e.kind, e.account, (Number(e.amountKobo) / 100).toFixed(2), e.currency, e.invoiceId ?? "", e.paymentId ?? "", e.campaignId ?? "", e.eventId ?? "", e.actorId ?? "", e.note]);
   return [head, ...body].map((r) => r.map((c) => `"${csvCell(String(c))}"`).join(",")).join("\r\n") + "\r\n";
 }
 
 /** A correction. It needs a named person and a reason, and it adds an entry; nothing already written is changed. */
-export async function adjust(adminId: string, raw: { ledger: string; account: string; amount: string; note: string }) {
+export async function adjust(adminId: string, raw: { ledger: string; account: string; amount: string; note: string; currency?: string }) {
   await adminOnly(adminId);
+  const currency = raw.currency || "NGN";
+  if (!isCurrency(currency)) throw new Error("Choose a currency");
   if (!(LEDGERS as readonly string[]).includes(raw.ledger)) throw new Error("Choose a ledger");
   if (!(ACCOUNTS as readonly string[]).includes(raw.account)) throw new Error("Choose an account");
   const note = raw.note.trim();
@@ -69,8 +77,8 @@ export async function adjust(adminId: string, raw: { ledger: string; account: st
   if (kobo <= 0n) throw new Error("Enter an amount greater than zero, with a minus sign to take money out");
   if (kobo > 100_000_000_00n) throw new Error("That amount is too large for a correction");
   return withPlatformAdmin(adminId, async (tx) => {
-    const e = await post(tx, { ledger: raw.ledger as (typeof LEDGERS)[number], kind: "ADJUSTMENT", account: raw.account as (typeof ACCOUNTS)[number], amountKobo: neg ? -kobo : kobo, actorId: adminId, note });
-    await logActivity(tx, { companyId: null, actorId: adminId, entityType: "finance_entry", entityId: e.id, action: "finance.adjusted", detail: { ledger: raw.ledger, account: raw.account, amount: formatKobo(neg ? -kobo : kobo), note } });
+    const e = await post(tx, { ledger: raw.ledger as (typeof LEDGERS)[number], kind: "ADJUSTMENT", account: raw.account as (typeof ACCOUNTS)[number], amountKobo: neg ? -kobo : kobo, currency, actorId: adminId, note });
+    await logActivity(tx, { companyId: null, actorId: adminId, entityType: "finance_entry", entityId: e.id, action: "finance.adjusted", detail: { ledger: raw.ledger, account: raw.account, amount: formatKobo(neg ? -kobo : kobo, currency), note } });
     return e;
   });
 }

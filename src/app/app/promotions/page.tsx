@@ -2,7 +2,7 @@ import { requireMember } from "@/lib/auth";
 import { eligibleListings, myPromoEntries, openCampaigns, readPaymentInstructions } from "@/lib/services/promotions";
 import { tierOf } from "@/lib/services/tiers";
 import { promoFee, tierPerks } from "@/lib/tier-rules";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
@@ -47,7 +47,7 @@ export default async function PromotionsPage({ searchParams: searchP }: { search
                       <input type="hidden" name="campaignId" value={c.id} />
                       <div className="fields">
                         <Field label="Property"><select name="listingId" required>{listings.map((l) => <option key={l.id} value={l.id}>{l.title} ({formatKobo(l.priceKobo)})</option>)}</select></Field>
-                        <Field label="Reviewed price (₦)" hint="Must be lower than the listed price."><input name="promoPrice" inputMode="decimal" required /></Field>
+                        <Field label={`Reviewed price (${moneySymbol()})`} hint="Must be lower than the listed price."><input name="promoPrice" inputMode="decimal" required /></Field>
                       </div>
                       {fee > 0n ? <p className="small">After the platform receives {formatKobo(fee)}, it confirms the payment and approves the request.</p> : null}
                       <button className="btn primary" type="submit">Send to the platform</button>

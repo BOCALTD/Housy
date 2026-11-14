@@ -1,3 +1,4 @@
+import { moneySymbol } from "@/lib/money";
 import { requireMember } from "@/lib/auth";
 import { ASSET_CLASSES, ASSET_STATUSES, COMPANY_RELATIONSHIPS } from "@/lib/services/assets";
 import { EnumOptions, Field, Flash, sp, type SP } from "@/components/ui";
@@ -38,7 +39,7 @@ export default async function NewAssetPage({ searchParams: searchP }: { searchPa
           <Field label="State"><input name="state" id="state" placeholder="Lagos" /></Field>
         </div>
         <div className="fields">
-          <Field label="Acquisition cost (₦)" hint="Optional."><input name="acquisitionCost" id="acquisitionCost" inputMode="decimal" /></Field>
+          <Field label={`Acquisition cost (${moneySymbol()})`} hint="Optional."><input name="acquisitionCost" id="acquisitionCost" inputMode="decimal" /></Field>
           <Field label="Acquired on" hint="Optional."><input name="acquiredOn" id="acquiredOn" type="date" /></Field>
         </div>
         <Field label="Description"><textarea name="description" id="description" rows={4} /></Field>

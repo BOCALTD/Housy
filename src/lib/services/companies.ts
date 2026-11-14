@@ -1,6 +1,7 @@
 import { assertNotBlocked } from "./account-moderation";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { currencyOf, isCountry } from "../regions";
 import { enqueueEmail } from "./notifications";
 import { prisma, withTenant, withInviteToken, withUser } from "../db";
 import { logActivity } from "../audit";
@@ -34,6 +35,8 @@ const registerSchema = z.object({
     if (c === null) { ctx.addIssue({ code: "custom", message: "Enter the CAC number as it appears on the certificate, for example RC 1234567 or BN 1234567" }); return z.NEVER; }
     return c;
   }),
+  /** Where the business works; its currency follows. Nigeria when not given. */
+  country: z.string().default("NG").refine(isCountry, "Choose the country where you do business"),
   /** Ticked when a company with no email domain of its own signs up with a personal mailbox. */
   noCompanyDomain: z.boolean().default(false),
 });
@@ -58,7 +61,7 @@ export async function registerCompany(input: z.input<typeof registerSchema>) {
   });
   const companyId = randomUUID();
   await withTenant(companyId, user.id, async (tx) => {
-    await tx.company.create({ data: { id: companyId, name: data.companyName, slug: slugify(data.companyName), businessType: data.businessType ?? "", contactEmail: data.email, contactPhone: data.contactPhone, cacNumber: data.cacNumber } });
+    await tx.company.create({ data: { id: companyId, name: data.companyName, slug: slugify(data.companyName), businessType: data.businessType ?? "", contactEmail: data.email, contactPhone: data.contactPhone, cacNumber: data.country === "NG" ? data.cacNumber : "", country: data.country, currency: currencyOf(data.country) } });
     await tx.membership.create({ data: { companyId, userId: user.id, role: "COMPANY_SUPER_ADMIN" } });
     await logActivity(tx, {
       companyId, actorId: user.id, entityType: "company", entityId: companyId, action: "company.created",
@@ -75,6 +78,7 @@ const agentSchema = z.object({
   password,
   phone: phoneField(true),
   tradingName: z.string().trim().max(160).default(""),
+  country: z.string().default("NG").refine(isCountry, "Choose the country where you work"),
 });
 
 /**
@@ -89,7 +93,7 @@ export async function registerAgent(input: z.input<typeof agentSchema>) {
   const companyId = randomUUID();
   const business = data.tradingName || data.name;
   await withTenant(companyId, user.id, async (tx) => {
-    await tx.company.create({ data: { id: companyId, name: business, slug: slugify(business), businessType: INDEPENDENT_AGENT, contactEmail: data.email, contactPhone: data.phone } });
+    await tx.company.create({ data: { id: companyId, name: business, slug: slugify(business), businessType: INDEPENDENT_AGENT, contactEmail: data.email, contactPhone: data.phone, country: data.country, currency: currencyOf(data.country) } });
     const m = await tx.membership.create({ data: { companyId, userId: user.id, role: "COMPANY_SUPER_ADMIN" } });
     await tx.agentProfile.create({ data: { membershipId: m.id, userId: user.id, companyId, displayName: data.name, companyName: data.tradingName || "Independent agent", listed: false } });
     await logActivity(tx, { companyId, actorId: user.id, entityType: "company", entityId: companyId, action: "company.created", detail: { name: business, kind: "independent agent" } });

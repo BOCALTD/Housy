@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { complianceCalendar, listObligations, OBLIGATION_KINDS, type CalendarItem } from "@/lib/services/obligations";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -94,7 +94,7 @@ export default async function CompliancePage({ searchParams: searchP }: { search
                         <input type="hidden" name="obligationId" value={o.id} />
                         <div className="fields">
                           <Field label="Done on"><input name="completedOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
-                          <Field label="Amount paid (₦)"><input name="amountPaid" inputMode="decimal" defaultValue={o.amountKobo !== null ? String(o.amountKobo / 100n) : ""} /></Field>
+                          <Field label={`Amount paid (${moneySymbol()})`}><input name="amountPaid" inputMode="decimal" defaultValue={o.amountKobo !== null ? String(o.amountKobo / 100n) : ""} /></Field>
                         </div>
                         <Field label="Receipt or filing reference"><input name="evidence" required /></Field>
                         <button className="btn primary" type="submit">Save</button>
@@ -164,7 +164,7 @@ export default async function CompliancePage({ searchParams: searchP }: { search
               <Field label="Jurisdiction"><input name="jurisdiction" placeholder="For example: Lagos State" /></Field>
             </div>
             <div className="fields">
-              <Field label="Amount (₦)" hint="Optional."><input name="amount" inputMode="decimal" /></Field>
+              <Field label={`Amount (${moneySymbol()})`} hint="Optional."><input name="amount" inputMode="decimal" /></Field>
               <Field label="Due date"><input name="dueDate" type="date" required /></Field>
             </div>
             <div className="fields">

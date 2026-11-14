@@ -5,6 +5,7 @@ import { readSettings } from "@/lib/services/platform-settings";
 import { ENTITLEMENT_KEYS, ENTITLEMENT_LABELS, COUNTED_ENTITLEMENTS } from "@/lib/subscription-rules";
 import { formatDate } from "@/lib/dates";
 import { formatKobo } from "@/lib/money";
+import { CURRENCIES, CURRENCY_CODES, moneyInput } from "@/lib/regions";
 import { humanize } from "@/lib/labels";
 import { tierLabel } from "@/lib/tier-rules";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
@@ -26,7 +27,7 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
         {p ? null : <Field label="Code" hint="Letters, numbers and hyphens. Cannot change later."><input name="code" required /></Field>}
         <Field label="Name"><input name="name" required defaultValue={p?.name ?? ""} /></Field>
         <Field label="For"><select name="audience" defaultValue={p?.audience ?? "SEEKER"}><option value="SEEKER">Seekers</option><option value="AGENT">Agents</option><option value="COMPANY">Companies</option></select></Field>
-        <Field label="Price (₦)" hint="Leave empty if not set."><input name="price" inputMode="decimal" defaultValue={p?.priceKobo != null ? String(Number(p.priceKobo) / 100) : ""} /></Field>
+        <Field label="Price (₦)" hint="The main price, in naira. Leave empty if not set."><input name="price" inputMode="decimal" defaultValue={p?.priceKobo != null ? String(Number(p.priceKobo) / 100) : ""} /></Field>
         <Field label="Billing"><select name="billingPeriod" defaultValue={p?.billingPeriod ?? "MONTHLY"}>{["NONE", "MONTHLY", "QUARTERLY", "YEARLY"].map((b) => <option key={b} value={b}>{humanize(b)}</option>)}</select></Field>
         <Field label="Trial days"><input name="trialDays" inputMode="numeric" defaultValue={p?.trialDays ?? 0} /></Field>
         <Field label="Grace days" hint="Everything still works after expiry."><input name="graceDays" inputMode="numeric" defaultValue={p?.graceDays ?? 7} /></Field>
@@ -34,6 +35,18 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
         <Field label="Perks level" hint="Basic: free. Pro: free promotions. Elite: Elite badge, Premium tag, automatic boost, free promotions."><select name="tier" defaultValue={p?.tier ?? "BASIC"}>{["BASIC", "SILVER", "GOLD"].map((b) => <option key={b} value={b}>{tierLabel(b)}</option>)}</select></Field>
         <Field label="Order"><input name="sortOrder" inputMode="numeric" defaultValue={p?.sortOrder ?? 100} /></Field>
       </div>
+      {!p || p.audience === "COMPANY" ? (
+        <details className="vp-fold">
+          <summary>Prices in other currencies{p?.prices.length ? ` (${p.prices.length})` : ""}</summary>
+          <p className="small muted">For company workspaces outside Nigeria. Leave a currency empty and those workspaces pay the naira price.</p>
+          <div className="fields">
+            {CURRENCY_CODES.filter((c) => c !== "NGN").map((c) => {
+              const pr = p?.prices.find((x) => x.currency === c);
+              return <Field key={c} label={`${CURRENCIES[c].name} (${CURRENCIES[c].symbol.trim()})`}><input name={`cur_${c}`} inputMode="decimal" defaultValue={pr ? moneyInput(pr.amountMinor) : ""} /></Field>;
+            })}
+          </div>
+        </details>
+      ) : null}
       <label className="row"><input type="checkbox" name="active" defaultChecked={p?.active ?? true} /> Available to assign</label>
       <fieldset className="stack"><legend className="small muted">Features</legend>
         {ENTITLEMENT_KEYS.map((k) => {
@@ -52,14 +65,14 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
   return (
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}><p className="eyebrow">Platform Super Super Admin</p><h1>Plans and limits</h1>
-        <p className="muted">You control plan names, prices, trials, what happens after expiry, and which features each plan switches on. Payment is recorded by hand here until online payment is built. <Link href="/admin">Back to platform administration</Link></p></div>
+        <p className="muted">You control plan names, prices, trials, what happens after expiry, and which features each plan switches on. Plans are paid online (Paystack or Stripe, by country) or by bank transfer you confirm under Payments. <Link href="/admin">Back to platform administration</Link></p></div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 
       <section className="card stack">
         <h2>Plans ({plans.length})</h2>
         <ShowMore noun="more plans" limit={4} items={plans.map((p) => (
           <li key={p.id}><div style={{ width: "100%" }}>
-            <div className="row between"><div><strong>{p.name}</strong> <span className="small muted">{humanize(p.audience)} · {p.priceKobo == null ? "price not set" : formatKobo(p.priceKobo)} · {humanize(p.billingPeriod)} · {p._count.subscriptions} subscribed{p.active ? "" : " · not available"}</span></div></div>
+            <div className="row between"><div><strong>{p.name}</strong> <span className="small muted">{humanize(p.audience)} · {p.priceKobo == null ? "price not set" : formatKobo(p.priceKobo, "NGN")}{p.prices.length ? ` (also ${p.prices.map((x) => formatKobo(x.amountMinor, x.currency)).join(", ")})` : ""} · {humanize(p.billingPeriod)} · {p._count.subscriptions} subscribed{p.active ? "" : " · not available"}</span></div></div>
             <div className="small muted">{p.entitlements.length ? p.entitlements.map((e) => `${ENTITLEMENT_LABELS[e.key as keyof typeof ENTITLEMENT_LABELS] ?? e.key}${e.limit != null ? ` (${e.limit})` : ""}`).join(", ") : "No paid features"} · grace {p.graceDays} days, then read-only {p.readOnlyDays} days</div>
             <details className="inline"><summary>Edit</summary>{planForm(p)}</details>
           </div></li>))} />

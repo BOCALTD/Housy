@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { getLease, PAYMENT_METHODS } from "@/lib/services/leases";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { chargeState, outstandingOf } from "@/lib/rent";
 import { ADJUSTMENT_KINDS, depositTotals, receiptStatus, type DepositKind } from "@/lib/ledger-rules";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
@@ -119,7 +119,7 @@ export default async function LeasePage({ params: paramsP, searchParams: searchP
                                 <Field label="Direction" hint="Only for corrections. Late fees add; waivers and credit notes reduce.">
                                   <select name="direction" defaultValue=""><option value="">Not needed</option><option value="INCREASE">Increase</option><option value="DECREASE">Decrease</option></select>
                                 </Field>
-                                <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" /></Field>
+                                <Field label={`Amount (${moneySymbol()})`}><input name="amount" required inputMode="decimal" /></Field>
                                 <Field label="Reason" hint="For a late fee, cite the lease clause that allows it."><input name="reason" required /></Field>
                                 <button className="btn small" type="submit">Request adjustment</button>
                               </form>
@@ -251,7 +251,7 @@ export default async function LeasePage({ params: paramsP, searchParams: searchP
                     </select>
                   </Field>
                   <div className="fields">
-                    <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" defaultValue={koboToInput(outstandingOf(openCharges[0]))} /></Field>
+                    <Field label={`Amount (${moneySymbol()})`}><input name="amount" required inputMode="decimal" defaultValue={koboToInput(outstandingOf(openCharges[0]))} /></Field>
                     <Field label="Paid on"><input name="paidOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
                   </div>
                   <div className="fields">
@@ -310,7 +310,7 @@ export default async function LeasePage({ params: paramsP, searchParams: searchP
                 <summary>Record deposit received</summary>
                 <form action={depositReceivedAction} className="stack">
                   {hidden}
-                  <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" defaultValue={koboToInput(lease.depositKobo - deposit.received)} /></Field>
+                  <Field label={`Amount (${moneySymbol()})`}><input name="amount" required inputMode="decimal" defaultValue={koboToInput(lease.depositKobo - deposit.received)} /></Field>
                   <Field label="Received on"><input name="receivedOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
                   <Field label="Evidence reference"><input name="evidence" required /></Field>
                   <button className="btn primary" type="submit">Save</button>
@@ -326,7 +326,7 @@ export default async function LeasePage({ params: paramsP, searchParams: searchP
                     <Field label="Type">
                       <select name="kind" defaultValue="REFUND"><option value="DEDUCTION">Deduction (repairs, arrears)</option><option value="REFUND">Refund to tenant</option></select>
                     </Field>
-                    <Field label="Amount (₦)" hint={`Up to ${formatKobo(deposit.balance)} held.`}><input name="amount" required inputMode="decimal" defaultValue={koboToInput(deposit.balance)} /></Field>
+                    <Field label={`Amount (${moneySymbol()})`} hint={`Up to ${formatKobo(deposit.balance)} held.`}><input name="amount" required inputMode="decimal" defaultValue={koboToInput(deposit.balance)} /></Field>
                     <Field label="Reason"><input name="reason" required /></Field>
                     <Field label="Payment reference" hint="Required for a refund."><input name="evidence" /></Field>
                     <button className="btn primary" type="submit">Record settlement</button>
@@ -371,7 +371,7 @@ export default async function LeasePage({ params: paramsP, searchParams: searchP
                         <Field label="Starts" hint="On or after the current end date."><input name="startDate" type="date" required defaultValue={toDateOnlyString(lease.endDate)} min={toDateOnlyString(lease.endDate)} /></Field>
                         <Field label="Ends"><input name="endDate" type="date" required /></Field>
                       </div>
-                      <Field label="Rent per period (₦)"><input name="rent" required inputMode="decimal" defaultValue={koboToInput(lease.rentKobo)} /></Field>
+                      <Field label={`Rent per period (${moneySymbol()})`}><input name="rent" required inputMode="decimal" defaultValue={koboToInput(lease.rentKobo)} /></Field>
                       <Field label="Note"><input name="note" /></Field>
                       <p className="small muted">The new lease keeps the tenant, unit, frequency and terms. The deposit stays on this lease until it is settled.</p>
                       <button className="btn primary" type="submit">Propose renewal</button>

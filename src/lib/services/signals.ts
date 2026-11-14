@@ -17,7 +17,7 @@ export async function recordSignal(userId: string, s: SignalInput) {
     // What the thing is about comes from the record itself, never from what the browser says.
     let row: { listingId?: string | null; reelId?: string | null; agentId?: string | null; companyId?: string | null; city: string; propertyType: string; purpose: string; priceKobo: bigint | null; bedrooms: number | null } = { city: (s.city ?? "").slice(0, 80), propertyType: "", purpose: (s.purpose ?? "").slice(0, 10), priceKobo: null, bedrooms: null, agentId: s.agentId ?? null, companyId: s.companyId ?? null };
     if (s.listingId || s.publicRef) {
-      const l = await withPublic((tx) => tx.listing.findFirst({ where: { ...(s.listingId ? { id: s.listingId } : { publicRef: s.publicRef }), status: "PUBLISHED" }, select: { id: true, city: true, propertyType: true, purpose: true, priceKobo: true, pricePeriod: true, bedrooms: true, postedById: true, companyId: true } }));
+      const l = await withPublic((tx) => tx.listing.findFirst({ where: { ...(s.listingId ? { id: s.listingId } : { publicRef: s.publicRef }), status: "PUBLISHED" }, select: { id: true, city: true, propertyType: true, purpose: true, priceKobo: true, currency: true, pricePeriod: true, bedrooms: true, postedById: true, companyId: true } }));
       if (!l) return;
       const yearly = l.purpose !== "SALE" && l.pricePeriod === "MONTH" ? l.priceKobo * 12n : l.pricePeriod === "NIGHT" ? null : l.priceKobo;
       row = { listingId: l.id, city: l.city, propertyType: l.propertyType, purpose: l.purpose, priceKobo: yearly, bedrooms: l.bedrooms, agentId: l.postedById, companyId: l.companyId };
@@ -53,7 +53,7 @@ export async function suggestedListings(userId: string, limit = 8) {
   const pool = await withPublic((tx) => tx.listing.findMany({
     where: { status: "PUBLISHED", platformHidden: false, OR: [{ city: { in: cities, mode: "insensitive" } }, { postedById: { in: agents } }] },
     orderBy: { publishedAt: "desc" }, take: 400,
-    select: { id: true, publicRef: true, title: true, city: true, state: true, propertyType: true, purpose: true, pricePeriod: true, priceKobo: true, bedrooms: true, postedById: true, companyId: true, publishedAt: true },
+    select: { id: true, publicRef: true, title: true, city: true, state: true, propertyType: true, purpose: true, pricePeriod: true, priceKobo: true, currency: true, bedrooms: true, postedById: true, companyId: true, publishedAt: true },
   }));
   const ranked = rankSuggestions(pool, t, new Date(), limit);
   return ranked.map((r) => ({ ...pool.find((p) => p.id === r.id)!, why: r.why }));

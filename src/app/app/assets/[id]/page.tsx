@@ -18,7 +18,7 @@ import SaveDocument from "@/components/SaveDocument";
 import { assetMaintenance } from "@/lib/services/maintenance";
 import { assetCompleteness } from "@/lib/services/completeness";
 import { assetProjectHistory } from "@/lib/services/project-handover";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { chargeState, outstandingOf } from "@/lib/rent";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -31,6 +31,7 @@ import {
 
 import { CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, parseAmenities } from "@/lib/listing-rules";
 import { activeOf, refData } from "@/lib/services/reference";
+import { formatMoney } from "@/lib/regions";
 
 export const metadata = { title: "Asset" };
 
@@ -123,7 +124,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                                       <form action={recordPaymentAction} className="stack" style={{ flex: "1 1 220px", minWidth: 0 }}>
                                         {hidden}
                                         <input type="hidden" name="chargeId" value={c.id} />
-                                        <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" defaultValue={koboToInput(outstandingOf(c))} /></Field>
+                                        <Field label={`Amount (${moneySymbol()})`}><input name="amount" required inputMode="decimal" defaultValue={koboToInput(outstandingOf(c))} /></Field>
                                         <Field label="Paid on"><input name="paidOn" type="date" required defaultValue={toDateOnlyString(today)} max={toDateOnlyString(today)} /></Field>
                                         <Field label="Evidence" hint="Bank reference or receipt number. Each reference can be recorded once.">
                                           <input name="evidence" required />
@@ -155,11 +156,11 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                       <Field label="End date"><input name="endDate" type="date" required /></Field>
                     </div>
                     <div className="fields">
-                      <Field label="Rent per period (₦)"><input name="rent" required inputMode="decimal" /></Field>
+                      <Field label={`Rent per period (${moneySymbol()})`}><input name="rent" required inputMode="decimal" /></Field>
                       <Field label="Paid"><select name="frequency" defaultValue="YEARLY"><EnumOptions values={FREQUENCIES} /></select></Field>
                       <Field label="Every how many months?" hint="Only for a custom frequency."><input name="intervalMonths" inputMode="numeric" /></Field>
                       <Field label="Floor area (m², whole number)" hint="Needed to share a service charge by floor area."><input name="floorAreaSqm" inputMode="numeric" /></Field>
-                      <Field label="Deposit (₦)"><input name="deposit" inputMode="decimal" /></Field>
+                      <Field label={`Deposit (${moneySymbol()})`}><input name="deposit" inputMode="decimal" /></Field>
                     </div>
                     <div className="fields">
                       <Field label="Grace period (days)" hint="Rent is not overdue until after this many days."><input name="graceDays" inputMode="numeric" defaultValue="0" /></Field>
@@ -309,7 +310,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
             </div>
             {listing ? (
               <div className="stack" style={{ gap: 10, marginBottom: 12 }}>
-                <p><strong>{listing.title}</strong> · {formatKobo(listing.priceKobo)} · {humanize(listing.purpose)}</p>
+                <p><strong>{listing.title}</strong> · {formatMoney(listing.priceKobo, listing.currency)} · {humanize(listing.purpose)}</p>
                 {listing.status === "PUBLISHED" ? <p className="small">Live at <Link href={`/properties/${listing.publicRef}`} className="mono">/properties/{listing.publicRef}</Link></p> : null}
                 {listing.reviewNote && listing.status === "DRAFT" ? <div className="flash error">Review note: {listing.reviewNote}</div> : null}
                 {listing && can(member.role, "listing.manage") ? (
@@ -385,7 +386,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                     <Field label="Purpose"><select name="purpose" defaultValue={listing?.purpose ?? "SALE"}><EnumOptions values={PURPOSES} /></select></Field>
                   </div>
                   <div className="fields">
-                    <Field label="Price (₦)"><input name="price" required inputMode="decimal" defaultValue={listing ? koboToInput(listing.priceKobo) : ""} /></Field>
+                    <Field label={`Price (${moneySymbol()})`}><input name="price" required inputMode="decimal" defaultValue={listing ? koboToInput(listing.priceKobo) : ""} /></Field>
                     <Field label="Price is" hint="A sale price is always the total."><select name="pricePeriod" defaultValue={listing?.pricePeriod ?? "YEAR"}>{Object.entries(PRICE_PERIODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
                     <label className="check"><input type="checkbox" name="negotiable" value="yes" defaultChecked={listing?.negotiable ?? false} /> Price is negotiable</label>
                   </div>
@@ -423,8 +424,8 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                     <summary>Costs and documents</summary>
                     <div className="stack">
                       <div className="fields">
-                        <Field label="Caution deposit (₦)"><input name="deposit" inputMode="decimal" defaultValue={listing?.depositKobo != null ? koboToInput(listing.depositKobo) : ""} /></Field>
-                        <Field label="Service charge per year (₦)"><input name="serviceCharge" inputMode="decimal" defaultValue={listing?.serviceChargeKobo != null ? koboToInput(listing.serviceChargeKobo) : ""} /></Field>
+                        <Field label={`Caution deposit (${moneySymbol()})`}><input name="deposit" inputMode="decimal" defaultValue={listing?.depositKobo != null ? koboToInput(listing.depositKobo) : ""} /></Field>
+                        <Field label={`Service charge per year (${moneySymbol()})`}><input name="serviceCharge" inputMode="decimal" defaultValue={listing?.serviceChargeKobo != null ? koboToInput(listing.serviceChargeKobo) : ""} /></Field>
                       </div>
                       <Field label="Other fees" hint="For example agency 10%, legal 10%, caution as stated"><input name="feesNote" maxLength={500} defaultValue={listing?.feesNote ?? ""} /></Field>
                       <Field label="Title document the company says it holds" hint="Shown as stated by your company. The platform does not verify title."><select name="titleDocument" defaultValue={listing?.titleDocument ?? "UNSPECIFIED"}>{activeOf(ref, "TITLE_DOCUMENT", listing?.country).map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}</select></Field>

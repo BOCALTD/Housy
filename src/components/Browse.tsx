@@ -1,5 +1,6 @@
 import { recordSignal } from "@/lib/services/signals";
 import Link from "next/link";
+import { CURRENCIES, CURRENCY_CODES } from "@/lib/regions";
 import { getSession } from "@/lib/auth";
 import { CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, SORTS, extraFilterCount, filtersToQuery, parseFilters, type Category } from "@/lib/listing-rules";
 import { searchListingsPage } from "@/lib/services/listings";
@@ -63,7 +64,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
             <label className="field">Purpose<select name="purpose" defaultValue={f.purpose ?? ""}><option value="">Buy, rent or lease</option><option value="SALE">Buy</option><option value="RENT">Rent</option><option value="LEASE">Lease</option></select></label>
           )}
           <label className="field">Type<select name="type" defaultValue={f.types[0] ?? ""}><option value="">Any type</option>{typeChoices.map((t) => <option key={t} value={t}>{typeLabels[t] ?? PROPERTY_TYPES[t]}</option>)}</select></label>
-          <label className="field">Max price (₦)<input name="maxPrice" inputMode="decimal" defaultValue={f.maxPrice ?? ""} /></label>
+          <label className="field">Max price<input name="maxPrice" inputMode="decimal" defaultValue={f.maxPrice ?? ""} /></label>
           <label className="field">Bedrooms<select name="minBeds" defaultValue={f.minBeds?.toString() ?? ""}><option value="">Any</option>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}+</option>)}</select></label>
           <button className="btn primary" type="submit">Search</button>
         </div>
@@ -72,7 +73,8 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
           <div className="stack">
             <div className="fields">
               <label className="field">Keywords<input name="q" maxLength={80} defaultValue={f.q ?? ""} placeholder="For example: pool, Lekki Phase 1" /></label>
-              <label className="field">Min price (₦)<input name="minPrice" inputMode="decimal" defaultValue={f.minPrice ?? ""} /></label>
+              <label className="field">Min price<input name="minPrice" inputMode="decimal" defaultValue={f.minPrice ?? ""} /></label>
+              <label className="field">Price currency<select name="cur" defaultValue={f.currency ?? "NGN"}>{CURRENCY_CODES.map((c) => <option key={c} value={c}>{CURRENCIES[c].symbol.trim()} {c}</option>)}</select></label>
               <label className="field">Price is<select name="period" defaultValue={f.period ?? ""}><option value="">Any</option>{opts(PRICE_PERIODS)}</select></label>
               <label className="field">Bathrooms<select name="minBaths" defaultValue={f.minBaths?.toString() ?? ""}><option value="">Any</option>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}+</option>)}</select></label>
             </div>

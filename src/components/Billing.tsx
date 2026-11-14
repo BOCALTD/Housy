@@ -47,7 +47,7 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
           <h2>Waiting for payment</h2>
           {open.map((i) => (
             <div key={i.id} className="row between">
-              <div><strong>{i.description}</strong><div className="small muted">{i.ref} · {formatKobo(i.amountKobo)}{i.dueOn ? ` · due ${formatDate(i.dueOn)}` : ""}</div></div>
+              <div><strong>{i.description}</strong><div className="small muted">{i.ref} · {formatKobo(i.amountKobo, i.currency)}{i.dueOn ? ` · due ${formatDate(i.dueOn)}` : ""}</div></div>
               <div className="row">
                 <Link className="btn" href={`${base}/${i.id}`}>Open</Link>
                 {online ? <form action={payInvoiceAction}><input type="hidden" name="from" value={from} /><input type="hidden" name="invoiceId" value={i.id} /><button className="btn primary" type="submit">Pay now</button></form> : null}
@@ -75,7 +75,7 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
         <h2>Invoices</h2>
         {invoices.length === 0 ? <p className="muted">Nothing has been billed yet.</p> : (
           <ShowMore limit={5} noun="older invoices" items={invoices.map((i) => (
-            <li key={i.id}><div className="row between"><div><Link href={`${base}/${i.id}`}><strong>{i.ref}</strong></Link> <span className="small muted">{i.description} · {formatKobo(i.amountKobo)} · {formatDate(i.createdAt)}</span></div><Pill status={invTone(i.status)} label={humanize(i.status)} /></div></li>
+            <li key={i.id}><div className="row between"><div><Link href={`${base}/${i.id}`}><strong>{i.ref}</strong></Link> <span className="small muted">{i.description} · {formatKobo(i.amountKobo, i.currency)} · {formatDate(i.createdAt)}</span></div><Pill status={invTone(i.status)} label={humanize(i.status)} /></div></li>
           ))} />
         )}
       </section>
@@ -93,9 +93,9 @@ export async function InvoicePanel({ payer, from, invoice }: { payer: Payer; fro
       <section className="card stack">
         <div className="row between"><h2>{invoice.ref}</h2><Pill status={invTone(invoice.status)} label={humanize(invoice.status)} /></div>
         <p>{invoice.description}</p>
-        <p><strong>{formatKobo(invoice.amountKobo)}</strong></p>
+        <p><strong>{formatKobo(invoice.amountKobo, invoice.currency)}</strong></p>
         <p className="small muted">Raised {formatDate(invoice.createdAt)}{invoice.dueOn ? ` · due ${formatDate(invoice.dueOn)}` : ""}{invoice.paidAt ? ` · paid ${formatDate(invoice.paidAt)}` : ""}{invoice.voidReason ? ` · cancelled: ${invoice.voidReason}` : ""}</p>
-        {invoice.status === "OPEN" && online ? <form action={payInvoiceAction}><input type="hidden" name="from" value={from} /><input type="hidden" name="invoiceId" value={invoice.id} /><button className="btn primary" type="submit">Pay {formatKobo(invoice.amountKobo)} now</button></form> : null}
+        {invoice.status === "OPEN" && online ? <form action={payInvoiceAction}><input type="hidden" name="from" value={from} /><input type="hidden" name="invoiceId" value={invoice.id} /><button className="btn primary" type="submit">Pay {formatKobo(invoice.amountKobo, invoice.currency)} now</button></form> : null}
         {invoice.status === "OPEN" && !online ? (
           <div className="stack"><h3>Pay by bank transfer</h3>
             <p style={{ whiteSpace: "pre-wrap" }}>{bank || "Ask the platform administrator for the account details."}</p>
@@ -106,7 +106,7 @@ export async function InvoicePanel({ payer, from, invoice }: { payer: Payer; fro
         <h3>Payments</h3>
         {invoice.payments.length === 0 ? <p className="muted">No payment has been made yet.</p> : (
           <ShowMore limit={5} noun="more payments" items={invoice.payments.map((p) => (
-            <li key={p.id}><div className="row between"><div><strong>{p.ref}</strong> <span className="small muted">{formatKobo(p.amountKobo)} · {formatDate(p.createdAt)}{p.failureReason ? ` · ${p.failureReason}` : ""}{p.refundedKobo > 0n ? ` · ${formatKobo(p.refundedKobo)} refunded` : ""}</span></div><Pill status={p.status === "SUCCEEDED" ? "ACTIVE" : p.status === "FAILED" ? "SUSPENDED" : "PENDING"} label={p.status === "REVIEW" ? "Being checked" : humanize(p.status)} /></div></li>
+            <li key={p.id}><div className="row between"><div><strong>{p.ref}</strong> <span className="small muted">{formatKobo(p.amountKobo, invoice.currency)} · {formatDate(p.createdAt)}{p.failureReason ? ` · ${p.failureReason}` : ""}{p.refundedKobo > 0n ? ` · ${formatKobo(p.refundedKobo)} refunded` : ""}</span></div><Pill status={p.status === "SUCCEEDED" ? "ACTIVE" : p.status === "FAILED" ? "SUSPENDED" : "PENDING"} label={p.status === "REVIEW" ? "Being checked" : humanize(p.status)} /></div></li>
           ))} />
         )}
       </section>

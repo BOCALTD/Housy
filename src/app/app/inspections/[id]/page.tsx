@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { CHECK_RESULTS, getInspection, RATINGS, SEVERITIES } from "@/lib/services/inspections";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -103,7 +103,7 @@ export default async function InspectionPage({ params: paramsP, searchParams: se
           ) : <p className="muted small">This inspection has no checklist. Use the summary and findings.</p>}
           <div className="fields">
             <Field label="Overall condition"><select name="conditionRating" defaultValue={ins.conditionRating ?? ""}><option value="">Not rated</option><EnumOptions values={RATINGS} /></select></Field>
-            <Field label="Estimated repairs (₦)"><input name="estimatedRepair" inputMode="decimal" defaultValue={koboToInput(ins.estimatedRepairKobo)} /></Field>
+            <Field label={`Estimated repairs (${moneySymbol()})`}><input name="estimatedRepair" inputMode="decimal" defaultValue={koboToInput(ins.estimatedRepairKobo)} /></Field>
             <Field label="Follow up by"><input name="followUpBy" type="date" defaultValue={ins.followUpBy ? toDateOnlyString(ins.followUpBy) : ""} /></Field>
           </div>
           {ins.asset.assetClass === "PLANT_MACHINERY" || ins.asset.assetClass === "INDUSTRIAL" ? (
@@ -186,7 +186,7 @@ export default async function InspectionPage({ params: paramsP, searchParams: se
               <div className="fields">
                 <Field label="Severity"><select name="severity" defaultValue="MEDIUM"><EnumOptions values={SEVERITIES} /></select></Field>
                 <Field label="Where"><input name="location" /></Field>
-                <Field label="Estimated cost (₦)"><input name="estimatedCost" inputMode="decimal" /></Field>
+                <Field label={`Estimated cost (${moneySymbol()})`}><input name="estimatedCost" inputMode="decimal" /></Field>
               </div>
               <Field label="Description"><textarea name="description" rows={2} /></Field>
               <Field label="Recommended action"><input name="recommendedAction" /></Field>

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { getWorkOrder, PRIORITIES, RISKS } from "@/lib/services/maintenance";
 import { PHOTO_PHASES } from "@/lib/services/photos";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate, formatDateTime, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -113,7 +113,7 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
                 <Field label="Risk"><select name="riskLevel" defaultValue={wo.riskLevel}><EnumOptions values={RISKS} /></select></Field>
                 <Field label="Target date"><input name="targetDate" type="date" defaultValue={wo.targetDate ? toDateOnlyString(wo.targetDate) : ""} /></Field>
               </div>
-              <Field label="Estimated cost (₦)"><input name="estimatedCost" inputMode="decimal" defaultValue={koboToInput(wo.estimatedCostKobo)} /></Field>
+              <Field label={`Estimated cost (${moneySymbol()})`}><input name="estimatedCost" inputMode="decimal" defaultValue={koboToInput(wo.estimatedCostKobo)} /></Field>
               <label className="row" style={{ gap: 8 }}><input type="checkbox" name="safetyRisk" defaultChecked={wo.safetyRisk} /> Safety risk</label>
               <Field label="Note"><input name="note" /></Field>
               <button className="btn primary" type="submit">Mark as triaged</button>
@@ -124,7 +124,7 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
           <details className="inline"><summary>{wo.approvedById ? "Change the approved cost" : "Approve the cost"}</summary>
             <form action={approveAction} className="stack">
               {hidden}
-              <Field label="Approved cost (₦)" hint="The most this work may cost."><input name="approvedCost" required inputMode="decimal" defaultValue={koboToInput(wo.approvedCostKobo ?? wo.estimatedCostKobo)} /></Field>
+              <Field label={`Approved cost (${moneySymbol()})`} hint="The most this work may cost."><input name="approvedCost" required inputMode="decimal" defaultValue={koboToInput(wo.approvedCostKobo ?? wo.estimatedCostKobo)} /></Field>
               <Field label="Note"><input name="note" /></Field>
               <button className="btn primary" type="submit">Approve</button>
             </form>
@@ -179,7 +179,7 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
               <div className="fields">
                 <Field label="Quantity"><input name="quantity" required inputMode="numeric" defaultValue="1" /></Field>
                 <Field label="Unit"><input name="unit" placeholder="pcs, bags, m" /></Field>
-                <Field label="Unit cost (₦)"><input name="unitCost" required inputMode="decimal" /></Field>
+                <Field label={`Unit cost (${moneySymbol()})`}><input name="unitCost" required inputMode="decimal" /></Field>
               </div>
               <button className="btn primary" type="submit">Add</button>
             </form>
@@ -214,7 +214,7 @@ export default async function WorkOrderPage({ params: paramsP, searchParams: sea
             {hidden}
             <div className="fields">
               <Field label="Completed on"><input name="completedOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
-              <Field label="Actual cost (₦)"><input name="actualCost" inputMode="decimal" defaultValue={materialsTotal > 0n ? koboToInput(materialsTotal) : ""} /></Field>
+              <Field label={`Actual cost (${moneySymbol()})`}><input name="actualCost" inputMode="decimal" defaultValue={materialsTotal > 0n ? koboToInput(materialsTotal) : ""} /></Field>
             </div>
             <Field label="What was done"><textarea name="notes" rows={3} required /></Field>
             <Field label="Job card or invoice reference" hint="Needed unless you have uploaded an after photograph."><input name="evidenceRef" /></Field>

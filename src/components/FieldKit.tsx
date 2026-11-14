@@ -509,7 +509,7 @@ function FindingForm({ onAdd, onCancel }: { onAdd: (f: Finding) => void; onCance
         <div className="stack">
           <label className="field"><span>Description</span><textarea rows={2} maxLength={3000} value={f.description} onChange={(e) => set("description", e.target.value)} /></label>
           <label className="field"><span>Recommended action</span><input maxLength={2000} value={f.recommendedAction} onChange={(e) => set("recommendedAction", e.target.value)} /></label>
-          <label className="field"><span>Estimated cost to fix (₦)</span><input inputMode="numeric" maxLength={20} value={f.estimatedCost} onChange={(e) => set("estimatedCost", e.target.value)} /></label>
+          <label className="field"><span>Estimated cost to fix</span><input inputMode="numeric" maxLength={20} value={f.estimatedCost} onChange={(e) => set("estimatedCost", e.target.value)} /></label>
         </div>
       </details>
       <div className="row">

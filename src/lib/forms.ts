@@ -55,7 +55,7 @@ export async function act(backTo: string, body: () => Promise<string | void>): P
 }
 
 /** Hosts an action may send someone to: the payment provider's checkout pages. Everything else stays on this site. */
-const EXTERNAL_OK = new Set(["checkout.paystack.com"]);
+const EXTERNAL_OK = new Set(["checkout.paystack.com", "checkout.stripe.com", "connect.stripe.com"]);
 
 /**
  * Where an action may send someone after it runs: a path on this site, or the payment provider's checkout. Anything else (a

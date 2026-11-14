@@ -4,7 +4,7 @@ import { COMMISSION_APPLIES, COMMISSION_METHODS, commissionQueue, listCommission
 import { bpsToPercent } from "@/lib/commission-rules";
 import { can } from "@/lib/permissions";
 import { formatDate } from "@/lib/dates";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { humanize } from "@/lib/labels";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { addRuleAction, ruleActiveAction } from "./actions";
@@ -55,7 +55,7 @@ export default async function CommissionsPage({ searchParams: searchP }: { searc
                 <Field label="Applies to"><select name="applies" defaultValue="ALL"><EnumOptions values={COMMISSION_APPLIES} /></select></Field>
                 <Field label="Method"><select name="method" defaultValue="PERCENT"><EnumOptions values={COMMISSION_METHODS} /></select></Field>
                 <Field label="Percentage" hint="For the percent method, for example 5 or 2.5."><input name="rate" inputMode="decimal" /></Field>
-                <Field label="Fixed amount (₦)" hint="For the fixed method."><input name="fixed" inputMode="decimal" /></Field>
+                <Field label={`Fixed amount (${moneySymbol()})`} hint="For the fixed method."><input name="fixed" inputMode="decimal" /></Field>
               </div>
               <button className="btn primary" type="submit">Add rule</button></form>
           </details>

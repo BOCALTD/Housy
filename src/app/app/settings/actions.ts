@@ -2,6 +2,7 @@
 
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
+import { changeBusinessCountry } from "@/lib/services/business-region";
 import { closeWorkspace, pauseWorkspace } from "@/lib/services/workspace-lifecycle";
 import { addDepartment, setMemberDepartment, updateReminderSettings, updateRefPrefix } from "@/lib/services/settings";
 
@@ -50,5 +51,14 @@ export async function closeWorkspaceAction(form: FormData) {
     const member = await requireMember("settings.manage");
     await closeWorkspace(member, { reason: str(form, "reason"), confirm: str(form, "confirm"), password: String(form.get("password") ?? "") });
     return withNotice("/suspended", "The workspace is closed.");
+  });
+}
+
+export async function countryAction(form: FormData) {
+  return act("/app/settings", async () => {
+    const member = await requireMember("billing.manage");
+    const r = await changeBusinessCountry(member, str(form, "country"));
+    if (!("name" in r)) return withNotice("/app/settings", "That is already your country.");
+    return withNotice("/app/settings", r.changedCurrency ? `Country changed to ${r.name}. Money is now in ${r.currency}. Add your bank account again under Client payments.` : `Country changed to ${r.name}. Add your bank account again under Client payments.`);
   });
 }

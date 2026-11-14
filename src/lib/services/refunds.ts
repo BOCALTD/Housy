@@ -13,7 +13,7 @@ import { accountFor, applyInvoice, ledgerFor, payerOf, post, type Deps } from ".
 // Giving money back, and settling a payment that did not match. Nothing here changes the books except by adding entries,
 // and a refund is always something a named person asked for or the provider confirmed.
 
-const providerOf = async (d?: Deps): Promise<PaymentProvider | null> => (d && "provider" in d ? d.provider ?? null : (await import("./platform-config")).activePaymentProvider());
+const providerOf = async (d?: Deps, name: "PAYSTACK" | "STRIPE" = "PAYSTACK"): Promise<PaymentProvider | null> => (d && "provider" in d ? d.provider ?? null : (await import("./platform-config")).paymentProviderNamed(name));
 const nowOf = (d?: Deps) => d?.now ?? new Date();
 
 async function assertAdmin(id: string) {
@@ -74,7 +74,7 @@ export async function requestRefund(adminId: string, paymentId: string, input: {
   });
   const { refund, pay } = created;
   if (pay.provider === "MANUAL") return { refundId: refund.id, status: "PENDING" as const, note: "Return the money to the payer, then confirm it here." };
-  const provider = await providerOf(deps);
+  const provider = await providerOf(deps, pay.provider === "STRIPE" ? "STRIPE" : "PAYSTACK");
   if (!provider || !pay.providerRef) {
     await failRefund(refund.id, "No payment provider is connected, so the refund could not be sent");
     throw new Error("No payment provider is connected, so the refund could not be sent");
@@ -122,7 +122,7 @@ export async function completeRefundIn(tx: Tx, refundId: string, by: { actorId?:
   const held = await suspenseOf(tx, pay.id);
   const fromSuspense = held > 0n ? (held < refund.amountKobo ? held : refund.amountKobo) : 0n;
   const rest = refund.amountKobo - fromSuspense;
-  const base = { ledger: ledgerFor(inv.purpose), kind: "REFUND" as const, invoiceId: inv.id, paymentId: pay.id, refundId: refund.id, note: refund.reason, eventId: by.eventId, actorId: by.actorId };
+  const base = { ledger: ledgerFor(inv.purpose), kind: "REFUND" as const, currency: inv.currency, invoiceId: inv.id, paymentId: pay.id, refundId: refund.id, note: refund.reason, eventId: by.eventId, actorId: by.actorId };
   if (fromSuspense > 0n) await post(tx, { ...base, account: "SUSPENSE", amountKobo: -fromSuspense, entryKey: `refund:${refund.id}:s` });
   if (rest > 0n) await post(tx, { ...base, account: accountFor(inv.purpose), amountKobo: -rest, entryKey: `refund:${refund.id}:m` });
   const full = pay.refundedKobo >= (pay.receivedKobo ?? pay.amountKobo);
@@ -167,7 +167,7 @@ export async function cancelRefund(adminId: string, refundId: string) {
 
 /** A refund message from the provider. Matched to the refund we asked for; a refund we did not ask for is recorded and flagged, never ignored. */
 export async function refundEventIn(tx: Tx, ev: ParsedEvent, eventId: string, now: Date): Promise<{ outcome: string; note: string }> {
-  const pay = ev.reference ? await tx.payment.findUnique({ where: { provider_providerRef: { provider: "PAYSTACK", providerRef: ev.reference } } }) : null;
+  const pay = ev.reference ? await tx.payment.findFirst({ where: { providerRef: ev.reference, provider: { in: ["PAYSTACK", "STRIPE"] } } }) : null;
   if (!pay) return { outcome: "UNKNOWN_REFERENCE", note: "No payment has this reference" };
   const pending = await tx.refund.findMany({ where: { paymentId: pay.id, status: "PENDING" }, orderBy: { createdAt: "asc" } });
   const match = pending.find((r) => ev.amountKobo !== null && r.amountKobo === ev.amountKobo) ?? (pending.length === 1 && ev.amountKobo === null ? pending[0] : undefined);
@@ -198,8 +198,8 @@ export async function acceptReviewedPayment(adminId: string, paymentId: string, 
     const inv = await tx.invoice.findUniqueOrThrow({ where: { id: pay.invoiceId } });
     if (inv.status !== "OPEN") throw new Error("The invoice is no longer open. Refund this payment instead.");
     const ledger = ledgerFor(inv.purpose);
-    await post(tx, { ledger, kind: "ADJUSTMENT", account: "SUSPENSE", amountKobo: -pay.amountKobo, invoiceId: inv.id, paymentId: pay.id, actorId: adminId, note: `Accepted after review: ${note}` });
-    await post(tx, { ledger, kind: "ADJUSTMENT", account: accountFor(inv.purpose), amountKobo: pay.amountKobo, invoiceId: inv.id, paymentId: pay.id, actorId: adminId, note: `Accepted after review: ${note}` });
+    await post(tx, { ledger, kind: "ADJUSTMENT", account: "SUSPENSE", amountKobo: -pay.amountKobo, currency: inv.currency, invoiceId: inv.id, paymentId: pay.id, actorId: adminId, note: `Accepted after review: ${note}` });
+    await post(tx, { ledger, kind: "ADJUSTMENT", account: accountFor(inv.purpose), amountKobo: pay.amountKobo, currency: inv.currency, invoiceId: inv.id, paymentId: pay.id, actorId: adminId, note: `Accepted after review: ${note}` });
     await tx.payment.update({ where: { id: pay.id }, data: { status: "SUCCEEDED", reviewNote: `${pay.reviewNote} Accepted: ${note}`.slice(0, 500) } });
     await tx.invoice.update({ where: { id: inv.id }, data: { status: "PAID", paidAt: now } });
     await applyInvoice(tx, inv, now);
@@ -210,5 +210,5 @@ export async function acceptReviewedPayment(adminId: string, paymentId: string, 
 
 export async function pendingRefunds(adminId: string) {
   await assertAdmin(adminId);
-  return system((tx) => tx.refund.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, take: 50, include: { invoice: { select: { ref: true, description: true } }, payment: { select: { ref: true, provider: true } } } }));
+  return system((tx) => tx.refund.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, take: 50, include: { invoice: { select: { ref: true, description: true, currency: true } }, payment: { select: { ref: true, provider: true } } } }));
 }

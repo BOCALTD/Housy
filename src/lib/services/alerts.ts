@@ -77,7 +77,7 @@ export const isWatching = (userId: string, listingId: string) => withUser(userId
 export async function myWatched(userId: string) {
   return withUser(userId, async (tx) => {
     const w = await tx.watchedListing.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: MAX_WATCHED });
-    const ls = await tx.listing.findMany({ where: { id: { in: w.map((x) => x.listingId) } }, select: { id: true, publicRef: true, title: true, city: true, status: true, priceKobo: true } });
+    const ls = await tx.listing.findMany({ where: { id: { in: w.map((x) => x.listingId) } }, select: { id: true, publicRef: true, title: true, city: true, status: true, priceKobo: true, currency: true } });
     return w.map((x) => ({ ...x, listing: ls.find((l) => l.id === x.listingId) ?? null }));
   });
 }

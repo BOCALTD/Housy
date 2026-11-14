@@ -3,7 +3,7 @@
 import { requirePlatformAdmin } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
 import {
-  CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
+  CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, savePaymentRoutes, saveStripeKeys, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
 } from "@/lib/services/platform-config";
 
 import { endMaintenance, scheduleMaintenance } from "@/lib/services/maintenance-mode";
@@ -56,5 +56,24 @@ export async function commissionAction(form: FormData) {
     const a = await requirePlatformAdmin();
     await saveCommission(a.id, Object.fromEntries(COMMISSION_KINDS.map((k) => [k, str(form, k)])) as Record<CommissionKind, string>);
     return withNotice(PAGE, "Commission saved. It applies to payments made from now on.");
+  });
+}
+
+export async function stripeAction(form: FormData) {
+  const clear = str(form, "clear") === "1";
+  return act(PAGE, async () => {
+    const a = await requirePlatformAdmin();
+    await saveStripeKeys(a.id, { secret: str(form, "secret"), public: str(form, "public"), webhook: str(form, "webhook"), clear });
+    return withNotice(PAGE, clear ? "The saved Stripe keys were removed." : "Stripe keys saved. Make one small real payment to prove them.");
+  });
+}
+
+export async function routesAction(form: FormData) {
+  return act(PAGE, async () => {
+    const a = await requirePlatformAdmin();
+    const routes: Record<string, string> = {};
+    for (const [k, v] of form.entries()) if (k.startsWith("route_") && typeof v === "string") routes[k.slice(6)] = v;
+    await savePaymentRoutes(a.id, routes);
+    return withNotice(PAGE, "Payment method for each country saved.");
   });
 }

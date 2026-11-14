@@ -4,7 +4,7 @@ import { requireMember } from "@/lib/auth";
 import { getServicePeriod } from "@/lib/services/service-charges";
 import { PAYMENT_METHODS } from "@/lib/services/leases";
 import { assessmentBalance } from "@/lib/ledger-rules";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -117,7 +117,7 @@ export default async function ServicePeriodPage({ params: paramsP, searchParams:
                       <form action={recordCollectionAction} className="stack">
                         {hidden}<input type="hidden" name="assessmentId" value={a.id} />
                         <div className="fields">
-                          <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" defaultValue={koboToInput(bal.outstanding)} /></Field>
+                          <Field label={`Amount (${moneySymbol()})`}><input name="amount" required inputMode="decimal" defaultValue={koboToInput(bal.outstanding)} /></Field>
                           <Field label="Paid on"><input name="paidOn" type="date" required defaultValue={todayText} max={todayText} /></Field>
                         </div>
                         <div className="fields">
@@ -165,7 +165,7 @@ export default async function ServicePeriodPage({ params: paramsP, searchParams:
               <Field label="What was spent on"><input name="description" required /></Field>
               <div className="fields">
                 <Field label="Supplier"><input name="supplier" /></Field>
-                <Field label="Amount (₦)"><input name="amount" required inputMode="decimal" /></Field>
+                <Field label={`Amount (${moneySymbol()})`}><input name="amount" required inputMode="decimal" /></Field>
               </div>
               <div className="fields">
                 <Field label="Date"><input name="incurredOn" type="date" required defaultValue={todayText} max={todayText} /></Field>

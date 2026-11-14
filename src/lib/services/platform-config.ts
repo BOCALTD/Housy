@@ -12,6 +12,7 @@ import { prisma, withPlatformAdmin } from "../db";
 import { logActivity } from "../audit";
 import { openSecret, sealSecret } from "../totp";
 import { parsePercentToBps } from "../commission-rules";
+import { COUNTRIES, COUNTRY_CODES, isCountry, providerCanServe, type Country, type OnlineProvider } from "../regions";
 
 export const CAPTCHA_PROVIDERS = ["none", "recaptcha_v2", "recaptcha_v3", "turnstile"] as const;
 export type CaptchaProvider = (typeof CAPTCHA_PROVIDERS)[number];
@@ -26,17 +27,32 @@ const K = {
   paystackSecret: "paystack_secret", paystackPublic: "paystack_public",
   captchaProvider: "captcha_provider", captchaSiteKey: "captcha_site_key", captchaSecret: "captcha_secret", captchaPlaces: "captcha_places",
   trustCloudflare: "trust_cloudflare",
+  stripeSecret: "stripe_secret", stripePublic: "stripe_public", stripeWebhook: "stripe_webhook_secret", paymentRoutes: "payment_routes",
   commissionRent: "commission_rent_bps", commissionInspection: "commission_inspection_bps", commissionOther: "commission_other_bps",
 } as const;
 
 export type PlatformConfig = {
   paystack: { secret: string; public: string; source: "server" | "settings" | "none"; mode: "live" | "test" | null };
+  stripe: { secret: string; public: string; webhook: string; source: "server" | "settings" | "none"; mode: "live" | "test" | null };
+  /** Which online provider serves each country (the administrator's choice, or the usual one). */
+  routes: Record<Country, OnlineProvider>;
   captcha: { provider: CaptchaProvider; siteKey: string; secret: string; places: CaptchaPlace[] };
   trustCloudflare: boolean;
   commissionBps: Record<CommissionKind, number>;
 };
 
 let cache: { at: number; value: PlatformConfig } | null = null;
+
+/** Saved routes over the usual ones; a provider that cannot serve a country is never chosen for it. */
+function routesFrom(json: string | undefined): Record<Country, OnlineProvider> {
+  let saved: Record<string, string> = {};
+  try { saved = json ? JSON.parse(json) : {}; } catch { saved = {}; }
+  return Object.fromEntries(COUNTRY_CODES.map((c) => {
+    const want = saved[c];
+    const p = (want === "PAYSTACK" || want === "STRIPE" || want === "NONE") && providerCanServe(want, c) ? want : COUNTRIES[c].online;
+    return [c, p];
+  })) as Record<Country, OnlineProvider>;
+}
 const TTL = 30_000;
 
 const open = (v: string | undefined) => { if (!v) return ""; try { return openSecret(v); } catch { return ""; } };
@@ -57,6 +73,11 @@ export async function platformConfig(): Promise<PlatformConfig> {
       source: envSecret ? "server" : savedSecret ? "settings" : "none",
       mode: secret.startsWith("sk_live_") ? "live" : secret.startsWith("sk_test_") ? "test" : null,
     },
+    stripe: (() => {
+      const envS = process.env.STRIPE_SECRET_KEY ?? "", saved = open(v(K.stripeSecret)), sec = envS || saved;
+      return { secret: sec, public: process.env.STRIPE_PUBLISHABLE_KEY || v(K.stripePublic) || "", webhook: process.env.STRIPE_WEBHOOK_SECRET || open(v(K.stripeWebhook)), source: envS ? "server" as const : saved ? "settings" as const : "none" as const, mode: sec.startsWith("sk_live_") ? "live" as const : sec.startsWith("sk_test_") ? "test" as const : null };
+    })(),
+    routes: routesFrom(v(K.paymentRoutes)),
     captcha: {
       provider, siteKey: v(K.captchaSiteKey) ?? "", secret: open(v(K.captchaSecret)),
       places: (v(K.captchaPlaces) ?? "signup,login,reset,forms").split(",").filter((p): p is CaptchaPlace => (CAPTCHA_PLACES as readonly string[]).includes(p)),
@@ -75,6 +96,8 @@ export async function configForAdmin() {
   const tail = (s: string) => (s ? `••••${s.slice(-4)}` : "");
   return {
     paystack: { source: c.paystack.source, mode: c.paystack.mode, secretTail: tail(c.paystack.secret), public: c.paystack.public },
+    stripe: { source: c.stripe.source, mode: c.stripe.mode, secretTail: tail(c.stripe.secret), public: c.stripe.public, webhookSet: !!c.stripe.webhook },
+    routes: c.routes,
     captcha: { provider: c.captcha.provider, siteKey: c.captcha.siteKey, secretTail: tail(c.captcha.secret), places: c.captcha.places },
     trustCloudflare: c.trustCloudflare, trustCloudflareFromServer: process.env.TRUST_CLOUDFLARE === "1",
     commission: Object.fromEntries(COMMISSION_KINDS.map((k) => [k, (c.commissionBps[k] / 100).toString()])) as Record<CommissionKind, string>,
@@ -155,4 +178,52 @@ export async function activePaymentProvider() {
   const { paystackProvider } = await import("../payment-providers");
   const c = await platformConfig();
   return c.paystack.secret ? paystackProvider(c.paystack.secret) : null;
+}
+
+const stripeSchema = z.object({
+  secret: z.string().trim().refine((s) => s === "" || /^(sk|rk)_(test|live)_[A-Za-z0-9]{20,}$/.test(s), "The secret key starts with sk_live_ or sk_test_. Copy it from Stripe: Developers, API keys."),
+  public: z.string().trim().refine((s) => s === "" || /^pk_(test|live)_[A-Za-z0-9]{20,}$/.test(s), "The publishable key starts with pk_live_ or pk_test_."),
+  webhook: z.string().trim().refine((s) => s === "" || /^whsec_[A-Za-z0-9]{20,}$/.test(s), "The signing secret starts with whsec_. Copy it from Stripe: Developers, Webhooks, your endpoint."),
+  clear: z.boolean().default(false),
+});
+/** Save Stripe keys. Empty fields keep what is saved; "clear" removes them. */
+export async function saveStripeKeys(adminId: string, raw: z.input<typeof stripeSchema>) {
+  const d = stripeSchema.parse(raw);
+  if (d.clear) return save(adminId, [[K.stripeSecret, null], [K.stripePublic, null], [K.stripeWebhook, null]], "stripe", { cleared: true });
+  if (d.secret && d.public && !d.secret.includes(d.public.slice(3, 7))) throw new Error("Use the secret and publishable keys from the same mode: both live or both test.");
+  const entries: [string, string | null][] = [];
+  if (d.secret) entries.push([K.stripeSecret, sealSecret(d.secret)]);
+  if (d.public) entries.push([K.stripePublic, d.public]);
+  if (d.webhook) entries.push([K.stripeWebhook, sealSecret(d.webhook)]);
+  if (!entries.length) throw new Error("Enter the keys to save.");
+  await save(adminId, entries, "stripe", { mode: d.secret.startsWith("sk_live_") ? "live" : d.secret ? "test" : "unchanged", webhook: !!d.webhook });
+}
+
+/** Which online provider serves each country. A provider that cannot work in a country is refused for it. */
+export async function savePaymentRoutes(adminId: string, raw: Record<string, string>) {
+  const out: Record<string, OnlineProvider> = {};
+  for (const [c, p] of Object.entries(raw)) {
+    if (!isCountry(c)) continue;
+    if (p !== "PAYSTACK" && p !== "STRIPE" && p !== "NONE") throw new Error(`${COUNTRIES[c].name}: choose Paystack, Stripe or off.`);
+    if (!providerCanServe(p, c)) throw new Error(`${p === "PAYSTACK" ? "Paystack" : "Stripe"} does not take payments in ${COUNTRIES[c].name}.`);
+    out[c] = p;
+  }
+  await save(adminId, [[K.paymentRoutes, JSON.stringify(out)]], "payment_routes", out);
+}
+
+/** The online provider for a country, if it is switched on and its keys are set; null otherwise (bank transfer only). */
+export async function onlineProviderFor(country: string): Promise<"PAYSTACK" | "STRIPE" | null> {
+  const c = await platformConfig();
+  const route = isCountry(country) ? c.routes[country] : "PAYSTACK";
+  if (route === "PAYSTACK" && c.paystack.secret) return "PAYSTACK";
+  if (route === "STRIPE" && c.stripe.secret && c.stripe.webhook) return "STRIPE";
+  return null;
+}
+
+/** A payment provider by name, with the saved keys. */
+export async function paymentProviderNamed(name: "PAYSTACK" | "STRIPE") {
+  const { paystackProvider, stripeProvider } = await import("../payment-providers");
+  const c = await platformConfig();
+  if (name === "PAYSTACK") return c.paystack.secret ? paystackProvider(c.paystack.secret) : null;
+  return c.stripe.secret && c.stripe.webhook ? stripeProvider(c.stripe.secret, c.stripe.webhook) : null;
 }

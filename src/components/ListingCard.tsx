@@ -4,7 +4,7 @@ import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "./Promo";
 import type { TierName } from "@/lib/tier-rules";
 import { keyFacts, priceSuffix } from "@/lib/listing-rules";
 
-type L = { id: string; publicRef: string; title: string; purpose: string; priceKobo: bigint; bedrooms: number | null; bathrooms: number | null; city: string; state: string; propertyType: string; pricePeriod: string; toilets: number | null; buildingSqm: number | null; landSqm: number | null; furnishing: string; negotiable: boolean; coverPhotoId: string | null; tier: TierName; promo: { campaignName: string; pct: number; theme: string; originalKobo: bigint; promoKobo: bigint } | null;
+type L = { id: string; publicRef: string; title: string; purpose: string; priceKobo: bigint; currency?: string; bedrooms: number | null; bathrooms: number | null; city: string; state: string; propertyType: string; pricePeriod: string; toilets: number | null; buildingSqm: number | null; landSqm: number | null; furnishing: string; negotiable: boolean; coverPhotoId: string | null; tier: TierName; promo: { campaignName: string; pct: number; theme: string; originalKobo: bigint; promoKobo: bigint } | null;
   /** From Best match (lib/match-rules.ts): how the price compares with the area, why it ranks here, and copies of the same home. */
   verdict?: { kind: "good" | "fair" | "high"; pct: number } | null; matchWhy?: string[]; alsoListed?: { publicRef: string }[] };
 
@@ -21,7 +21,7 @@ export function ListingCard({ l, typeLabels }: { l: L; typeLabels?: Record<strin
           {l.verdict?.kind === "good" ? <span className="pill ok good-price" title={`About ${Math.abs(l.verdict.pct)}% under the typical price for this kind of home in ${l.city}`}>Good price</span> : null}
         </span>
         <strong>{l.title}</strong>
-        <PriceBlock priceKobo={l.priceKobo} promo={l.promo} suffix={priceSuffix(l.pricePeriod)} />
+        <PriceBlock priceKobo={l.priceKobo} currency={l.currency} promo={l.promo} suffix={priceSuffix(l.pricePeriod)} />
         <span className="small muted">{[...keyFacts(l, typeLabels).slice(0, 4), `${l.city}, ${l.state}`].join(" · ")}{l.negotiable ? " · Negotiable" : ""}</span>
         {l.matchWhy?.filter((w) => !w.startsWith("Good price")).length ? <span className="match-why">{l.matchWhy.filter((w) => !w.startsWith("Good price")).slice(0, 2).map((w) => <em key={w}>{w}</em>)}</span> : null}
         {l.alsoListed?.length ? <span className="small muted">Also listed by {l.alsoListed.length} other {l.alsoListed.length === 1 ? "agent" : "agents"}</span> : null}

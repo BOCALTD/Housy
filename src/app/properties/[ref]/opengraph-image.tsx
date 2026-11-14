@@ -2,6 +2,7 @@ import { getPublicListing } from "@/lib/services/listings";
 import { CARD_SIZE, cardPhoto, shareCard } from "@/lib/share-card";
 import { formatKobo } from "@/lib/money";
 import { priceSuffix } from "@/lib/listing-rules";
+import { formatMoney } from "@/lib/regions";
 
 // The link-preview picture for a shared property: its first photo, price and place.
 export const size = CARD_SIZE;
@@ -15,7 +16,7 @@ export default async function Image({ params }: { params: Promise<{ ref: string 
     photo: await cardPhoto(l.id),
     eyebrow: l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`,
     title: l.title,
-    big: `${formatKobo(l.priceKobo)}${priceSuffix(l.pricePeriod)}`,
+    big: `${formatMoney(l.priceKobo, l.currency)}${priceSuffix(l.pricePeriod)}`,
     lines: [[l.bedrooms != null ? `${l.bedrooms} bed` : "", l.bathrooms != null ? `${l.bathrooms} bath` : ""].filter(Boolean).join(" · "), `${l.city}, ${l.state}`],
     cta: "See all photos",
   });

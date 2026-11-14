@@ -1,3 +1,4 @@
+import { moneySymbol } from "@/lib/money";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listSchedules, PRIORITIES } from "@/lib/services/maintenance";
@@ -60,7 +61,7 @@ export default async function SchedulesPage({ searchParams: searchP }: { searchP
                 <Field label="Officer"><select name="assigneeId" defaultValue=""><option value="">None</option>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></Field>
                 <Field label="Contractor"><select name="contractorId" defaultValue=""><option value="">None</option>{contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
               </div>
-              <Field label="Estimated cost (₦)"><input name="estimatedCost" inputMode="decimal" /></Field>
+              <Field label={`Estimated cost (${moneySymbol()})`}><input name="estimatedCost" inputMode="decimal" /></Field>
               <button className="btn primary" type="submit">Add recurring job</button>
             </form>
           )}

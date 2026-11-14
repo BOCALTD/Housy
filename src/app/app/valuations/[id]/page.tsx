@@ -5,7 +5,7 @@ import { requireMember } from "@/lib/auth";
 import { valuationCompleteness } from "@/lib/services/completeness";
 import { BASES, ENTRY_KINDS, EVIDENCE_KINDS, getValuation, PREMISES } from "@/lib/services/valuation";
 import { adjustedPerSqm, formatArea, formatPercent, METHOD_LABEL, METHODS, type Method } from "@/lib/valuation-rules";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate, formatDateTime, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
@@ -189,7 +189,7 @@ export default async function ValuationPage({ params: paramsP, searchParams: sea
                 <Field label="Type"><select name="kind" defaultValue="SALE"><EnumOptions values={EVIDENCE_KINDS} /></select></Field>
                 <Field label="Address or description"><input name="address" required /></Field>
                 <Field label="Date of the evidence"><input name="evidenceDate" type="date" required /></Field>
-                <Field label="Price or annual rent (₦)"><input name="price" inputMode="decimal" required /></Field>
+                <Field label={`Price or annual rent (${moneySymbol()})`}><input name="price" inputMode="decimal" required /></Field>
                 <Field label="Area (m²)"><input name="area" inputMode="decimal" required /></Field>
                 <Field label="Adjustment (%)" hint="Positive if the comparable is inferior to the subject."><input name="adjustment" inputMode="decimal" defaultValue="0" /></Field>
                 <Field label="Weight (%)"><input name="weight" inputMode="decimal" defaultValue="100" /></Field>
@@ -230,14 +230,14 @@ export default async function ValuationPage({ params: paramsP, searchParams: sea
                         <Field label="Subject area (m²)" hint="The result uses the comparables above."><input name="subjectArea" inputMode="decimal" required defaultValue={areaInput(inp.subjectAreaSqm100)} /></Field>
                       ) : null}
                       {m === "INCOME_CAPITALISATION" ? (<>
-                        <Field label="Gross annual rent (₦)"><input name="grossRent" inputMode="decimal" required defaultValue={nairaInput(inp.grossRentKobo)} /></Field>
+                        <Field label={`Gross annual rent (${moneySymbol()})`}><input name="grossRent" inputMode="decimal" required defaultValue={nairaInput(inp.grossRentKobo)} /></Field>
                         <Field label="Vacancy allowance (%)"><input name="vacancy" inputMode="decimal" required defaultValue={pctInput(inp.vacancyBps)} /></Field>
-                        <Field label="Operating costs per year (₦)"><input name="operatingCosts" inputMode="decimal" required defaultValue={nairaInput(inp.operatingCostsKobo)} /></Field>
+                        <Field label={`Operating costs per year (${moneySymbol()})`}><input name="operatingCosts" inputMode="decimal" required defaultValue={nairaInput(inp.operatingCostsKobo)} /></Field>
                         <Field label="Capitalisation rate (%)"><input name="capRate" inputMode="decimal" required defaultValue={pctInput(inp.capRateBps)} /></Field>
                       </>) : null}
                       {m === "COST_APPROACH" ? (<>
-                        <Field label="Land value (₦)"><input name="landValue" inputMode="decimal" required defaultValue={nairaInput(inp.landValueKobo)} /></Field>
-                        <Field label="Replacement cost per m² (₦)"><input name="costPerSqm" inputMode="decimal" required defaultValue={nairaInput(inp.costPerSqmKobo)} /></Field>
+                        <Field label={`Land value (${moneySymbol()})`}><input name="landValue" inputMode="decimal" required defaultValue={nairaInput(inp.landValueKobo)} /></Field>
+                        <Field label={`Replacement cost per m² (${moneySymbol()})`}><input name="costPerSqm" inputMode="decimal" required defaultValue={nairaInput(inp.costPerSqmKobo)} /></Field>
                         <Field label="Building area (m²)"><input name="buildingArea" inputMode="decimal" required defaultValue={areaInput(inp.buildingAreaSqm100)} /></Field>
                         <Field label="Depreciation (%)"><input name="depreciation" inputMode="decimal" required defaultValue={pctInput(inp.depreciationBps)} /></Field>
                       </>) : null}
@@ -287,7 +287,7 @@ export default async function ValuationPage({ params: paramsP, searchParams: sea
             <Field label="Summary"><textarea name="summary" rows={3} defaultValue={draft?.summary ?? ""} /></Field>
             <Field label="Conclusion"><textarea name="conclusion" rows={3} defaultValue={draft?.conclusion ?? ""} /></Field>
             <div className="fields">
-              <Field label="Concluded value (₦)" hint="The professional's opinion, after weighing the worksheets."><input name="concludedValue" inputMode="decimal" defaultValue={draft?.concludedValueKobo ? nairaInput(draft.concludedValueKobo.toString()) : ""} /></Field>
+              <Field label={`Concluded value (${moneySymbol()})`} hint="The professional's opinion, after weighing the worksheets."><input name="concludedValue" inputMode="decimal" defaultValue={draft?.concludedValueKobo ? nairaInput(draft.concludedValueKobo.toString()) : ""} /></Field>
             </div>
             <Field label="Reconciliation" hint="Required if the concluded value is more than 10% from the worksheets' average."><textarea name="reconciliationNote" rows={2} defaultValue={draft?.reconciliationNote ?? ""} /></Field>
             <label className="row" style={{ gap: 8 }}><input type="checkbox" name="aiAssisted" defaultChecked={draft?.aiAssisted ?? false} /> An AI assistant helped draft this text</label>

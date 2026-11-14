@@ -276,7 +276,7 @@ export const hasReelFilter = (f?: ReelFilter | null) => !!f && (!!f.city || !!f.
 /** Keep reels whose property fits the filter. A reel with no property attached only passes a place-only filter. */
 async function applyReelFilter(reels: { id: string; listingId: string | null; city: string }[], f: ReelFilter) {
   const ids = [...new Set(reels.map((r) => r.listingId).filter((x): x is string => !!x))];
-  const listings = ids.length ? await withPublic((tx) => tx.listing.findMany({ where: { id: { in: ids }, status: "PUBLISHED" }, select: { id: true, city: true, state: true, purpose: true, pricePeriod: true, priceKobo: true } })) : [];
+  const listings = ids.length ? await withPublic((tx) => tx.listing.findMany({ where: { id: { in: ids }, status: "PUBLISHED" }, select: { id: true, city: true, state: true, purpose: true, pricePeriod: true, priceKobo: true, currency: true } })) : [];
   const byId = new Map(listings.map((l) => [l.id, l]));
   const place = (f.city ?? "").trim().toLowerCase();
   return new Set(reels.filter((r) => {

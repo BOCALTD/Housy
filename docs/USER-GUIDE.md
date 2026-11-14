@@ -21,8 +21,16 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 - Renewals, notices, move-in and move-out handovers and deposits are on the lease page.
 - **Send a payment link** (on the lease): the tenant pays online or by bank transfer through Housy. Paid online, the receipt is issued on the lease automatically.
 
+## Country and currency
+- When a company or agent signs up, they choose the country where they do business. It sets the currency of their prices, payment links, plan and Housy's commission (₦, GH₵, KSh, R, $, £, C$, €, A$ or AED).
+- *Settings → Country and currency* changes it, for a business that chose wrongly or moved. It is refused while a payment link is waiting or an invoice is unpaid, and the bank account for client payments must be added again.
+- Listings show their own currency. When searching with a price range, choose the currency the range is in.
+
 ## Client payments (company administrators)
-- *Client payments*: add the bank account clients pay into. With online payments switched on for Housy, choose the bank and enter the 10-digit account number; the bank confirms the account name and online payments settle there through Paystack. Otherwise clients see the account for bank transfers.
+- *Client payments*: add the bank account clients pay into, with the details your country's banks use (a NUBAN in Nigeria, a sort code in the UK, a routing number in the US, an IBAN in Europe and the UAE, a BSB in Australia).
+- In Nigeria, Ghana, Kenya and South Africa, online payments go through Paystack: choose the bank from the list (in Nigeria the bank confirms the account name) and payments settle to that account.
+- In the US, UK, Canada, Europe, Australia and the UAE, online payments go through Stripe: choose *Set up card payments with Stripe*, give Stripe your business and bank details on its page, and online payments switch on once Stripe has checked them.
+- Clients can always pay by bank transfer to the account shown on the payment page.
 - **Inspection fee**: 0 keeps inspections free. With a fee, the person is asked to pay through Housy when you confirm the time; it is cancelled if the inspection is.
 - **Ask for a payment** for a deposit, service charge or fee, and send the link. Mark it paid once a transfer arrives, with the bank reference.
 - **Housy's commission** (a percentage set by Housy for rent, inspection fees and other payments) is taken automatically on online payments. On transfers you confirm and rent you record as received directly, it is invoiced on the first days of the next month under *Billing*.

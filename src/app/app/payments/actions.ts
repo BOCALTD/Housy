@@ -2,7 +2,8 @@
 
 import { requireMember } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
-import { cancelPaymentRequest, confirmTransfer, newPaymentLink, requestOtherPayment, requestRentPayment, saveBankAccount, saveInspectionFee } from "@/lib/services/client-payments";
+import { siteOrigin } from "@/lib/origin";
+import { connectStripe, cancelPaymentRequest, confirmTransfer, newPaymentLink, requestOtherPayment, requestRentPayment, saveBankAccount, saveInspectionFee } from "@/lib/services/client-payments";
 
 const BACK = "/app/payments";
 const withLink = (link: string, notice: string) => `${BACK}?link=${encodeURIComponent(link)}&notice=${encodeURIComponent(notice)}`;
@@ -10,7 +11,8 @@ const withLink = (link: string, notice: string) => `${BACK}?link=${encodeURIComp
 export async function saveBankAction(form: FormData) {
   return act(BACK, async () => {
     const m = await requireMember("billing.manage");
-    const r = await saveBankAccount(m, { bankCode: str(form, "bankCode"), bankName: str(form, "bankName"), accountNumber: str(form, "accountNumber"), accountName: str(form, "accountName") });
+    const keys = ["bankCode", "bankName", "accountName", "accountNumber", "routingNumber", "sortCode", "institutionNumber", "transitNumber", "iban", "bic", "bsb"];
+    const r = await saveBankAccount(m, Object.fromEntries(keys.map((k) => [k, str(form, k)])));
     return withNotice(BACK, r.online ? `Saved. Online payments now settle to ${r.accountName}.` : "Saved. Clients see this account for bank transfers.");
   });
 }
@@ -61,5 +63,13 @@ export async function cancelRequestAction(form: FormData) {
     const m = await requireMember("payment.record");
     await cancelPaymentRequest(m, str(form, "ref"), str(form, "reason"));
     return withNotice(BACK, "Payment request cancelled. Its link no longer works.");
+  });
+}
+
+/** Card payments outside Paystack's countries: continue to Stripe's set-up page. */
+export async function stripeAction() {
+  return act(BACK, async () => {
+    const m = await requireMember("billing.manage");
+    return connectStripe(m, `${await siteOrigin()}/app/payments?notice=${encodeURIComponent("Back from Stripe. Online payments switch on once Stripe has checked your details.")}`);
   });
 }

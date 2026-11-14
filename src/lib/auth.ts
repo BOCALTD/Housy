@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { setRequestCurrency } from "./money-context";
 import { adminMfaMissing } from "./readiness";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -77,6 +78,9 @@ export type Member = {
   role: Role;
   /** Set when the platform has suspended the company: the workspace is closed until it is restored. */
   companySuspended: boolean;
+  /** Where the business works and the currency its money is in (see regions.ts). */
+  country: string;
+  currency: string;
 };
 
 /** The signed-in user's active, non-suspended membership in their selected company. Cached per request. */
@@ -87,10 +91,11 @@ export const getMember = cache(async (): Promise<Member | null> => {
   const membership = await withTenant(companyId, user.id, (tx) =>
     tx.membership.findFirst({
       where: { companyId, userId: user.id, status: "ACTIVE" },
-      include: { company: { select: { name: true, suspendedAt: true } } },
+      include: { company: { select: { name: true, suspendedAt: true, country: true, currency: true } } },
     }),
   );
   if (!membership) return null;
+  setRequestCurrency(membership.company.currency);
   return {
     userId: user.id,
     userName: user.name,
@@ -100,6 +105,8 @@ export const getMember = cache(async (): Promise<Member | null> => {
     companyName: membership.company.name,
     role: membership.role as Role,
     companySuspended: !!membership.company.suspendedAt,
+    country: membership.company.country,
+    currency: membership.company.currency,
   };
 });
 

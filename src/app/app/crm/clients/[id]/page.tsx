@@ -6,11 +6,12 @@ import { dealOptions } from "@/lib/services/deal";
 import { leadTransitionProblem, type LeadStatus } from "@/lib/crm-rules";
 import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/dates";
-import { formatKobo } from "@/lib/money";
+import { formatKobo, moneySymbol } from "@/lib/money";
 import { humanize } from "@/lib/labels";
 import { PhoneField } from "@/components/PhoneField";
 import { EnumOptions, Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { createDealAction } from "../../../deals/actions";
+import { formatMoney } from "@/lib/regions";
 import {
   addActivityAction, addRequirementAction, archiveClientAction, assignLeadAction, completeFollowUpAction, createLeadAction, dismissDuplicateAction, leadStatusAction, matchStatusAction,
   mergeClientsAction, reassignClientAction, requirementActiveAction, updateClientAction, updateQualificationAction,
@@ -92,7 +93,7 @@ export default async function ClientPage({ params: paramsP, searchParams: search
                     <form action={updateQualificationAction} className="stack"><input type="hidden" name="clientId" value={c.id} /><input type="hidden" name="leadId" value={l.id} />
                       <div className="fields">
                         <Field label="Interested in"><input name="title" defaultValue={l.title} required /></Field>
-                        <Field label="Highest budget (₦)"><input name="budgetMax" inputMode="decimal" defaultValue={l.budgetMaxKobo ? String(Number(l.budgetMaxKobo) / 100) : ""} /></Field>
+                        <Field label={`Highest budget (${moneySymbol()})`}><input name="budgetMax" inputMode="decimal" defaultValue={l.budgetMaxKobo ? String(Number(l.budgetMaxKobo) / 100) : ""} /></Field>
                         <Field label="Timeline"><select name="timeline" defaultValue={l.timeline}><EnumOptions values={TIMELINES} /></select></Field>
                         <Field label="Financing"><select name="financing" defaultValue={l.financing}><EnumOptions values={FINANCING} /></select></Field>
                       </div>
@@ -122,7 +123,7 @@ export default async function ClientPage({ params: paramsP, searchParams: search
               <div className="fields">
                 <Field label="Interested in"><input name="title" required /></Field>
                 <Field label="Source"><select name="sourceId" defaultValue=""><option value="">Not known</option>{d.sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-                <Field label="Highest budget (₦)"><input name="budgetMax" inputMode="decimal" /></Field>
+                <Field label={`Highest budget (${moneySymbol()})`}><input name="budgetMax" inputMode="decimal" /></Field>
                 <Field label="Timeline"><select name="timeline" defaultValue="UNKNOWN"><EnumOptions values={TIMELINES} /></select></Field>
                 <Field label="Financing"><select name="financing" defaultValue="UNKNOWN"><EnumOptions values={FINANCING} /></select></Field>
                 {assign ? <Field label="Owner" hint="Leave empty to give it to the agent with the fewest open leads."><select name="ownerId" defaultValue=""><option value="">Fewest open leads</option>{d.agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field> : null}
@@ -146,7 +147,7 @@ export default async function ClientPage({ params: paramsP, searchParams: search
                 <Field label="Property"><select name="assetId" required defaultValue=""><option value="" disabled>Choose</option>{assets.map((a) => <option key={a.id} value={a.id}>{a.ref} · {a.name}</option>)}</select></Field>
                 <Field label="Type"><select name="type" defaultValue=""><option value="">From the listing</option><option value="SALE">Sale</option><option value="RENT">Rent</option><option value="LEASE">Lease</option></select></Field>
                 <Field label="From lead" hint="Only a qualified lead can become a deal."><select name="leadId" defaultValue=""><option value="">No lead</option>{d.leads.filter((l) => l.status === "QUALIFIED").map((l) => <option key={l.id} value={l.id}>{l.ref} · {l.title}</option>)}</select></Field>
-                <Field label="Asking price (₦)" hint="Leave empty to use the listing price."><input name="asking" inputMode="decimal" /></Field>
+                <Field label={`Asking price (${moneySymbol()})`} hint="Leave empty to use the listing price."><input name="asking" inputMode="decimal" /></Field>
                 <Field label="Expected to close"><input name="expectedCloseOn" type="date" /></Field>
               </div>
               <Field label="Title"><input name="title" /></Field>
@@ -166,7 +167,7 @@ export default async function ClientPage({ params: paramsP, searchParams: search
                   {(matchMap.get(r.id) ?? []).length === 0 ? <p className="muted">No published listing fits.</p> : (
                     <ShowMore noun="more matches" limit={3} items={(matchMap.get(r.id) ?? []).map((m) => (
                       <li key={m.listing.id}><div className="stack" style={{ width: "100%", gap: 4 }}>
-                        <div><strong>{m.listing.title}</strong> · {formatKobo(m.listing.priceKobo)} · score {m.score}<div className="small muted">{m.reasons.join(", ")}{m.match ? ` · ${humanize(m.match.status)}` : ""}</div></div>
+                        <div><strong>{m.listing.title}</strong> · {formatMoney(m.listing.priceKobo, m.listing.currency)} · score {m.score}<div className="small muted">{m.reasons.join(", ")}{m.match ? ` · ${humanize(m.match.status)}` : ""}</div></div>
                         {manage ? <form action={matchStatusAction} className="row"><input type="hidden" name="clientId" value={c.id} /><input type="hidden" name="requirementId" value={r.id} /><input type="hidden" name="listingId" value={m.listing.id} />
                           <select name="status" defaultValue={m.match?.status ?? "SUGGESTED"} aria-label="Status"><EnumOptions values={MATCH_STATUSES} /></select><input name="note" placeholder="Note" aria-label="Note" /><button className="btn" type="submit">Save</button></form> : null}
                       </div></li>))} />
@@ -185,8 +186,8 @@ export default async function ClientPage({ params: paramsP, searchParams: search
                 <Field label="City"><input name="city" /></Field>
                 <Field label="State"><input name="state" /></Field>
                 <Field label="Bedrooms (at least)"><input name="bedroomsMin" inputMode="numeric" /></Field>
-                <Field label="Lowest budget (₦)"><input name="budgetMin" inputMode="decimal" /></Field>
-                <Field label="Highest budget (₦)"><input name="budgetMax" inputMode="decimal" required /></Field>
+                <Field label={`Lowest budget (${moneySymbol()})`}><input name="budgetMin" inputMode="decimal" /></Field>
+                <Field label={`Highest budget (${moneySymbol()})`}><input name="budgetMax" inputMode="decimal" required /></Field>
               </div>
               <Field label="Notes"><input name="notes" /></Field>
               <button className="btn primary" type="submit">Save requirement</button></form>

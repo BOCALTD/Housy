@@ -691,6 +691,9 @@ model Listing {
   reviewNote  String         @default("") @map("review_note")
   postedById  String?        @map("posted_by_id")
   publishedAt DateTime?      @map("published_at")
+  /// Whether Housy's mark is on this property's public photos: fixed when it is first posted, from the platform setting then;
+  /// changed afterwards only when the administrator applies a change to all posted properties. Null until posted.
+  housyWatermark Boolean?   @map("housy_watermark")
   /// When a published listing was taken off the market (let, sold or withdrawn), for time-on-market figures.
   offMarketAt DateTime?      @map("off_market_at")
   /// Last time the company said it is still available (search hides it 45 days after; lib/match-rules.ts).

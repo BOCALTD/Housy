@@ -3,7 +3,7 @@
 import { requirePlatformAdmin } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
 import {
-  CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, savePaymentRoutes, saveStripeKeys, saveLiveChat, saveWatermark, LIVE_CHAT_PLACES, type LiveChatPlace, type LiveChatProvider, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
+  CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, savePaymentRoutes, saveStripeKeys, saveLiveChat, saveWatermark, configForAdmin, LIVE_CHAT_PLACES, type LiveChatPlace, type LiveChatProvider, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
 } from "@/lib/services/platform-config";
 
 import { endMaintenance, scheduleMaintenance } from "@/lib/services/maintenance-mode";
@@ -88,10 +88,24 @@ export async function liveChatAction(form: FormData) {
   });
 }
 
-export async function watermarkAction(form: FormData) {
+export async function watermarkSwitchAction(form: FormData) {
+  const housy = str(form, "housy") === "1";
+  const scope = str(form, "scope") === "new" ? "new" : "all";
   return act(PAGE, async () => {
     const a = await requirePlatformAdmin();
-    await saveWatermark(a.id, { housy: form.get("housy") === "on", position: str(form, "position") });
-    return withNotice(PAGE, "Watermark setting saved.");
+    const position = (await configForAdmin()).watermark.position;
+    const r = await saveWatermark(a.id, { housy, position, scope });
+    return withNotice(PAGE, scope === "all"
+      ? `Housy's mark is ${housy ? "on" : "off"} for all properties (${r.changed} already posted) and new ones.`
+      : `Housy's mark is ${housy ? "on" : "off"} for properties posted from now on. Those already posted are unchanged.`);
+  });
+}
+
+export async function watermarkPositionAction(form: FormData) {
+  return act(PAGE, async () => {
+    const a = await requirePlatformAdmin();
+    const housy = (await configForAdmin()).watermark.housy;
+    await saveWatermark(a.id, { housy, position: str(form, "position"), scope: "new" });
+    return withNotice(PAGE, "Position saved.");
   });
 }

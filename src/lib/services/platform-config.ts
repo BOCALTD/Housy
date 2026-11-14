@@ -289,8 +289,35 @@ export function liveChatPlaceOf(path: string): LiveChatPlace | null {
   return "public";
 }
 
-/** Housy's mark on public property photos: on or off, and where. */
-export async function saveWatermark(adminId: string, raw: { housy: boolean; position: string }) {
+/**
+ * Housy's mark on public property photos: on or off, and where. Each property keeps the setting it was posted under; "all"
+ * applies the change to every property already posted too, "new" only to properties posted from now on. Changing only the
+ * position applies everywhere the mark shows.
+ */
+export async function saveWatermark(adminId: string, raw: { housy: boolean; position: string; scope?: "all" | "new" }) {
   const position = raw.position === "centre" ? "centre" : "corner";
-  await save(adminId, [[K.watermarkHousy, raw.housy ? "1" : "0"], [K.watermarkPosition, position]], "watermark", { housy: raw.housy, position });
+  const scope = raw.scope === "new" ? "new" : "all";
+  const before = (await platformConfig()).watermark.housy;
+  let changed = 0;
+  if (before !== raw.housy || scope === "all") {
+    changed = await withPlatformAdmin(adminId, async (tx) => {
+      if (scope === "all") return (await tx.listing.updateMany({ where: { publishedAt: { not: null } }, data: { housyWatermark: raw.housy } })).count;
+      // Only new ones: properties already posted keep what they had (anything not yet fixed is fixed at the old setting).
+      await tx.listing.updateMany({ where: { publishedAt: { not: null }, housyWatermark: null }, data: { housyWatermark: before } });
+      return 0;
+    });
+  }
+  await save(adminId, [[K.watermarkHousy, raw.housy ? "1" : "0"], [K.watermarkPosition, position]], "watermark", { housy: raw.housy, position, scope, postedChanged: changed });
+  return { changed };
+}
+
+/** How many posted properties have Housy's mark on and off, for the settings page. */
+export async function watermarkCounts() {
+  return withPlatformAdmin("system", async (tx) => {
+    const [on, off] = await Promise.all([
+      tx.listing.count({ where: { publishedAt: { not: null }, housyWatermark: true } }),
+      tx.listing.count({ where: { publishedAt: { not: null }, housyWatermark: false } }),
+    ]);
+    return { on, off };
+  });
 }

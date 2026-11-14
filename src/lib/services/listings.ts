@@ -5,6 +5,7 @@ import { referralEvent } from "./referrals";
 import { alertNewListing, alertWatchers, notifyEnquiry } from "./alerts";
 import { vacancyListingPublished } from "./vacancies";
 import { z } from "zod";
+import { platformConfig } from "./platform-config";
 import { locate, publicPosition } from "../geo-rules";
 import { withTenant, withPublic, withPlatformAdmin } from "../db";
 import { logActivity } from "../audit";
@@ -157,7 +158,11 @@ export async function reviewListing(adminUserId: string, listingId: string, deci
     const status = decision === "approve" ? "PUBLISHED" : "DRAFT";
     await tx.listing.update({
       where: { id: listing.id },
-      data: { status, reviewNote: note.trim(), publishedAt: decision === "approve" ? new Date() : null, ...(decision === "approve" ? { confirmedAt: new Date(), confirmRemindedAt: null } : {}) },
+      data: {
+        status, reviewNote: note.trim(), publishedAt: decision === "approve" ? new Date() : null, ...(decision === "approve" ? { confirmedAt: new Date(), confirmRemindedAt: null } : {}),
+        // Housy's mark is fixed when a property is first posted, from the setting at that moment (Admin → Settings).
+        ...(decision === "approve" && listing.housyWatermark === null ? { housyWatermark: (await platformConfig()).watermark.housy } : {}),
+      },
     });
     await logActivity(tx, {
       companyId: listing.companyId, actorId: adminUserId, entityType: "listing", entityId: listing.id,

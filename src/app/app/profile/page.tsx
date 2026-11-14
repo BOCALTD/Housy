@@ -59,7 +59,7 @@ export default async function ProfilePage({ searchParams: searchP }: { searchPar
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`/companies/${member.companyId}/logo`} alt="Your logo" style={{ width: 120, height: 72, objectFit: "contain", background: "#fff", borderRadius: 12, border: "1px solid var(--line)", padding: 6 }} />
             ) : <span className="small muted">No logo yet.</span>}
-            <p className="small muted" style={{ flex: "1 1 220px", margin: 0 }}>Shown on your public profile. Housy&apos;s own mark is added to every property photo the public sees; with the logo watermark, your logo goes in the opposite corner.</p>
+            <p className="small muted" style={{ flex: "1 1 220px", margin: 0 }}>Shown on your public profile. {logo.allowed ? "Your plan includes the logo watermark, so Housy's mark is not put on your photos: show your logo on them, or keep them clean." : "Housy may add its mark to the photos the public sees. With the logo watermark (Pro and Elite), Housy's mark comes off and you can show your own logo, or keep photos clean."}</p>
           </div>
           <form action={logoUploadAction} className="stack">
             <Field label={logo.hasLogo ? "Replace the logo" : "Upload your logo"} hint="JPG, PNG or WEBP, under 3 MB. A logo on a transparent background looks best."><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required /></Field>
@@ -70,11 +70,12 @@ export default async function ProfilePage({ searchParams: searchP }: { searchPar
           {logo.hasLogo ? <form action={logoRemoveAction}><button className="btn danger" type="submit" data-confirm="Remove your logo?" data-confirm-body="It leaves your profile, and the logo watermark is switched off." data-confirm-ok="Remove logo">Remove logo</button></form> : null}
           <div className="stack" style={{ gap: 6 }}>
             <h3 className="small">Logo watermark on your property photos</h3>
+            {logo.allowed ? <p className="small muted">{logo.watermark ? "Your photos show your logo." : "Your photos are clean: no watermark."}</p> : null}
             {logo.allowed ? (
               <form action={logoWatermarkAction} className="row" style={{ flexWrap: "wrap" }}>
                 <input type="hidden" name="on" value={logo.watermark ? "0" : "1"} />
                 <span className="small">{logo.watermark ? <span className="pill ok">On</span> : <span className="pill">Off</span>}</span>
-                <button className="btn" type="submit" disabled={!logo.hasLogo && !logo.watermark} data-confirm={logo.watermark ? "Turn off the logo watermark?" : "Put your logo on your property photos?"} data-confirm-body={logo.watermark ? "Your logo leaves your photos. Housy's mark stays." : "It shows on every photo of your published listings, in the corner opposite Housy's mark."} data-confirm-ok={logo.watermark ? "Turn off" : "Turn on"} data-confirm-tone="default">{logo.watermark ? "Turn off" : "Turn on"}</button>
+                <button className="btn" type="submit" disabled={!logo.hasLogo && !logo.watermark} data-confirm={logo.watermark ? "Turn off the logo watermark?" : "Put your logo on your property photos?"} data-confirm-body={logo.watermark ? "Your logo leaves your photos, which then show clean (no watermark)." : "It shows on every photo of your published listings, in the bottom corner."} data-confirm-ok={logo.watermark ? "Turn off" : "Turn on"} data-confirm-tone="default">{logo.watermark ? "Turn off" : "Turn on"}</button>
               </form>
             ) : <p className="small muted">Part of the Pro and Elite plans. <Link href="/app/billing">See plans</Link></p>}
           </div>

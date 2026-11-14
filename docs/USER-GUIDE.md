@@ -29,8 +29,8 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 - Listings show their own currency. When searching with a price range, choose the currency the range is in.
 
 ## Photo watermarks and country badges
-- Every property photo the public sees carries Housy's mark (bottom right, or faint across the middle), while Housy's administrators keep it on. Your own copies in the workspace stay clean.
-- On the Pro and Elite plans, a business can add its own logo as a watermark in the opposite corner: *Profile → Logo and photo watermark*, upload the logo, then *Turn on*.
+- Property photos the public sees carry Housy's mark (bottom right, or faint across the middle) when the property was posted while the mark was on. When Housy's administrators switch it off or on, they choose whether the change is for every property already posted or only for new ones. Your own copies in the workspace stay clean.
+- On the Pro and Elite plans, Housy's mark is not put on a business's photos. The business can show its own logo instead (*Profile → Logo and photo watermark*: upload the logo, then *Turn on*), or keep its photos clean.
 - A country badge (flag and name) shows where each company, agent, verification partner and flatmate is.
 
 ## Live chat

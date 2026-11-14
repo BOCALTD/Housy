@@ -2,8 +2,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
-import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, LIVE_CHAT_ID_HINTS, LIVE_CHAT_LABELS, LIVE_CHAT_PLACES, LIVE_CHAT_PLACE_LABELS, LIVE_CHAT_PROVIDERS, configForAdmin } from "@/lib/services/platform-config";
-import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, liveChatAction, paystackAction, watermarkAction, routesAction, stripeAction } from "./actions";
+import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, LIVE_CHAT_ID_HINTS, LIVE_CHAT_LABELS, LIVE_CHAT_PLACES, LIVE_CHAT_PLACE_LABELS, LIVE_CHAT_PROVIDERS, configForAdmin, watermarkCounts } from "@/lib/services/platform-config";
+import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, liveChatAction, paystackAction, watermarkPositionAction, watermarkSwitchAction, routesAction, stripeAction } from "./actions";
 import { COUNTRIES, COUNTRY_CODES, providerCanServe } from "@/lib/regions";
 import { maintenanceNow } from "@/lib/services/maintenance-mode";
 import { formatDateTime, toLagosLocal, zoneLabel } from "@/lib/dates";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function PlatformSettings({ searchParams: s }: { searchParams?: Promise<SP> }) {
   const searchParams = await s;
   await requirePlatformAdmin();
-  const [c, m] = await Promise.all([configForAdmin(), maintenanceNow()]);
+  const [c, m, wm] = await Promise.all([configForAdmin(), maintenanceNow(), watermarkCounts()]);
   const w = m.window;
   const soon = toLagosLocal(new Date(Date.now() + 25 * 3_600_000));
   const h = await headers();
@@ -124,14 +124,36 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
 
       <section className="card stack" aria-labelledby="wm-h">
         <h2 id="wm-h">Watermark on property photos</h2>
-        <p>{c.watermark.housy ? <span className="pill ok">Housy&apos;s mark on</span> : <span className="pill warn">Off</span>} <span className="small muted">Housy&apos;s mark is laid over every listing photo the public sees, so photos copied elsewhere show where they came from. Companies&apos; own copies stay clean. Businesses on a plan with the logo watermark can add their logo in the other corner.</span></p>
-        <form action={watermarkAction} className="stack">
-          <label className="check"><input type="checkbox" name="housy" defaultChecked={c.watermark.housy} /><span>Put Housy&apos;s mark on property photos</span></label>
-          <fieldset className="choice-row"><legend className="small muted">Where</legend>
+        <p>{c.watermark.housy ? <span className="pill ok">On for new properties</span> : <span className="pill warn">Off for new properties</span>} <span className="small muted">Already posted: {wm.on} with Housy&apos;s mark, {wm.off} without.</span></p>
+        <p className="small muted">Housy&apos;s mark is laid over the public photos of each property posted while it is on; companies&apos; own copies stay clean. Businesses paying for their own logo watermark never get Housy&apos;s mark: they show their logo or keep photos clean.</p>
+        <div className="stack" style={{ gap: 8 }}>
+          {(c.watermark.housy ? ["off"] : ["on"]).map((to) => (
+            <div key={to} className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+              <form action={watermarkSwitchAction}><input type="hidden" name="housy" value={to === "on" ? "1" : "0"} /><input type="hidden" name="scope" value="all" />
+                <button className="btn" type="submit" data-confirm={`Turn Housy's mark ${to} for all properties?`} data-confirm-body={to === "on" ? "It goes on the photos of every property already posted, and of every property posted from now on (except businesses paying for their own logo watermark)." : "It comes off the photos of every property already posted, and is not put on new ones."} data-confirm-ok={`Turn ${to} for all`} data-confirm-tone="default">Turn {to} for all properties</button>
+              </form>
+              <form action={watermarkSwitchAction}><input type="hidden" name="housy" value={to === "on" ? "1" : "0"} /><input type="hidden" name="scope" value="new" />
+                <button className="btn" type="submit" data-confirm={`Turn Housy's mark ${to} for new properties only?`} data-confirm-body={to === "on" ? "Properties already posted keep their photos as they are; properties posted from now on get the mark." : "Properties already posted keep the mark; properties posted from now on are left without it."} data-confirm-ok={`Turn ${to} for new only`} data-confirm-tone="default">Turn {to} for new properties only</button>
+              </form>
+            </div>
+          ))}
+          {c.watermark.housy && wm.off > 0 ? (
+            <form action={watermarkSwitchAction}><input type="hidden" name="housy" value="1" /><input type="hidden" name="scope" value="all" />
+              <button className="btn" type="submit" data-confirm="Put Housy's mark on all posted properties?" data-confirm-body={`The ${wm.off} posted properties without it get it too.`} data-confirm-ok="Put it on all" data-confirm-tone="default">Also put it on the {wm.off} posted without it</button>
+            </form>
+          ) : null}
+          {!c.watermark.housy && wm.on > 0 ? (
+            <form action={watermarkSwitchAction}><input type="hidden" name="housy" value="0" /><input type="hidden" name="scope" value="all" />
+              <button className="btn" type="submit" data-confirm="Take Housy's mark off all posted properties?" data-confirm-body={`The ${wm.on} posted properties that still have it lose it too.`} data-confirm-ok="Take it off all" data-confirm-tone="default">Also take it off the {wm.on} posted with it</button>
+            </form>
+          ) : null}
+        </div>
+        <form action={watermarkPositionAction} className="stack">
+          <fieldset className="choice-row"><legend className="small muted">Where the mark sits</legend>
             <label className="chip-choice"><input type="radio" name="position" value="corner" defaultChecked={c.watermark.position === "corner"} /><span>Bottom corner (small)</span></label>
             <label className="chip-choice"><input type="radio" name="position" value="centre" defaultChecked={c.watermark.position === "centre"} /><span>Across the middle (faint)</span></label>
           </fieldset>
-          <div className="row"><button className="btn" type="submit" data-confirm="Save the watermark setting?" data-confirm-body="Property photos show the change within a minute or two." data-confirm-ok="Save" data-confirm-tone="default">Save watermark</button></div>
+          <div className="row"><button className="btn" type="submit" data-confirm="Move Housy's mark?" data-confirm-body="Every photo that carries it shows it in the new place within a minute or two." data-confirm-ok="Save" data-confirm-tone="default">Save position</button></div>
         </form>
       </section>
 

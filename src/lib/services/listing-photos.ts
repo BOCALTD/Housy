@@ -101,5 +101,5 @@ export async function publicPhotosOf(listingId: string) {
 
 /** One picture for the public route. Row-level security returns nothing unless its listing is published. */
 export async function publicPhotoBytes(id: string) {
-  return withPublic((tx) => tx.listingPhoto.findFirst({ where: { id }, select: { id: true, companyId: true, mimeType: true, bytes: true } }));
+  return withPublic((tx) => tx.listingPhoto.findFirst({ where: { id }, select: { id: true, companyId: true, mimeType: true, bytes: true, listing: { select: { housyWatermark: true } } } }));
 }

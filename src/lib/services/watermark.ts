@@ -1,9 +1,9 @@
 /**
  * Watermarks on the property photos the public sees (the company's own copies stay clean):
- *  - Housy's mark, on every listing photo while the platform administrator keeps it on (Admin → Settings), in a corner or
- *    across the middle;
- *  - the business's own logo, in the other corner, when its plan includes "Logo watermark" and it switched it on with a logo
- *    uploaded (Profile).
+ *  - Housy's mark, on each property posted while the platform administrator had it on (Admin → Settings), in a corner or
+ *    across the middle; the administrator can apply a change to every property already posted;
+ *  - for a business whose plan includes "Logo watermark": never Housy's mark, but its own logo in the corner if it switched it
+ *    on with a logo uploaded (Profile), or nothing at all.
  * Watermarked copies are made when a photo is first asked for and kept in memory for a while, so changing a setting shows on
  * the next view of each photo.
  */
@@ -73,16 +73,19 @@ export async function applyWatermark(bytes: Buffer, mime: string, plan: Watermar
 }
 
 /**
- * What goes on a company's photos now: Housy's mark (platform setting), and its logo if its plan includes the logo watermark,
- * it switched it on and a logo is uploaded. Read without a signed-in person (the public photo address).
+ * What goes on a company's photos now. A business whose plan includes the logo watermark never gets Housy's mark: it shows its
+ * own logo (when it switched it on and uploaded one) or nothing at all. Otherwise Housy's mark shows on each property that
+ * has it (fixed when the property was posted; see listings.housyWatermark), where the administrator chose.
+ * Read without a signed-in person (the public photo address).
  */
-export async function watermarkPlanFor(companyId: string, now = new Date()): Promise<WatermarkPlan & { key: string }> {
+export async function watermarkPlanFor(companyId: string, listingHousy: boolean | null = null, now = new Date()): Promise<WatermarkPlan & { key: string }> {
   const cfg = await platformConfig();
-  const housy = cfg.watermark.housy ? cfg.watermark.position : false;
-  const c = await withPlatformAdmin("system", (tx) => tx.company.findUnique({ where: { id: companyId }, select: { logoWatermark: true, logoMime: true, logoBytes: true } }));
-  const co = c?.logoWatermark && c.logoBytes && c.logoMime && (await logoWatermarkAllowed(companyId, now)) ? { bytes: Buffer.from(c.logoBytes), mime: c.logoMime } : null;
-  const key = `${housy || "none"}:${co ? createHash("sha1").update(co.bytes).digest("hex").slice(0, 12) : "nologo"}`;
-  return { housy, logo: co, key };
+  const paid = await logoWatermarkAllowed(companyId, now);
+  const c = paid ? await withPlatformAdmin("system", (tx) => tx.company.findUnique({ where: { id: companyId }, select: { logoWatermark: true, logoMime: true, logoBytes: true } })) : null;
+  const logo = c?.logoWatermark && c.logoBytes && c.logoMime ? { bytes: Buffer.from(c.logoBytes), mime: c.logoMime } : null;
+  const housy = !paid && (listingHousy ?? cfg.watermark.housy) ? cfg.watermark.position : false;
+  const key = `${housy || "none"}:${logo ? createHash("sha1").update(logo.bytes).digest("hex").slice(0, 12) : "nologo"}`;
+  return { housy, logo, key };
 }
 
 /**
@@ -108,9 +111,12 @@ const MAX = 240;
 const plans = new Map<string, { at: number; plan: Awaited<ReturnType<typeof watermarkPlanFor>> }>();
 
 /** A public photo with today's watermarks. */
-export async function watermarked(photo: { id: string; companyId: string; bytes: Uint8Array; mimeType: string }): Promise<Buffer> {
-  let p = plans.get(photo.companyId);
-  if (!p || Date.now() - p.at > 60_000) { p = { at: Date.now(), plan: await watermarkPlanFor(photo.companyId) }; plans.set(photo.companyId, p); }
+export async function watermarked(photo: { id: string; companyId: string; bytes: Uint8Array; mimeType: string; listing?: { housyWatermark: boolean | null } | null }): Promise<Buffer> {
+  const flag = photo.listing?.housyWatermark ?? null;
+  const pk = `${photo.companyId}:${flag}`;
+  let p = plans.get(pk);
+  if (!p || Date.now() - p.at > 60_000) { p = { at: Date.now(), plan: await watermarkPlanFor(photo.companyId, flag) }; plans.set(pk, p); }
+  if (plans.size > 2000) plans.delete(plans.keys().next().value!);
   const key = `${photo.id}:${p.plan.key}`;
   const hit = cache.get(key);
   if (hit) { cache.delete(key); cache.set(key, hit); return hit; }

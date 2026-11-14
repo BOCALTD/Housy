@@ -42,7 +42,7 @@ test("the map shows published listings in view, at blurred positions, in any cou
   assert.ok(!refs.includes(hidden.publicRef), "drafts never appear");
   assert.ok(!refs.includes(lekki.publicRef), "only what is in view");
   const pin = v.markers.find((m) => m.kind === "pin" && m.ref === london.publicRef);
-  assert.ok(pin && pin.kind === "pin" && pin.price === "3m" && pin.priceLabel.includes("3,000,000"));
+  assert.ok(pin && pin.kind === "pin" && pin.price === "₦3m" && pin.priceLabel.includes("3,000,000"));
 
   const rentOnly = await mapView(camden, 14, { purpose: "RENT" });
   assert.ok(!rentOnly.markers.some((m) => m.kind === "pin" && m.ref === sale.publicRef));

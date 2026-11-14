@@ -134,7 +134,7 @@ test("a company's plan is read by that company alone, and a person's plan by tha
   await assignSubscription(admin.id, { planId: pro.id, periodEnd: relativeDate(30), companyId: a.companyId });
   const mineA = await companySubscription(a.companyId, a.userId);
   assert.equal(mineA.state, "ACTIVE");
-  assert.deepEqual(mineA.features.map((f) => f.key).sort(), ["COLLAB_COMPANY", "CONTACT_DETAILS"]);
+  assert.deepEqual(mineA.features.map((f) => f.key).sort(), ["COLLAB_COMPANY", "CONTACT_DETAILS", "LOGO_WATERMARK"]);
   assert.equal((await companySubscription(b.companyId, b.userId)).sub, null);
   assert.equal((await mySubscription(other.userId)).sub, null);
   // Nobody but the platform administrator can write a subscription.

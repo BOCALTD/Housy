@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { CountryBadge } from "@/components/CountryBadge";
+import { countriesOfCompanies } from "@/lib/services/business-region";
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { ensureReputation, publicCompany, publicReviews } from "@/lib/services/reviews";
@@ -42,7 +44,7 @@ export default async function CompanyPage({ params: paramsP, searchParams: searc
     <div className="stack-lg">
       <div className="card stack">
         <p className="eyebrow">{company.kind === "DEVELOPER" ? "Developer" : "Company"}</p>
-        <h1>{company.displayName} <GoldBadge tier={tier} /></h1>
+        <h1>{company.displayName} <GoldBadge tier={tier} /> <CountryBadge country={(await countriesOfCompanies([company.companyId])).get(company.companyId)} /></h1>
         {company.tagline ? <p className="muted">{company.tagline}</p> : null}
         <TrustBadge t={trust} full />
         <ScoreLine score={rep?.score ?? 0} count={rep?.reviewCount ?? 0} average={rep?.average ?? 0} />

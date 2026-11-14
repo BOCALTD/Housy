@@ -17,6 +17,7 @@ export const FEATURES: Record<Audience, Feature[]> = {
     { id: "collab", label: "Collaborate with other companies on deals", entitlement: "COLLAB_COMPANY" },
     { id: "bulk", label: "Bulk messaging to clients and tenants", entitlement: "BULK_MESSAGING" },
     { id: "ads", label: "Advertise properties in sponsored places", entitlement: "ADVERTISING" },
+    { id: "logo", label: "Your logo as a watermark on your property photos", entitlement: "LOGO_WATERMARK" },
     { id: "promos", label: "Free promotions (festive offers on the home page)", tier: "SILVER" },
     { id: "gold", label: "Elite badge and Premium tag on every listing", tier: "GOLD" },
     { id: "boost", label: "Automatic boost in search results", tier: "GOLD" },
@@ -31,6 +32,7 @@ export const FEATURES: Record<Audience, Feature[]> = {
     { id: "profile", label: "Public agent profile with reviews, badges and reels", always: true },
     { id: "contact", label: "Share phone numbers and email addresses in messages", entitlement: "CONTACT_DETAILS" },
     { id: "ads", label: "Advertise properties in sponsored places", entitlement: "ADVERTISING" },
+    { id: "logo", label: "Your logo as a watermark on your property photos", entitlement: "LOGO_WATERMARK" },
   ],
 };
 

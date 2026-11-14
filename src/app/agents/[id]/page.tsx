@@ -1,5 +1,7 @@
 import { recordSignal } from "@/lib/services/signals";
 import Link from "next/link";
+import { CountryBadge } from "@/components/CountryBadge";
+import { countriesOfCompanies } from "@/lib/services/business-region";
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { ensureReputation, publicAgent, publicReviews } from "@/lib/services/reviews";
@@ -48,7 +50,7 @@ export default async function AgentPage({ params: paramsP, searchParams: searchP
     <div className="stack-lg">
       <div className="card stack">
         <p className="eyebrow">Agent{agent.companyName ? ` at ${agent.companyName}` : ""}</p>
-        <h1>{agent.displayName}</h1>
+        <h1>{agent.displayName} <CountryBadge country={(await countriesOfCompanies([agent.companyId])).get(agent.companyId)} /></h1>
         <TrustBadge t={trust} full />
         {agent.headline ? <p className="muted">{agent.headline}</p> : null}
         <ScoreLine score={rep?.score ?? 0} count={rep?.reviewCount ?? 0} average={rep?.average ?? 0} />

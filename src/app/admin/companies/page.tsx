@@ -1,3 +1,4 @@
+import { CountryBadge } from "@/components/CountryBadge";
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { adminCompanies } from "@/lib/services/governance";
@@ -22,7 +23,7 @@ export default async function CompaniesAdmin({ searchParams }: { searchParams?: 
         {r.rows.length === 0 ? <p className="muted">No companies match.</p> : (
           <ul className="timeline">{r.rows.map((c) => (
             <li key={c.id} className="row between" style={{ width: "100%" }}>
-              <span><Link href={`/admin/companies/${c.id}`}><strong>{c.name}</strong></Link> <span className="small muted">· joined {formatDate(c.createdAt)}</span></span>
+              <span><Link href={`/admin/companies/${c.id}`}><strong>{c.name}</strong></Link> <CountryBadge country={c.country} compact /> <span className="small muted">· joined {formatDate(c.createdAt)}</span></span>
               <span className="row"><TrustBadge t={c.trust} />{c.suspendedAt ? <Pill status="SUSPENDED" label="Suspended" /> : null}</span>
             </li>
           ))}</ul>

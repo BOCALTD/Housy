@@ -1,3 +1,4 @@
+import { CountryBadge } from "@/components/CountryBadge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -90,7 +91,7 @@ export default async function CustomerCase({ params: p, searchParams: s }: { par
           <dt>Checks</dt><dd><ul className="plain">{c.services.map((x) => <li key={x}>{serviceName(x)}</li>)}</ul></dd>
           {c.listingRef ? <><dt>Listing</dt><dd><Link href={`/properties/${c.listingRef}`}>{c.listingRef}</Link></dd></> : null}
           {c.priceKobo !== null ? <><dt>Price</dt><dd>{naira(c.priceKobo)}{c.invoiceId ? <> · <Link href={`/me/billing/${c.invoiceId}`}>invoice</Link></> : null}</dd></> : null}
-          <dt>Provider</dt><dd>{c.provider ? c.provider.name : "Not yet chosen"}</dd>
+          <dt>Provider</dt><dd>{c.provider ? <>{c.provider.name} <CountryBadge country={c.provider.country} compact /></> : "Not yet chosen"}</dd>
           {c.requiredBy ? <><dt>Expected by</dt><dd>{day(c.requiredBy)}</dd></> : null}
           {c.closingNote && ["REJECTED", "CANCELLED", "COMPLETED"].includes(c.status) ? <><dt>Note</dt><dd>{c.closingNote}</dd></> : null}
         </dl>

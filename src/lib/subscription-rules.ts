@@ -1,7 +1,7 @@
 // Pure rules for subscriptions and entitlements (master prompt Sections 27 and 41). No database access here.
 
 /** The features a plan can allow. The platform administrator decides which plan has which; a plan never grants access to anyone's data. */
-export const ENTITLEMENT_KEYS = ["COLLAB_SEEKER_AGENT", "COLLAB_COMPANY", "CONTACT_DETAILS", "BULK_MESSAGING", "ADVERTISING"] as const;
+export const ENTITLEMENT_KEYS = ["COLLAB_SEEKER_AGENT", "COLLAB_COMPANY", "CONTACT_DETAILS", "BULK_MESSAGING", "ADVERTISING", "LOGO_WATERMARK"] as const;
 export type EntitlementKey = (typeof ENTITLEMENT_KEYS)[number];
 
 export const ENTITLEMENT_LABELS: Record<EntitlementKey, string> = {
@@ -10,6 +10,7 @@ export const ENTITLEMENT_LABELS: Record<EntitlementKey, string> = {
   CONTACT_DETAILS: "Share phone numbers and email addresses in messages",
   BULK_MESSAGING: "Bulk messaging",
   ADVERTISING: "Advertise properties (campaigns running at once)",
+  LOGO_WATERMARK: "Your logo as a watermark on your property photos",
 };
 
 /** Whether a feature counts something (workspaces) or is simply on or off. */

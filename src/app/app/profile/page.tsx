@@ -5,7 +5,9 @@ import { can } from "@/lib/permissions";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
-import { agentProfileAction, companyProfileAction } from "./actions";
+import Link from "next/link";
+import { logoState } from "@/lib/services/company-logo";
+import { agentProfileAction, companyProfileAction, logoRemoveAction, logoUploadAction, logoWatermarkAction } from "./actions";
 
 export const metadata = { title: "Public profile and plan" };
 export const dynamic = "force-dynamic";
@@ -13,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function ProfilePage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const member = await requireMember("crm.view");
-  const [{ agent, company }, plan] = await Promise.all([myProfiles(member), companySubscription(member.companyId, member.userId)]);
+  const [{ agent, company }, plan, logo] = await Promise.all([myProfiles(member), companySubscription(member.companyId, member.userId), logoState(member)]);
   const admin = can(member.role, "settings.manage");
   return (
     <div className="stack-lg">
@@ -47,6 +49,35 @@ export default async function ProfilePage({ searchParams: searchP }: { searchPar
             <button className="btn primary" type="submit">Save</button>
           </form>
           {company ? <p className="small muted">{company.followerCount} {company.followerCount === 1 ? "follower" : "followers"}</p> : null}
+        </section>
+      ) : null}
+      {admin ? (
+        <section className="card stack" aria-labelledby="logo-h">
+          <h2 id="logo-h">Logo and photo watermark</h2>
+          <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+            {logo.hasLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`/companies/${member.companyId}/logo`} alt="Your logo" style={{ width: 120, height: 72, objectFit: "contain", background: "#fff", borderRadius: 12, border: "1px solid var(--line)", padding: 6 }} />
+            ) : <span className="small muted">No logo yet.</span>}
+            <p className="small muted" style={{ flex: "1 1 220px", margin: 0 }}>Shown on your public profile. Housy&apos;s own mark is added to every property photo the public sees; with the logo watermark, your logo goes in the opposite corner.</p>
+          </div>
+          <form action={logoUploadAction} className="stack">
+            <Field label={logo.hasLogo ? "Replace the logo" : "Upload your logo"} hint="JPG, PNG or WEBP, under 3 MB. A logo on a transparent background looks best."><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required /></Field>
+            <div className="row" style={{ flexWrap: "wrap" }}>
+              <button className="btn" type="submit" data-confirm="Upload this logo?" data-confirm-body="It shows on your public profile, and on your photos if the watermark is on." data-confirm-ok="Upload" data-confirm-tone="default">Upload</button>
+            </div>
+          </form>
+          {logo.hasLogo ? <form action={logoRemoveAction}><button className="btn danger" type="submit" data-confirm="Remove your logo?" data-confirm-body="It leaves your profile, and the logo watermark is switched off." data-confirm-ok="Remove logo">Remove logo</button></form> : null}
+          <div className="stack" style={{ gap: 6 }}>
+            <h3 className="small">Logo watermark on your property photos</h3>
+            {logo.allowed ? (
+              <form action={logoWatermarkAction} className="row" style={{ flexWrap: "wrap" }}>
+                <input type="hidden" name="on" value={logo.watermark ? "0" : "1"} />
+                <span className="small">{logo.watermark ? <span className="pill ok">On</span> : <span className="pill">Off</span>}</span>
+                <button className="btn" type="submit" disabled={!logo.hasLogo && !logo.watermark} data-confirm={logo.watermark ? "Turn off the logo watermark?" : "Put your logo on your property photos?"} data-confirm-body={logo.watermark ? "Your logo leaves your photos. Housy's mark stays." : "It shows on every photo of your published listings, in the corner opposite Housy's mark."} data-confirm-ok={logo.watermark ? "Turn off" : "Turn on"} data-confirm-tone="default">{logo.watermark ? "Turn off" : "Turn on"}</button>
+              </form>
+            ) : <p className="small muted">Part of the Pro and Elite plans. <Link href="/app/billing">See plans</Link></p>}
+          </div>
         </section>
       ) : null}
       <section className="card stack">

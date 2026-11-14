@@ -142,6 +142,7 @@ test("no route hands out data without checking who is asking", () => {
     "app/blog/feed.xml/route.ts": "the published blog posts as an RSS feed; read-only",
     "app/calendar/[token]/route.ts": "a private calendar feed: the secret in the link is the key (stored as a hash, replaceable, rate limited)",
     "app/partners/[id]/logo/route.ts": "logos of active partners only; the database hides the rest",
+    "app/companies/[id]/logo/route.ts": "a business's own logo, shown on its public profile; nothing for a suspended business",
     "app/photos/[id]/route.ts": "pictures of published listings; the database returns nothing for any other listing",
     "app/music/[id]/audio/route.ts": "tracks in the licensed music library that are switched on; the database hides the rest",
   };

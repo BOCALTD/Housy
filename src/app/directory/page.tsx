@@ -1,6 +1,8 @@
 import { trustMany } from "@/lib/services/kyc";
 import { TrustBadge } from "@/components/TrustBadge";
 import Link from "next/link";
+import { CountryBadge } from "@/components/CountryBadge";
+import { countriesOfCompanies } from "@/lib/services/business-region";
 import { getMember, getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { directory, type DirectoryKind } from "@/lib/services/community";
@@ -28,6 +30,7 @@ export default async function DirectoryPage({ searchParams: searchP }: { searchP
   const q = sp(searchParams, "q") ?? "";
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);
   const { rows, more } = await directory({ kind, q, page, viewerId: session?.user.id ?? null });
+  const countries = await countriesOfCompanies(rows.map((r) => r.companyId ?? ""));
   const tiers = await tiersFor(rows.filter((r) => r.kind !== "AGENT").map((r) => r.targetId));
   const reps = new Map([...(await reputationMany("AGENT", rows.filter((r) => r.kind === "AGENT").map((r) => r.targetId))), ...(await reputationMany("COMPANY", rows.filter((r) => r.kind !== "AGENT").map((r) => r.targetId)))]);
   const trusts = new Map([...(await trustMany("AGENT", rows.filter((r) => r.kind === "AGENT").map((r) => r.targetId))), ...(await trustMany("COMPANY", rows.filter((r) => r.kind !== "AGENT").map((r) => r.targetId)))]);
@@ -61,7 +64,7 @@ export default async function DirectoryPage({ searchParams: searchP }: { searchP
               <div className="dir-body">
                 <strong className="dir-name"><Link href={href}>{r.name}</Link></strong>
                 <span className="small muted">{r.sub}</span>
-                <div className="dir-badges">{trusts.get(r.targetId) ? <TrustBadge t={trusts.get(r.targetId)!} /> : null}{r.kind !== "AGENT" ? <GoldBadge tier={tiers.get(r.targetId) ?? "BASIC"} /> : null}</div>
+                <div className="dir-badges"><CountryBadge country={countries.get(r.companyId ?? "")} compact />{trusts.get(r.targetId) ? <TrustBadge t={trusts.get(r.targetId)!} /> : null}{r.kind !== "AGENT" ? <GoldBadge tier={tiers.get(r.targetId) ?? "BASIC"} /> : null}</div>
                 {r.blurb ? <p className="small dir-blurb">{r.blurb}</p> : null}
                 <div className="dir-stats">
                   <span><b>{r.followers}</b> {r.followers === 1 ? "follower" : "followers"}</span>

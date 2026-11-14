@@ -3,7 +3,7 @@
 import { requirePlatformAdmin } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
 import {
-  CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, savePaymentRoutes, saveStripeKeys, saveLiveChat, LIVE_CHAT_PLACES, type LiveChatPlace, type LiveChatProvider, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
+  CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, savePaymentRoutes, saveStripeKeys, saveLiveChat, saveWatermark, LIVE_CHAT_PLACES, type LiveChatPlace, type LiveChatProvider, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
 } from "@/lib/services/platform-config";
 
 import { endMaintenance, scheduleMaintenance } from "@/lib/services/maintenance-mode";
@@ -85,5 +85,13 @@ export async function liveChatAction(form: FormData) {
     const provider = str(form, "provider") as LiveChatProvider;
     await saveLiveChat(a.id, { provider, id: str(form, "id"), places });
     return withNotice(PAGE, provider === "none" ? "Live chat is off." : "Live chat saved. Open the site in another browser to try the Chat button.");
+  });
+}
+
+export async function watermarkAction(form: FormData) {
+  return act(PAGE, async () => {
+    const a = await requirePlatformAdmin();
+    await saveWatermark(a.id, { housy: form.get("housy") === "on", position: str(form, "position") });
+    return withNotice(PAGE, "Watermark setting saved.");
   });
 }

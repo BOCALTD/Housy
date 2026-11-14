@@ -121,7 +121,7 @@ export async function findPeople(adminId: string, f: { q?: string; status?: "sus
     ...(q ? { OR: [{ email: { contains: q.toLowerCase() } }, { name: { contains: q, mode: "insensitive" as const } }, { phone: { contains: q.replace(/\s+/g, "") } }] } : {}),
   };
   const [rows, total] = await Promise.all([
-    prisma.user.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * size, take: size, select: { id: true, name: true, email: true, phone: true, isPlatformAdmin: true, suspendedAt: true, suspendedReason: true, removedAt: true, createdAt: true } }),
+    prisma.user.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * size, take: size, select: { id: true, name: true, email: true, phone: true, country: true, isPlatformAdmin: true, suspendedAt: true, suspendedReason: true, removedAt: true, createdAt: true } }),
     prisma.user.count({ where }),
   ]);
   return { rows, total, page, size };
@@ -131,7 +131,7 @@ export async function findPeople(adminId: string, f: { q?: string; status?: "sus
 export async function personForAdmin(adminId: string, userId: string) {
   const admin = await prisma.user.findUnique({ where: { id: adminId }, select: { isPlatformAdmin: true } });
   if (!admin?.isPlatformAdmin) throw new Error("Only a platform administrator can do that.");
-  const u = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, isPlatformAdmin: true, suspendedAt: true, suspendedReason: true, removedAt: true, createdAt: true } });
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, country: true, isPlatformAdmin: true, suspendedAt: true, suspendedReason: true, removedAt: true, createdAt: true } });
   if (!u) return null;
   return withPlatformAdmin(adminId, async (tx) => {
     const ms = await companiesOf(userId);

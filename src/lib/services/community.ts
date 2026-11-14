@@ -96,7 +96,7 @@ export async function myProfiles(ctx: Ctx) {
 export type DirectoryKind = "agents" | "companies" | "developers";
 export const PAGE_SIZE = 12;
 
-export interface DirectoryRow { kind: "AGENT" | "COMPANY" | "DEVELOPER"; targetId: string; name: string; sub: string; blurb: string; followers: number; following: boolean; acceptsMessages?: boolean }
+export interface DirectoryRow { kind: "AGENT" | "COMPANY" | "DEVELOPER"; targetId: string; /** The workspace (for its country). */ companyId?: string; name: string; sub: string; blurb: string; followers: number; following: boolean; acceptsMessages?: boolean }
 
 /** Listed agents, companies or developers, newest first, a page at a time. */
 export async function directory(opts: { kind: DirectoryKind; q?: string; page?: number; viewerId?: string | null }) {
@@ -112,13 +112,13 @@ export async function directory(opts: { kind: DirectoryKind; q?: string; page?: 
       const where: Prisma.AgentProfileWhereInput = { listed: true, ...(away.length ? { userId: { notIn: away } } : {}), ...(q ? { OR: [{ displayName: { contains: q, mode: "insensitive" } }, { companyName: { contains: q, mode: "insensitive" } }, { headline: { contains: q, mode: "insensitive" } }] } : {}) };
       const found = await tx.agentProfile.findMany({ where, orderBy: [{ followerCount: "desc" }, { displayName: "asc" }], skip, take: PAGE_SIZE + 1 });
       more = found.length > PAGE_SIZE;
-      rows = found.slice(0, PAGE_SIZE).map((p) => ({ kind: "AGENT", targetId: p.userId, name: p.displayName, sub: p.companyName, blurb: p.headline, followers: p.followerCount, following: false, acceptsMessages: p.acceptsMessages }));
+      rows = found.slice(0, PAGE_SIZE).map((p) => ({ kind: "AGENT", targetId: p.userId, companyId: p.companyId, name: p.displayName, sub: p.companyName, blurb: p.headline, followers: p.followerCount, following: false, acceptsMessages: p.acceptsMessages }));
     } else {
       const kind = opts.kind === "developers" ? "DEVELOPER" : "COMPANY";
       const where: Prisma.CompanyProfileWhereInput = { listed: true, kind, ...(q ? { OR: [{ displayName: { contains: q, mode: "insensitive" } }, { tagline: { contains: q, mode: "insensitive" } }] } : {}) };
       const found = await tx.companyProfile.findMany({ where, orderBy: [{ followerCount: "desc" }, { displayName: "asc" }], skip, take: PAGE_SIZE + 1 });
       more = found.length > PAGE_SIZE;
-      rows = found.slice(0, PAGE_SIZE).map((p) => ({ kind, targetId: p.companyId, name: p.displayName, sub: kind === "DEVELOPER" ? "Developer" : "Company", blurb: p.tagline, followers: p.followerCount, following: false }));
+      rows = found.slice(0, PAGE_SIZE).map((p) => ({ kind, targetId: p.companyId, companyId: p.companyId, name: p.displayName, sub: kind === "DEVELOPER" ? "Developer" : "Company", blurb: p.tagline, followers: p.followerCount, following: false }));
     }
     if (opts.viewerId && rows.length) {
       const mine = await tx.follow.findMany({ where: { followerId: opts.viewerId, targetId: { in: rows.map((r) => r.targetId) } } });

@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, LIVE_CHAT_ID_HINTS, LIVE_CHAT_LABELS, LIVE_CHAT_PLACES, LIVE_CHAT_PLACE_LABELS, LIVE_CHAT_PROVIDERS, configForAdmin } from "@/lib/services/platform-config";
-import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, liveChatAction, paystackAction, routesAction, stripeAction } from "./actions";
+import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, liveChatAction, paystackAction, watermarkAction, routesAction, stripeAction } from "./actions";
 import { COUNTRIES, COUNTRY_CODES, providerCanServe } from "@/lib/regions";
 import { maintenanceNow } from "@/lib/services/maintenance-mode";
 import { formatDateTime, toLagosLocal, zoneLabel } from "@/lib/dates";
@@ -24,7 +24,7 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
       <div className="stack" style={{ gap: 6 }}>
         <Link className="small" href="/admin">Administration</Link>
         <h1>Platform settings</h1>
-        <p className="muted">Upgrades and maintenance, payments, live chat, the check that visitors are people, Cloudflare, and Housy&apos;s commission. Secret keys are stored encrypted and never shown again in full.</p>
+        <p className="muted">Upgrades and maintenance, payments, the photo watermark, live chat, the check that visitors are people, Cloudflare, and Housy&apos;s commission. Secret keys are stored encrypted and never shown again in full.</p>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 
@@ -120,6 +120,19 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
             <div className="row"><button className="btn" type="submit" data-confirm="Save the payment method for each country?" data-confirm-body="Payments started from now on use these choices." data-confirm-ok="Save" data-confirm-tone="default">Save countries</button></div>
           </form>
         </details>
+      </section>
+
+      <section className="card stack" aria-labelledby="wm-h">
+        <h2 id="wm-h">Watermark on property photos</h2>
+        <p>{c.watermark.housy ? <span className="pill ok">Housy&apos;s mark on</span> : <span className="pill warn">Off</span>} <span className="small muted">Housy&apos;s mark is laid over every listing photo the public sees, so photos copied elsewhere show where they came from. Companies&apos; own copies stay clean. Businesses on a plan with the logo watermark can add their logo in the other corner.</span></p>
+        <form action={watermarkAction} className="stack">
+          <label className="check"><input type="checkbox" name="housy" defaultChecked={c.watermark.housy} /><span>Put Housy&apos;s mark on property photos</span></label>
+          <fieldset className="choice-row"><legend className="small muted">Where</legend>
+            <label className="chip-choice"><input type="radio" name="position" value="corner" defaultChecked={c.watermark.position === "corner"} /><span>Bottom corner (small)</span></label>
+            <label className="chip-choice"><input type="radio" name="position" value="centre" defaultChecked={c.watermark.position === "centre"} /><span>Across the middle (faint)</span></label>
+          </fieldset>
+          <div className="row"><button className="btn" type="submit" data-confirm="Save the watermark setting?" data-confirm-body="Property photos show the change within a minute or two." data-confirm-ok="Save" data-confirm-tone="default">Save watermark</button></div>
+        </form>
       </section>
 
       <section className="card stack" aria-labelledby="chat-h">

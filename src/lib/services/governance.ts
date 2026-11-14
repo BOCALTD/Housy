@@ -24,7 +24,7 @@ export async function adminCompanies(adminId: string, o: { q?: string; status?: 
       ...(o.q ? { name: { contains: o.q.trim().slice(0, 80), mode: "insensitive" as const } } : {}),
       ...(o.status === "suspended" ? { suspendedAt: { not: null } } : o.status === "active" ? { suspendedAt: null } : {}),
     };
-    const [total, rows] = await Promise.all([tx.company.count({ where }), tx.company.findMany({ where, orderBy: { createdAt: "desc" }, skip: page * 25, take: 25, select: { id: true, name: true, createdAt: true, suspendedAt: true } })]);
+    const [total, rows] = await Promise.all([tx.company.count({ where }), tx.company.findMany({ where, orderBy: { createdAt: "desc" }, skip: page * 25, take: 25, select: { country: true, id: true, name: true, createdAt: true, suspendedAt: true } })]);
     const trust = await trustMany("COMPANY", rows.map((r) => r.id));
     return { total, page, rows: rows.map((r) => ({ ...r, trust: trust.get(r.id)! })) };
   });

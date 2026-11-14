@@ -28,6 +28,11 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 - *Settings → Country and currency* changes it, for a business that chose wrongly or moved. It is refused while a payment link is waiting or an invoice is unpaid, and the bank account for client payments must be added again.
 - Listings show their own currency. When searching with a price range, choose the currency the range is in.
 
+## Photo watermarks and country badges
+- Every property photo the public sees carries Housy's mark (bottom right, or faint across the middle), while Housy's administrators keep it on. Your own copies in the workspace stay clean.
+- On the Pro and Elite plans, a business can add its own logo as a watermark in the opposite corner: *Profile → Logo and photo watermark*, upload the logo, then *Turn on*.
+- A country badge (flag and name) shows where each company, agent, verification partner and flatmate is.
+
 ## Live chat
 - When Housy's administrators switch it on, a Chat button sits at the bottom left (above the menu bar on phones). It starts only for people who accept optional cookies, because the chat provider sets its own.
 

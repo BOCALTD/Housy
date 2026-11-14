@@ -1,3 +1,4 @@
+import { CountryBadge } from "@/components/CountryBadge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/auth";
@@ -23,7 +24,7 @@ export default async function Person({ params: p, searchParams: s }: { params: P
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
         <Link className="small" href="/admin/people">People</Link>
-        <h1 style={{ overflowWrap: "anywhere" }}>{u.name}</h1>
+        <h1 style={{ overflowWrap: "anywhere" }}>{u.name} <CountryBadge country={u.country} /></h1>
         <div className="row" style={{ flexWrap: "wrap" }}>
           {u.removedAt ? <span className="pill bad">Removed {formatDate(u.removedAt)}</span> : u.suspendedAt ? <span className="pill warn">Suspended {formatDate(u.suspendedAt)}</span> : <span className="pill ok">Active</span>}
           <span className="small muted" style={{ overflowWrap: "anywhere" }}>{u.removedAt ? "Details erased" : `${u.email}${u.phone ? ` · ${u.phone}` : ""}`} · joined {formatDate(u.createdAt)} · {u.sessions} signed-in device{u.sessions === 1 ? "" : "s"}</span>

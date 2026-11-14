@@ -111,7 +111,7 @@ export async function caseForCustomer(userId: string, ref: string) {
       tx.vpCaseFile.findMany({ where: { caseId: c.id }, select: { id: true, title: true, fileName: true, sizeBytes: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
       tx.vpReport.findFirst({ where: { caseId: c.id }, select: { publicRef: true, releasedVersion: true, versions: { where: { releasedAt: { not: null } }, orderBy: { version: "desc" }, select: { version: true, outcome: true, releasedAt: true, sha256: true, supersededAt: true, revokedAt: true, revokedReason: true, correctionReason: true } } } }),
     ]);
-    const provider = c.providerId && !["ASSIGNED"].includes(c.status) ? await prisma.serviceProvider.findUnique({ where: { id: c.providerId }, select: { name: true, providerCode: true } }) : null;
+    const provider = c.providerId && !["ASSIGNED"].includes(c.status) ? await prisma.serviceProvider.findUnique({ where: { id: c.providerId }, select: { name: true, providerCode: true, country: true } }) : null;
     return { ...c, activities, files, report, provider };
   });
 }

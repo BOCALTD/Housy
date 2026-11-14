@@ -1,3 +1,4 @@
+import { CountryBadge } from "@/components/CountryBadge";
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { findPeople } from "@/lib/services/account-moderation";
@@ -32,7 +33,7 @@ export default async function People({ searchParams: s }: { searchParams?: Promi
         <ul className="card vp-list">
           {data.rows.map((u) => (
             <li key={u.id}>
-              <Link href={`/admin/people/${u.id}`} style={{ minWidth: 0 }}><strong>{u.name}</strong><span className="small muted" style={{ overflowWrap: "anywhere" }}>{u.removedAt ? "Removed account" : u.email}{u.phone && !u.removedAt ? ` · ${u.phone}` : ""} · joined {formatDate(u.createdAt)}</span></Link>
+              <Link href={`/admin/people/${u.id}`} style={{ minWidth: 0 }}><strong>{u.name}</strong> <CountryBadge country={u.country} compact /><span className="small muted" style={{ overflowWrap: "anywhere" }}>{u.removedAt ? "Removed account" : u.email}{u.phone && !u.removedAt ? ` · ${u.phone}` : ""} · joined {formatDate(u.createdAt)}</span></Link>
               {u.removedAt ? <span className="pill bad">Removed</span> : u.suspendedAt ? <span className="pill warn">Suspended</span> : u.isPlatformAdmin ? <span className="pill">Administrator</span> : null}
             </li>
           ))}

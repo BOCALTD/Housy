@@ -36,7 +36,8 @@ import { GUEST_PHOTOS, shareText } from "@/lib/share-rules";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { formatMoney } from "@/lib/regions";
 import { zoneLabel } from "@/lib/dates";
-import { companyTimeZone } from "@/lib/services/business-region";
+import { companyTimeZone, countriesOfCompanies } from "@/lib/services/business-region";
+import { CountryBadge } from "@/components/CountryBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -223,7 +224,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
         </div>
         <div className="stack" style={{ gap: 6 }}>
           <p className="eyebrow">Listed by</p>
-          {company ? <Link className="tap" href={`/companies/${listing.companyId}`}><strong>{company.displayName}</strong></Link> : <strong>A registered company</strong>}
+          {company ? <Link className="tap" href={`/companies/${listing.companyId}`}><strong>{company.displayName}</strong></Link> : <strong>A registered company</strong>} <CountryBadge country={(await countriesOfCompanies([listing.companyId])).get(listing.companyId)} compact />
           <TrustBadge t={trust} full />
         </div>
         {session ? (

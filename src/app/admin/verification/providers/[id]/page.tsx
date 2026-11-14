@@ -1,3 +1,4 @@
+import { CountryBadge } from "@/components/CountryBadge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/auth";
@@ -22,7 +23,7 @@ export default async function ProviderAdmin({ params: p, searchParams: s }: { pa
     <div className="stack-lg vp">
       <div className="stack" style={{ gap: 6 }}>
         <p className="eyebrow"><Link href="/admin/verification">Verification network</Link> · {pr.providerCode ?? "Not vetted"}</p>
-        <h1>{pr.name}</h1>
+        <h1>{pr.name} <CountryBadge country={pr.country} /></h1>
         <p className="row wrap">
           <span className={`pill ${pr.suspendedAt ? "bad" : pr.status === "APPROVED" ? "ok" : "warn"}`}>{pr.suspendedAt ? "Suspended" : pr.status === "APPROVED" ? (pr.vettedAt ? "Working" : "Listed, not vetted") : "Pending"}</span>
           {pr.application ? <Link className="small" href={`/admin/verification/applications/${pr.application.ref}`}>Application {pr.application.ref}</Link> : <span className="small muted">No application on record: not vetted through the network yet.</span>}

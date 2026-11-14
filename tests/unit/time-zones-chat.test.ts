@@ -47,3 +47,12 @@ test("a payout abroad states the rate it was made at", () => {
   assert.equal(payoutRate(158_025_000n, 100_000n, "USD"), "₦1,580.25 to 1 USD");
   assert.equal(payoutRate(200_000_000n, 99_700n, "GBP"), "₦2,006.01 to 1 GBP");
 });
+
+test("country badges read a country from a code or a name", async () => {
+  const { countryCode } = await import("../../src/components/CountryBadge");
+  assert.equal(countryCode("gb"), "GB");
+  assert.equal(countryCode("Nigeria"), "NG");
+  assert.equal(countryCode("United States"), "US");
+  assert.equal(countryCode("Atlantis"), null);
+  assert.equal(countryCode(""), null);
+});

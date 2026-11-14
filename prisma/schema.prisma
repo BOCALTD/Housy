@@ -132,6 +132,11 @@ model Company {
   currency         String    @default("NGN")
   /// The workspace's time zone (IANA name) for its dates, due days and reminders; "" means the country's usual one.
   timeZone         String    @default("") @map("time_zone")
+  /// The business's logo (PNG, JPEG or WebP), shown on its profile and, when its plan includes it and it chose to, on its
+  /// property photos as a watermark.
+  logoMime         String?   @map("logo_mime")
+  logoBytes        Bytes?    @map("logo_bytes")
+  logoWatermark    Boolean   @default(false) @map("logo_watermark")
   /// What the owner's pause hid (listing and profile ids), so resuming shows exactly those again and nothing hidden for other reasons.
   pauseHidden      Json?     @map("pause_hidden")
   createdAt   DateTime     @default(now()) @map("created_at")

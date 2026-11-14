@@ -97,3 +97,19 @@ export async function companyTimeZone(companyId: string): Promise<string> {
   const c = await withPlatformAdmin("system", (tx) => tx.company.findUnique({ where: { id: companyId }, select: { country: true, timeZone: true } }));
   return c ? c.timeZone || countryTimeZone(c.country) : "Africa/Lagos";
 }
+
+/** The countries of several workspaces at once (for badges on public pages and lists). */
+export async function countriesOfCompanies(ids: string[]): Promise<Map<string, string>> {
+  const uniq = [...new Set(ids.filter(Boolean))];
+  if (!uniq.length) return new Map();
+  const rows = await withPlatformAdmin("system", (tx) => tx.company.findMany({ where: { id: { in: uniq } }, select: { id: true, country: true } }));
+  return new Map(rows.map((r) => [r.id, r.country]));
+}
+
+/** The countries of several people at once. */
+export async function countriesOfUsers(ids: string[]): Promise<Map<string, string>> {
+  const uniq = [...new Set(ids.filter(Boolean))];
+  if (!uniq.length) return new Map();
+  const rows = await prisma.user.findMany({ where: { id: { in: uniq } }, select: { id: true, country: true } });
+  return new Map(rows.map((r) => [r.id, r.country]));
+}

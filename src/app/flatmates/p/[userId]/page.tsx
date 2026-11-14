@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { CountryBadge } from "@/components/CountryBadge";
+import { countriesOfUsers } from "@/lib/services/business-region";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { flatmateView, myFlatmateProfile } from "@/lib/services/flatmates";
@@ -22,13 +24,14 @@ export default async function FlatmateProfileView({ params, searchParams }: { pa
   const v = await flatmateView(user.id, userId);
   if (!v) notFound();
   const { profile: p, match: m, request: r } = v;
+  const where = (await countriesOfUsers([userId])).get(userId);
   return (
     <div className="stack-lg">
       <div className="fm-profile-head card">
         <MatchBadge score={m.score} size="lg" />
         <div className="stack" style={{ gap: 4, minWidth: 0 }}>
           <p className="eyebrow">Flatmate · {p.city}</p>
-          <h1 className="fm-name">{p.displayName}</h1>
+          <h1 className="fm-name">{p.displayName} <CountryBadge country={where} /></h1>
           <p className="muted small">{[p.ageBand, p.gender ? p.gender.toLowerCase().replace("_", "-") : "", p.occupation].filter(Boolean).join(" · ")}</p>
           <p className="small">{INTENTS[p.intent]}</p>
         </div>

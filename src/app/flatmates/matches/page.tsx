@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { CountryBadge } from "@/components/CountryBadge";
+import { countriesOfUsers } from "@/lib/services/business-region";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { myMatches } from "@/lib/services/flatmates";
@@ -29,6 +31,7 @@ export default async function MatchesPage({ searchParams }: { searchParams?: Pro
   ]);
   if (!r.me) redirect("/flatmates/profile");
   const me = r.me;
+  const countries = await countriesOfUsers(r.rows.map((x) => x.profile.userId));
   const q = (over: Record<string, string>) => `/flatmates/matches?${new URLSearchParams({ ...(min ? { min: String(min) } : {}), ...(verified ? { verified: "1" } : {}), ...(space ? { space } : {}), ...(sort !== "best" ? { sort } : {}), ...over }).toString()}`;
   // Profile strength: what makes other people trust and pick you.
   const steps = [
@@ -92,7 +95,7 @@ export default async function MatchesPage({ searchParams }: { searchParams?: Pro
               <div className="fm-card-top">
                 <MatchBadge score={m.match.score} />
                 <div className="stack" style={{ gap: 2, minWidth: 0 }}>
-                  <strong className="fm-name">{m.profile.displayName}{m.profile.verified ? <span className="fm-verified" title="Passed the flatmate ID check">✓ Verified</span> : null}</strong>
+                  <strong className="fm-name">{m.profile.displayName}{m.profile.verified ? <span className="fm-verified" title="Passed the flatmate ID check">✓ Verified</span> : null} <CountryBadge country={countries.get(m.profile.userId)} compact /></strong>
                   <span className="small muted">{[m.profile.ageBand, m.profile.gender ? m.profile.gender.toLowerCase().replace("_", "-") : "", m.profile.occupation].filter(Boolean).join(" · ")}</span>
                   <span className="small">{INTENTS[m.profile.intent]}</span>
                 </div>

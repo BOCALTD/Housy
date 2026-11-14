@@ -4,6 +4,7 @@
  *  - Person check: Google reCAPTCHA (v2 checkbox or v3 invisible) or Cloudflare Turnstile, its keys, and where it is asked.
  *  - Cloudflare: whether Housy sits behind Cloudflare, so the visitor's address is read from Cloudflare's header.
  *  - Commission: Housy's percentage of rent, inspection fees and other payments made through the platform.
+ *  - Watermark: Housy's mark on public property photos (on by default), in a corner or across the middle.
  *  - Live chat: the support chat provider (Tawk.to, Crisp, Tidio or Intercom), its widget ID, and where it shows.
  *
  * Secret keys are stored encrypted (AES-256-GCM, the same as two-step sign-in secrets) and are never shown back in full.
@@ -56,6 +57,7 @@ const K = {
   captchaProvider: "captcha_provider", captchaSiteKey: "captcha_site_key", captchaSecret: "captcha_secret", captchaPlaces: "captcha_places",
   trustCloudflare: "trust_cloudflare",
   stripeSecret: "stripe_secret", stripePublic: "stripe_public", stripeWebhook: "stripe_webhook_secret", paymentRoutes: "payment_routes",
+  watermarkHousy: "watermark_housy", watermarkPosition: "watermark_position",
   liveChatProvider: "live_chat_provider", liveChatId: "live_chat_id", liveChatPlaces: "live_chat_places",
   commissionRent: "commission_rent_bps", commissionInspection: "commission_inspection_bps", commissionOther: "commission_other_bps",
 } as const;
@@ -69,6 +71,7 @@ export type PlatformConfig = {
   trustCloudflare: boolean;
   commissionBps: Record<CommissionKind, number>;
   liveChat: { provider: LiveChatProvider; id: string; places: LiveChatPlace[] };
+  watermark: { housy: boolean; position: "corner" | "centre" };
 };
 
 let cache: { at: number; value: PlatformConfig } | null = null;
@@ -113,6 +116,7 @@ export async function platformConfig(): Promise<PlatformConfig> {
       places: (v(K.captchaPlaces) ?? "signup,login,reset,forms").split(",").filter((p): p is CaptchaPlace => (CAPTCHA_PLACES as readonly string[]).includes(p)),
     },
     trustCloudflare: process.env.TRUST_CLOUDFLARE === "1" || v(K.trustCloudflare) === "1",
+    watermark: { housy: v(K.watermarkHousy) !== "0", position: v(K.watermarkPosition) === "centre" ? "centre" : "corner" },
     liveChat: (() => {
       const pv = (LIVE_CHAT_PROVIDERS as readonly string[]).includes(v(K.liveChatProvider) ?? "") ? (v(K.liveChatProvider) as LiveChatProvider) : "none";
       const id = pv === "none" ? "" : liveChatId(pv, v(K.liveChatId) ?? "") ?? "";
@@ -135,6 +139,7 @@ export async function configForAdmin() {
     stripe: { source: c.stripe.source, mode: c.stripe.mode, secretTail: tail(c.stripe.secret), public: c.stripe.public, webhookSet: !!c.stripe.webhook },
     routes: c.routes,
     liveChat: c.liveChat,
+    watermark: c.watermark,
     captcha: { provider: c.captcha.provider, siteKey: c.captcha.siteKey, secretTail: tail(c.captcha.secret), places: c.captcha.places },
     trustCloudflare: c.trustCloudflare, trustCloudflareFromServer: process.env.TRUST_CLOUDFLARE === "1",
     commission: Object.fromEntries(COMMISSION_KINDS.map((k) => [k, (c.commissionBps[k] / 100).toString()])) as Record<CommissionKind, string>,
@@ -282,4 +287,10 @@ export function liveChatPlaceOf(path: string): LiveChatPlace | null {
   if (path.startsWith("/app") || path.startsWith("/provider")) return "app";
   if (path.startsWith("/me")) return "me";
   return "public";
+}
+
+/** Housy's mark on public property photos: on or off, and where. */
+export async function saveWatermark(adminId: string, raw: { housy: boolean; position: string }) {
+  const position = raw.position === "centre" ? "centre" : "corner";
+  await save(adminId, [[K.watermarkHousy, raw.housy ? "1" : "0"], [K.watermarkPosition, position]], "watermark", { housy: raw.housy, position });
 }

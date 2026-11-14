@@ -1,3 +1,4 @@
+import { requestTimeZone } from "@/lib/money-context";
 import { CASE_STATUS_WORDS, OUTCOMES, type CaseStatus } from "@/lib/verification-case-rules";
 import { SERVICE_CATEGORIES } from "@/lib/verification-network-rules";
 
@@ -13,8 +14,8 @@ export function CaseStatusPill({ status }: { status: string }) {
 
 export const serviceName = (code: string) => SERVICE_CATEGORIES.find((s) => s.code === code)?.name ?? code;
 export const outcomeName = (code: string) => OUTCOMES.find((o) => o[0] === code)?.[1] ?? (code || "Not chosen yet");
-export const day = (d: Date | null | undefined) => (d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Lagos" }) : "—");
-export const when = (d: Date | null | undefined) => (d ? d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lagos" }) : "—");
+export const day = (d: Date | null | undefined) => (d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: requestTimeZone() }) : "—");
+export const when = (d: Date | null | undefined) => (d ? d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: requestTimeZone() }) : "—");
 export const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 export const naira = (kobo: bigint | null) => (kobo === null ? "Quoted per case" : `₦${(Number(kobo) / 100).toLocaleString("en-NG")}`);
 

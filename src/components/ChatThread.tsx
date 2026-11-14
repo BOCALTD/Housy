@@ -23,8 +23,8 @@ function Ticks({ seen }: { seen: boolean }) {
  * each bubble (two ticks once the other person has read it), and a composer pinned at the bottom. Messages send without the page
  * reloading, and new ones appear by themselves every few seconds while the chat is open.
  */
-export function ChatThread({ conversationId, meId, initial, initialSeen, canReply, send, extras }: {
-  conversationId: string; meId: string; initial: ChatMsg[]; initialSeen: string | null; canReply: boolean;
+export function ChatThread({ conversationId, meId, initial, initialSeen, canReply, send, extras, timeZone = "Africa/Lagos" }: {
+  conversationId: string; meId: string; initial: ChatMsg[]; initialSeen: string | null; canReply: boolean; timeZone?: string;
   send: (id: string, body: string) => Promise<{ ok: true; message: ChatMsg } | { ok: false; error: string }>;
   /** Server-rendered extras for special messages (inspection answers, reports), by message id. */
   extras?: Record<string, React.ReactNode>;
@@ -73,7 +73,7 @@ export function ChatThread({ conversationId, meId, initial, initialSeen, canRepl
         <ol className="chat-list" aria-live="polite">
           {msgs.map((m) => {
             const mine = m.senderId === meId;
-            const day = dayLabel(m.at);
+            const day = dayLabel(m.at, new Date(), timeZone);
             const sep = day !== lastDay ? (lastDay = day) : null;
             const d = m.details as Record<string, string | number | null>;
             const isSeen = !!seen && !m.state && new Date(m.at) <= new Date(seen);
@@ -98,7 +98,7 @@ export function ChatThread({ conversationId, meId, initial, initialSeen, canRepl
                   {m.masked ? <p className="bubble-note">Contact details were hidden: the sender&apos;s plan does not include sharing them.</p> : null}
                   {extras?.[m.id] ?? null}
                   <span className="bubble-meta">
-                    <time dateTime={m.at}>{timeLabel(m.at)}</time>
+                    <time dateTime={m.at}>{timeLabel(m.at, timeZone)}</time>
                     {mine ? (m.state === "sending" ? <span className="clock" aria-label="Sending">🕓</span> : m.state === "failed" ? <span className="fail">Not sent</span> : <Ticks seen={isSeen} />) : null}
                   </span>
                 </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
+import { currentTimeZone } from "@/lib/dates";
 import { currentActor } from "@/lib/collab-session";
 import { listConversations } from "@/lib/services/messaging";
 import { avatarsFor } from "@/lib/services/avatars";
@@ -25,7 +26,7 @@ export default async function MessagesLayout({ children }: { children: React.Rea
         <form method="get" action="/messages" className="chat-search" role="search">
           <input name="q" type="search" placeholder="Search messages" aria-label="Search messages" />
         </form>
-        <ChatList rows={rows} />
+        <ChatList rows={rows} timeZone={currentTimeZone()} />
       </aside>
       <section className="chat-main">{children}</section>
     </div>

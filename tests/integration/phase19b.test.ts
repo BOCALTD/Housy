@@ -275,11 +275,17 @@ test("money: a quote is paid, the provider's share is earned on delivery, held b
   await assert.rejects(providerFinance(inv), /does not allow/);
   assert.equal(await withUser(other.owner.userId, (tx) => tx.vpEarning.count({ where: { providerId: a.providerId } })), 0, "another provider sees none of it");
   assert.equal(await withUser(inv.userId, (tx) => tx.vpPayout.count({ where: { providerId: a.providerId } })), 0, "an investigator sees no payouts");
-  // Cancelling returns the earnings; preparing again works.
+  // Cancelling returns the earnings; preparing again works. Meanwhile the organisation moved its account abroad (a US bank).
   await cancelPayout(admin.id, po, "Wrong batch date.");
+  await assert.rejects(setPayoutDetails(finance, { country: "US", bankName: "Chase", accountName: "Fox Verification LLC", routingNumber: "021000022", accountNumber: "123456789" }), /routing number does not check/);
+  await setPayoutDetails(finance, { country: "US", bankName: "Chase", accountName: "Fox Verification LLC", routingNumber: "021000021", accountNumber: "123456789" });
+  assert.ok((await providerFinance(finance)).account.lines.some((l) => l.label === "Routing number (ABA)"));
   const po2 = await preparePayout(admin.id, a.providerId);
   await assert.rejects(markPayoutPaid(admin.id, po2, { reference: "FT123", paidOn: "2999-01-01" }), /future/);
-  await markPayoutPaid(admin.id, po2, { reference: `FT${randomUUID().slice(0, 8)}`, paidOn: new Date().toISOString().slice(0, 10) });
+  await assert.rejects(markPayoutPaid(admin.id, po2, { reference: "FT124", paidOn: new Date().toISOString().slice(0, 10) }), /amount sent in USD/);
+  await markPayoutPaid(admin.id, po2, { reference: `FT${randomUUID().slice(0, 8)}`, paidOn: new Date().toISOString().slice(0, 10), sent: "107.50" });
+  const paidOut = await withPlatformAdmin(admin.id, (tx) => tx.vpPayout.findUniqueOrThrow({ where: { ref: po2 } }));
+  assert.deepEqual([paidOut.currency, paidOut.sentMinor, paidOut.totalKobo], ["USD", 10_750n, 17_000_000n], "earnings stay in naira; what was sent is recorded in dollars");
   await assert.rejects(markPayoutPaid(admin.id, po2, { reference: "FT999", paidOn: new Date().toISOString().slice(0, 10) }), /prepared payout/);
   assert.equal((await earningOf(one.id)).status, "PAID");
   // A paid payout never changes, not even for Housy's administrators.

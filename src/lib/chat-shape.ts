@@ -5,9 +5,8 @@ export function chatMessage(m: { id: string; senderId: string; senderName: strin
   return { id: m.id, senderId: m.senderId, senderName: m.senderName, kind: m.kind, body: m.body, details: (m.details ?? {}) as Record<string, unknown>, masked: m.masked, at: m.createdAt.toISOString() };
 }
 
-/** "Today", "Yesterday", a weekday this week, or a date: the separators between days in a chat (Lagos time). */
-export function dayLabel(iso: string, now = new Date()): string {
-  const tz = "Africa/Lagos";
+/** "Today", "Yesterday", a weekday this week, or a date: the separators between days in a chat (in the reader's time zone). */
+export function dayLabel(iso: string, now = new Date(), tz = "Africa/Lagos"): string {
   const key = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: tz });
   const d = new Date(iso);
   const today = key(now), yest = key(new Date(now.getTime() - 864e5));
@@ -17,7 +16,7 @@ export function dayLabel(iso: string, now = new Date()): string {
   return d.toLocaleDateString("en-NG", { day: "numeric", month: "long", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric", timeZone: tz });
 }
 
-/** "14:05" in Lagos time. */
-export function timeLabel(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Africa/Lagos" });
+/** "14:05" in the reader's time zone. */
+export function timeLabel(iso: string, tz = "Africa/Lagos"): string {
+  return new Date(iso).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: tz });
 }

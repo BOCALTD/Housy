@@ -3,7 +3,7 @@
 import { requirePlatformAdmin } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
 import {
-  CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, savePaymentRoutes, saveStripeKeys, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
+  CAPTCHA_PLACES, COMMISSION_KINDS, saveCaptcha, saveCloudflare, saveCommission, savePaystackKeys, savePaymentRoutes, saveStripeKeys, saveLiveChat, LIVE_CHAT_PLACES, type LiveChatPlace, type LiveChatProvider, type CaptchaPlace, type CaptchaProvider, type CommissionKind,
 } from "@/lib/services/platform-config";
 
 import { endMaintenance, scheduleMaintenance } from "@/lib/services/maintenance-mode";
@@ -75,5 +75,15 @@ export async function routesAction(form: FormData) {
     for (const [k, v] of form.entries()) if (k.startsWith("route_") && typeof v === "string") routes[k.slice(6)] = v;
     await savePaymentRoutes(a.id, routes);
     return withNotice(PAGE, "Payment method for each country saved.");
+  });
+}
+
+export async function liveChatAction(form: FormData) {
+  return act(PAGE, async () => {
+    const a = await requirePlatformAdmin();
+    const places = form.getAll("places").filter((p): p is LiveChatPlace => typeof p === "string" && (LIVE_CHAT_PLACES as readonly string[]).includes(p));
+    const provider = str(form, "provider") as LiveChatProvider;
+    await saveLiveChat(a.id, { provider, id: str(form, "id"), places });
+    return withNotice(PAGE, provider === "none" ? "Live chat is off." : "Live chat saved. Open the site in another browser to try the Chat button.");
   });
 }

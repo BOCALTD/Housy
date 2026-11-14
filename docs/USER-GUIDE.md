@@ -21,10 +21,15 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 - Renewals, notices, move-in and move-out handovers and deposits are on the lease page.
 - **Send a payment link** (on the lease): the tenant pays online or by bank transfer through Housy. Paid online, the receipt is issued on the lease automatically.
 
-## Country and currency
+## Country, currency and time zone
+- People choose the country where they live when they join (*Profile and settings → Country and time zone* to change it). Their own plan is priced in its currency when Housy has set a price in it, and paid through the provider for that country.
+- Dates and times are shown in your own time zone if you choose one there; otherwise in your workspace's (*Settings → Country and currency → Time zone*), otherwise your country's usual one. Quiet hours for emails follow your time zone. Times for inspecting a property are the time at the property.
 - When a company or agent signs up, they choose the country where they do business. It sets the currency of their prices, payment links, plan and Housy's commission (₦, GH₵, KSh, R, $, £, C$, €, A$ or AED).
 - *Settings → Country and currency* changes it, for a business that chose wrongly or moved. It is refused while a payment link is waiting or an invoice is unpaid, and the bank account for client payments must be added again.
 - Listings show their own currency. When searching with a price range, choose the currency the range is in.
+
+## Live chat
+- When Housy's administrators switch it on, a Chat button sits at the bottom left (above the menu bar on phones). It starts only for people who accept optional cookies, because the chat provider sets its own.
 
 ## Client payments (company administrators)
 - *Client payments*: add the bank account clients pay into, with the details your country's banks use (a NUBAN in Nigeria, a sort code in the UK, a routing number in the US, an IBAN in Europe and the UAE, a BSB in Australia).

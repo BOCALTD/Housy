@@ -58,3 +58,11 @@ export function payoutDetailsProblem(d: { bankName: string; accountName: string;
   return null;
 }
 export const maskAccount = (n: string) => (n.length >= 4 ? `•••••• ${n.slice(-4)}` : n);
+
+/** The rate a payout abroad was made at, in words: "₦1,580.25 to $1". */
+export function payoutRate(nairaKobo: bigint, sentMinor: bigint, currency: string): string {
+  if (sentMinor <= 0n) return "";
+  const perUnit = (nairaKobo * 100n) / sentMinor; // naira per 1 unit of the currency, in hundredths
+  const whole = perUnit / 100n, frac = perUnit % 100n;
+  return `₦${whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${frac.toString().padStart(2, "0").slice(0, 2)} to 1 ${currency}`;
+}

@@ -2,11 +2,11 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
-import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, configForAdmin } from "@/lib/services/platform-config";
-import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, paystackAction, routesAction, stripeAction } from "./actions";
+import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, LIVE_CHAT_ID_HINTS, LIVE_CHAT_LABELS, LIVE_CHAT_PLACES, LIVE_CHAT_PLACE_LABELS, LIVE_CHAT_PROVIDERS, configForAdmin } from "@/lib/services/platform-config";
+import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, liveChatAction, paystackAction, routesAction, stripeAction } from "./actions";
 import { COUNTRIES, COUNTRY_CODES, providerCanServe } from "@/lib/regions";
 import { maintenanceNow } from "@/lib/services/maintenance-mode";
-import { formatDateTime, toLagosLocal } from "@/lib/dates";
+import { formatDateTime, toLagosLocal, zoneLabel } from "@/lib/dates";
 
 export const metadata = { title: "Platform settings" };
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
       <div className="stack" style={{ gap: 6 }}>
         <Link className="small" href="/admin">Administration</Link>
         <h1>Platform settings</h1>
-        <p className="muted">Upgrades and maintenance, payments, the check that visitors are people, Cloudflare, and Housy&apos;s commission. Secret keys are stored encrypted and never shown again in full.</p>
+        <p className="muted">Upgrades and maintenance, payments, live chat, the check that visitors are people, Cloudflare, and Housy&apos;s commission. Secret keys are stored encrypted and never shown again in full.</p>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 
@@ -34,7 +34,7 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
           <div className="stack" style={{ gap: 8 }}>
             <p>
               {m.phase === "active" ? <span className="pill warn">On now</span> : <span className="pill">Scheduled</span>}{" "}
-              {formatDateTime(w.start)} to {formatDateTime(w.end)} (Lagos time){w.emergency ? " · emergency" : ""}
+              {formatDateTime(w.start)} to {formatDateTime(w.end)} ({zoneLabel(w.start)}){w.emergency ? " · emergency" : ""}
             </p>
             <p className="small muted">{w.notifiedAt ? `Everyone was told on ${formatDateTime(w.notifiedAt)}, in the app and by email.` : m.phase === "scheduled" ? `Everyone is told in the app and by email 24 hours before it starts (${formatDateTime(new Date(w.start.getTime() - 86_400_000))}).` : "The notice is going out now."}</p>
             {w.message ? <p className="small">“{w.message}”</p> : null}
@@ -48,8 +48,8 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
             <summary>{w ? "Change the time" : "Schedule maintenance"}</summary>
             <form action={maintenanceAction} className="stack">
               <div className="fields">
-                <Field label="Starts (Lagos time)" hint="At least 24 hours from now"><input type="datetime-local" name="start" required defaultValue={w ? toLagosLocal(w.start) : soon} /></Field>
-                <Field label="Ends (Lagos time)" hint="Up to 72 hours later"><input type="datetime-local" name="end" required defaultValue={w ? toLagosLocal(w.end) : toLagosLocal(new Date(Date.now() + 27 * 3_600_000))} /></Field>
+                <Field label={`Starts (${zoneLabel()})`} hint="At least 24 hours from now"><input type="datetime-local" name="start" required defaultValue={w ? toLagosLocal(w.start) : soon} /></Field>
+                <Field label={`Ends (${zoneLabel()})`} hint="Up to 72 hours later"><input type="datetime-local" name="end" required defaultValue={w ? toLagosLocal(w.end) : toLagosLocal(new Date(Date.now() + 27 * 3_600_000))} /></Field>
               </div>
               <Field label="Message for everyone" hint="Optional, for example what is being improved"><textarea name="message" rows={2} maxLength={500} defaultValue={w?.message ?? ""} /></Field>
               <label className="check"><input type="checkbox" name="emergency" value="1" /><span>Emergency: it may start sooner than 24 hours (everyone is told at once)</span></label>
@@ -120,6 +120,24 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
             <div className="row"><button className="btn" type="submit" data-confirm="Save the payment method for each country?" data-confirm-body="Payments started from now on use these choices." data-confirm-ok="Save" data-confirm-tone="default">Save countries</button></div>
           </form>
         </details>
+      </section>
+
+      <section className="card stack" aria-labelledby="chat-h">
+        <h2 id="chat-h">Live chat</h2>
+        <p>{c.liveChat.provider === "none" ? <span className="pill warn">Off</span> : <span className="pill ok">On: {LIVE_CHAT_LABELS[c.liveChat.provider]}</span>} <span className="small muted">Visitors and members chat with your support team from a Chat button. The chat starts only for people who accept optional cookies, and never shows on administration pages.</span></p>
+        <form action={liveChatAction} className="stack" autoComplete="off">
+          <div className="grid-2">
+            <Field label="Provider"><select name="provider" defaultValue={c.liveChat.provider}>{LIVE_CHAT_PROVIDERS.map((p) => <option key={p} value={p}>{LIVE_CHAT_LABELS[p]}</option>)}</select></Field>
+            <Field label="Widget ID" hint="From your account with the provider (see below)."><input name="id" spellCheck={false} defaultValue={c.liveChat.id} /></Field>
+          </div>
+          <details className="vp-fold"><summary>Where to find the widget ID</summary>
+            <ul className="small muted">{(Object.keys(LIVE_CHAT_ID_HINTS) as (keyof typeof LIVE_CHAT_ID_HINTS)[]).map((k) => <li key={k}>{LIVE_CHAT_ID_HINTS[k]}</li>)}</ul>
+          </details>
+          <fieldset className="stack" style={{ gap: 6 }}><legend className="small muted">Show the chat on</legend>
+            {LIVE_CHAT_PLACES.map((p) => <label key={p} className="check"><input type="checkbox" name="places" value={p} defaultChecked={c.liveChat.places.includes(p)} /><span>{LIVE_CHAT_PLACE_LABELS[p]}</span></label>)}
+          </fieldset>
+          <div className="row"><button className="btn primary" type="submit" data-confirm="Save the live chat?" data-confirm-body="The Chat button appears or changes on the pages you chose straight away." data-confirm-ok="Save" data-confirm-tone="default">Save live chat</button></div>
+        </form>
       </section>
 
       <section className="card stack">

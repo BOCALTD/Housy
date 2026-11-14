@@ -1,5 +1,8 @@
 import { cache } from "react";
-import { setRequestCurrency } from "./money-context";
+import { setRequestCurrency, setRequestTimeZone } from "./money-context";
+import { COUNTRIES, isCountry } from "./regions";
+
+const countryTimeZone = (c: string) => (isCountry(c) ? COUNTRIES[c].timeZone : "Africa/Lagos");
 import { adminMfaMissing } from "./readiness";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -50,9 +53,12 @@ export const getSession = cache(async () => {
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { user: { select: { id: true, email: true, name: true, isPlatformAdmin: true, mfaEnabledAt: true, suspendedAt: true } } },
+    include: { user: { select: { id: true, email: true, name: true, isPlatformAdmin: true, mfaEnabledAt: true, suspendedAt: true, country: true, timeZone: true } } },
   });
   if (!session || session.expiresAt < new Date() || session.user.suspendedAt) return null;
+  // Dates in the person's own time zone if they chose one; otherwise their country's, until a workspace says otherwise.
+  if (session.user.timeZone) setRequestTimeZone(session.user.timeZone, true);
+  else setRequestTimeZone(countryTimeZone(session.user.country));
   return session;
 });
 
@@ -81,6 +87,8 @@ export type Member = {
   /** Where the business works and the currency its money is in (see regions.ts). */
   country: string;
   currency: string;
+  /** The workspace's time zone (its own choice, or its country's usual one). */
+  timeZone: string;
 };
 
 /** The signed-in user's active, non-suspended membership in their selected company. Cached per request. */
@@ -91,11 +99,13 @@ export const getMember = cache(async (): Promise<Member | null> => {
   const membership = await withTenant(companyId, user.id, (tx) =>
     tx.membership.findFirst({
       where: { companyId, userId: user.id, status: "ACTIVE" },
-      include: { company: { select: { name: true, suspendedAt: true, country: true, currency: true } } },
+      include: { company: { select: { name: true, suspendedAt: true, country: true, currency: true, timeZone: true } } },
     }),
   );
   if (!membership) return null;
   setRequestCurrency(membership.company.currency);
+  const companyZone = membership.company.timeZone || countryTimeZone(membership.company.country);
+  setRequestTimeZone(companyZone);
   return {
     userId: user.id,
     userName: user.name,
@@ -107,6 +117,7 @@ export const getMember = cache(async (): Promise<Member | null> => {
     companySuspended: !!membership.company.suspendedAt,
     country: membership.company.country,
     currency: membership.company.currency,
+    timeZone: companyZone,
   };
 });
 

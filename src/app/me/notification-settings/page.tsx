@@ -1,3 +1,4 @@
+import { zoneLabel } from "@/lib/dates";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getPrefs } from "@/lib/services/delivery";
@@ -34,7 +35,7 @@ export default async function NotificationSettingsPage({ searchParams: searchP }
           <select name="digest" defaultValue={p.digest}><option value="INSTANT">As things happen</option><option value="DAILY">One digest a day</option></select>
         </Field>
         <div className="grid">
-          <Field label="Quiet hours start" hint="Lagos time. Optional emails wait until quiet hours end."><select name="quietStart" defaultValue={p.quietStart == null ? "" : String(p.quietStart)}><option value="">None</option>{HOURS.map((h) => <option key={h} value={h}>{label(h)}</option>)}</select></Field>
+          <Field label="Quiet hours start" hint={`In your time zone (${zoneLabel()}). Optional emails wait until quiet hours end.`}><select name="quietStart" defaultValue={p.quietStart == null ? "" : String(p.quietStart)}><option value="">None</option>{HOURS.map((h) => <option key={h} value={h}>{label(h)}</option>)}</select></Field>
           <Field label="Quiet hours end"><select name="quietEnd" defaultValue={p.quietEnd == null ? "" : String(p.quietEnd)}><option value="">None</option>{HOURS.map((h) => <option key={h} value={h}>{label(h)}</option>)}</select></Field>
         </div>
         <Field label="Areas I care about" hint="Up to 10 cities or areas, separated by commas. We use them to tell you about new properties and new agents there. Leave empty for none."><input name="areas" defaultValue={p.areas.join(", ")} maxLength={300} /></Field>

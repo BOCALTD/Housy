@@ -1,3 +1,4 @@
+import { requestTimeZone } from "@/lib/money-context";
 import Link from "next/link";
 import { WorkspaceComments } from "./WorkspaceComments";
 import SaveDocument from "@/components/SaveDocument";
@@ -14,7 +15,7 @@ import {
 type Listing = Awaited<ReturnType<typeof listCollaborations>>;
 type Workspace = Awaited<ReturnType<typeof getWorkspace>>;
 const when = (d: Date | null | undefined) => (d ? formatDate(d) : "");
-const dt = (d: Date) => `${formatDate(d)} ${d.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lagos" })}`;
+const dt = (d: Date) => `${formatDate(d)} ${d.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", timeZone: requestTimeZone() })}`;
 
 function Row({ r, base }: { r: ListedCollab; base: string }) {
   return (

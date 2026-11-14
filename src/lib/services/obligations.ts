@@ -1,3 +1,4 @@
+import { requestTimeZone } from "../money-context";
 import { z } from "zod";
 import { withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
@@ -315,13 +316,13 @@ export async function complianceCalendar(ctx: Ctx) {
     if (can(ctx.role, "crm.view")) {
       const owners = await visibleOwners(tx, ctx);
       const dealScope = dealVisibleWhere(ctx, owners);
-      const lagosDay = (d: Date) => new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(d)}T00:00:00.000Z`);
+      const lagosDay = (d: Date) => new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: requestTimeZone() }).format(d)}T00:00:00.000Z`);
       const viewings = await tx.viewing.findMany({
         where: { companyId: ctx.companyId, status: "SCHEDULED", startsAt: { gte: today, lte: horizon }, deal: { is: dealScope } },
         include: { deal: { select: { id: true, ref: true, title: true } } }, take: 200,
       });
       for (const v of viewings) {
-        const t = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hour12: false }).format(v.startsAt);
+        const t = new Intl.DateTimeFormat("en-GB", { timeZone: requestTimeZone(), hour: "2-digit", minute: "2-digit", hour12: false }).format(v.startsAt);
         push({ kind: "VIEWING", id: v.id, title: `Viewing at ${t}: ${v.deal.title}`, dueDate: lagosDay(v.startsAt), amountKobo: null, href: `/app/deals/${v.deal.id}`, detail: v.deal.ref });
       }
       const followUps = await tx.clientActivity.findMany({

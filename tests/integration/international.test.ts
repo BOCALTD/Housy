@@ -15,6 +15,9 @@ import { createSubscriptionInvoice, receiveProviderEvent, startPayment } from ".
 import { savePlan, setPlanPrices } from "../../src/lib/services/subscriptions";
 import { balances } from "../../src/lib/services/finance";
 import { newCompany, newPlatformAdmin } from "./helpers";
+import { registerSeeker } from "../../src/lib/services/community";
+import { setMyRegion, setWorkspaceTimeZone, companyTimeZone } from "../../src/lib/services/business-region";
+import { saveLiveChat, platformConfig } from "../../src/lib/services/platform-config";
 
 const SK = "sk_test_" + "stripeFakeStripeFake1234";
 const WH = "whsec_" + "fakeFakeFakeFakeFake1234";
@@ -139,4 +142,42 @@ test("a workspace pays its plan in its own currency when the plan is priced in i
   const gbInv = await createSubscriptionInvoice({ userId: gb.userId, companyId: gb.companyId, role: "COMPANY_SUPER_ADMIN" }, plan.id);
   assert.equal(gbInv.currency, "NGN");
   assert.equal(gbInv.amountKobo, plan.priceKobo);
+});
+
+test("a person outside Nigeria pays their own plan in their currency, and cannot switch country with an invoice unpaid", async () => {
+  const admin = await newPlatformAdmin();
+  const plan = await savePlan(admin.id, null, { code: `seek-${Date.now().toString(36)}`, name: "Pro seeker abroad", audience: "SEEKER", price: "5,000", billingPeriod: "MONTHLY", trialDays: "0", graceDays: "7", readOnlyDays: "30", active: true, sortOrder: "510", tier: "SILVER" } as never);
+  await setPlanPrices(admin.id, plan.id, { GBP: "4.99" });
+  const uk = await registerSeeker({ name: "Ada in London", email: `ada-uk-${Date.now()}@example.test`, password: "integration-test-pw", country: "GB" });
+  const payer = { userId: uk.userId, companyId: null, role: null };
+  const inv = await createSubscriptionInvoice(payer, plan.id);
+  assert.deepEqual([inv.currency, inv.amountKobo], ["GBP", 499n]);
+  await assert.rejects(setMyRegion(uk.userId, { country: "NG", timeZone: "" }), /unpaid invoice/);
+  await setMyRegion(uk.userId, { country: "GB", timeZone: "Europe/London" });
+  await assert.rejects(setMyRegion(uk.userId, { country: "GB", timeZone: "Mars/Olympus" }), /time zone/);
+  const started = await startPayment(payer, inv.id, "https://housy.test/me/billing");
+  assert.ok(started.checkoutUrl.startsWith("https://checkout.stripe.com/"), "the UK is served by Stripe");
+  const checkout = sent.filter((x) => x.path === "/v1/checkout/sessions").pop()!.body;
+  assert.equal(formValue(checkout, "line_items[0][price_data][currency]"), "gbp");
+  const ng = await registerSeeker({ name: "Ada in Lagos", email: `ada-ng-${Date.now()}@example.test`, password: "integration-test-pw" });
+  const ngInv = await createSubscriptionInvoice({ userId: ng.userId, companyId: null, role: null }, plan.id);
+  assert.deepEqual([ngInv.currency, ngInv.amountKobo], ["NGN", 500_000n]);
+});
+
+test("a workspace keeps its own time zone, and the live chat is configured by the administrator with a real widget ID", async () => {
+  const admin = await newPlatformAdmin();
+  const co = await newCompany("intl-tz");
+  await changeBusinessCountry(co, "US");
+  assert.equal(await companyTimeZone(co.companyId), "America/New_York", "the country's usual time zone");
+  await assert.rejects(setWorkspaceTimeZone(co, "Nowhere/Land"), /time zone/);
+  await setWorkspaceTimeZone(co, "America/Los_Angeles");
+  assert.equal(await companyTimeZone(co.companyId), "America/Los_Angeles");
+
+  await assert.rejects(saveLiveChat(admin.id, { provider: "crisp", id: "not-an-id", places: ["public"] }), /Crisp widget ID/);
+  await assert.rejects(saveLiveChat(admin.id, { provider: "crisp", id: "1a2b3c4d-1234-5678-9abc-1234567890ab", places: [] }), /at least one place/);
+  await assert.rejects(saveLiveChat(co.userId, { provider: "crisp", id: "1a2b3c4d-1234-5678-9abc-1234567890ab", places: ["public"] }), /platform administrator/);
+  await saveLiveChat(admin.id, { provider: "crisp", id: "1A2B3C4D-1234-5678-9ABC-1234567890AB", places: ["public", "me"] });
+  assert.deepEqual((await platformConfig()).liveChat, { provider: "crisp", id: "1a2b3c4d-1234-5678-9abc-1234567890ab", places: ["public", "me"] });
+  await saveLiveChat(admin.id, { provider: "none", id: "", places: [] });
+  assert.equal((await platformConfig()).liveChat.provider, "none");
 });

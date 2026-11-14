@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { withTenant, withUser, type Tx } from "../db";
+import { companyTimeZone } from "./business-region";
+import { withPublic, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { randomRef } from "../tokens";
 import { rateLimit } from "../ratelimit";
@@ -14,8 +15,8 @@ import { formatKobo } from "../money";
 const requestSchema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(120),
   phone: z.string().trim().max(30).default(""),
-  preferredAt: z.string().transform((v) => fromLagosLocal(v)),
-  alternativeAt: z.string().optional().transform((v) => (v ? fromLagosLocal(v) : null)),
+  preferredAt: z.string(),
+  alternativeAt: z.string().optional(),
   message: z.string().trim().max(1000).default(""),
 });
 
@@ -27,7 +28,11 @@ export async function bookingDesk(companyId: string, extra: (string | null)[] = 
 
 /** A signed-in person asks to inspect a published property. The company confirms a time and who will meet them. */
 export async function requestInspection(userId: string, publicRef: string, input: z.input<typeof requestSchema>, now = new Date()) {
-  const d = requestSchema.parse(input);
+  const raw = requestSchema.parse(input);
+  // Times are as the clock reads at the property: the listing company's time zone.
+  const owner = await withPublic((tx) => tx.listing.findFirst({ where: { publicRef, status: "PUBLISHED" }, select: { companyId: true } }));
+  const zone = owner ? await companyTimeZone(owner.companyId) : "Africa/Lagos";
+  const d = { ...raw, preferredAt: fromLagosLocal(raw.preferredAt, zone), alternativeAt: raw.alternativeAt ? fromLagosLocal(raw.alternativeAt, zone) : null };
   const e1 = checkRequestedTime(d.preferredAt, now); if (e1) throw new Error(e1);
   if (d.alternativeAt) { const e2 = checkRequestedTime(d.alternativeAt, now); if (e2) throw new Error(`Second choice: ${e2.toLowerCase()}`); }
   if (!(await rateLimit(`inspect:${userId}`, 5, 864e5))) throw new Error("You have asked for several inspections today. Try again tomorrow.");

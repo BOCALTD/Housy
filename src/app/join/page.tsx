@@ -89,6 +89,7 @@ export default async function JoinPage({ searchParams: searchP }: { searchParams
             <Field label="Your full name"><input name="name" id="name" required maxLength={120} autoComplete="name" /></Field>
             <Field label="Email"><input name="email" id="email" type="email" required autoComplete="off" inputMode="email" autoCapitalize="off" spellCheck={false} /></Field>
             <PhoneField label="Phone (optional)" country={country} hint="Only shared with an agent when you book an inspection." />
+            <BusinessCountry value={country} label="Country where you live" hint="Your plan, if you choose one, is priced in this country's currency. You can change it later." />
             <NewPassword />
           </>
         )}

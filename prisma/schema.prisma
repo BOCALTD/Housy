@@ -34,6 +34,10 @@ model User {
   passwordHash    String       @map("password_hash")
   /// Given at sign-up (agents must, others may), stored as +234...
   phone           String       @default("")
+  /// Where the person lives (ISO 3166-1 alpha-2): their own plan is priced in its currency and paid through the provider for it.
+  country         String       @default("NG")
+  /// The time zone dates and times are shown in (IANA name); "" means their workspace's, or the country's usual one.
+  timeZone        String       @default("") @map("time_zone")
   /// Suggestions from what this person looks at (user_signals). They can turn it off.
   personalise     Boolean      @default(true)
   /// A line or two about them, shown on their profile.
@@ -126,6 +130,8 @@ model Company {
   /// Where the business works (ISO 3166-1 alpha-2) and the currency its prices, payments and plan are in (ISO 4217).
   country          String    @default("NG")
   currency         String    @default("NGN")
+  /// The workspace's time zone (IANA name) for its dates, due days and reminders; "" means the country's usual one.
+  timeZone         String    @default("") @map("time_zone")
   /// What the owner's pause hid (listing and profile ids), so resuming shows exactly those again and nothing hidden for other reasons.
   pauseHidden      Json?     @map("pause_hidden")
   createdAt   DateTime     @default(now()) @map("created_at")
@@ -6387,6 +6393,9 @@ model VpPayout {
   ref               String         @unique
   providerId        String         @map("provider_id")
   totalKobo         BigInt         @map("total_kobo")
+  /// The account's currency, and what was actually sent in it when Housy paid an account outside Nigeria (earnings are in naira).
+  currency          String         @default("NGN")
+  sentMinor         BigInt?        @map("sent_minor")
   status            VpPayoutStatus @default(PREPARED)
   bankName          String         @map("bank_name")
   accountName       String         @map("account_name")

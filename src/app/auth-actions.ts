@@ -1,5 +1,6 @@
 "use server";
 
+import { requestTimeZone } from "@/lib/money-context";
 import { checkCaptcha } from "@/lib/captcha";
 import { visitorIp } from "@/lib/request-ip";
 import { recordConsent } from "@/lib/services/privacy";
@@ -76,7 +77,7 @@ export async function joinAction(form: FormData) {
       await createSession(userId, companyId);
       return "/app/profile?notice=" + encodeURIComponent("Your agent account is ready. Finish your profile so clients can find you.");
     }
-    const { userId } = await registerSeeker({ name, email, password: confirmedPassword(form), phone: phoneFrom(form) });
+    const { userId } = await registerSeeker({ name, email, password: confirmedPassword(form), phone: phoneFrom(form), country: str(form, "country") || "NG" });
     await captureReferral({ id: userId, name, email: email.toLowerCase() }, "SEEKER", await takeReferral());
     await recordConsent(userId, LEGAL_VERSION);
     await createSession(userId, null);
@@ -160,7 +161,7 @@ export async function adminLoginAction(form: FormData) {
     }
     await recordSuccessfulSignIn(email);
     await createSession(user.id, null, { hours: ADMIN_SESSION_HOURS });
-    const when = new Date().toLocaleString("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" });
+    const when = new Date().toLocaleString("en-NG", { timeZone: requestTimeZone(), dateStyle: "medium", timeStyle: "short" });
     await withUser(user.id, (tx) => notify(tx, user.id, { kind: "security.admin_signin", title: "Staff sign-in to your administrator account",
       body: `Signed in on ${when} from ${ip}. If this was not you, change your password and sign out every device from Security now.`, link: "/me/security" })).catch(() => {});
     return "/admin";

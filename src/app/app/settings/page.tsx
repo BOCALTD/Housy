@@ -7,7 +7,9 @@ import { formatReference } from "@/lib/correspondence-rules";
 import { todayInLagos } from "@/lib/dates";
 import { Field, Flash, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { BusinessCountry } from "@/components/BusinessCountry";
-import { closeWorkspaceAction, countryAction, departmentAction, memberDepartmentAction, pauseWorkspaceAction, prefixAction, reminderSettingsAction } from "./actions";
+import { TimeZoneSelect } from "@/components/TimeZoneSelect";
+import { businessRegionFull, countryTimeZone } from "@/lib/services/business-region";
+import { closeWorkspaceAction, countryAction, timeZoneAction, departmentAction, memberDepartmentAction, pauseWorkspaceAction, prefixAction, reminderSettingsAction } from "./actions";
 
 export const metadata = { title: "Company settings" };
 
@@ -15,6 +17,7 @@ export default async function SettingsPage({ searchParams: searchP }: { searchPa
   const searchParams = await searchP;
   const member = await requireMember("settings.manage");
   const accessLog = await accessLogForCompany(member);
+  const { timeZone: companyZone } = await businessRegionFull(member);
   const [{ company, departments }, team] = await Promise.all([getSettings(member), listTeam(member)]);
   const year = todayInLagos().getUTCFullYear();
   const example = formatReference(company.refPrefix, departments[0]?.code ?? null, year, 7);
@@ -101,6 +104,14 @@ export default async function SettingsPage({ searchParams: searchP }: { searchPa
                 <li>Published listings keep their price and currency until you edit them.</li>
               </ul>
               <div className="row"><button className="btn" type="submit" data-confirm="Change your country?" data-confirm-body="Your currency may change and your bank account for client payments is cleared." data-confirm-ok="Change country">Change country</button></div>
+            </form>
+          </details>
+          <details className="vp-fold">
+            <summary>Time zone ({member.timeZone.replace(/_/g, " ")})</summary>
+            <form action={timeZoneAction} className="stack">
+              <TimeZoneSelect value={companyZone} automatic={countryTimeZone(member.country)} label="Workspace time zone" />
+              <p className="small muted">Used for due dates, reminders and times in this workspace. A member who chose their own time zone sees times in theirs.</p>
+              <div className="row"><button className="btn" type="submit">Save time zone</button></div>
             </form>
           </details>
         </section>

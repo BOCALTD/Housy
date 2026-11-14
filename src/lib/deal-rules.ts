@@ -1,3 +1,4 @@
+import { zonedToUtc } from "./dates";
 /** Pure rules for the deal (transaction) pipeline. No database access. */
 
 export const DEAL_TYPES = ["SALE", "RENT", "LEASE"] as const;
@@ -32,15 +33,15 @@ export function stageMoveProblem(from: DealStage, to: DealStage, status: DealSta
   return null;
 }
 
-/** Appointments are in Lagos time (UTC+1, no daylight saving). Returns the instant as a Date. */
-export function lagosToUtc(date: string, time: string): Date {
+/** A viewing's date and time as typed, in the workspace's time zone (Lagos unless given). Returns the instant as a Date. */
+export function lagosToUtc(date: string, time: string, timeZone = "Africa/Lagos"): Date {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
   const t = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
   if (!m || !t) throw new Error("Enter the viewing date and time");
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
   const [h, mi] = [Number(t[1]), Number(t[2])];
   if (h > 23 || mi > 59) throw new Error("Enter a valid time");
-  const dt = new Date(Date.UTC(y, mo - 1, d, h - 1, mi));
+  const dt = zonedToUtc(`${m[1]}-${m[2]}-${m[3]}T${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`, timeZone);
   const back = new Date(Date.UTC(y, mo - 1, d));
   if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) throw new Error("Enter a real date");
   return dt;

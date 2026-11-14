@@ -1,3 +1,4 @@
+import { requestTimeZone } from "@/lib/money-context";
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
@@ -9,7 +10,7 @@ import { cancelPayoutAction, heldEarningAction, markPaidAction, preparePayoutAct
 export const metadata = { title: "Verification payouts" };
 export const dynamic = "force-dynamic";
 
-const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: requestTimeZone() });
 
 export default async function Payouts({ searchParams: s }: { searchParams?: Promise<SP> }) {
   const searchParams = await s;
@@ -33,7 +34,7 @@ export default async function Payouts({ searchParams: s }: { searchParams?: Prom
             <li key={p.id} className="stack" style={{ alignItems: "stretch" }}>
               <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
                 <span className="stack" style={{ gap: 2, minWidth: 0 }}><strong>{p.ref} · {p.providerName} · {naira(p.totalKobo)}</strong>
-                  <span className="small">To {p.bankName}, {p.accountName}, account <span className="mono">{p.accountNumber}</span></span>
+                  <span className="small">To {p.bankName}, {p.accountName}, account <span className="mono">{p.accountNumber}</span>{p.currency !== "NGN" ? <> · an account in {p.currency}: convert when you pay</> : null}</span>
                   <span className="small muted">Prepared {day(p.preparedAt)}</span></span>
               </div>
               <div className="grid-2">
@@ -42,6 +43,7 @@ export default async function Payouts({ searchParams: s }: { searchParams?: Prom
                   <div className="grid-2">
                     <Field label="Transfer reference"><input name="reference" required minLength={3} maxLength={80} /></Field>
                     <Field label="Paid on"><input type="date" name="paidOn" required defaultValue={today()} max={today()} /></Field>
+                    {p.currency !== "NGN" ? <Field label={`Amount sent (${p.currency})`} hint="As the bank transfer shows it. The rate is worked out and shown to the organisation."><input name="sent" required inputMode="decimal" /></Field> : null}
                   </div>
                   <button className="btn primary" type="submit" data-confirm={`Record ${p.ref} as paid?`} data-confirm-body={`Only after ${naira(p.totalKobo)} has actually left Housy's bank for ${p.bankName} ${maskAccount(p.accountNumber)}. This cannot be undone.`} data-confirm-ok="Record as paid" data-confirm-tone="default">Record as paid</button>
                 </form>

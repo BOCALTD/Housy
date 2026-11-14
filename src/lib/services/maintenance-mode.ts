@@ -48,7 +48,7 @@ async function put(adminId: string, entries: [string, string | null][]) {
   forgetMaintenance();
 }
 
-/** Schedule an upgrade or maintenance window (times in Lagos time, as typed). Replaces any window not yet started. */
+/** Schedule an upgrade or maintenance window (times as typed, in the administrator's time zone). Replaces any window not yet started. */
 export async function scheduleMaintenance(adminId: string, input: { start: string; end: string; message: string; emergency: boolean }, now = new Date()) {
   await assertAdmin(adminId);
   const current = await maintenanceNow(now);
@@ -101,7 +101,7 @@ export async function sendMaintenanceNotice(now = new Date()) {
   const cursorRow = await prisma.platformSetting.findUnique({ where: { key: K.cursor } });
   if (!noticeDue(w, now) && !cursorRow) return { sent: 0 };
   const hours = Math.max(1, Math.round((w.start.getTime() - now.getTime()) / 3_600_000));
-  const when = `from ${formatDateTime(w.start)} to ${formatDateTime(w.end)} (Lagos time, WAT)`;
+  const when = `from ${formatDateTime(w.start)} to ${formatDateTime(w.end)} (Lagos time, WAT, UTC+1)`;
   const body = `${w.start.getTime() <= now.getTime() ? "Housy is being upgraded now" : `Housy will be closed for an upgrade ${when}`}${w.start.getTime() > now.getTime() && hours < NOTICE_HOURS ? `, in about ${hours} hour${hours === 1 ? "" : "s"}` : ""}. ${w.message ? `${w.message} ` : ""}During that time you will not be able to sign in or use the site. Payments made just before are safe and are confirmed when it reopens.`;
   const r = await broadcast({ title: `Planned maintenance on ${formatDateTime(w.start)}`, body: body.slice(0, 600), email: true }, cursorRow?.value ?? "");
   await put("system", r.done ? [[K.notified, now.toISOString()], [K.cursor, null]] : [[K.cursor, r.cursor]]);

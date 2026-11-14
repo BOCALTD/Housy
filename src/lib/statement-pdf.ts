@@ -1,3 +1,4 @@
+import { requestTimeZone } from "./money-context";
 import { PdfDoc } from "./pdf";
 import { formatKobo } from "./money";
 
@@ -96,6 +97,6 @@ export function renderStatement(d: StatementData): Uint8Array {
 
   pdf.ensure(30);
   pdf.y -= 18;
-  pdf.para(`Prepared from ${d.companyName}'s records on ${d.generatedAt.toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} (Lagos time). Ask ${d.companyName} to correct anything that looks wrong.`, { size: 8, color: MUTED });
+  pdf.para(`Prepared from ${d.companyName}'s records on ${d.generatedAt.toLocaleString("en-GB", { timeZone: requestTimeZone(), day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} (${new Intl.DateTimeFormat("en-GB", { timeZone: requestTimeZone(), timeZoneName: "short" }).formatToParts(d.generatedAt).find((x) => x.type === "timeZoneName")?.value ?? ""}). Ask ${d.companyName} to correct anything that looks wrong.`, { size: 8, color: MUTED });
   return pdf.bytes({ title: `Owner statement ${d.from} to ${d.to}`, author: d.companyName });
 }

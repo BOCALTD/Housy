@@ -387,3 +387,16 @@ code.break { overflow-wrap: anywhere; word-break: break-all; }
 .maint-ico { font-size: 2.6rem; line-height: 1; }
 .maint-banner { background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--line); font-size: 0.875rem; }
 .maint-banner .wrap { padding-top: 8px; padding-bottom: 8px; overflow-wrap: anywhere; }
+
+/* Live chat: Housy's own button (the provider's is hidden), bottom left so it never meets "Ask Housy" on the right; above the phone menu bar. */
+.chat-dock { position: fixed; z-index: 64; left: max(18px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: calc(100vw - 36px); }
+.chat-fab { display: inline-flex; align-items: center; gap: 8px; min-height: 52px; min-width: 52px; padding: 0 16px; border-radius: 999px; border: 0; cursor: pointer; color: #1F2125; font: 700 15px var(--font-body); background: #E3A93F; box-shadow: 0 16px 34px -12px rgba(0, 0, 0, .45); }
+.chat-ask { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; padding: 14px; width: min(360px, calc(100vw - 36px)); box-shadow: 0 20px 50px -20px rgba(0, 0, 0, .5); display: grid; gap: 10px; }
+.chat-ask p { margin: 0; font-size: 14px; line-height: 1.45; }
+.chat-ask .btn { min-height: 44px; }
+body:has(.cookie-notice) .chat-dock, body:has(.chat-shell) .chat-dock, body:has(.ai-panel) .chat-dock { display: none; }
+@media (max-width: 760px) {
+  body:has(.tabbar) .chat-dock { bottom: calc(76px + env(safe-area-inset-bottom)); left: 12px; }
+  .chat-fab { padding: 0 14px; }
+  .chat-fab span { display: none; }
+}

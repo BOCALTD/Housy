@@ -148,7 +148,7 @@ Your browser also keeps a few settings on your device, such as whether you have 
 ## Third parties
 Map pictures are loaded from map servers to draw the map. Those servers receive your IP address as any website would, but we do not let them set tracking cookies through ${P}.
 
-When you pay online, the payment page is run by our payment provider (Paystack), which uses its own cookies to process the payment safely. On sign-up, sign-in and some forms, a check that you are a person may be shown (Google reCAPTCHA or Cloudflare Turnstile, whichever ${P} uses); that check may use the provider's own cookies, under its privacy policy, to tell people from automated programs.
+When you pay online, the payment page is run by our payment provider (Paystack, or Stripe outside Paystack's countries), which uses its own cookies to process the payment safely. If ${P} offers live chat, it is run by a support chat provider (Tawk.to, Crisp, Tidio or Intercom) and starts only if you accept optional cookies; the provider then sets its own cookies to keep your conversation going, under its privacy policy. On sign-up, sign-in and some forms, a check that you are a person may be shown (Google reCAPTCHA or Cloudflare Turnstile, whichever ${P} uses); that check may use the provider's own cookies, under its privacy policy, to tell people from automated programs.
 
 ## Your choices
 You can change your choice below, or block and delete cookies in your browser. If you block the sign-in cookie you will not be able to sign in.`,

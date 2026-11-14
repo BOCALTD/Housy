@@ -2,6 +2,7 @@
  * The accounting export: a period's rent, deposit and service charge records from the company's own ledgers, as balanced
  * journals (accounting-rules.ts). Read-only; nothing in the platform's records changes.
  */
+import { requestTimeZone } from "../money-context";
 import { withTenant } from "../db";
 import { logActivity } from "../audit";
 import { parseDateOnly, toDateOnlyString } from "../dates";
@@ -9,7 +10,7 @@ import { ACCOUNTS, buildJournal, cleanCodes, type AccountCodes, type AccountingE
 import { assertCan, type Ctx } from "./context";
 
 const MAX_DAYS = 400;
-const lagosDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(d);
+const lagosDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: requestTimeZone() }).format(d);
 
 export function exportPeriod(fromRaw: string, toRaw: string) {
   const from = parseDateOnly(fromRaw), to = parseDateOnly(toRaw);

@@ -16,7 +16,8 @@
  * never change once paid; a case's price is fixed once quoted).
  */
 import { z } from "zod";
-import { bankLines, checkBankDetails, isCountry } from "../regions";
+import { bankLines, checkBankDetails, currencyOf, isCountry, parseMoney } from "../regions";
+import { payoutRate } from "../verification-finance-rules";
 import { withPlatformAdmin, withUser, type Tx } from "../db";
 import { lockKey } from "../locks";
 import { parseNairaToKobo, formatKobo } from "../money";
@@ -229,7 +230,7 @@ export async function preparePayout(adminId: string, providerId: string) {
     const year = new Date().getFullYear();
     await lockKey(tx, "vr-payout-ref");
     const n = await tx.vpPayout.count({ where: { ref: { startsWith: `HVO-${year}-` } } });
-    const payout = await tx.vpPayout.create({ data: { ref: payoutRef(year, n + 1), providerId, totalKobo: total, bankName: p.payoutBankName, accountName: p.payoutAccountName, accountNumber: p.payoutAccountNumber, preparedById: adminId } });
+    const payout = await tx.vpPayout.create({ data: { ref: payoutRef(year, n + 1), providerId, totalKobo: total, currency: currencyOf(acct.country), bankName: p.payoutBankName, accountName: p.payoutAccountName, accountNumber: p.payoutAccountNumber, preparedById: adminId } });
     await tx.vpEarning.updateMany({ where: { id: { in: earnings.map((e) => e.id) }, status: "PAYABLE" }, data: { status: "IN_PAYOUT", payoutId: payout.id } });
     await logActivity(tx, { companyId: null, actorId: adminId, entityType: "verification_payout", entityId: payout.id, action: "verification.payout_prepared", detail: { ref: payout.ref, providerId, totalKobo: total.toString(), earnings: earnings.length } });
     await notifyProviderFinance(tx, providerId, { kind: "verification.finance", title: `Payout ${payout.ref} prepared: ${formatKobo(total)}`, body: `To ${p.payoutBankName}, ${maskAccount(p.payoutAccountNumber)}. Housy will record the transfer once it is made.`, link: "/provider" });
@@ -238,7 +239,11 @@ export async function preparePayout(adminId: string, providerId: string) {
 }
 
 /** Housy's finance team made the bank transfer: record its reference. The payout and its earnings are then final. */
-export async function markPayoutPaid(adminId: string, payoutRefValue: string, input: { reference: string; paidOn: string }) {
+/**
+ * Record a payout as paid once the transfer is made. Earnings are in naira; for an account outside Nigeria, the amount actually
+ * sent in the account's currency is recorded too, so the organisation sees what arrived and the rate used.
+ */
+export async function markPayoutPaid(adminId: string, payoutRefValue: string, input: { reference: string; paidOn: string; sent?: string }) {
   const reference = input.reference.trim().toUpperCase().replace(/\s+/g, " ");
   if (reference.length < 3 || reference.length > 80) throw new Error("Enter the bank transfer reference.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.paidOn)) throw new Error("Enter the date the transfer was made.");
@@ -250,13 +255,19 @@ export async function markPayoutPaid(adminId: string, payoutRefValue: string, in
     await lockKey(tx, `vr-payout:${payout.providerId}`);
     if (payout.status !== "PREPARED") throw new Error("Only a prepared payout can be recorded as paid.");
     if (await tx.vpPayout.findFirst({ where: { transferReference: reference, status: "PAID" } })) throw new Error("That transfer reference has already been recorded for another payout.");
+    let sentMinor: bigint | null = null;
+    if (payout.currency !== "NGN") {
+      try { sentMinor = parseMoney(input.sent ?? "", payout.currency); } catch { throw new Error(`Enter the amount sent in ${payout.currency}, as the bank transfer shows it.`); }
+      if (sentMinor <= 0n) throw new Error(`Enter the amount sent in ${payout.currency}, as the bank transfer shows it.`);
+    }
     const earnings = await tx.vpEarning.findMany({ where: { payoutId: payout.id, status: "IN_PAYOUT" }, select: { id: true, netKobo: true } });
     if (earnings.reduce((n, e) => n + e.netKobo, 0n) !== payout.totalKobo) throw new Error("This payout's earnings no longer add up to its total. Cancel it and prepare it again.");
-    await tx.vpPayout.update({ where: { id: payout.id }, data: { status: "PAID", transferReference: reference, paidById: adminId, paidAt } });
+    await tx.vpPayout.update({ where: { id: payout.id }, data: { status: "PAID", transferReference: reference, paidById: adminId, paidAt, sentMinor } });
     await tx.vpEarning.updateMany({ where: { payoutId: payout.id, status: "IN_PAYOUT" }, data: { status: "PAID", paidAt } });
     await post(tx, { ledger: "VERIFICATION", kind: "SPEND", account: "PROVIDER_PAYABLE", amountKobo: -payout.totalKobo, entryKey: `vr-payout:${payout.id}`, actorId: adminId, note: `Payout ${payout.ref}, transfer ${reference}` });
-    await logActivity(tx, { companyId: null, actorId: adminId, entityType: "verification_payout", entityId: payout.id, action: "verification.payout_paid", detail: { ref: payout.ref, reference, totalKobo: payout.totalKobo.toString() } });
-    await notifyProviderFinance(tx, payout.providerId, { kind: "verification.finance", title: `Payout ${payout.ref} paid: ${formatKobo(payout.totalKobo)}`, body: `Transfer reference ${reference}, to ${payout.bankName} ${maskAccount(payout.accountNumber)}.`, link: "/provider" });
+    await logActivity(tx, { companyId: null, actorId: adminId, entityType: "verification_payout", entityId: payout.id, action: "verification.payout_paid", detail: { ref: payout.ref, reference, totalKobo: payout.totalKobo.toString(), ...(sentMinor !== null ? { currency: payout.currency, sentMinor: sentMinor.toString() } : {}) } });
+    const sentText = sentMinor !== null ? ` as ${formatKobo(sentMinor, payout.currency)} (${payoutRate(payout.totalKobo, sentMinor, payout.currency)})` : "";
+    await notifyProviderFinance(tx, payout.providerId, { kind: "verification.finance", title: `Payout ${payout.ref} paid: ${formatKobo(payout.totalKobo, "NGN")}${sentText}`, body: `Transfer reference ${reference}, to ${payout.bankName} ${maskAccount(payout.accountNumber)}.`, link: "/provider" });
   });
 }
 

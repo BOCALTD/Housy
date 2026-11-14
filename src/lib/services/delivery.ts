@@ -1,3 +1,4 @@
+import { COUNTRIES, isCountry } from "../regions";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma, withUser } from "../db";
@@ -16,6 +17,9 @@ import { system } from "./rewards";
 // connected nothing is sent and nothing is marked as sent.
 
 const secret = () => process.env.UNSUBSCRIBE_SECRET || process.env.APP_DB_PASSWORD || "development-only-secret";
+/** A person's time zone for quiet hours: their own choice, or their country's usual one. */
+const zoneOf = (u: { country: string; timeZone: string } | null | undefined) => (u ? u.timeZone || (isCountry(u.country) ? COUNTRIES[u.country].timeZone : "Africa/Lagos") : undefined);
+
 export const baseUrl = () => (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
 export const unsubscribeUrl = (userId: string, scope: UnsubScope) => `${baseUrl()}/unsubscribe?t=${encodeURIComponent(signUnsub(secret(), userId, scope))}`;
 
@@ -90,11 +94,11 @@ export async function processOutbox(o: { now?: Date; driver?: EmailDriver | null
   for (const item of due) {
     const claimed = await system((tx) => tx.emailOutbox.updateMany({ where: { id: item.id, status: { in: ["QUEUED", "FAILED"] } }, data: { status: "SENDING", nextAttemptAt: now } }));
     if (claimed.count === 0) continue;
-    const user = await prisma.user.findUnique({ where: { id: item.userId }, select: { id: true, email: true, name: true, breakStartedAt: true } });
+    const user = await prisma.user.findUnique({ where: { id: item.userId }, select: { id: true, email: true, name: true, breakStartedAt: true, country: true, timeZone: true } });
     // On a break: only essential email (security, billing) goes out; the rest is dropped, not saved up for their return.
     if (user?.breakStartedAt && item.category !== "ESSENTIAL") { await system((tx) => tx.emailOutbox.update({ where: { id: item.id }, data: { status: "SKIPPED", skipReason: "on a break" } })); await log(item.userId, item.kind, "SKIPPED", "on a break"); sum.skipped++; continue; }
     const prefRow = await system((tx) => tx.notificationPref.findUnique({ where: { userId: item.userId } }));
-    const pref: PrefView = prefRow ? { emailActivity: prefRow.emailActivity, emailAlerts: prefRow.emailAlerts, emailPromotional: prefRow.emailPromotional, digest: prefRow.digest, quietStart: prefRow.quietStart, quietEnd: prefRow.quietEnd } : DEFAULT_PREFS;
+    const pref: PrefView = prefRow ? { emailActivity: prefRow.emailActivity, emailAlerts: prefRow.emailAlerts, emailPromotional: prefRow.emailPromotional, digest: prefRow.digest, quietStart: prefRow.quietStart, quietEnd: prefRow.quietEnd, timeZone: zoneOf(user) } : DEFAULT_PREFS;
     const sentLast24h = await system((tx) => tx.emailOutbox.count({ where: { userId: item.userId, status: "SENT", category: { not: "ESSENTIAL" }, template: { not: "digest" }, sentAt: { gte: new Date(now.getTime() - 864e5) } } }));
     const d = decide({ kind: item.kind, category: item.category, pref, now, sentLast24h, hasAddress: !!user?.email });
     if (d.action === "SKIP") { await system((tx) => tx.emailOutbox.update({ where: { id: item.id }, data: { status: "SKIPPED", skipReason: d.reason } })); await log(item.userId, item.kind, "SKIPPED", d.reason); sum.skipped++; continue; }
@@ -134,7 +138,8 @@ async function sendDigests(driver: EmailDriver, now: Date, sum: RunSummary) {
   const people = await system((tx) => tx.emailOutbox.groupBy({ by: ["userId"], where: { status: "HELD" } }));
   for (const { userId } of people) {
     const prefRow = await system((tx) => tx.notificationPref.findUnique({ where: { userId } }));
-    if (inQuiet(lagosHour(now), prefRow?.quietStart ?? null, prefRow?.quietEnd ?? null)) continue;
+    const who = prefRow?.quietStart != null ? await prisma.user.findUnique({ where: { id: userId }, select: { country: true, timeZone: true } }) : null;
+    if (inQuiet(lagosHour(now, zoneOf(who)), prefRow?.quietStart ?? null, prefRow?.quietEnd ?? null)) continue;
     const gap = (prefRow?.digest === "DAILY" ? 24 : 12) * 3600_000;
     const last = await system((tx) => tx.emailOutbox.findFirst({ where: { userId, template: "digest", status: { in: ["SENT", "DEAD"] } }, orderBy: { createdAt: "desc" } }));
     if (last && now.getTime() - (last.sentAt ?? last.createdAt).getTime() < (last.status === "DEAD" ? 30 * 60_000 : gap)) continue;

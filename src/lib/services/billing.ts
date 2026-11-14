@@ -25,10 +25,21 @@ export interface Deps { provider?: PaymentProvider | null; now?: Date }
 type ProviderName = "PAYSTACK" | "STRIPE";
 /** The provider to use: the one a test passes in, or the named one with the keys saved in settings. */
 const providerOf = async (d?: Deps, name: ProviderName = "PAYSTACK"): Promise<PaymentProvider | null> => (d && "provider" in d ? d.provider ?? null : (await import("./platform-config")).paymentProviderNamed(name));
-/** Where an invoice's owner is, so it is paid through the provider serving that country (individuals pay through Paystack, in naira). */
-async function routeFor(tx: Tx, inv: { ownerCompanyId: string | null }): Promise<string> {
-  if (!inv.ownerCompanyId) return "NG";
-  return (await tx.company.findUnique({ where: { id: inv.ownerCompanyId }, select: { country: true } }))?.country ?? "NG";
+/** Where an invoice's owner is (the workspace's country, or the person's), so it is paid through the provider serving that country. */
+async function routeFor(tx: Tx, inv: { ownerCompanyId: string | null; ownerUserId?: string | null }): Promise<string> {
+  if (inv.ownerCompanyId) return (await tx.company.findUnique({ where: { id: inv.ownerCompanyId }, select: { country: true } }))?.country ?? "NG";
+  if (inv.ownerUserId) return (await tx.user.findUnique({ where: { id: inv.ownerUserId }, select: { country: true } }))?.country ?? "NG";
+  return "NG";
+}
+
+/** The country and currency a payer pays in: their workspace's, or for a person their own. */
+export async function payerRegion(p: Payer): Promise<{ country: string; currency: string }> {
+  return system(async (tx) => {
+    if (p.companyId) { const c = await tx.company.findUnique({ where: { id: p.companyId }, select: { country: true, currency: true } }); return { country: c?.country ?? "NG", currency: c?.currency ?? "NGN" }; }
+    const u = await tx.user.findUnique({ where: { id: p.userId }, select: { country: true } });
+    const { currencyOf } = await import("../regions");
+    return { country: u?.country ?? "NG", currency: currencyOf(u?.country ?? "NG") };
+  });
 }
 const nowOf = (d?: Deps) => d?.now ?? new Date();
 
@@ -89,7 +100,7 @@ export async function buyablePlans(p: Payer) {
 
 /** Every plan that is switched on, free ones and ones without a price yet included, for the side-by-side comparison. */
 export async function allPlans(audiences: ("COMPANY" | "SEEKER" | "AGENT")[]) {
-  return system((tx) => tx.subscriptionPlan.findMany({ where: { active: true, audience: { in: audiences } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { entitlements: true } }));
+  return system((tx) => tx.subscriptionPlan.findMany({ where: { active: true, audience: { in: audiences } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { entitlements: true, prices: true } }));
 }
 
 /** An invoice for one period of a plan. Asking again for the same plan returns the invoice already open; asking for another plan replaces it. */
@@ -103,7 +114,7 @@ export async function createSubscriptionInvoice(p: Payer, planId: string, deps?:
     if ((plan.audience === "COMPANY") !== (owner.kind === "COMPANY")) throw new Error(owner.kind === "COMPANY" ? "This plan is for individuals, not companies" : "This plan is for companies, not individuals");
     if (!plan.priceKobo || plan.priceKobo <= 0n || plan.billingPeriod === "NONE") throw new Error("This plan cannot be bought online. Ask the platform administrator.");
     await lockKey(tx, `invoice-owner:${owner.kind}:${owner.kind === "USER" ? owner.userId : owner.companyId}`);
-    const price = await planPriceFor(tx, plan, owner.kind === "COMPANY" ? owner.companyId : null);
+    const price = await planPriceFor(tx, plan, owner);
     const open = await tx.invoice.findFirst({ where: { ...ownerWhere(owner), purpose: "SUBSCRIPTION", status: "OPEN" } });
     if (open && open.subjectId === plan.id && open.amountKobo === price.amount && open.currency === price.currency) return open;
     if (open) await tx.invoice.update({ where: { id: open.id }, data: { status: "VOID", voidedAt: now, voidReason: "Replaced by an invoice for another plan" } });
@@ -120,15 +131,16 @@ export async function createSubscriptionInvoice(p: Payer, planId: string, deps?:
 }
 
 /**
- * What a plan costs a workspace: in its own currency when the administrator has set a price in it, otherwise in naira (the plan's
- * main price). Individuals pay in naira.
+ * What a plan costs its owner: in their own currency (a workspace's, or for a person the currency of their country) when the
+ * administrator has set a price in it, otherwise in naira (the plan's main price).
  */
-export async function planPriceFor(tx: Tx, plan: { id: string; priceKobo: bigint | null }, companyId: string | null): Promise<{ amount: bigint; currency: string }> {
+export async function planPriceFor(tx: Tx, plan: { id: string; priceKobo: bigint | null }, owner: Owner): Promise<{ amount: bigint; currency: string }> {
   const naira = { amount: plan.priceKobo ?? 0n, currency: "NGN" };
-  if (!companyId) return naira;
-  const co = await tx.company.findUnique({ where: { id: companyId }, select: { currency: true } });
-  if (!co || co.currency === "NGN") return naira;
-  const local = await tx.planPrice.findUnique({ where: { planId_currency: { planId: plan.id, currency: co.currency } } });
+  let currency = "NGN";
+  if (owner.kind === "COMPANY") currency = (await tx.company.findUnique({ where: { id: owner.companyId }, select: { currency: true } }))?.currency ?? "NGN";
+  else { const { currencyOf } = await import("../regions"); currency = currencyOf((await tx.user.findUnique({ where: { id: owner.userId }, select: { country: true } }))?.country ?? "NG"); }
+  if (currency === "NGN") return naira;
+  const local = await tx.planPrice.findUnique({ where: { planId_currency: { planId: plan.id, currency } } });
   return local ? { amount: local.amountMinor, currency: local.currency } : naira;
 }
 

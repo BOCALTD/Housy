@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { allPlans, buyablePlans, myInvoices, readBankInstructions, type Payer } from "@/lib/services/billing";
+import { allPlans, buyablePlans, myInvoices, payerRegion, readBankInstructions, type Payer } from "@/lib/services/billing";
 import { PlanCompare } from "@/components/PlanCompare";
 import { companySubscription, mySubscription } from "@/lib/services/subscriptions";
-import { configuredProvider } from "@/lib/payment-providers";
+import { onlineProviderFor } from "@/lib/services/platform-config";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -20,7 +20,8 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
     myInvoices(payer),
     allPlans(payer.companyId ? ["COMPANY"] : ["SEEKER", "AGENT"]),
   ]);
-  const online = !!configuredProvider();
+  const region = await payerRegion(payer);
+  const online = !!(await onlineProviderFor(region.country));
   const bank = online ? "" : await readBankInstructions();
   const base = from === "app" ? "/app/billing" : "/me/billing";
   const open = invoices.filter((i) => i.status === "OPEN");
@@ -60,12 +61,12 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
       <section className="stack">
         <h2>Plans</h2>
         {!online ? <div className="card"><p className="small muted">Online payment is not connected yet. Choose a plan to get an invoice, then pay by bank transfer and the platform administrator will confirm it.{bank ? "" : " Ask the platform administrator for the account details."}</p></div> : null}
-        {payer.companyId ? <PlanCompare audience="COMPANY" plans={all.filter((x) => x.audience === "COMPANY")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} /> : (
+        {payer.companyId ? <PlanCompare audience="COMPANY" plans={all.filter((x) => x.audience === "COMPANY")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} /> : (
           <>
             <h3>For people looking for property</h3>
-            <PlanCompare audience="SEEKER" plans={all.filter((x) => x.audience === "SEEKER")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} />
+            <PlanCompare audience="SEEKER" plans={all.filter((x) => x.audience === "SEEKER")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} />
             <h3>For agents</h3>
-            <PlanCompare audience="AGENT" plans={all.filter((x) => x.audience === "AGENT")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} />
+            <PlanCompare audience="AGENT" plans={all.filter((x) => x.audience === "AGENT")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} />
           </>
         )}
         {plan.sub && plans.some((x) => x.id !== plan.sub!.planId) ? <p className="small muted">Choosing a different plan starts a new period today. Time left on your current plan is not carried over.</p> : null}
@@ -84,10 +85,9 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
 }
 
 export async function InvoicePanel({ payer, from, invoice }: { payer: Payer; from: "me" | "app"; invoice: NonNullable<Awaited<ReturnType<typeof import("@/lib/services/billing").invoiceFor>>> }) {
-  const online = !!configuredProvider();
+  const online = !!(await onlineProviderFor((await payerRegion(payer)).country));
   const bank = invoice.status === "OPEN" && !online ? await readBankInstructions() : "";
   const base = from === "app" ? "/app/billing" : "/me/billing";
-  void payer;
   return (
     <div className="stack-lg">
       <section className="card stack">

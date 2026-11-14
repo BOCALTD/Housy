@@ -4,7 +4,13 @@ import { PERIOD_MONTHS, type Period } from "@/lib/billing-rules";
 import { formatKobo } from "@/lib/money";
 import { payPlanAction } from "@/app/billing/actions";
 
-type Plan = { id: string; name: string; audience: string; priceKobo: bigint | null; billingPeriod: string; tier: string; entitlements: { key: string; limit: number | null }[] };
+type Plan = { id: string; name: string; audience: string; priceKobo: bigint | null; billingPeriod: string; tier: string; entitlements: { key: string; limit: number | null }[]; prices?: { currency: string; amountMinor: bigint }[] };
+
+/** A plan's price for the viewer: in their currency when the plan is priced in it, otherwise the naira price. */
+const priceIn = (p: Plan, currency: string) => {
+  const local = currency !== "NGN" ? p.prices?.find((x) => x.currency === currency) : undefined;
+  return local ? { amount: local.amountMinor, currency } : { amount: p.priceKobo ?? 0n, currency: "NGN" };
+};
 
 const per = (p: Plan) => { const m = PERIOD_MONTHS[p.billingPeriod as Period]; return m === 1 ? "a month" : m === 12 ? "a year" : m ? `for ${m} months` : ""; };
 
@@ -12,7 +18,7 @@ const per = (p: Plan) => { const m = PERIOD_MONTHS[p.billingPeriod as Period]; r
  * Every plan side by side, with the same list of features on each: what a plan includes is ticked, what it lacks is struck through.
  * The last plan, the most complete, is marked. With a payer, plans with a price can be chosen; otherwise each links to sign-up.
  */
-export function PlanCompare({ audience, plans, buy, currentPlanId }: { audience: Audience; plans: Plan[]; buy?: { from: "me" | "app" }; currentPlanId?: string | null }) {
+export function PlanCompare({ audience, plans, buy, currentPlanId, currency = "NGN" }: { audience: Audience; plans: Plan[]; buy?: { from: "me" | "app" }; currentPlanId?: string | null; currency?: string }) {
   const features = FEATURES[audience];
   const top = plans[plans.length - 1]?.id;
   return (
@@ -26,7 +32,7 @@ export function PlanCompare({ audience, plans, buy, currentPlanId }: { audience:
             {p.id === top && plans.length > 1 ? <span className="plan-flag">Everything included</span> : null}
             {p.id === currentPlanId ? <span className="plan-flag plan-flag-current">Your plan</span> : null}
             <h3 id={`plan-${p.id}`}>{p.name}</h3>
-            <p className="plan-price">{free ? <><strong>₦0</strong> <span>always free</span></> : priced ? <><strong>{formatKobo(p.priceKobo!)}</strong> <span>{per(p)}</span></> : <strong className="plan-ask">Price on request</strong>}</p>
+            <p className="plan-price">{free ? <><strong>Free</strong> <span>always</span></> : priced ? <><strong>{formatKobo(priceIn(p, currency).amount, priceIn(p, currency).currency)}</strong> <span>{per(p)}</span></> : <strong className="plan-ask">Price on request</strong>}</p>
             <ul className="plan-features">
               {features.map((f) => {
                 const has = includes(p, f);

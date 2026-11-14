@@ -35,6 +35,8 @@ import { LockedPhotos, SignupNudge } from "@/components/SignupNudge";
 import { GUEST_PHOTOS, shareText } from "@/lib/share-rules";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { formatMoney } from "@/lib/regions";
+import { zoneLabel } from "@/lib/dates";
+import { companyTimeZone } from "@/lib/services/business-region";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +59,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   const params = await paramsP;
   const searchParams = await searchP;
   const listing = await getPublicListing(params.ref);
+  const propertyZone = listing ? zoneLabel(new Date(), await companyTimeZone(listing.companyId)) : "WAT";
   if (!listing) notFound();
   const extras = await listingExtras(listing);
   const adRef = /^AD-[A-Z0-9]{8}$/.test(sp(searchParams, "ad") ?? "") ? (sp(searchParams, "ad") as string) : null;
@@ -234,7 +237,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
               <input type="hidden" name="ref" value={listing.publicRef} />
               <label className="field">Your name<input name="name" required maxLength={120} defaultValue={session.user.name} autoComplete="name" /></label>
               <label className="field">Phone (optional)<input name="phone" maxLength={30} inputMode="tel" autoComplete="tel" /><small>Shared only with the company for this inspection.</small></label>
-              <label className="field">Preferred date and time<input name="preferredAt" type="datetime-local" required /><small>Lagos time.</small></label>
+              <label className="field">Preferred date and time<input name="preferredAt" type="datetime-local" required /><small>Time at the property ({propertyZone}).</small></label>
               <label className="field">Second choice (optional)<input name="alternativeAt" type="datetime-local" /></label>
               <label className="field">Anything they should know (optional)<textarea name="message" rows={2} maxLength={1000} /></label>
               <button className="btn primary" type="submit">Request inspection</button>

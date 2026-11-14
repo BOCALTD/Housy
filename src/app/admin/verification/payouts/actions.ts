@@ -10,7 +10,7 @@ export async function preparePayoutAction(form: FormData) {
   return act(PAGE, async () => { const a = await requirePlatformAdmin(); const ref = await preparePayout(a.id, str(form, "providerId")); return withNotice(PAGE, `Payout ${ref} prepared. Make the bank transfer, then record its reference here.`); });
 }
 export async function markPaidAction(form: FormData) {
-  return act(PAGE, async () => { const a = await requirePlatformAdmin(); await markPayoutPaid(a.id, str(form, "ref"), { reference: str(form, "reference"), paidOn: str(form, "paidOn") }); return withNotice(PAGE, "Payout recorded as paid. The provider has been told."); });
+  return act(PAGE, async () => { const a = await requirePlatformAdmin(); await markPayoutPaid(a.id, str(form, "ref"), { reference: str(form, "reference"), paidOn: str(form, "paidOn"), sent: str(form, "sent") }); return withNotice(PAGE, "Payout recorded as paid. The provider has been told."); });
 }
 export async function cancelPayoutAction(form: FormData) {
   return act(PAGE, async () => { const a = await requirePlatformAdmin(); await cancelPayout(a.id, str(form, "ref"), str(form, "reason")); return withNotice(PAGE, "Payout cancelled. Its earnings are ready to pay again."); });

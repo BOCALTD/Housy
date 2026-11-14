@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { providerFinance } from "@/lib/services/verification-finance";
-import { EARNING_WORDS, maskAccount, PAYOUT_WAIT_DAYS, type EarningStatus } from "@/lib/verification-finance-rules";
+import { EARNING_WORDS, maskAccount, PAYOUT_WAIT_DAYS, payoutRate, type EarningStatus } from "@/lib/verification-finance-rules";
+import { formatKobo } from "@/lib/money";
 import { vpCan } from "@/lib/verification-network-rules";
 import { day, naira } from "@/app/verification/case-ui";
 import { OrgHeader, orgFor } from "../shared";
@@ -98,7 +99,7 @@ export default async function ProviderFinance({ params: p, searchParams: s }: { 
         <summary>Payouts ({f.payouts.length})</summary>
         {f.payouts.length ? <ul className="vp-list">{f.payouts.map((p) => (
           <li key={p.id}><span className="stack" style={{ gap: 2, minWidth: 0 }}><strong>{p.ref} · {naira(p.totalKobo)}</strong>
-            <span className="small muted">{p.status === "PAID" ? `Paid ${day(p.paidAt)} · transfer ${p.transferReference}` : p.status === "PREPARED" ? `Prepared ${day(p.preparedAt)}; Housy will record the transfer` : `Cancelled: ${p.cancelReason}`} · {p.bankName} {maskAccount(p.accountNumber)}</span></span>
+            <span className="small muted">{p.status === "PAID" ? `Paid ${day(p.paidAt)}${p.sentMinor != null ? ` as ${formatKobo(p.sentMinor, p.currency)} (${payoutRate(p.totalKobo, p.sentMinor, p.currency)})` : ""} · transfer ${p.transferReference}` : p.status === "PREPARED" ? `Prepared ${day(p.preparedAt)}; Housy will record the transfer` : `Cancelled: ${p.cancelReason}`} · {p.bankName} {maskAccount(p.accountNumber)}</span></span>
             <span className={`pill ${p.status === "PAID" ? "ok" : ""}`}>{p.status.toLowerCase()}</span></li>
         ))}</ul> : <p className="muted small">None yet.</p>}
       </details>

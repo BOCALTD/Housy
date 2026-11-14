@@ -57,7 +57,7 @@ export async function registerCompany(input: z.input<typeof registerSchema>) {
 
   await assertNotBlocked(data.email, data.contactPhone ?? "");
   const user = await prisma.user.create({
-    data: { email: data.email, name: data.name, passwordHash: await hashPassword(data.password), phone: data.contactPhone },
+    data: { email: data.email, name: data.name, passwordHash: await hashPassword(data.password), phone: data.contactPhone, country: data.country },
   });
   const companyId = randomUUID();
   await withTenant(companyId, user.id, async (tx) => {
@@ -89,7 +89,7 @@ export async function registerAgent(input: z.input<typeof agentSchema>) {
   const data = agentSchema.parse(input);
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead.");
   await assertNotBlocked(data.email, data.phone ?? "");
-  const user = await prisma.user.create({ data: { email: data.email, name: data.name, phone: data.phone, passwordHash: await hashPassword(data.password) } });
+  const user = await prisma.user.create({ data: { email: data.email, name: data.name, phone: data.phone, country: data.country, passwordHash: await hashPassword(data.password) } });
   const companyId = randomUUID();
   const business = data.tradingName || data.name;
   await withTenant(companyId, user.id, async (tx) => {

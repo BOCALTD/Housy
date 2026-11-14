@@ -30,6 +30,7 @@ export function CookieNotice() {
     const via = new URLSearchParams(window.location.search).get("via");
     await saveCookieChoice(choice, via);
     setOpen(false);
+    window.dispatchEvent(new Event("housy:cookie-chosen"));
   });
   return (
     <section className="cookie-notice" role="region" aria-label="Cookie choice">

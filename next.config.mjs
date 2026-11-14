@@ -15,17 +15,28 @@ const satHost = (() => {
   if (!t) return "";
   try { return new URL(t.replace(/\{[a-z]+\}/g, "0")).origin; } catch { return ""; }
 })();
+/** The hosts each live chat provider loads from (their published lists). */
+const CHAT = {
+  script: "https://embed.tawk.to https://*.tawk.to https://cdn.jsdelivr.net https://client.crisp.chat https://code.tidio.co https://*.tidio.co https://widget.intercom.io https://js.intercomcdn.com",
+  style: "https://embed.tawk.to https://*.tawk.to https://client.crisp.chat https://*.tidio.co",
+  img: "https://*.tawk.to https://tawk.link https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat https://*.tidio.co https://*.tidiocdn.com https://*.intercomcdn.com https://*.intercom.io https://static.intercomassets.com",
+  font: "https://*.tawk.to https://client.crisp.chat https://*.tidio.co https://js.intercomcdn.com https://fonts.intercomcdn.com",
+  media: "https://*.tawk.to https://client.crisp.chat https://*.tidio.co https://js.intercomcdn.com",
+  connect: "https://*.tawk.to wss://*.tawk.to https://client.crisp.chat wss://client.relay.crisp.chat wss://stream.relay.crisp.chat https://storage.crisp.chat https://*.tidio.co wss://*.tidio.co https://*.intercom.io wss://*.intercom.io https://api-iam.intercom.io https://uploads.intercomcdn.com",
+  frame: "https://*.tawk.to https://game.crisp.chat https://*.tidio.co https://intercom-sheets.com https://www.intercom-reporting.com",
+};
 const csp = [
   "default-src 'self'",
-  // Google Sign-In; the person check (Google reCAPTCHA or Cloudflare Turnstile) when the administrator turns one on.
-  "script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.google.com https://www.gstatic.com https://challenges.cloudflare.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
-  `img-src 'self' data: blob: ${tileHost}${satHost && satHost !== tileHost ? ` ${satHost}` : ""}`,
-  "font-src 'self' data: https://fonts.gstatic.com",
+  // Google Sign-In; the person check (Google reCAPTCHA or Cloudflare Turnstile) when the administrator turns one on; the live chat
+  // provider the administrator chooses (Tawk.to, Crisp, Tidio or Intercom), loaded only after the visitor accepts optional cookies.
+  `script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.google.com https://www.gstatic.com https://challenges.cloudflare.com ${CHAT.script}`,
+  `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com ${CHAT.style}`,
+  `img-src 'self' data: blob: ${tileHost}${satHost && satHost !== tileHost ? ` ${satHost}` : ""} ${CHAT.img}`,
+  `font-src 'self' data: https://fonts.gstatic.com ${CHAT.font}`,
   // Reel previews play the chosen clip from the device before it is uploaded.
-  "media-src 'self' blob:",
-  "connect-src 'self' https://www.googleapis.com https://accounts.google.com https://www.google.com https://challenges.cloudflare.com",
-  "frame-src https://accounts.google.com https://www.google.com https://challenges.cloudflare.com",
+  `media-src 'self' blob: ${CHAT.media}`,
+  `connect-src 'self' https://www.googleapis.com https://accounts.google.com https://www.google.com https://challenges.cloudflare.com ${CHAT.connect}`,
+  `frame-src https://accounts.google.com https://www.google.com https://challenges.cloudflare.com ${CHAT.frame}`,
   "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
 ].join("; ");
 const securityHeaders = [

@@ -2,7 +2,7 @@
 
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import { changeBusinessCountry } from "@/lib/services/business-region";
+import { changeBusinessCountry, setWorkspaceTimeZone } from "@/lib/services/business-region";
 import { closeWorkspace, pauseWorkspace } from "@/lib/services/workspace-lifecycle";
 import { addDepartment, setMemberDepartment, updateReminderSettings, updateRefPrefix } from "@/lib/services/settings";
 
@@ -60,5 +60,13 @@ export async function countryAction(form: FormData) {
     const r = await changeBusinessCountry(member, str(form, "country"));
     if (!("name" in r)) return withNotice("/app/settings", "That is already your country.");
     return withNotice("/app/settings", r.changedCurrency ? `Country changed to ${r.name}. Money is now in ${r.currency}. Add your bank account again under Client payments.` : `Country changed to ${r.name}. Add your bank account again under Client payments.`);
+  });
+}
+
+export async function timeZoneAction(form: FormData) {
+  return act("/app/settings", async () => {
+    const member = await requireMember("settings.manage");
+    await setWorkspaceTimeZone(member, str(form, "timeZone"));
+    return withNotice("/app/settings", "Time zone saved.");
   });
 }

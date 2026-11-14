@@ -6,6 +6,7 @@ import { logActivity } from "../audit";
 import { parseDateOnly, todayInLagos } from "../dates";
 import { parseNairaToKobo } from "../money";
 import { nextNumber } from "../numbering";
+import { requestTimeZone } from "../money-context";
 import { DEAL_TYPES, lagosToUtc, offerAcceptable, overlaps, slotProblem, stageMoveProblem, type DealStage } from "../deal-rules";
 import { can } from "../permissions";
 import { assertCan, type Ctx } from "./context";
@@ -269,7 +270,7 @@ async function checkClash(tx: Tx, ctx: Ctx, slot: { startsAt: Date; endsAt: Date
 export async function scheduleViewing(ctx: Ctx, dealId: string, raw: z.input<typeof viewingSchema>) {
   assertCan(ctx, "crm.manage");
   const d = viewingSchema.parse(raw);
-  const startsAt = lagosToUtc(d.date, d.time);
+  const startsAt = lagosToUtc(d.date, d.time, requestTimeZone());
   const slot = { startsAt, endsAt: new Date(startsAt.getTime() + d.minutes * 60_000) };
   const bad = slotProblem(slot, new Date());
   if (bad) throw new Error(bad);
@@ -301,7 +302,7 @@ async function loadViewing(tx: Tx, ctx: Ctx, id: string) {
 export async function rescheduleViewing(ctx: Ctx, viewingId: string, raw: Pick<z.input<typeof viewingSchema>, "date" | "time" | "minutes">) {
   assertCan(ctx, "crm.manage");
   const d = viewingSchema.pick({ date: true, time: true, minutes: true }).parse(raw);
-  const startsAt = lagosToUtc(d.date, d.time);
+  const startsAt = lagosToUtc(d.date, d.time, requestTimeZone());
   const slot = { startsAt, endsAt: new Date(startsAt.getTime() + d.minutes * 60_000) };
   const bad = slotProblem(slot, new Date());
   if (bad) throw new Error(bad);

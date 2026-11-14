@@ -1,3 +1,4 @@
+import { requestTimeZone } from "@/lib/money-context";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -15,8 +16,8 @@ import {
 
 export const metadata = { title: "Deal" };
 
-const time = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
-const day = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(d);
+const time = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: requestTimeZone(), hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+const day = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: requestTimeZone() }).format(d);
 
 export default async function DealPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
   const params = await paramsP;

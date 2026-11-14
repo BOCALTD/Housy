@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { PhoneField } from "@/components/PhoneField";
-import { getSession, requireUser } from "@/lib/auth";
+import { getMember, getSession, requireUser } from "@/lib/auth";
+import { countryTimeZone, myRegion } from "@/lib/services/business-region";
+import { BusinessCountry } from "@/components/BusinessCountry";
+import { TimeZoneSelect } from "@/components/TimeZoneSelect";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 import { profileFor } from "@/lib/services/profile";
 import { SignOutButton } from "@/components/SessionSwitch";
@@ -9,7 +12,7 @@ import { ProfileMedia } from "@/components/ProfileMedia";
 import { ThemeChoice } from "@/components/ThemeSwitch";
 import { getSearchPref } from "@/lib/services/search-prefs";
 import { cookies } from "next/headers";
-import { clearSearchPrefAction, saveSearchPrefAction } from "./actions";
+import { clearSearchPrefAction, regionAction, saveSearchPrefAction } from "./actions";
 import { becomeAgentAction, removeProfileImageAction, switchModeAction, takeBreakAction, updateAboutAction, uploadProfileImageAction } from "./actions";
 
 export const metadata = { title: "Profile and settings" };
@@ -30,6 +33,9 @@ export default async function SettingsPage() {
   const user = await requireUser();
   const [p, session, myPref] = await Promise.all([profileFor(user.id), getSession(), getSearchPref(user.id).catch(() => null)]);
   const activeCompany = session?.companyId ?? null;
+  const region = await myRegion(user.id);
+  const member = activeCompany ? await getMember() : null;
+  const autoZone = member?.timeZone || countryTimeZone(region.country);
   const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
   const modes = [
     { to: "personal", title: "Me", text: "Look for property, chat, save homes and find flatmates.", on: !activeCompany, icon: "person" as const },
@@ -105,6 +111,19 @@ export default async function SettingsPage() {
           <div className="row"><button className="btn primary" type="submit">Save my search</button></div>
         </form>
         {myPref ? <form action={clearSearchPrefAction}><button className="btn" type="submit" data-confirm="Clear your search?" data-confirm-body="Best matches stop until you set it again." data-confirm-ok="Clear" data-confirm-tone="default">Clear my search</button></form> : null}
+      </section>
+
+      <section className="card stack" aria-labelledby="region-h">
+        <h2 id="region-h">Country and time zone</h2>
+        <p className="small muted">Your own plan is priced in your country&apos;s currency (now {region.currency}). Dates and times are shown in your time zone.</p>
+        <details className="vp-fold">
+          <summary>Change</summary>
+          <form action={regionAction} className="stack">
+            <BusinessCountry value={region.country} label="Country where you live" hint="Your own plan is priced in this country's currency." />
+            <TimeZoneSelect value={region.timeZone} automatic={autoZone} />
+            <div className="row"><button className="btn" type="submit" data-confirm="Save your country and time zone?" data-confirm-body="Your own plan's currency and the times you see may change." data-confirm-ok="Save" data-confirm-tone="default">Save</button></div>
+          </form>
+        </details>
       </section>
 
       <section className="card stack" aria-labelledby="look-h">

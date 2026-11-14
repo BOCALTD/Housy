@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser, setActiveCompany } from "@/lib/auth";
 import { act, phoneFrom, str, withNotice } from "@/lib/forms";
 import { clearSearchPref, saveSearchPref } from "@/lib/services/search-prefs";
+import { setMyRegion } from "@/lib/services/business-region";
 import { becomeAgent, checkModeTarget, removeProfileImage, saveProfileImage, takeBreak, updateAbout, type BreakLength } from "@/lib/services/profile";
 
 const BACK = "/me/settings";
@@ -86,5 +87,13 @@ export async function clearSearchPrefAction() {
     const u = await requireUser();
     await clearSearchPref(u.id);
     return withNotice("/me/settings#my-search", "My search cleared.");
+  });
+}
+
+export async function regionAction(form: FormData) {
+  return act(BACK, async () => {
+    const u = await requireUser();
+    await setMyRegion(u.id, { country: str(form, "country"), timeZone: str(form, "timeZone") });
+    return withNotice(BACK, "Country and time zone saved.");
   });
 }

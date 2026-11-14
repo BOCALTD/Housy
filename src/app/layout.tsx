@@ -24,6 +24,8 @@ import { CompareBar } from "@/components/Compare";
 import { ServiceWorker } from "@/components/Pwa";
 import { ConfirmHost } from "@/components/Confirm";
 import { CookieNotice } from "@/components/CookieNotice";
+import { LiveChat } from "@/components/LiveChat";
+import { liveChatPlaceOf, platformConfig } from "@/lib/services/platform-config";
 import { Frame, type FrameNotice } from "@/components/Frame";
 import { getMember } from "@/lib/auth";
 import { ROLE_LABELS, can } from "@/lib/permissions";
@@ -112,6 +114,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const closed = maint.phase === "active" && !!maint.window && !session?.user.isPlatformAdmin && !openDuringMaintenance(path);
   const showBanner = !!maint.window && (maint.phase === "notice" || (maint.phase === "active" && !closed));
   const railMini = jar.get("rail")?.value === "mini";
+  // Live chat (Admin → Settings), where the administrator chose to show it; never on admin pages or while the site is closed.
+  const lc = (await platformConfig().catch(() => null))?.liveChat;
+  const place = liveChatPlaceOf(path);
+  const chat = lc && lc.provider !== "none" && place && lc.places.includes(place) && !closed ? { provider: lc.provider as "tawk" | "crisp" | "tidio" | "intercom", id: lc.id } : null;
   const themeCookie = jar.get("theme")?.value;
   const theme: "light" | "dark" | "system" = themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
   return (
@@ -136,6 +142,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AppToaster />
         <ConfirmHost />
         <CookieNotice />
+        {chat ? <LiveChat provider={chat.provider} id={chat.id} visitor={session ? { name: session.user.name, email: session.user.email } : null} /> : null}
         <Suspense fallback={null}><UrlToasts /></Suspense>
         {closed && maint.window ? <MaintenancePage window={maint.window} name={PLATFORM_NAME} /> : (<>
         {showBanner && maint.window ? <MaintenanceBanner window={maint.window} active={maint.phase === "active"} /> : null}

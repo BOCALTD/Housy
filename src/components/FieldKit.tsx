@@ -26,8 +26,9 @@ const RESULTS = ["PASS", "ATTENTION", "FAIL", "NOT_APPLICABLE"] as const;
 const SHORT: Record<string, string> = { PASS: "Pass", ATTENTION: "Attention", FAIL: "Fail", NOT_APPLICABLE: "N/A" };
 const PAGE = 8;
 
-const todayLagos = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(new Date());
-const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lagos" });
+// Field work happens on the device, so dates and times are the device's own.
+const todayLagos = () => new Intl.DateTimeFormat("en-CA").format(new Date());
+const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`);
 const human = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");

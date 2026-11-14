@@ -35,10 +35,10 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
         <Field label="Perks level" hint="Basic: free. Pro: free promotions. Elite: Elite badge, Premium tag, automatic boost, free promotions."><select name="tier" defaultValue={p?.tier ?? "BASIC"}>{["BASIC", "SILVER", "GOLD"].map((b) => <option key={b} value={b}>{tierLabel(b)}</option>)}</select></Field>
         <Field label="Order"><input name="sortOrder" inputMode="numeric" defaultValue={p?.sortOrder ?? 100} /></Field>
       </div>
-      {!p || p.audience === "COMPANY" ? (
+      {true ? (
         <details className="vp-fold">
           <summary>Prices in other currencies{p?.prices.length ? ` (${p.prices.length})` : ""}</summary>
-          <p className="small muted">For company workspaces outside Nigeria. Leave a currency empty and those workspaces pay the naira price.</p>
+          <p className="small muted">For workspaces and people outside Nigeria. Leave a currency empty and they pay the naira price.</p>
           <div className="fields">
             {CURRENCY_CODES.filter((c) => c !== "NGN").map((c) => {
               const pr = p?.prices.find((x) => x.currency === c);

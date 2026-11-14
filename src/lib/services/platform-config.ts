@@ -4,6 +4,7 @@
  *  - Person check: Google reCAPTCHA (v2 checkbox or v3 invisible) or Cloudflare Turnstile, its keys, and where it is asked.
  *  - Cloudflare: whether Housy sits behind Cloudflare, so the visitor's address is read from Cloudflare's header.
  *  - Commission: Housy's percentage of rent, inspection fees and other payments made through the platform.
+ *  - Live chat: the support chat provider (Tawk.to, Crisp, Tidio or Intercom), its widget ID, and where it shows.
  *
  * Secret keys are stored encrypted (AES-256-GCM, the same as two-step sign-in secrets) and are never shown back in full.
  */
@@ -19,6 +20,33 @@ export type CaptchaProvider = (typeof CAPTCHA_PROVIDERS)[number];
 export const CAPTCHA_PLACES = ["signup", "login", "reset", "forms"] as const;
 export type CaptchaPlace = (typeof CAPTCHA_PLACES)[number];
 export const CAPTCHA_PLACE_LABELS: Record<CaptchaPlace, string> = { signup: "Creating an account", login: "Signing in", reset: "Resetting a password", forms: "Enquiry and contact forms" };
+export const LIVE_CHAT_PROVIDERS = ["none", "tawk", "crisp", "tidio", "intercom"] as const;
+export type LiveChatProvider = (typeof LIVE_CHAT_PROVIDERS)[number];
+export const LIVE_CHAT_LABELS: Record<LiveChatProvider, string> = { none: "Off", tawk: "Tawk.to", crisp: "Crisp", tidio: "Tidio", intercom: "Intercom" };
+export const LIVE_CHAT_PLACES = ["public", "me", "app"] as const;
+export type LiveChatPlace = (typeof LIVE_CHAT_PLACES)[number];
+export const LIVE_CHAT_PLACE_LABELS: Record<LiveChatPlace, string> = { public: "Public pages (visitors and signed-in people)", me: "Personal pages (seekers' and agents' own pages)", app: "Company and agent dashboards" };
+/** Where each provider's widget ID is found, and what it looks like. */
+export const LIVE_CHAT_ID_HINTS: Record<Exclude<LiveChatProvider, "none">, string> = {
+  tawk: "Tawk.to: Administration, Chat Widget. Paste the direct chat link or the two IDs, for example 5f1a2b3c4d5e6f7a8b9c0d1e/1h2ij3kl4.",
+  crisp: "Crisp: Settings, Website settings, Setup instructions. The Website ID, for example 1a2b3c4d-1234-5678-9abc-1234567890ab.",
+  tidio: "Tidio: Settings, Developer. The public key (32 letters and digits).",
+  intercom: "Intercom: Settings, Installation, Web. The workspace (app) ID, for example abc12def.",
+};
+
+/** A widget ID as the provider issues it, from whatever the administrator pasted (an embed link is accepted). Null when it is not one. */
+export function liveChatId(provider: LiveChatProvider, raw: string): string | null {
+  const t = raw.trim();
+  if (provider === "tawk") {
+    const m = t.match(/([a-f0-9]{24})\/([a-z0-9]{5,20})/i);
+    return m ? `${m[1]}/${m[2]}` : null;
+  }
+  if (provider === "crisp") { const m = t.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i); return m ? m[0].toLowerCase() : null; }
+  if (provider === "tidio") { const m = t.match(/(?:^|\/)([a-z0-9]{32})(?:\.js)?$/i); return m ? m[1].toLowerCase() : null; }
+  if (provider === "intercom") return /^[a-z0-9]{6,12}$/i.test(t) ? t.toLowerCase() : null;
+  return null;
+}
+
 export const COMMISSION_KINDS = ["RENT", "INSPECTION", "OTHER"] as const;
 export type CommissionKind = (typeof COMMISSION_KINDS)[number];
 export const COMMISSION_LABELS: Record<CommissionKind, string> = { RENT: "Rent", INSPECTION: "Inspection fees", OTHER: "Other payments (service charge, deposits, fees)" };
@@ -28,6 +56,7 @@ const K = {
   captchaProvider: "captcha_provider", captchaSiteKey: "captcha_site_key", captchaSecret: "captcha_secret", captchaPlaces: "captcha_places",
   trustCloudflare: "trust_cloudflare",
   stripeSecret: "stripe_secret", stripePublic: "stripe_public", stripeWebhook: "stripe_webhook_secret", paymentRoutes: "payment_routes",
+  liveChatProvider: "live_chat_provider", liveChatId: "live_chat_id", liveChatPlaces: "live_chat_places",
   commissionRent: "commission_rent_bps", commissionInspection: "commission_inspection_bps", commissionOther: "commission_other_bps",
 } as const;
 
@@ -39,6 +68,7 @@ export type PlatformConfig = {
   captcha: { provider: CaptchaProvider; siteKey: string; secret: string; places: CaptchaPlace[] };
   trustCloudflare: boolean;
   commissionBps: Record<CommissionKind, number>;
+  liveChat: { provider: LiveChatProvider; id: string; places: LiveChatPlace[] };
 };
 
 let cache: { at: number; value: PlatformConfig } | null = null;
@@ -83,6 +113,12 @@ export async function platformConfig(): Promise<PlatformConfig> {
       places: (v(K.captchaPlaces) ?? "signup,login,reset,forms").split(",").filter((p): p is CaptchaPlace => (CAPTCHA_PLACES as readonly string[]).includes(p)),
     },
     trustCloudflare: process.env.TRUST_CLOUDFLARE === "1" || v(K.trustCloudflare) === "1",
+    liveChat: (() => {
+      const pv = (LIVE_CHAT_PROVIDERS as readonly string[]).includes(v(K.liveChatProvider) ?? "") ? (v(K.liveChatProvider) as LiveChatProvider) : "none";
+      const id = pv === "none" ? "" : liveChatId(pv, v(K.liveChatId) ?? "") ?? "";
+      const places = (v(K.liveChatPlaces) ?? "public,me,app").split(",").filter((p): p is LiveChatPlace => (LIVE_CHAT_PLACES as readonly string[]).includes(p));
+      return { provider: id ? pv : "none", id, places };
+    })(),
     commissionBps: { RENT: bps(v(K.commissionRent)), INSPECTION: bps(v(K.commissionInspection)), OTHER: bps(v(K.commissionOther)) },
   };
   cache = { at: Date.now(), value };
@@ -98,6 +134,7 @@ export async function configForAdmin() {
     paystack: { source: c.paystack.source, mode: c.paystack.mode, secretTail: tail(c.paystack.secret), public: c.paystack.public },
     stripe: { source: c.stripe.source, mode: c.stripe.mode, secretTail: tail(c.stripe.secret), public: c.stripe.public, webhookSet: !!c.stripe.webhook },
     routes: c.routes,
+    liveChat: c.liveChat,
     captcha: { provider: c.captcha.provider, siteKey: c.captcha.siteKey, secretTail: tail(c.captcha.secret), places: c.captcha.places },
     trustCloudflare: c.trustCloudflare, trustCloudflareFromServer: process.env.TRUST_CLOUDFLARE === "1",
     commission: Object.fromEntries(COMMISSION_KINDS.map((k) => [k, (c.commissionBps[k] / 100).toString()])) as Record<CommissionKind, string>,
@@ -226,4 +263,23 @@ export async function paymentProviderNamed(name: "PAYSTACK" | "STRIPE") {
   const c = await platformConfig();
   if (name === "PAYSTACK") return c.paystack.secret ? paystackProvider(c.paystack.secret) : null;
   return c.stripe.secret && c.stripe.webhook ? stripeProvider(c.stripe.secret, c.stripe.webhook) : null;
+}
+
+const liveChatSchema = z.object({ provider: z.enum(LIVE_CHAT_PROVIDERS), id: z.string().trim().max(300), places: z.array(z.enum(LIVE_CHAT_PLACES)).default([]) });
+/** Save the live chat. Turning it on needs the provider's widget ID and at least one place to show it. */
+export async function saveLiveChat(adminId: string, raw: z.input<typeof liveChatSchema>) {
+  const d = liveChatSchema.parse(raw);
+  if (d.provider === "none") return save(adminId, [[K.liveChatProvider, "none"]], "live_chat", { provider: "none" });
+  const id = liveChatId(d.provider, d.id);
+  if (!id) throw new Error(`That does not look like a ${LIVE_CHAT_LABELS[d.provider]} widget ID. ${LIVE_CHAT_ID_HINTS[d.provider]}`);
+  if (!d.places.length) throw new Error("Choose at least one place to show the chat, or turn it off.");
+  await save(adminId, [[K.liveChatProvider, d.provider], [K.liveChatId, id], [K.liveChatPlaces, d.places.join(",")]], "live_chat", { provider: d.provider, places: d.places });
+}
+
+/** Where a page is, for the live chat's places: admin pages never show it. */
+export function liveChatPlaceOf(path: string): LiveChatPlace | null {
+  if (path.startsWith("/admin") || path.startsWith("/qa")) return null;
+  if (path.startsWith("/app") || path.startsWith("/provider")) return "app";
+  if (path.startsWith("/me")) return "me";
+  return "public";
 }

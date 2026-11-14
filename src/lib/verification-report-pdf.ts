@@ -1,3 +1,4 @@
+import { requestTimeZone } from "./money-context";
 import { PdfDoc } from "./pdf";
 import { FINDING_BASES, OUTCOMES, type ReportContent } from "./verification-case-rules";
 
@@ -27,7 +28,7 @@ const MUTED: [number, number, number] = [0.36, 0.38, 0.44];
 const SOFT: [number, number, number] = [0.965, 0.969, 0.976];
 const BRASS: [number, number, number] = [0.83, 0.69, 0.38];
 const RED: [number, number, number] = [0.6, 0.12, 0.15];
-const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Lagos" });
+const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: requestTimeZone() });
 
 /**
  * The provider's professional report as a PDF. It says clearly that it is the provider's report; Housy's quality review is

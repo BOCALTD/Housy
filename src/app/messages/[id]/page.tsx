@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { currentTimeZone } from "@/lib/dates";
 import { currentActor } from "@/lib/collab-session";
 import { getConversation } from "@/lib/services/messaging";
 import { avatarsFor } from "@/lib/services/avatars";
@@ -92,7 +93,7 @@ export default async function ConversationPage({ params: paramsP, searchParams: 
       </header>
       {t.olderFrom ? <Link className="chat-older" href={`/messages/${params.id}?before=${encodeURIComponent(t.olderFrom.toISOString())}`}>Load earlier messages</Link> : null}
       <ChatThread conversationId={params.id} meId={me.id} initial={t.messages.map(chatMessage)} initialSeen={t.seenUpTo?.toISOString() ?? null}
-        canReply={!t.cannotReply} send={sendChatAction} extras={extras} />
+        canReply={!t.cannotReply} send={sendChatAction} extras={extras} timeZone={currentTimeZone()} />
       {t.cannotReply ? <p className="chat-cant">{t.iBlocked ? "You blocked this person." : room && room.status !== "OPEN" ? "This chat room is closed." : "You cannot reply to this conversation."}</p> : null}
     </div>
   );

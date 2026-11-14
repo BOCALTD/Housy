@@ -1,3 +1,4 @@
+import { zoneOffsetMinutes } from "./dates";
 import { createHash } from "node:crypto";
 
 // Notification rules: pure, so they can be tested without a database or an email provider.
@@ -26,7 +27,8 @@ export const MAX_ALERT_RECIPIENTS = 300;            // one approved property rea
 export const backoff = (attempts: number) => BACKOFF_MINUTES[Math.min(Math.max(attempts, 1), BACKOFF_MINUTES.length) - 1] * 60_000;
 
 const LAGOS_OFFSET_H = 1;                           // Nigeria has no daylight saving: always UTC+1
-export const lagosHour = (d: Date) => (d.getUTCHours() + LAGOS_OFFSET_H) % 24;
+/** The hour of the day at a moment, in a time zone (Lagos unless given): quiet hours are kept in the person's own time zone. */
+export const lagosHour = (d: Date, timeZone?: string) => (timeZone ? Number(new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(d)) % 24 : (d.getUTCHours() + LAGOS_OFFSET_H) % 24);
 export const lagosDay = (d: Date) => new Date(d.getTime() + LAGOS_OFFSET_H * 3600_000).toISOString().slice(0, 10);
 
 /** Quiet hours may wrap past midnight (22 to 7). The end hour itself is outside the quiet period. */
@@ -35,12 +37,13 @@ export function inQuiet(hour: number, start: number | null, end: number | null):
   return start < end ? hour >= start && hour < end : hour >= start || hour < end;
 }
 
-/** The next moment the quiet period ends, on the hour, in Lagos time. */
-export function quietEndsAt(now: Date, end: number): Date {
-  const local = new Date(now.getTime() + LAGOS_OFFSET_H * 3600_000);
+/** The next moment the quiet period ends, on the hour, in the person's time zone (Lagos unless given). */
+export function quietEndsAt(now: Date, end: number, timeZone?: string): Date {
+  const off = (at: Date) => (timeZone ? zoneOffsetMinutes(timeZone, at) / 60 : LAGOS_OFFSET_H);
+  const local = new Date(now.getTime() + off(now) * 3600_000);
   const t = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), end);
   const at = t > local.getTime() ? t : t + 864e5;
-  return new Date(at - LAGOS_OFFSET_H * 3600_000);
+  return new Date(at - off(new Date(at)) * 3600_000);
 }
 
 /** Same person, same thing, same day: one email. Callers may pass their own key to widen or narrow that. */
@@ -49,7 +52,7 @@ export function dedupeKeyFor(userId: string, kind: string, ref: string, now: Dat
   return createHash("sha256").update(basis).digest("hex").slice(0, 40);
 }
 
-export interface PrefView { emailActivity: boolean; emailAlerts: boolean; emailPromotional: boolean; digest: "INSTANT" | "DAILY"; quietStart: number | null; quietEnd: number | null }
+export interface PrefView { emailActivity: boolean; emailAlerts: boolean; emailPromotional: boolean; digest: "INSTANT" | "DAILY"; quietStart: number | null; quietEnd: number | null; timeZone?: string }
 export const DEFAULT_PREFS: PrefView = { emailActivity: true, emailAlerts: true, emailPromotional: false, digest: "INSTANT", quietStart: null, quietEnd: null };
 
 export type Decision =
@@ -66,7 +69,7 @@ export function decide(o: { kind: string; category: Category; pref: PrefView; no
   if (o.category === "ACTIVITY") {
     if (ALERT_KINDS.has(o.kind) ? !o.pref.emailAlerts : !o.pref.emailActivity) return { action: "SKIP", reason: "switched off by the person" };
   }
-  if (inQuiet(lagosHour(o.now), o.pref.quietStart, o.pref.quietEnd)) return { action: "DEFER", until: quietEndsAt(o.now, o.pref.quietEnd!) };
+  if (inQuiet(lagosHour(o.now, o.pref.timeZone), o.pref.quietStart, o.pref.quietEnd)) return { action: "DEFER", until: quietEndsAt(o.now, o.pref.quietEnd!, o.pref.timeZone) };
   if (o.pref.digest === "DAILY") return { action: "HOLD", reason: "daily digest" };
   if (o.sentLast24h >= DAILY_EMAIL_CAP) return { action: "HOLD", reason: "daily limit reached" };
   return { action: "SEND" };

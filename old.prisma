@@ -4294,6 +4294,84 @@ model ListingBoost {
   @@map("listing_boosts")
 }
 
+enum BulkAudience {
+  CLIENTS
+  TENANTS
+}
+
+enum BulkStatus {
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum BulkRecipientStatus {
+  QUEUED
+  SENDING
+  SENT
+  SKIPPED
+  FAILED
+  DEAD
+}
+
+/// A message a company sends by email to many of its own contacts at once (a plan feature): clients who agreed to marketing, or
+/// the tenants of its current leases. Every email carries a link to stop messages from that company.
+model BulkMessage {
+  id          String          @id @default(uuid())
+  ref         String          @unique
+  companyId   String          @map("company_id")
+  audience    BulkAudience
+  /// Tenants of one property only, when chosen.
+  assetId     String?         @map("asset_id")
+  subject     String
+  body        String
+  status      BulkStatus      @default(SENDING)
+  recipients  Int
+  createdById String          @map("created_by_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  finishedAt  DateTime?       @map("finished_at")
+  cancelledAt DateTime?       @map("cancelled_at")
+  items       BulkRecipient[]
+
+  @@index([companyId, createdAt])
+  @@map("bulk_messages")
+}
+
+model BulkRecipient {
+  id                String              @id @default(uuid())
+  bulkId            String              @map("bulk_id")
+  companyId         String              @map("company_id")
+  email             String
+  name              String              @default("")
+  source            String
+  sourceId          String              @map("source_id")
+  status            BulkRecipientStatus @default(QUEUED)
+  attempts          Int                 @default(0)
+  nextAttemptAt     DateTime            @default(now()) @map("next_attempt_at")
+  lastError         String              @default("") @map("last_error")
+  skipReason        String              @default("") @map("skip_reason")
+  providerMessageId String              @default("") @map("provider_message_id")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  sentAt            DateTime?           @map("sent_at")
+  bulk              BulkMessage         @relation(fields: [bulkId], references: [id], onDelete: Restrict)
+
+  @@unique([bulkId, email])
+  @@index([status, nextAttemptAt])
+  @@index([companyId, createdAt])
+  @@map("bulk_recipients")
+}
+
+/// Someone who asked to stop bulk messages from one company (from the link in its email). Kept by email address.
+model BulkOptOut {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  email     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([companyId, email])
+  @@map("bulk_opt_outs")
+}
+
 /// What a person thinks of the platform, and what would make it serve them better.
 model PlatformRating {
   id           String       @id @default(uuid())

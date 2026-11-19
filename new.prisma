@@ -3668,6 +3668,8 @@ enum MessageKind {
   PROPERTY
   INSPECTION_REQUEST
   INSPECTION_REPLY
+  FILE
+  VOICE
 }
 
 enum ModerationStatus {
@@ -3698,6 +3700,8 @@ model ConversationMember {
   userId         String       @map("user_id")
   name           String
   lastReadAt     DateTime?    @map("last_read_at")
+  /// When they last typed in this chat; others see "typing" for a few seconds after.
+  typingAt       DateTime?    @map("typing_at")
   joinedAt       DateTime     @default(now()) @map("joined_at")
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
@@ -3719,10 +3723,46 @@ model Message {
   createdAt      DateTime        @default(now()) @map("created_at")
   conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   reports        MessageReport[]
+  attachment     MessageAttachment?
+  reactions      MessageReaction[]
 
   @@index([conversationId, createdAt])
   @@index([senderId, createdAt])
   @@map("messages")
+}
+
+/// A file or voice note sent in a chat. Read only by the people in the conversation (and the administrator once it is reported).
+model MessageAttachment {
+  id             String   @id @default(uuid())
+  messageId      String   @unique @map("message_id")
+  conversationId String   @map("conversation_id")
+  uploaderId     String   @map("uploader_id")
+  name           String
+  mimeType       String   @map("mime_type")
+  sizeBytes      Int      @map("size_bytes")
+  /// Voice notes only.
+  durationMs     Int?     @map("duration_ms")
+  bytes          Bytes
+  createdAt      DateTime @default(now()) @map("created_at")
+  message        Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("message_attachments")
+}
+
+/// One emoji reaction per person per message.
+model MessageReaction {
+  id             String   @id @default(uuid())
+  messageId      String   @map("message_id")
+  conversationId String   @map("conversation_id")
+  userId         String   @map("user_id")
+  emoji          String
+  createdAt      DateTime @default(now()) @map("created_at")
+  message        Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([conversationId])
+  @@map("message_reactions")
 }
 
 model UserBlock {

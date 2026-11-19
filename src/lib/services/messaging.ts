@@ -8,6 +8,7 @@ import { readSettings } from "./platform-settings";
 import { entitlementIn } from "./subscriptions";
 import { notify } from "./notifications";
 import type { Actor } from "./collab";
+import { REACTIONS, TYPING_SECONDS, cleanFileName, fileProblem, sniff } from "../chat-files";
 
 // Secure internal messaging. A conversation is private to its members; nobody is given a phone number or email through it unless
 // the sender's plan includes contact details. The platform administrator reads a message only after someone reports it.
@@ -52,7 +53,7 @@ async function membersOf(tx: Tx, conversationId: string) {
   return tx.conversationMember.findMany({ where: { conversationId } });
 }
 
-interface Post { kind: "TEXT" | "PROPERTY" | "INSPECTION_REQUEST" | "INSPECTION_REPLY"; body: string; details?: Prisma.InputJsonValue; replyToId?: string | null }
+interface Post { kind: "TEXT" | "PROPERTY" | "INSPECTION_REQUEST" | "INSPECTION_REPLY" | "FILE" | "VOICE"; body: string; details?: Prisma.InputJsonValue; replyToId?: string | null }
 
 /** Add a message, move the conversation up, mark it read for the sender, and tell the others once rather than once per message. */
 async function post(tx: Tx, a: Actor, conversationId: string, p: Post) {
@@ -76,13 +77,20 @@ async function post(tx: Tx, a: Actor, conversationId: string, p: Post) {
   const now = new Date();
   const msg = await tx.message.create({ data: { conversationId, senderId: a.userId, senderName: me.name, kind: p.kind, body: screened.text, masked: screened.masked, details: p.details ?? {}, replyToId: p.replyToId ?? null, createdAt: now } });
   await tx.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: now } });
-  await tx.conversationMember.update({ where: { id: me.id }, data: { lastReadAt: now } });
+  await tx.conversationMember.update({ where: { id: me.id }, data: { lastReadAt: now, typingAt: null } });
   for (const o of others) {
     const alreadyWaiting = (await tx.message.count({ where: { conversationId, senderId: a.userId, createdAt: { gt: o.lastReadAt ?? new Date(0), lt: now } } })) > 0;
-    if (!alreadyWaiting) await notify(tx, o.userId, { kind: "message.new", title: `New message from ${me.name}`, body: msg.kind === "TEXT" ? screened.text.slice(0, 80) : "", link: `/messages/${conversationId}` });
+    const preview = msg.kind === "TEXT" ? screened.text.slice(0, 80) : msg.kind === "VOICE" ? "Voice note" : msg.kind === "FILE" ? `File${screened.text ? `: ${screened.text.slice(0, 60)}` : ""}` : "";
+    if (!alreadyWaiting) await notify(tx, o.userId, { kind: "message.new", title: `New message from ${me.name}`, body: preview, link: `/messages/${conversationId}` });
   }
   return msg;
 }
+
+/** What a chat shows with each message: its file's details (never the file itself) and its reactions. */
+const MESSAGE_EXTRAS = {
+  attachment: { select: { id: true, name: true, mimeType: true, sizeBytes: true, durationMs: true } },
+  reactions: { select: { emoji: true, userId: true } },
+} satisfies Prisma.MessageInclude;
 
 // ---------- Starting and continuing ----------
 
@@ -225,7 +233,7 @@ export async function getConversation(a: Actor, id: string, before?: Date) {
     const c = await tx.conversation.findUnique({ where: { id }, include: { members: true } });
     const me = c?.members.find((m) => m.userId === a.userId);
     if (!c || !me) throw new Error("Conversation not found");
-    const batch = await tx.message.findMany({ where: { conversationId: id, ...(before ? { createdAt: { lt: before } } : {}) }, orderBy: { createdAt: "desc" }, take: THREAD_PAGE + 1 });
+    const batch = await tx.message.findMany({ where: { conversationId: id, ...(before ? { createdAt: { lt: before } } : {}) }, orderBy: { createdAt: "desc" }, take: THREAD_PAGE + 1, include: MESSAGE_EXTRAS });
     const messages = batch.slice(0, THREAD_PAGE).reverse();
     const others = c.members.filter((m) => m.userId !== a.userId);
     const replies = await tx.message.findMany({ where: { conversationId: id, kind: "INSPECTION_REPLY" }, select: { details: true } });
@@ -244,15 +252,22 @@ export async function getConversation(a: Actor, id: string, before?: Date) {
 }
 
 /** New messages since a moment (an open chat checks every few seconds), marked read, and how far the others have read. */
-export async function messagesSince(a: Actor, id: string, after: Date) {
+export async function messagesSince(a: Actor, id: string, after: Date, reactionsFrom?: Date) {
   return run(a, async (tx) => {
     const c = await tx.conversation.findUnique({ where: { id }, include: { members: true } });
     const me = c?.members.find((m) => m.userId === a.userId);
     if (!c || !me) throw new Error("Conversation not found");
-    const messages = await tx.message.findMany({ where: { conversationId: id, createdAt: { gt: after } }, orderBy: { createdAt: "asc" }, take: 100 });
+    const messages = await tx.message.findMany({ where: { conversationId: id, createdAt: { gt: after } }, orderBy: { createdAt: "asc" }, take: 100, include: MESSAGE_EXTRAS });
     if (messages.some((m) => m.senderId !== a.userId)) await tx.conversationMember.update({ where: { id: me.id }, data: { lastReadAt: new Date() } });
-    const seen = c.members.filter((m) => m.userId !== a.userId).map((o) => o.lastReadAt).filter((x): x is Date => !!x);
-    return { messages, seenUpTo: seen.length ? new Date(Math.min(...seen.map((d) => d.getTime()))) : null };
+    const others = c.members.filter((m) => m.userId !== a.userId);
+    const seen = others.map((o) => o.lastReadAt).filter((x): x is Date => !!x);
+    const typingSince = new Date(Date.now() - TYPING_SECONDS * 1000);
+    // Reactions change on older messages too: the open chat gets them for everything it shows.
+    const reactions = reactionsFrom ? await tx.messageReaction.findMany({ where: { conversationId: id, message: { createdAt: { gte: reactionsFrom } } }, select: { messageId: true, emoji: true, userId: true }, take: 2000 }) : [];
+    return {
+      messages, seenUpTo: seen.length ? new Date(Math.min(...seen.map((d) => d.getTime()))) : null,
+      typing: others.filter((o) => o.typingAt && o.typingAt > typingSince).map((o) => o.name), reactions,
+    };
   });
 }
 
@@ -349,3 +364,53 @@ export async function liftMessagingPause(adminId: string, userId: string) {
   });
 }
 export const formatWhen = (d: Date) => formatDate(d);
+
+// ---------- Files, voice notes, reactions and typing ----------
+
+/**
+ * Send a file or a voice note, with an optional caption. The file's first bytes must match an accepted type (whatever its name
+ * says), and the usual rules for sending apply: membership, blocks, pauses and the rate limit.
+ */
+export async function sendAttachment(a: Actor, conversationId: string, f: { kind: "FILE" | "VOICE"; name: string; type: string; bytes: Uint8Array; caption?: string; durationMs?: number | null }) {
+  const type = sniff(f.bytes, f.type);
+  const problem = fileProblem({ kind: f.kind, size: f.bytes.byteLength, type, durationMs: f.durationMs });
+  if (problem) throw new Error(problem);
+  const caption = f.kind === "VOICE" ? "" : bodySchema.parse(f.caption ?? "");
+  const name = cleanFileName(f.name || (f.kind === "VOICE" ? "Voice note" : "file"), type!);
+  return run(a, async (tx) => {
+    const msg = await post(tx, a, conversationId, { kind: f.kind, body: caption, details: { name, size: f.bytes.byteLength } });
+    const att = await tx.messageAttachment.create({
+      data: { messageId: msg.id, conversationId, uploaderId: a.userId, name, mimeType: type!, sizeBytes: f.bytes.byteLength, durationMs: f.kind === "VOICE" ? Math.round(f.durationMs ?? 0) : null, bytes: Buffer.from(f.bytes) },
+      select: { id: true, name: true, mimeType: true, sizeBytes: true, durationMs: true },
+    });
+    return { ...msg, attachment: att, reactions: [] as { emoji: string; userId: string }[] };
+  });
+}
+
+/** A file to download: only for people in the conversation (or the administrator, once the message is reported). */
+export async function attachmentFor(a: Actor, attachmentId: string) {
+  return run(a, (tx) => tx.messageAttachment.findUnique({ where: { id: attachmentId } }));
+}
+
+/** React to a message with one of the offered emoji; the same emoji again, or none, takes the reaction away. */
+export async function reactToMessage(a: Actor, messageId: string, emoji: string | null) {
+  if (emoji !== null && !(REACTIONS as readonly string[]).includes(emoji)) throw new Error("Choose one of the reactions shown");
+  return run(a, async (tx) => {
+    const m = await tx.message.findUnique({ where: { id: messageId }, select: { id: true, conversationId: true } });
+    if (!m || !(await tx.conversationMember.findFirst({ where: { conversationId: m.conversationId, userId: a.userId } }))) throw new Error("Message not found");
+    const mine = await tx.messageReaction.findUnique({ where: { messageId_userId: { messageId, userId: a.userId } } });
+    if (emoji === null || mine?.emoji === emoji) {
+      if (mine) await tx.messageReaction.delete({ where: { id: mine.id } });
+    } else if (mine) {
+      await tx.messageReaction.update({ where: { id: mine.id }, data: { emoji, createdAt: new Date() } });
+    } else {
+      await tx.messageReaction.create({ data: { messageId, conversationId: m.conversationId, userId: a.userId, emoji } });
+    }
+    return tx.messageReaction.findMany({ where: { messageId }, select: { emoji: true, userId: true } });
+  });
+}
+
+/** "Typing": shown to the others for a few seconds. */
+export async function setTyping(a: Actor, conversationId: string) {
+  await run(a, (tx) => tx.conversationMember.updateMany({ where: { conversationId, userId: a.userId }, data: { typingAt: new Date() } }));
+}

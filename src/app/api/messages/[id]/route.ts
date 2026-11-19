@@ -16,8 +16,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (Number.isNaN(after.getTime())) return NextResponse.json({ error: "Bad time" }, { status: 400 });
   try {
     const { actor } = await currentActor();
-    const r = await messagesSince(actor, id, after);
-    return NextResponse.json({ messages: r.messages.map(chatMessage), seenUpTo: r.seenUpTo?.toISOString() ?? null }, { headers: { "Cache-Control": "no-store" } });
+    const fromRaw = new URL(req.url).searchParams.get("from");
+    const from = fromRaw ? new Date(fromRaw) : undefined;
+    const r = await messagesSince(actor, id, after, from && !Number.isNaN(from.getTime()) ? from : undefined);
+    return NextResponse.json({ messages: r.messages.map(chatMessage), seenUpTo: r.seenUpTo?.toISOString() ?? null, typing: r.typing, reactions: r.reactions }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

@@ -1,8 +1,15 @@
 /** A message as the chat screen receives it (plain values only, so it can cross from the server to the browser). */
-export type ChatMsg = { id: string; senderId: string; senderName: string; kind: string; body: string; details: Record<string, unknown>; masked: boolean; at: string };
+export type ChatFile = { id: string; name: string; mime: string; size: number; durationMs: number | null };
+export type ChatReaction = { emoji: string; userId: string };
+export type ChatMsg = { id: string; senderId: string; senderName: string; kind: string; body: string; details: Record<string, unknown>; masked: boolean; at: string; file?: ChatFile | null; reactions?: ChatReaction[] };
 
-export function chatMessage(m: { id: string; senderId: string; senderName: string; kind: string; body: string; details: unknown; masked: boolean; createdAt: Date }): ChatMsg {
-  return { id: m.id, senderId: m.senderId, senderName: m.senderName, kind: m.kind, body: m.body, details: (m.details ?? {}) as Record<string, unknown>, masked: m.masked, at: m.createdAt.toISOString() };
+type Att = { id: string; name: string; mimeType: string; sizeBytes: number; durationMs: number | null } | null | undefined;
+export function chatMessage(m: { id: string; senderId: string; senderName: string; kind: string; body: string; details: unknown; masked: boolean; createdAt: Date; attachment?: Att; reactions?: ChatReaction[] }): ChatMsg {
+  const a = m.attachment;
+  return {
+    id: m.id, senderId: m.senderId, senderName: m.senderName, kind: m.kind, body: m.body, details: (m.details ?? {}) as Record<string, unknown>, masked: m.masked, at: m.createdAt.toISOString(),
+    file: a ? { id: a.id, name: a.name, mime: a.mimeType, size: a.sizeBytes, durationMs: a.durationMs } : null, reactions: m.reactions ?? [],
+  };
 }
 
 /** "Today", "Yesterday", a weekday this week, or a date: the separators between days in a chat (in the reader's time zone). */

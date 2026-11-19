@@ -244,6 +244,18 @@ async function main() {
       await s.waitForTimeout(1500);
       const failedNow = await s.locator(".bubble.failed").count();
       await record(s, "chat send", sent && failedNow === 0, `message shown: ${sent}; failed bubbles: ${failedNow}`);
+      // A photo: chosen, confirmed in the window, and shown in the chat; then a reaction on it.
+      const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==", "base64");
+      await s.locator('.composer input[type="file"]').setInputFiles({ name: "front-door.png", mimeType: "image/png", buffer: png });
+      const chip = await s.locator(".composer-file").isVisible().catch(() => false);
+      await s.locator(".composer .send").click();
+      await s.locator(".cfm-ok").click({ timeout: 4000 }).catch(() => undefined);
+      const photo = await s.locator(".bubble-photo img").last().waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+      await record(s, "chat sends a photo", chip && photo, `file chip shown: ${chip}; photo in the chat: ${photo}`);
+      await s.locator("li.me .react-btn").last().click();
+      await s.locator(".react-pick button").first().click();
+      const reacted = await s.locator("li.me .reactions").last().waitFor({ timeout: 6000 }).then(() => true).catch(() => false);
+      await record(s, "chat reaction", reacted, reacted ? "the reaction shows under the message" : "no reaction shown");
     }
     await s.goto(BASE + "/me/settings", { waitUntil: "load" });
     await s.waitForTimeout(800);

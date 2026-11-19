@@ -88,6 +88,45 @@ body:has(.chat-shell) .site-footer, body:has(.chat-shell) .to-top { display: non
 .composer textarea:focus { outline: none; border-color: #E3A93F; box-shadow: 0 0 0 3px rgba(227, 169, 63, .2); }
 .send { flex: none; width: 48px; height: 48px; border-radius: 50%; border: 0; display: grid; place-items: center; background: linear-gradient(135deg, #EDBA58, #CF9632); color: #1A1A1A; cursor: pointer; box-shadow: 0 8px 18px -8px rgba(242, 159, 5, .9); }
 .send:disabled { opacity: .45; cursor: default; box-shadow: none; }
+.composer-btn { flex: none; width: 48px; height: 48px; border-radius: 50%; border: 0; display: grid; place-items: center; background: transparent; color: var(--muted); cursor: pointer; }
+.composer-main { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.composer-main textarea { width: 100%; box-sizing: border-box; }
+.composer-file { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 4px 0 14px; border-radius: 14px; background: var(--surface-2); font-size: 14px; }
+.composer-file > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composer-file-x { flex: none; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); font-size: 22px; cursor: pointer; border-radius: 12px; }
+.recorder { align-items: center; flex-wrap: wrap; }
+.rec-dot { width: 12px; height: 12px; border-radius: 50%; background: #E5484D; flex: none; }
+.rec-time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 44px; }
+.rec-hint { flex: 1; min-width: 0; }
+.rec-preview { flex: 1; min-width: 180px; max-width: 100%; height: 44px; }
+.chat-typing { margin: 0; padding: 4px clamp(14px, 3vw, 40px); font-size: 13px; color: var(--muted); font-style: italic; background: var(--surface); }
+/* Files, photos and voice notes in bubbles */
+.bubble-photo { display: block; line-height: 0; border-radius: 12px; overflow: hidden; max-width: 280px; }
+.bubble-photo img { width: 100%; height: auto; max-height: 320px; object-fit: cover; display: block; }
+.bubble-file { display: flex; align-items: center; gap: 10px; min-height: 52px; min-width: min(240px, 60vw); padding: 8px 12px; border-radius: 12px; background: var(--surface-2); color: var(--ink); text-decoration: none; }
+.bubble-file[aria-disabled="true"] { pointer-events: none; opacity: .7; }
+.bubble-file-icon { flex: none; color: #B26F00; line-height: 0; }
+.bubble-file-text { display: grid; min-width: 0; }
+.bubble-file-text strong { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bubble-file-meta { font-size: 12.5px; color: var(--muted); }
+.bubble-voice { display: grid; gap: 4px; min-width: min(260px, 62vw); }
+.bubble-voice audio { width: 100%; height: 44px; }
+/* Reactions under a bubble, and the picker */
+.bubble-react { position: relative; display: flex; align-items: center; gap: 2px; margin-top: -2px; }
+.chat-list li.me .bubble-react { flex-direction: row-reverse; }
+.reactions { display: inline-flex; gap: 2px; padding: 2px 6px; border-radius: 999px; background: var(--surface); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); font-size: 14px; }
+.reactions > span { display: inline-flex; align-items: center; gap: 2px; }
+.reactions > span.mine { filter: drop-shadow(0 0 1px #E3A93F); }
+.reactions b { font-size: 12px; font-weight: 700; color: var(--muted); }
+.react-btn { width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); border-radius: 50%; display: grid; place-items: center; cursor: pointer; opacity: .55; }
+.react-btn[aria-expanded="true"], .react-btn:focus-visible { opacity: 1; }
+.react-pick { position: absolute; bottom: calc(100% + 4px); z-index: 5; display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-2); }
+.chat-list li.me .react-pick { right: 0; }
+.chat-list li.them .react-pick { left: 0; }
+.react-pick button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font-size: 22px; cursor: pointer; }
+.react-pick button[aria-pressed="true"] { background: color-mix(in srgb, #E3A93F 25%, var(--surface)); }
+@media (hover: hover) { .bubble-react:hover .react-btn, li:hover > .bubble-react .react-btn { opacity: 1; } .react-pick button:hover, .composer-btn:hover { background: var(--surface-2); } }
+@media (max-width: 420px) { .react-pick button { width: 40px; } .composer { gap: 4px; } }
 
 @media (max-width: 760px) {
   .chat-shell { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - var(--bar-h) - 70px - env(safe-area-inset-bottom) - 24px); border-radius: 16px; }

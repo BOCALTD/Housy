@@ -221,6 +221,26 @@ export async function settleDeposit(ctx: Ctx, leaseId: string, input: z.input<ty
   });
 }
 
+/**
+ * A deduction from the deposit made by another record in the same transaction (the value of items lost or damaged at move-out).
+ * The same rules apply as for a deduction entered by hand. Returns the deposit entry.
+ */
+export async function deductDepositInTx(tx: Tx, ctx: Ctx, leaseId: string, amountKobo: bigint, reason: string, evidence: string) {
+  assertCan(ctx, "deposit.settle");
+  const today = todayInLagos();
+  const { lease, totals } = await depositState(tx, ctx, leaseId);
+  checkDepositEntry({ kind: "DEDUCTION", amountKobo, agreedKobo: lease.depositKobo, totals, tenancyEnded: lease.status !== "ACTIVE" || lease.endDate <= today });
+  const entry = await tx.depositEntry.create({ data: { companyId: ctx.companyId, leaseId, kind: "DEDUCTION", amountKobo, reason: reason.slice(0, 500), evidence: evidence.slice(0, 500), entryDate: today, recordedById: ctx.userId }, select: { id: true } });
+  await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "lease", entityId: leaseId, action: "deposit.deducted", detail: { amountKobo: amountKobo.toString(), reason } });
+  return { entry, balanceBefore: totals.balance };
+}
+
+/** The deposit still held on a lease (received less deductions and refunds). */
+export async function depositBalance(tx: Tx, companyId: string, leaseId: string) {
+  const entries = await tx.depositEntry.findMany({ where: { leaseId, companyId } });
+  return depositTotals(entries.map((e) => ({ kind: e.kind as DepositKind, amountKobo: e.amountKobo }))).balance;
+}
+
 // ---------- Consistency check ----------
 
 export type LedgerProblem = { entity: string; id: string; message: string };

@@ -105,3 +105,41 @@ export function compareSchedules(moveIn: RoomLine[], moveOut: RoomLine[]): RoomD
   for (const a of moveOut) if (!seen.has(key(a))) out.push({ room: a.room, description: a.description, kind: "NEW", before: null, after: a });
   return out;
 }
+
+// ---------- Value of lost or damaged items at move-out ----------
+
+/** Differences that can carry a charge: missing, fewer, or handed back in worse condition. */
+export const CHARGEABLE: RoomDifference["kind"][] = ["MISSING", "FEWER", "WORSE"];
+
+/** A stable key for a difference, the same one the comparison matches lines by. */
+export const chargeKey = (d: RoomDifference) => key((d.before ?? d.after)!);
+
+/** How many items a charge is for: the ones not handed back, or (for worse condition) the ones handed back. */
+export function chargeQuantity(d: RoomDifference): number {
+  if (d.kind === "MISSING") return d.before?.quantity ?? 0;
+  if (d.kind === "FEWER") return (d.before?.quantity ?? 0) - (d.after?.quantity ?? 0);
+  if (d.kind === "WORSE") return d.after?.quantity ?? 0;
+  return 0;
+}
+
+/** The share of an item's value lost for each step down in condition (excellent, good, fair, poor, critical). */
+export const WEAR_SHARE_PER_STEP = 0.25;
+
+/**
+ * A starting value for a charge, from the register's unit cost: the full cost of each item not handed back, and a quarter of the
+ * cost for each step down in condition for items handed back worse. Null when there is no unit cost to go on.
+ */
+export function suggestCharge(d: RoomDifference, unitCostKobo: bigint | null | undefined): bigint | null {
+  if (!unitCostKobo || unitCostKobo <= 0n || !CHARGEABLE.includes(d.kind)) return null;
+  const qty = BigInt(chargeQuantity(d));
+  if (d.kind !== "WORSE") return unitCostKobo * qty;
+  const steps = RANK[d.after!.condition] - RANK[d.before!.condition];
+  const share = Math.min(1, steps * WEAR_SHARE_PER_STEP);
+  return (unitCostKobo * qty * BigInt(Math.round(share * 100))) / 100n;
+}
+
+/** What can come out of the deposit, and what is left for the occupant to pay. */
+export function splitAgainstDeposit(totalKobo: bigint, depositBalanceKobo: bigint) {
+  const fromDeposit = totalKobo < depositBalanceKobo ? totalKobo : depositBalanceKobo > 0n ? depositBalanceKobo : 0n;
+  return { fromDeposit, owed: totalKobo - fromDeposit };
+}

@@ -6,7 +6,9 @@ import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import { EnumOptions, Field, Flash, Pill, TableMore, sp, type SP } from "@/components/ui";
-import { acknowledgeAction, addLineAction, applyRegisterAction, addLinePhotoAction, createScheduleAction, removeLineAction } from "../../inventory/actions";
+import { handoverCharges } from "@/lib/services/handover-charges";
+import { formatKobo } from "@/lib/money";
+import { acknowledgeAction, addLineAction, applyRegisterAction, deductChargesAction, saveChargesAction, addLinePhotoAction, createScheduleAction, removeLineAction } from "../../inventory/actions";
 
 export const metadata = { title: "Handover inventory" };
 
@@ -20,6 +22,9 @@ export default async function HandoverInventoryPage({ params: paramsP, searchPar
   if (!d) notFound();
   const record = can(member.role, "handover.record");
   const manageStock = can(member.role, "inventory.manage");
+  const settle = can(member.role, "deposit.settle");
+  const charges = d.comparison ? await handoverCharges(member, d.lease.id) : null;
+  const kobo = (k: bigint | null) => (k == null ? "" : (Number(k) / 100).toFixed(2).replace(/\.00$/, ""));
   const linkedDiffs = d.comparison ? d.comparison.filter((c) => c.before?.itemId && (c.kind === "MISSING" || c.kind === "FEWER" || c.kind === "WORSE")) : [];
   const todayText = toDateOnlyString(todayInLagos());
   const sections = [
@@ -138,7 +143,7 @@ export default async function HandoverInventoryPage({ params: paramsP, searchPar
                   </tr>
                 ))} />
           </div>
-          <p className="small muted">This comparison is a record of differences for people to review. It does not decide any deduction from the deposit.</p>
+          <p className="small muted">This comparison is a record of differences for people to review. Any deduction from the deposit is decided below, item by item.</p>
           {d.moveOut?.registerUpdatedAt ? (
             <p className="small">The inventory register was updated from this handover on {formatDate(d.moveOut.registerUpdatedAt)}.</p>
           ) : d.moveIn?.status === "ACKNOWLEDGED" && d.moveOut?.status === "ACKNOWLEDGED" && manageStock && linkedDiffs.length > 0 ? (
@@ -147,6 +152,43 @@ export default async function HandoverInventoryPage({ params: paramsP, searchPar
               <p className="small">{linkedDiffs.length} register {linkedDiffs.length === 1 ? "item is" : "items are"} missing, fewer or in worse condition. Missing items become write-off requests that another person approves; worse condition is written to the register.</p>
               <button className="btn" type="submit" data-confirm="Send the differences to the register?" data-confirm-body="Write-off requests are made for missing register items and conditions are updated. This can be done once for this handover." data-confirm-ok="Send to register">Send the differences to the register</button>
             </form>
+          ) : null}
+        </section>
+      ) : null}
+      {charges && charges.rows.length > 0 ? (
+        <section className="card stack" aria-labelledby="charges-h">
+          <h2 id="charges-h">Value of lost or damaged items</h2>
+          <p className="small muted">Put a money value on each item that is missing, short or handed back in worse condition. The suggestion comes from the register&apos;s unit cost: the full cost of each item not handed back, and a quarter of it for each step down in condition. A value that differs from the suggestion needs a note.</p>
+          <div className="row wrap" style={{ gap: 12 }}>
+            <div className="stat"><b>{formatKobo(charges.totalKobo)}</b><span>Total set</span></div>
+            <div className="stat"><b>{formatKobo(charges.depositBalanceKobo)}</b><span>Deposit held</span></div>
+            {charges.owed > 0n ? <div className="stat"><b>{formatKobo(charges.owed)}</b><span>More than the deposit</span></div> : null}
+          </div>
+          {charges.deductedAt ? (
+            <p><span className="pill ok">Deducted</span> {charges.deducted ? `${formatKobo(charges.deducted.amountKobo)} was deducted from the deposit on ${formatDate(charges.deducted.entryDate)}.` : `Deducted on ${formatDate(charges.deductedAt)}.`} {charges.owed > 0n ? `${formatKobo(charges.owed)} more than the deposit is still owed by the occupant.` : ""} <Link href={`/app/leases/${d.lease.id}`}>See the deposit on the lease</Link></p>
+          ) : null}
+          <form action={saveChargesAction} className="stack">
+            <input type="hidden" name="leaseId" value={d.lease.id} />
+            <TableMore limit={10} noun="more items" stacked head={<tr><th>Item</th><th>Result</th><th className="r">Qty</th><th className="r">Suggested</th><th>Value</th><th>Note</th></tr>} rows={charges.rows.map((r) => (
+              <tr key={r.key}>
+                <td data-label="Item"><strong>{r.description}</strong><br /><span className="small muted">{r.room} · move-in {r.before}, move-out {r.after}</span><input type="hidden" name="key" value={r.key} /></td>
+                <td data-label="Result">{KIND_TEXT[r.kind]}</td>
+                <td data-label="Qty" className="r">{r.quantity}</td>
+                <td data-label="Suggested" className="r">{r.suggestedKobo == null ? <span className="small muted">No unit cost</span> : formatKobo(r.suggestedKobo)}</td>
+                <td data-label="Value">{charges.deductedAt || !record ? (r.amountKobo == null ? "Not set" : formatKobo(r.amountKobo)) : <input name={`amount:${r.key}`} inputMode="decimal" aria-label={`Value of ${r.description}`} defaultValue={kobo(r.amountKobo ?? r.suggestedKobo)} placeholder="0" style={{ minWidth: 110 }} />}</td>
+                <td data-label="Note">{charges.deductedAt || !record ? (r.note || "—") : <input name={`note:${r.key}`} aria-label={`Note for ${r.description}`} defaultValue={r.note} maxLength={300} placeholder="Repair quote, receipt…" />}</td>
+              </tr>
+            ))} />
+            {!charges.deductedAt && record ? <div className="row"><button className="btn" type="submit">Save values</button><span className="small muted">{charges.unset ? `${charges.unset} not saved yet. Suggestions are only saved when you press Save.` : "All values saved."}</span></div> : null}
+          </form>
+          {!charges.deductedAt && settle ? (
+            charges.bothAcknowledged ? (
+              <form action={deductChargesAction} className="stack" style={{ gap: 6 }}>
+                <input type="hidden" name="leaseId" value={d.lease.id} />
+                <p className="small">Deducting makes one entry in the deposit for {formatKobo(charges.fromDeposit)}, listing each item. It can be done once, after the tenancy has ended, and the values then cannot be changed.{charges.owed > 0n ? ` The remaining ${formatKobo(charges.owed)} is more than the deposit and stays owed by the occupant.` : ""}</p>
+                <div className="row"><button className="btn primary" type="submit" disabled={charges.unset > 0 || charges.totalKobo <= 0n} data-confirm="Deduct from the deposit?" data-confirm-body={`${formatKobo(charges.fromDeposit)} comes out of the deposit held for this lease. This cannot be undone here.`} data-confirm-ok="Deduct">Deduct {formatKobo(charges.fromDeposit)} from the deposit</button></div>
+              </form>
+            ) : <p className="small muted">The total can be deducted from the deposit once both schedules are acknowledged.</p>
           ) : null}
         </section>
       ) : null}

@@ -5,6 +5,8 @@ import { removeHandoverLineWithUndo } from "@/lib/services/undo-everyday";
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
 import { acknowledgeSchedule, addScheduleLine, applyHandoverToRegister, addSchedulePhoto, cancelCount, createHandoverSchedule, createItem, decideAdjustment, decideCount, findItemByCode, recordMovement, requestAdjustment, saveCountLines, startCount, submitCount, updateItem, useOnWorkOrder } from "@/lib/services/inventory";
+import { deductHandoverCharges, saveHandoverCharges } from "@/lib/services/handover-charges";
+import { formatKobo } from "@/lib/money";
 
 const itemPath = (id: string) => `/app/inventory/${encodeURIComponent(id)}`;
 const countPath = (id: string) => `/app/inventory/counts/${encodeURIComponent(id)}`;
@@ -209,5 +211,25 @@ export async function applyRegisterAction(form: FormData) {
       r.worse ? `${r.worse} ${r.worse === 1 ? "item's" : "items'"} condition updated` : "",
     ].filter(Boolean);
     return withNotice(handoverPath(leaseId), parts.length ? `Register updated: ${parts.join(", ")}.` : "Register checked: no register items were missing or worse.");
+  });
+}
+
+export async function saveChargesAction(form: FormData) {
+  const leaseId = str(form, "leaseId");
+  return act(handoverPath(leaseId), async () => {
+    const member = await requireMember("handover.record");
+    const entries: Record<string, { amount: string; note: string }> = {};
+    for (const k of form.getAll("key").map(String).slice(0, 500)) entries[k] = { amount: String(form.get(`amount:${k}`) ?? ""), note: String(form.get(`note:${k}`) ?? "") };
+    const r = await saveHandoverCharges(member, leaseId, entries);
+    return withNotice(handoverPath(leaseId), r.set || r.cleared ? "Values saved." : "Nothing to save.");
+  });
+}
+
+export async function deductChargesAction(form: FormData) {
+  const leaseId = str(form, "leaseId");
+  return act(handoverPath(leaseId), async () => {
+    const member = await requireMember("deposit.settle");
+    const r = await deductHandoverCharges(member, leaseId);
+    return withNotice(handoverPath(leaseId), `${formatKobo(r.fromDeposit)} deducted from the deposit.${r.owed > 0n ? ` ${formatKobo(r.owed)} is more than the deposit held and is still owed by the occupant.` : ""}`);
   });
 }

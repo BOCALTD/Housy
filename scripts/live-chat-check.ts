@@ -54,6 +54,8 @@ async function main() {
       const page = await ctx.newPage();
       const providerRequests: { url: string; status: number }[] = [];
       const blocked: string[] = [];
+      const failedReq: string[] = [];
+      page.on("requestfailed", (r) => { try { if (prov.host.test(new URL(r.url()).hostname)) failedReq.push(`${new URL(r.url()).hostname}: ${r.failure()?.errorText ?? "failed"}`); } catch { /* ignore */ } });
       page.on("response", (r) => { try { if (prov.host.test(new URL(r.url()).hostname)) providerRequests.push({ url: r.url(), status: r.status() }); } catch { /* not a web address */ } });
       page.on("console", (m) => { const t = m.text(); if (/Content Security Policy|Refused to (load|connect|frame|execute)/i.test(t) && t.includes(prov.domain)) blocked.push(t.slice(0, 200)); });
       // The settings are cached by the app for up to 30 seconds: wait until the page carries this provider's chat button.
@@ -67,15 +69,19 @@ async function main() {
       await page.waitForTimeout(1500);
       add("nothing loads before cookies are accepted", providerRequests.length === 0, providerRequests.length ? `${providerRequests.length} requests to the provider before consent` : "no request to the provider");
       // Accept optional cookies through the site's own notice.
+      // The notice appears once the page has started; give it time, and if it never shows, set the choice and reload.
       const accept = page.getByRole("button", { name: "Accept all" }).first();
-      if (await accept.isVisible().catch(() => false)) await accept.click();
-      else await ctx.addCookies([{ name: "cookie_choice", value: "all", domain: new URL(BASE).hostname, path: "/" }]);
+      const noticed = await accept.waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false);
+      if (noticed) await accept.click();
+      else { await ctx.addCookies([{ name: "cookie_choice", value: "all", domain: new URL(BASE).hostname, path: "/" }]); await page.reload({ waitUntil: "load" }); }
+      await page.locator(".chat-fab").waitFor({ state: "visible", timeout: 10000 }).catch(() => undefined);
       await page.waitForTimeout(500);
       await page.locator(".chat-fab").click().catch(() => undefined);
       const t0 = Date.now();
       while (Date.now() - t0 < 20000 && !providerRequests.some((r) => r.status === 200)) await page.waitForTimeout(500);
       const script = providerRequests.find((r) => r.status === 200);
-      add("provider's script loads from its servers", !!script, script ? `${new URL(script.url).hostname} answered 200` : providerRequests.length ? `answers: ${providerRequests.map((r) => r.status).join(", ")}` : "no request was made");
+      add("provider's script loads from its servers", !!script, script ? `${new URL(script.url).hostname} answered 200` : providerRequests.length ? `answers: ${providerRequests.map((r) => r.status).join(", ")}` : failedReq.length ? `request failed: ${failedReq[0]}` : `no request was made (cookie notice ${noticed ? "accepted" : "not shown, choice set directly"})`);
+      if (!script) await page.screenshot({ path: `${OUT}/${prov.p}-no-script.jpg`, type: "jpeg", quality: 60 }).catch(() => undefined);
       await page.waitForTimeout(6000);
       add("security policy allows it", blocked.length === 0, blocked.length ? blocked[0] : "no blocked requests");
       const ready = await page.evaluate(prov.ready).catch(() => false) as boolean;

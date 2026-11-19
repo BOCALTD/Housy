@@ -379,8 +379,8 @@ model Lease {
   permittedUse   String       @default("") @map("permitted_use")
   otherTerms     String       @default("") @map("other_terms")
   // Closure (Section 12.3) and renewal chain. A renewal is a new lease that points back at the old one.
-  // Whole square metres, used when a service charge is shared by floor area.
-  floorAreaSqm   Int?         @map("floor_area_sqm")
+  // Floor area in hundredths of a square metre (12050 = 120.5 m²), used when a service charge is shared by floor area.
+  floorAreaSqm100 Int?        @map("floor_area_sqm100")
   closedOn       DateTime?    @map("closed_on") @db.Date
   closeReason    String       @default("") @map("close_reason")
   renewedFromId  String?      @unique @map("renewed_from_id")
@@ -668,8 +668,9 @@ model Listing {
   feesNote           String    @default("") @map("fees_note")
   toilets            Int?
   floors             Int?
-  buildingSqm        Int?      @map("building_sqm")
-  landSqm            Int?      @map("land_sqm")
+  /// Sizes in hundredths of a square metre (45025 = 450.25 m²).
+  buildingSqm100     Int?      @map("building_sqm100")
+  landSqm100         Int?      @map("land_sqm100")
   plotDimensions     String    @default("") @map("plot_dimensions")
   furnishing         String    @default("UNSPECIFIED")
   condition          String    @default("UNSPECIFIED")
@@ -1198,6 +1199,9 @@ model ServiceAssessment {
   periodId   String              @map("period_id")
   leaseId    String              @map("lease_id")
   amountKobo BigInt              @map("amount_kobo")
+  /// The days of the period this tenancy covered, and the period's length: a part-period tenancy is charged pro rata.
+  daysOccupied Int?              @map("days_occupied")
+  periodDays   Int?              @map("period_days")
   dueDate    DateTime            @map("due_date") @db.Date
   createdAt  DateTime            @default(now()) @map("created_at")
   period     ServiceChargePeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)

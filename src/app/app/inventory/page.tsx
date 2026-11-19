@@ -7,6 +7,7 @@ import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import { EnumOptions, Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
 import { createItemAction, decideAdjustmentAction, lookupCodeAction } from "./actions";
+import { CameraScan } from "@/components/CameraScan";
 
 export const metadata = { title: "Inventory" };
 
@@ -34,8 +35,9 @@ export default async function InventoryPage({ searchParams: searchP }: { searchP
           <label className="visually-hidden" htmlFor="code">Scan or type a code</label>
           <input id="code" name="code" placeholder="Scan or type a code or serial number" required style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)", flex: "1 1 260px", minWidth: 0 }} />
           <button className="btn" type="submit">Open item</button>
+          <CameraScan mode={{ fill: "code" }} />
         </form>
-        <p className="small muted">A barcode scanner types the code into this box. Each item&apos;s code is shown on its page so it can be printed on a label.</p>
+        <p className="small muted">Scan a label with the camera, or with a barcode scanner, which types the code into this box. <Link href={`/app/inventory/labels${assetId ? `?assetId=${encodeURIComponent(assetId)}` : ""}`}>Print labels</Link> with a QR code and barcode for each item.</p>
         <form method="get" className="row">
           <label className="visually-hidden" htmlFor="q">Search</label>
           <input id="q" name="q" defaultValue={q} placeholder="Search by name, category or serial number" style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", background: "var(--surface)", flex: "1 1 260px", minWidth: 0 }} />

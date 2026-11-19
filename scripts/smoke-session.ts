@@ -34,7 +34,7 @@ async function main() {
     // The verification network: a customer's request form and list, and Housy's consoles.
     "/verification/request", "/verification/cases", "/admin/verification", "/admin/verification/cases", "/admin/verification/payouts", "/admin/verification/quality", "/admin/settings", "/admin/people", "/admin/people?status=suspended", "/app/payments", "/app/payments?status=PAID", "/pay/AAAAAAAAAAAAAAAAAAAAAAAA",
     "/app", "/app/assets", "/app/assets/new", "/app/correspondence", "/app/correspondence/new",
-    "/app/files", "/app/settings", "/app/team", "/app/import", "/app/service-charges", "/app/compliance", "/app/inspections", "/app/inspections/templates", "/app/maintenance", "/app/maintenance/contractors", "/app/maintenance/schedules", "/app/inventory", "/app/inventory/counts", "/app/valuations", "/app/projects", "/app/crm", "/app/crm/clients", "/app/crm/leads", "/app/crm/setup", "/app/deals", "/app/sales", "/app/sales/reports", "/app/commissions", "/app/reports", "/app/reports/rent.csv",
+    "/app/files", "/app/settings", "/app/team", "/app/import", "/app/service-charges", "/app/compliance", "/app/inspections", "/app/inspections/templates", "/app/maintenance", "/app/maintenance/contractors", "/app/maintenance/schedules", "/app/inventory", "/app/inventory/counts", "/app/inventory/labels", "/app/inventory/labels?size=small", "/app/valuations", "/app/projects", "/app/crm", "/app/crm/clients", "/app/crm/leads", "/app/crm/setup", "/app/deals", "/app/sales", "/app/sales/reports", "/app/commissions", "/app/reports", "/app/reports/rent.csv",
   ]);
   await withTenant(companyId, user.id, async (tx) => {
     for (const a of await tx.asset.findMany({ select: { id: true } })) paths.add(`/app/assets/${a.id}`);

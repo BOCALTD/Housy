@@ -211,3 +211,10 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 /* Windows never run past a short screen (a phone on its side): they scroll inside instead. */
 .cfm, .share-sheet { max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
 .cfm h2, .cfm p, .share-sheet { overflow-wrap: anywhere; }
+
+/* Camera scanning of inventory labels. */
+.scan-box { width: min(480px, calc(100vw - 32px)); }
+.scan-view { position: relative; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 4 / 3; display: grid; place-items: center; }
+.scan-view video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-frame { position: absolute; inset: 18% 14%; border: 3px solid rgba(255, 255, 255, .9); border-radius: 14px; box-shadow: 0 0 0 999px rgba(0, 0, 0, .28); pointer-events: none; }
+.scan-wait { position: absolute; color: #fff; font-size: 14px; }

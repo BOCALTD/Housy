@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import { Field, Flash, Pill, ShowMore, TableMore, sp, type SP } from "@/components/ui";
+import { CameraScan } from "@/components/CameraScan";
 import { cancelCountAction, decideCountAction, saveCountAction, submitCountAction } from "../../actions";
 
 export const metadata = { title: "Count sheet" };
@@ -41,7 +42,10 @@ export default async function CountPage({ params: paramsP, searchParams: searchP
 
       <form action={saveCountAction} className="card stack">
         {hidden}
-        <h2>Count sheet</h2>
+        <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
+          <h2>Count sheet</h2>
+          {open && counter ? <CameraScan mode={{ focus: true }} label="Scan a label to count it" /> : null}
+        </div>
         <div className="table-wrap">
           <TableMore limit={12} noun="more rows" head={<tr><th>Item</th><th>Location</th><th className="r">Books say</th><th className="r">Counted</th><th className="r">Difference</th><th>Note</th></tr>} rows={count.lines.map((l) => {
                 const v = varianceOf(l.expectedQty, l.countedQty);
@@ -51,7 +55,7 @@ export default async function CountPage({ params: paramsP, searchParams: searchP
                     <td>{l.item.location || "—"}</td>
                     <td className="r num">{l.expectedQty} {l.item.unit}</td>
                     <td className="r">
-                      {open && counter ? <input name={`counted:${l.id}`} inputMode="numeric" defaultValue={l.countedQty ?? ""} aria-label={`Counted ${l.item.name}`} style={{ width: 80, border: "1px solid var(--line)", borderRadius: 9, padding: "6px 8px", background: "var(--surface)", textAlign: "right" }} /> : <span className="num">{l.countedQty ?? "—"}</span>}
+                      {open && counter ? <input name={`counted:${l.id}`} data-scan-code={l.item.code} inputMode="numeric" defaultValue={l.countedQty ?? ""} aria-label={`Counted ${l.item.name}`} style={{ width: 80, border: "1px solid var(--line)", borderRadius: 9, padding: "6px 8px", background: "var(--surface)", textAlign: "right" }} /> : <span className="num">{l.countedQty ?? "—"}</span>}
                     </td>
                     <td className="r num">{v === null ? "—" : v === 0 ? "0" : v > 0 ? `+${v}` : v}</td>
                     <td>{open && counter ? <input name={`note:${l.id}`} defaultValue={l.note} aria-label={`Note for ${l.item.name}`} style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "6px 8px", background: "var(--surface)" }} /> : <span className="small">{l.note}</span>}</td>

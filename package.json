@@ -27,7 +27,10 @@
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
+    "@zxing/browser": "0.2.1",
+    "@zxing/library": "0.23.0",
     "bcryptjs": "2.4.3",
+    "bwip-js": "4.11.4",
     "leaflet": "1.9.4",
     "next": "16.4.2",
     "react": "19.2.0",

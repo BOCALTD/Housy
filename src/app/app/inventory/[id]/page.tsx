@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { CONDITIONS, getItem } from "@/lib/services/inventory";
+import { qrSvg, scanPath } from "@/lib/codes";
+import { siteOrigin } from "@/lib/origin";
 import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -28,6 +30,7 @@ export default async function ItemPage({ params: paramsP, searchParams: searchP 
   const hidden = <input type="hidden" name="itemId" value={item.id} />;
   const pending = adjustments.filter((a) => a.status === "PENDING");
   const dateValue = (d: Date | null) => (d ? toDateOnlyString(d) : "");
+  const qr = qrSvg(`${await siteOrigin()}${scanPath(item.code)}`);
   return (
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
@@ -63,6 +66,15 @@ export default async function ItemPage({ params: paramsP, searchParams: searchP 
           {item.warrantyUntil ? <div><div className="small muted">Warranty until</div>{formatDate(item.warrantyUntil)}</div> : null}
         </div>
         {item.notes ? <p className="small">{item.notes}</p> : null}
+        {active ? (
+          <div className="row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div role="img" aria-label={`QR code for ${item.code}`} style={{ width: 88, height: 88, padding: 6, background: "#fff", borderRadius: 8, lineHeight: 0 }} dangerouslySetInnerHTML={{ __html: qr.replace("<svg ", '<svg width="100%" height="100%" ') }} />
+            <div className="stack" style={{ gap: 4 }}>
+              <span className="small muted">Scanning this code with a phone opens this item.</span>
+              <Link className="btn small" href={`/app/inventory/labels?ids=${item.id}`}>Print label</Link>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {move ? (

@@ -643,7 +643,7 @@ export async function getCount(ctx: Ctx, id: string) {
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const count = await tx.inventoryCount.findFirst({
       where: { id, companyId: ctx.companyId },
-      include: { lines: { include: { item: { select: { id: true, itemNo: true, name: true, unit: true, location: true, quantity: true } } }, orderBy: { item: { itemNo: "asc" } } } },
+      include: { lines: { include: { item: { select: { id: true, itemNo: true, code: true, name: true, unit: true, location: true, quantity: true } } }, orderBy: { item: { itemNo: "asc" } } } },
     });
     if (!count) return null;
     const names = await nameMap(tx, [count.startedById, count.submittedById, count.decidedById, ...count.lines.map((l) => l.countedById)]);
@@ -720,5 +720,29 @@ export async function applyHandoverToRegister(ctx: Ctx, leaseId: string) {
     await tx.$executeRawUnsafe(`UPDATE handover_schedules SET register_updated_at = now() WHERE id = $1`, moveOut.id);
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "lease", entityId: leaseId, action: "handover_schedule.register_updated", detail: { losses, worse } });
     return { losses, worse };
+  });
+}
+
+export const LABELS_PER_PAGE = 63;
+
+/** Items to print labels for: chosen items, or every item in use (optionally on one asset), a printable page at a time. */
+export async function labelItems(ctx: Ctx, filter: { ids?: string[]; assetId?: string; page?: number }) {
+  assertCan(ctx, "asset.view");
+  const ids = (filter.ids ?? []).filter(Boolean).slice(0, LABELS_PER_PAGE);
+  const page = Math.max(1, Math.min(1000, Math.floor(filter.page ?? 1)));
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const where = {
+      companyId: ctx.companyId, status: "ACTIVE" as const,
+      ...(ids.length ? { id: { in: ids } } : filter.assetId ? { assetId: filter.assetId } : {}),
+    };
+    const [total, items, assets] = await Promise.all([
+      tx.inventoryItem.count({ where }),
+      tx.inventoryItem.findMany({
+        where, orderBy: { itemNo: "asc" }, skip: ids.length ? 0 : (page - 1) * LABELS_PER_PAGE, take: LABELS_PER_PAGE,
+        select: { id: true, itemNo: true, code: true, name: true, location: true, asset: { select: { ref: true } } },
+      }),
+      tx.asset.findMany({ where: { companyId: ctx.companyId }, select: { id: true, ref: true, name: true }, orderBy: { ref: "asc" }, take: 500 }),
+    ]);
+    return { items, assets, total, page, pages: Math.max(1, Math.ceil(total / LABELS_PER_PAGE)) };
   });
 }

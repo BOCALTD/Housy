@@ -49,7 +49,9 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 ## Maintenance, inspections, inventory, projects
 - *Maintenance*: report a problem, assign a contractor, record work and costs, verify it is done.
 - *Inspections*: templates, schedule, record findings with photographs, approve.
-- *Inventory*: stock items, movements, counts.
+- *Inventory*: stock items, movements, counts. *Print labels* gives an A4 sheet of labels with a QR code (any phone camera opens the item) and a barcode (for a scanner). *Scan with camera* on Find an item opens the item; on a count sheet it jumps to that line. While a count is open or waiting for approval its items are frozen: no stock moves until it is approved or cancelled.
+- *Handover inventory* (from a lease): choose items from the property's register on the move-in schedule. The move-out schedule starts as a copy; correct what changed. When both are acknowledged, *Send the differences to the register* asks for write-offs of missing items (someone else approves) and updates worse conditions.
+- *Service charges* are shared by the days each tenancy covers in the period, so a tenant who moved in halfway pays about half.
 - *Projects*: work packages, budgets, commitments, invoices.
 
 ## Compliance, correspondence and files
@@ -60,6 +62,9 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 ## Selling and renting out (agents)
 - *Listings*: publish a property. A platform administrator reviews it first.
 - *CRM*: clients, leads, deals, commissions.
+- *Promotions*: put a published property in a platform sale. On the Basic plan the fee is an invoice you pay online or by transfer before the platform reviews it. *Boost a property* lifts one property to a labelled "Boosted" row above matching searches for 3 to 30 days, from the day the invoice is paid.
+- *Bulk messages* (managers and administrators, on plans that include it): email all clients who agreed to marketing, or the tenants of your current leases. Each person gets their own email with a link to stop your messages.
+- *Messages*: send photos and documents with the paper clip, hold a conversation with voice notes (the microphone when the box is empty), and react to a message with the smiley.
 
 ## Your team and company (administrators)
 - *Settings → Pause or close this workspace* (top administrator only). **Pause**: listings and profiles leave public view, the team cannot work in it, the plan is not renewed; resume it from the page shown when you open the workspace. **Close for good**: type CLOSE and your password; waiting payment links and the plan stop, records are kept, and only Housy support can reopen it. Each asks you to confirm first.

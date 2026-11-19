@@ -25,7 +25,7 @@ Money is stored as integer kobo. Dates are stored in UTC and shown in West Afric
 
 ## Deploy on an Ubuntu server
 
-Housy runs on one Ubuntu 22.04/24.04 server: nginx (TLS) in front, the app on the loopback, PostgreSQL 16 on the same machine, systemd timers for the email queue, billing and nightly backups. The scripts and the step-by-step guide, including what you take on by self-hosting, are in [docs/UBUNTU.md](docs/UBUNTU.md) and `deploy/ubuntu/`. They have not yet been run on a real server.
+Housy runs on one Ubuntu 22.04/24.04 server: nginx (TLS) in front, the app on the loopback, PostgreSQL 16 on the same machine, systemd timers for the email queue, billing and nightly backups. The scripts and the step-by-step guide, including what you take on by self-hosting, are in [docs/UBUNTU.md](docs/UBUNTU.md) and `deploy/ubuntu/`. They run on fresh Ubuntu 24.04 and 22.04 machines in GitHub Actions whenever they change (the "Ubuntu server install" workflow: install, deploy, nginx, timers, a backup and a second deploy). They have not yet been run on your own server.
 
 Uploads are capped at 4 MB per file.
 
@@ -153,16 +153,17 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 
 **Rules to know about:**
 - Several approvals need two different people (reconciliation, adjustments, renewals, service charge expenses). A company with one user cannot complete those steps until it adds a second member.
-- Reminders and notifications are in-app only. Nothing is emailed, texted or pushed.
-- Subscriptions are recorded by the platform administrator by hand until payments are built (Phase 13). Nothing is charged.
+- Notices are always shown in the app. Email goes out once an email provider is connected (Phase 13), and phone push once VAPID keys are set. Nothing is sent by SMS.
+- Plans are paid online (Paystack, or Stripe where Paystack does not operate) or by bank transfer the administrator records (Phase 14). The administrator can still assign a plan by hand.
 - A company invited to collaborate gets no personal notice (the platform cannot read another company's staff list); its managers and administrators see a count in the navigation and a list.
-- Not built: typing indicators, voice notes, location sharing, message reactions, file attachments in direct messages (documents go in a collaboration workspace), and any behaviour for the bulk-messaging feature switch.
+- Direct messages carry photos and documents (up to 10 MB, checked by their contents, readable only by the people in the chat), voice notes (up to 3 minutes), emoji reactions and a typing indicator. Location sharing is not built.
+- Bulk messaging (a plan feature, `/app/bulk-messages`) emails a company's clients who agreed to marketing, or the tenants of its current leases, one email each, with a link to stop that company's messages. It needs an email provider; without one, messages wait in the queue. 5 sends a day; the plan's limit is recipients per month (2,000 when it sets none).
 - No tax rate or legal rule is built in. Obligations, amounts and jurisdictions are entered by the company, and items marked for professional review cannot be completed until a review is recorded.
-- Service charges are not pro-rated for part-period tenancies. A recurring obligation that falls on the 29th to 31st can drift earlier after a short month.
-- Floor areas are whole square metres.
-- Phase 6: photographs must be JPG, PNG or WEBP and up to 4 MB. There is no QR or barcode image generation or camera scanning; each item shows its label code to print, and a hardware scanner can type a code into the lookup box.
-- Phase 6: a physical count does not freeze stock. Differences are measured against the balance at the moment of approval, and the count line keeps what the books said when the count started.
-- Phase 6: handover inventory lines are not linked to register items, and there is no valuation of lost or damaged contents.
+- Service charges are shared pro rata by the days each tenancy covers in the period (both ends counted), and by floor area where the method says so. A recurring obligation that falls on the 29th to 31st can drift earlier after a short month.
+- Floor areas and property sizes are kept to two decimal places (hundredths of a square metre).
+- Phase 6: photographs must be JPG, PNG or WEBP and up to 4 MB. Labels print on A4 label sheets (21 or 65 a sheet) with a QR code any phone camera opens and a Code 128 barcode for hardware scanners; the camera scans labels from Find an item and on count sheets.
+- Phase 6: a count that is open or waiting for approval freezes its items: no movement, correction approval or overlapping count, checked by the application and by the database. Approval writes the count's own corrections.
+- Phase 6: move-in and move-out lines can be register items, matched by item at move-out; after both are acknowledged the differences can be sent to the register once (missing items become loss requests for someone else to approve; worse condition is written to the item). There is no valuation of lost or damaged contents.
 - Phase 6: the "urgent and unattended" window is fixed at 24 hours.
 - Phase 7: valuation and project approvals need a second person. A company with one user can prepare but not approve.
 - Phase 7: the worksheets are calculation aids for a professional. The platform applies no valuation standard, rate or legal rule, and a valuation is not an opinion of value until a professional has approved it.
@@ -172,16 +173,15 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - Layout: long lists and tables show the first few rows and fold the rest behind "Show more". Forms that span folded rows still submit every row.
 - Saving documents: every document and the rent CSV has "Save or share". Download always works. On phones and tablets "Send to another app" opens the system share sheet (Files, iCloud Drive, Google Drive, Dropbox, OneDrive and others). "Save to Google Drive" appears when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set to a Google OAuth web client ID (Google Cloud Console, APIs and services, enable the Drive API, create an OAuth client for a web application, and add your site as an authorised JavaScript origin). It asks only for the `drive.file` scope, so it can touch only files it creates. Dropbox and OneDrive direct buttons are not built; use "Send to another app" on a phone or Download on a computer.
 
-**Deferred to later phases:**
-- **Email and notifications:** no email sending yet. Invitation links are shown once to the administrator to share.
-- **Provider portal:** providers can't sign in to see their leads yet. Platform admins handle leads for now.
-- **Media and maps:** photo and video galleries, maps.
-- **Email capture:** linking emails to correspondence needs an email provider, which is not configured yet.
-- **Later modules:** collaboration, messaging, reels, awards, referrals, vacancy reports, advertising, subscriptions, payments and AI.
+**Still to do or to decide:**
+- **Email capture:** linking received emails to correspondence needs an inbound email service; it is not built.
 - **Document storage:** document contents are stored in PostgreSQL (`stored_files`, protected by row-level security), capped at 4 MB per file. Move to an object store behind `src/lib/storage.ts` as volumes grow.
 
-**Not yet verified:**
-- The code was written in an environment that could not download packages. Row-level security tests and unit tests were run there. The type check, build, integration tests and smoke test run in GitHub Actions on first push, so check the Actions tab before relying on the build.
+**Checked automatically, and what only you can check:**
+- Every push runs the type check, unit, row-level security and integration tests, a backup and restore, the production build, a smoke test of every page, a device check on desktop, iPhone, Android and tablet, a real-browser check and a live chat check (the providers' real scripts, in a real browser). Reports are on the `device-shots` branch.
+- The server scripts run on fresh Ubuntu 24.04 and 22.04 machines (workflow "Ubuntu server install"). Your own server, domain and certificate are checked only when you run them there.
+- Live chat: with your widget ID added as a GitHub secret (`LIVE_CHAT_TAWK_ID`, `LIVE_CHAT_CRISP_ID`, `LIVE_CHAT_TIDIO_ID` or `LIVE_CHAT_INTERCOM_ID`), the check also opens your real widget from Housy's button. Without it, only the script loading and the security policy are checked.
+- Payments: with test keys added as GitHub secrets (`PAYSTACK_TEST_SECRET_KEY`, `STRIPE_TEST_SECRET_KEY`, test keys only), the "Real-world checks" workflow runs checkout, verify, a test card payment and a part refund against the real providers. Live accounts and webhooks to your server are checked only on your server (Admin, Payments, Events).
 
 
 ## Built in Phase 10: referrals, vacancy reports and rewards
@@ -210,14 +210,14 @@ Use **Affiliated** if BOCA shares owners or directors with the platform operator
 - **Boost, kept honest.** Gold listings take one of every three places in search, taking turns day by day, and carry the visible Premium tag.
   Nothing else about the order changes.
 - **Promotions.** The platform creates campaigns (name, look, dates, fee, biggest discount). A company picks published properties and a
-  reviewed price; the platform approves each one. Basic pays a fee per property, confirmed by hand with a reference before approval
+  reviewed price; the platform approves each one. Basic pays a fee per property through an invoice before approval
   (a company that upgrades after asking is not charged). Companies cannot approve their own requests (database policy).
 - **Price display.** The listed price is struck through in red and the reviewed price shown in green with the saving; words ("Was", "now") carry
   the meaning, not colour alone. A promotion shows only while approved, in its dates, the property published and the listed price unchanged.
 - **Rating prompt.** Members are asked once per interval (administrator sets it, default 30 days), can choose "remind me later" (7 days), and
   may answer without their name shown. Administrators see averages, spread, monthly trend, paged suggestions, a status and note, and a CSV.
 - Pages: `/app/promotions`, `/admin/promotions`, `/feedback`, `/admin/feedback`.
-- **Not built:** online payment of promotion fees (recorded by hand), email or SMS reminders (the prompt is in-app), per-property boost purchase.
+- **Since then:** promotion fees are invoices paid online or by recorded bank transfer, and companies can buy a boost for one property (labelled "Boosted"; the administrator sets the price per day). Still not built: email or SMS reminders for the rating (the prompt is in-app).
 
 ## Built in Phase 12: reviews, awards, completed deals, and reels
 

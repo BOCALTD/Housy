@@ -149,6 +149,8 @@ model Company {
   artisanOffers ArtisanOffer[]
 
   @@map("companies")
+  /// The private part of the company's email address for forwarding letters into the correspondence register.
+  inboundToken       String?   @unique @map("inbound_token")
 }
 
 model Membership {
@@ -960,7 +962,11 @@ model Correspondence {
 
   clientId         String?                 @map("client_id")
   dealId           String?                 @map("deal_id")
+  /// Received by email: the sender's address and the email's Message-ID (so the same email is never registered twice).
+  fromEmail        String                  @default("") @map("from_email")
+  messageId        String?                 @map("message_id")
   @@unique([companyId, ref])
+  @@unique([companyId, messageId])
   @@index([companyId, status])
   @@index([companyId, responseDeadline])
   @@index([companyId, dealId])

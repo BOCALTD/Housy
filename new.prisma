@@ -4985,6 +4985,8 @@ model NotificationPref {
   emailActivity    Boolean    @default(true) @map("email_activity")
   emailAlerts      Boolean    @default(true) @map("email_alerts")
   emailPromotional Boolean    @default(false) @map("email_promotional")
+  /// Text messages for important notices (security, rent and inspection reminders, review requests). Off until turned on.
+  smsImportant     Boolean    @default(false) @map("sms_important")
   digest           DigestMode @default(INSTANT)
   quietStart       Int?       @map("quiet_start")
   quietEnd         Int?       @map("quiet_end")
@@ -4995,6 +4997,31 @@ model NotificationPref {
 }
 
 /// An email waiting to go, sent, failed or dropped. Who may receive it is decided when it is processed, not when it is queued.
+/// Text messages waiting to be sent: important notices to people who turned SMS on, and review links a company sends a client.
+model SmsOutbox {
+  id                String      @id @default(uuid())
+  userId            String?     @map("user_id")
+  companyId         String?     @map("company_id")
+  toPhone           String      @map("to_phone")
+  body              String
+  kind              String
+  dedupeKey         String      @unique @map("dedupe_key")
+  status            EmailStatus @default(QUEUED)
+  attempts          Int         @default(0)
+  nextAttemptAt     DateTime    @default(now()) @map("next_attempt_at")
+  lastError         String      @default("") @map("last_error")
+  skipReason        String      @default("") @map("skip_reason")
+  provider          String      @default("")
+  providerMessageId String      @default("") @map("provider_message_id")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  sentAt            DateTime?   @map("sent_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
+  @@map("sms_outbox")
+}
+
 model EmailOutbox {
   id                String        @id @default(uuid())
   userId            String        @map("user_id")

@@ -120,6 +120,15 @@ jobs:
           REAL_STRICT: ${{ vars.REAL_STRICT || 'false' }}
         run: scripts/ci-run.sh "Real-browser check" scripts/real-browser-check.sh
 
+      - name: Live chat against the real providers' scripts (Tawk.to, Crisp, Tidio, Intercom)
+        env:
+          LIVE_CHAT_STRICT: ${{ vars.LIVE_CHAT_STRICT || 'false' }}
+          LIVE_CHAT_TAWK_ID: ${{ secrets.LIVE_CHAT_TAWK_ID }}
+          LIVE_CHAT_CRISP_ID: ${{ secrets.LIVE_CHAT_CRISP_ID }}
+          LIVE_CHAT_TIDIO_ID: ${{ secrets.LIVE_CHAT_TIDIO_ID }}
+          LIVE_CHAT_INTERCOM_ID: ${{ secrets.LIVE_CHAT_INTERCOM_ID }}
+        run: scripts/ci-run.sh "Live chat check" npx tsx scripts/live-chat-check.ts
+
       - name: Messages and windows on every screen size
         env:
           STATES_STRICT: ${{ vars.STATES_STRICT || 'true' }}

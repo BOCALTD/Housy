@@ -1,0 +1,39 @@
+name: Real-world checks
+
+# Online payments against the real Paystack and Stripe services in TEST mode, using test keys the owner adds as repository secrets
+# (Settings, Secrets and variables, Actions): PAYSTACK_TEST_SECRET_KEY and STRIPE_TEST_SECRET_KEY. Live keys are refused by the
+# script. Without the secrets the run reports "not checked" and passes. The report is uploaded as an artifact.
+on:
+  push:
+    branches: [main]
+    paths: ["src/lib/payment-providers.ts", "scripts/payments-live-check.ts", ".github/workflows/real-world.yml"]
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+jobs:
+  payments:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Payments against the real providers (test mode)
+        env:
+          PAYSTACK_TEST_SECRET_KEY: ${{ secrets.PAYSTACK_TEST_SECRET_KEY }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+          SKIP_ENV_VALIDATION: "1"
+        run: npx tsx scripts/payments-live-check.ts
+      - name: Report
+        if: always()
+        run: cat device-report/payments/report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: payments-report
+          path: device-report/payments
+          if-no-files-found: ignore

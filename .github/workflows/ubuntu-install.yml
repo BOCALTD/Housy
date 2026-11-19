@@ -1,6 +1,6 @@
 name: Ubuntu server install
 
-# Runs deploy/ubuntu/install.sh and deploy.sh on a fresh Ubuntu 24.04 machine exactly as on a real server, then checks the app
+# Runs deploy/ubuntu/install.sh and deploy.sh on fresh Ubuntu 24.04 and 22.04 machines exactly as on a real server, then checks the app
 # through nginx, the scheduled jobs and a backup. Proves the server scripts work before anyone runs them for real.
 on:
   push:
@@ -10,7 +10,12 @@ on:
 
 jobs:
   install:
-    runs-on: ubuntu-24.04
+    # Both Ubuntu versions the scripts promise to support.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4

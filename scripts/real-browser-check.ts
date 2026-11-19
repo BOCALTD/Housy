@@ -342,7 +342,7 @@ async function main() {
     if (!(await input.count())) { await record(p, "reel upload", false, "no video picker on Post a reel (is the demo agent listed?)"); await ctx.close(); return; }
     const pieces: number[] = [];
     p.on("request", (r) => { if (r.method() === "PUT" && r.url().includes("/api/reels/uploads/")) pieces.push(Number(r.headers()["upload-offset"])); });
-    await input.setInputFiles(join(process.cwd(), "prisma/demo-media/reels/reel-02.mp4"));
+    await input.setInputFiles(join(process.cwd(), "prisma/demo-media/reels/reel-03.mp4"));
     const done = await p.getByText("Uploaded", { exact: true }).first().waitFor({ timeout: 60000 }).then(() => true).catch(() => false);
     await p.locator('textarea[name="caption"]').fill("[CHECK] Sent in pieces");
     await p.getByRole("button", { name: "Save as draft" }).click();
@@ -377,22 +377,23 @@ async function main() {
     await ctx.setOffline(false);
     const other = await ctx.newPage();
     await other.goto(BASE + "/support", { waitUntil: "load" });
-    const sentInBackground = await other.evaluate(async () => {
+    // Written as a string: the test runner's compiler would otherwise add helper names the page does not have.
+    const sentInBackground = await other.evaluate(`(async () => {
       const reg = await navigator.serviceWorker?.ready;
-      if (!reg?.active) return "no service worker";
+      if (!reg || !reg.active) return "no service worker";
       reg.active.postMessage({ type: "field-sync-now" });
-      const states = () => new Promise<string[]>((resolve) => {
+      const states = () => new Promise((resolve) => {
         const req = indexedDB.open("housy-field", 1);
         req.onsuccess = () => {
-          const g = req.result.transaction("kv").objectStore("kv").getAll(IDBKeyRange.bound("out:", "out:\uffff"));
-          g.onsuccess = () => { resolve((g.result as { state: string }[]).map((o) => o.state)); req.result.close(); };
+          const g = req.result.transaction("kv").objectStore("kv").getAll(IDBKeyRange.bound("out:", "out:\\uffff"));
+          g.onsuccess = () => { resolve(g.result.map((o) => o.state)); req.result.close(); };
           g.onerror = () => resolve([]);
         };
         req.onerror = () => resolve([]);
       });
       for (let i = 0; i < 40; i++) { const s = await states(); if (s.includes("sent") && !s.includes("waiting")) return "sent"; await new Promise((r) => setTimeout(r, 500)); }
       return (await states()).join(",") || "nothing stored";
-    });
+    })()`) as string;
     await other.goto(BASE + "/field", { waitUntil: "load" });
     const shown = await other.locator(".fk-row .pill", { hasText: /^sent$/i }).first().waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
     await record(other, "field kit background send", sentInBackground === "sent" && shown, `sent by the service worker with the kit closed: ${sentInBackground}; the kit shows it sent: ${shown}`);

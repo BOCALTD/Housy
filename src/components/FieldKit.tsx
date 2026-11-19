@@ -108,7 +108,9 @@ export function FieldKit() {
   const download = useCallback(async (quiet = false) => {
     if (!quiet) setBusy("download");
     try {
-      const fresh = await call<Pack>("/api/field/pack");
+      const got = await call<Pack | { signedOut: true }>("/api/field/pack");
+      if ("signedOut" in got) throw new SignedOut("Sign in to download your inspections");
+      const fresh = got;
       const old = await kvGet<Pack>(`pack:${fresh.userId}`);
       const working = new Set([...(await kvList(`draft:${fresh.userId}:`)), ...(await kvList(`out:${fresh.userId}:`))].map(([k]) => k.split(":")[2]));
       const kept = (old?.inspections ?? []).filter((i) => working.has(i.id) && !fresh.inspections.some((f) => f.id === i.id));

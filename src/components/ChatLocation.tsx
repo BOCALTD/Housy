@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 // The map loads only when a location is shown or chosen.
@@ -37,6 +38,10 @@ export function LocationShare({ onSend, start }: { onSend: (loc: Loc) => Promise
   const [here, setHere] = useState<Loc | null>(null);
   const [busy, setBusy] = useState(false);
   const [label, setLabel] = useState("");
+  // The button sits inside the chat's composer form; the dialog has a form of its own, so it is placed at the end of the page
+  // (forms cannot be nested) once the page is running in the browser.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const open = () => { setMode("choose"); setHere(null); setLabel(""); box.current?.showModal(); };
   const close = () => box.current?.close();
@@ -69,8 +74,8 @@ export function LocationShare({ onSend, start }: { onSend: (loc: Loc) => Promise
   return (
     <>
       <button type="button" className="composer-btn" aria-label="Share a location" aria-haspopup="dialog" onClick={open}>{pinIcon}</button>
-      <dialog ref={box} className="cfm loc-box" aria-labelledby="loc-title" onCancel={(e) => { e.preventDefault(); close(); }}>
-        <form ref={form} className="cfm-inner" onSubmit={(e) => { e.preventDefault(); void send(); }}>
+      {mounted ? createPortal(<dialog ref={box} className="cfm loc-box" aria-labelledby="loc-title" onCancel={(e) => { e.preventDefault(); close(); }}>
+        <form ref={form} className="cfm-inner" onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); void send(); }}>
           <h2 id="loc-title">Share a location</h2>
           {mode === "choose" && !here ? (
             <div className="stack" style={{ gap: 8 }}>
@@ -92,7 +97,7 @@ export function LocationShare({ onSend, start }: { onSend: (loc: Loc) => Promise
             </>
           ) : <div className="cfm-actions"><button type="button" className="btn" onClick={close}>Cancel</button></div>}
         </form>
-      </dialog>
+      </dialog>, document.body) : null}
     </>
   );
 }

@@ -258,6 +258,10 @@ async function main() {
       await record(s, "chat reaction", reacted, reacted ? "the reaction shows under the message" : "no reaction shown");
       // The designed promo banner on the homepage (folded corner), then like a property and undo it from the message.
       await s.goto(`${BASE}/`, { waitUntil: "load" });
+      // Close the first-visit welcome slides, so the screenshot shows the banner itself.
+      const skip = s.getByRole("button", { name: "Skip" }).first();
+      if (await skip.isVisible().catch(() => false)) { await skip.click(); await s.waitForTimeout(800); }
+      await s.locator(".pbanner").first().scrollIntoViewIfNeeded().catch(() => undefined);
       const banner = await s.locator(".pbanner .pbanner-card img").first().isVisible().catch(() => false);
       const fold = await s.locator(".pbanner .pbanner-fold").count();
       await record(s, "promo banner", banner && fold > 0, `banner picture shown: ${banner}; folded corner: ${fold > 0}`);

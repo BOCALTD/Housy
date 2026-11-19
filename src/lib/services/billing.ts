@@ -324,6 +324,13 @@ export async function processEvent(ev: ParsedEvent, payloadHash: string, deps?: 
         else if (ev.amountKobo === null || ev.amountKobo <= 0n) { outcome = "MALFORMED"; note = "The message had no amount"; }
         else outcome = await settleClientPaymentIn(tx, ev.reference, ev.amountKobo, ev.providerTxId, now, ev.currency);
       }
+      else if (!pay && /^PO-\d{4}-[0-9A-F]{8}$/.test(ev.reference)) {
+        // A company paying a contractor's own Stripe account (Paying contractors).
+        const { settleContractorPayoutIn } = await import("./payouts");
+        if (ev.kind !== "PAYMENT_SUCCEEDED") { outcome = "IGNORED"; note = "A contractor payment attempt did not go through"; }
+        else if (ev.amountKobo === null || ev.amountKobo <= 0n) { outcome = "MALFORMED"; note = "The message had no amount"; }
+        else outcome = await settleContractorPayoutIn(tx, ev.reference, ev.amountKobo, ev.currency);
+      }
       else if (!pay) { outcome = "UNKNOWN_REFERENCE"; note = "No payment has this reference"; }
       else if (ev.kind === "PAYMENT_SUCCEEDED") {
         if (ev.amountKobo === null || ev.amountKobo <= 0n) { outcome = "MALFORMED"; note = "The message had no amount"; }

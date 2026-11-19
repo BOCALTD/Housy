@@ -21,6 +21,7 @@ export const ACCOUNTS = {
   TENANT_CREDIT: { code: "2400", name: "Tenant payments in advance" },
   RENT_INCOME: { code: "4000", name: "Rental income" },
   OTHER_INCOME: { code: "4010", name: "Late fees and deposit deductions" },
+  CONTRACTOR_COSTS: { code: "5000", name: "Repairs, contractors and suppliers" },
 } as const;
 export type AccountKey = keyof typeof ACCOUNTS;
 export type AccountCodes = Partial<Record<AccountKey, string>>;
@@ -36,6 +37,7 @@ export const ACCOUNT_HELP: Record<AccountKey, string> = {
   TENANT_CREDIT: "Money received beyond what was billed, held until the next charge.",
   RENT_INCOME: "Rent on properties your company owns.",
   OTHER_INCOME: "Late fees and deductions from deposits on properties you own.",
+  CONTRACTOR_COSTS: "Payments to contractors and suppliers for your own properties and the company. Work on a property you manage is charged to the owner's rent instead.",
 };
 
 /** Codes must be short and plain so every accounting package accepts them. */
@@ -65,7 +67,8 @@ export type AccountingEvent =
   | { kind: "DEPOSIT"; date: string; ref: string; property: string; owned: boolean; entry: "RECEIVED" | "DEDUCTION" | "REFUND"; amount: bigint; memo: string }
   | { kind: "SERVICE_ASSESSMENT"; date: string; ref: string; property: string; amount: bigint; memo: string }
   | { kind: "SERVICE_COLLECTION"; date: string; ref: string; property: string; amount: bigint; memo: string; reversed?: boolean }
-  | { kind: "SERVICE_EXPENSE"; date: string; ref: string; property: string; amount: bigint; memo: string };
+  | { kind: "SERVICE_EXPENSE"; date: string; ref: string; property: string; amount: bigint; memo: string }
+  | { kind: "PAYOUT"; date: string; ref: string; property: string; owned: boolean; amount: bigint; memo: string; reversed?: boolean };
 
 const dr = (account: AccountKey, v: bigint): Line => ({ account, debit: v, credit: 0n });
 const cr = (account: AccountKey, v: bigint): Line => ({ account, debit: 0n, credit: v });
@@ -109,6 +112,12 @@ export function entryFor(e: AccountingEvent): Entry | null {
     }
     case "SERVICE_EXPENSE":
       return e.amount <= 0n ? null : { ...base, source: "Service charge spending", lines: [dr("SERVICE_FUND", e.amount), cr("PAYABLES", e.amount)] };
+    case "PAYOUT": {
+      // Work on a property the company only manages is the owner's cost, taken from the rent held for them.
+      if (e.amount <= 0n) return null;
+      const lines = [dr(e.owned ? "CONTRACTOR_COSTS" : "OWNER_RENT", e.amount), cr("BANK", e.amount)];
+      return { ...base, source: e.reversed ? "Contractor payment returned" : "Contractor payment", lines: e.reversed ? flip(lines) : lines };
+    }
   }
 }
 

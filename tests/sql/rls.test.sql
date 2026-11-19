@@ -1269,9 +1269,9 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: only the platform publishes a reel'; END $$;
 SELECT set_config('app.platform_admin', 'on', true);
 DO $$ BEGIN
-  INSERT INTO reels (id, author_id, company_id, mime_type, size_bytes) VALUES ('rl-big', 'u1', 'co-a', 'video/mp4', 99999999);
+  INSERT INTO reels (id, author_id, company_id, mime_type, size_bytes) VALUES ('rl-big', 'u1', 'co-a', 'video/mp4', 199999999);
   RAISE EXCEPTION 'FAIL: oversize reel';
-EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: reels are limited to 4 MB'; END $$;
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: reels are limited to 100 MB'; END $$;
 SELECT set_config('app.platform_admin', '', true);
 
 -- 35. Phase 13: preferences are private; anything may queue an email but only the platform reads or changes the queue; the log is append-only for the app.
@@ -1433,6 +1433,29 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'ok: a company cannot change the audit record'; END $$;
 SELECT set_config('app.company_id', 'co-b', true);
 SELECT pg_temp.expect((SELECT count(*) FROM ai_suggestions WHERE id = 'sg-a') = 0, 'another company cannot see the suggestion');
+SELECT set_config('app.company_id', '', true);
+SELECT set_config('app.user_id', '', true);
+
+-- Paying contractors: each company sees only its own payments; the person who asked cannot approve; an approved amount is fixed.
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT set_config('app.user_id', 'u1', true);
+INSERT INTO contractors (id, company_id, name, created_by_id) VALUES ('ctr-a', 'co-a', 'Alpha plumber', 'u1');
+INSERT INTO contractor_payouts (id, company_id, ref, contractor_id, amount_kobo, method, reason, requested_by_id, updated_at)
+  VALUES ('po-a', 'co-a', 'PO-2026-AAAA0001', 'ctr-a', 5000, 'BANK', 'Pump repair', 'u1', now());
+DO $$ BEGIN
+  UPDATE contractor_payouts SET status = 'APPROVED', decided_by_id = 'u1', decided_at = now() WHERE id = 'po-a';
+  RAISE EXCEPTION 'FAIL: the person who asked approved their own payment';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: a payment needs a second person'; END $$;
+UPDATE contractor_payouts SET status = 'APPROVED', decided_by_id = 'u2', decided_at = now() WHERE id = 'po-a';
+DO $$ BEGIN
+  UPDATE contractor_payouts SET amount_kobo = 999999 WHERE id = 'po-a';
+  RAISE EXCEPTION 'FAIL: an approved amount changed';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'ok: an approved amount cannot change'; END $$;
+SELECT set_config('app.company_id', 'co-b', true);
+SELECT pg_temp.expect((SELECT count(*) FROM contractor_payouts WHERE id = 'po-a') = 0, 'another company cannot see a payment');
+UPDATE contractor_payouts SET status = 'CANCELLED' WHERE id = 'po-a';
+SELECT set_config('app.company_id', 'co-a', true);
+SELECT pg_temp.expect((SELECT status::text FROM contractor_payouts WHERE id = 'po-a') = 'APPROVED', 'another company cannot change a payment');
 SELECT set_config('app.company_id', '', true);
 SELECT set_config('app.user_id', '', true);
 

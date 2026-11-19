@@ -53,6 +53,8 @@ export type Action =
   | "service.expense"
   | "service.approve"
   | "finance.view"
+  | "payout.request"
+  | "payout.approve"
   | "task.create"
   | "task.update.any"
   | "listing.manage"
@@ -147,6 +149,9 @@ const MATRIX: Record<Action, Role[]> = {
   "service.expense": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
   "service.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "finance.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER", "VIEWER"],
+  // Paying contractors and suppliers: one person asks, a different person approves and sends.
+  "payout.request": ["COMPANY_SUPER_ADMIN", "MANAGER", "OFFICER"],
+  "payout.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "task.create": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT", "OFFICER"],
   "task.update.any": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "listing.manage": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],

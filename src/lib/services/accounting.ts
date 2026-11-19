@@ -46,7 +46,7 @@ export async function accountingEvents(ctx: Ctx, fromRaw: string, toRaw: string)
   const lease = { select: { ref: true, occupantName: true, asset } } as const;
   const c = ctx.companyId;
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
-    const [charges, adjustments, receipts, reversals, deposits, assessments, collections, colReversals, expenses] = await Promise.all([
+    const [charges, adjustments, receipts, reversals, deposits, assessments, collections, colReversals, expenses, paid, returned] = await Promise.all([
       tx.rentCharge.findMany({ where: { companyId: c, dueDate: { gte: from, lte: to } }, select: { id: true, dueDate: true, amountKobo: true, lease }, take: 50_000 }),
       tx.rentAdjustment.findMany({ where: { companyId: c, status: "APPROVED", decidedAt: { gte: from, lt: toEnd } }, select: { kind: true, amountKobo: true, reason: true, decidedAt: true, charge: { select: { dueDate: true, lease } } }, take: 50_000 }),
       tx.receipt.findMany({ where: { companyId: c, paidOn: { gte: from, lte: to } }, select: { no: true, amountKobo: true, paidOn: true, method: true, payerName: true, allocations: { select: { amountKobo: true } }, lease }, take: 50_000 }),
@@ -56,7 +56,13 @@ export async function accountingEvents(ctx: Ctx, fromRaw: string, toRaw: string)
       tx.serviceCollection.findMany({ where: { companyId: c, paidOn: { gte: from, lte: to } }, select: { amountKobo: true, paidOn: true, method: true, assessment: { select: { lease: { select: { ref: true, occupantName: true } }, period: { select: { name: true, asset } } } } }, take: 50_000 }),
       tx.serviceCollectionReversal.findMany({ where: { companyId: c, createdAt: { gte: from, lt: toEnd } }, select: { createdAt: true, reason: true, collection: { select: { amountKobo: true, assessment: { select: { lease: { select: { ref: true, occupantName: true } }, period: { select: { name: true, asset } } } } } } }, take: 50_000 }),
       tx.serviceExpense.findMany({ where: { companyId: c, status: "APPROVED", incurredOn: { gte: from, lte: to } }, select: { description: true, supplier: true, amountKobo: true, incurredOn: true, period: { select: { name: true, asset } } }, take: 50_000 }),
+      // Contractor and supplier payments: paid ones on the day paid (whatever happened later), and money that came back on that day.
+      tx.contractorPayout.findMany({ where: { companyId: c, paidOn: { gte: from, lte: to }, status: { in: ["PAID", "REVERSED"] } }, select: { id: true, ref: true, amountKobo: true, paidOn: true, method: true, reason: true, assetId: true, contractor: { select: { name: true } } }, take: 50_000 }),
+      tx.contractorPayoutEvent.findMany({ where: { companyId: c, kind: "reversed", toStatus: "REVERSED", fromStatus: "PAID", createdAt: { gte: from, lt: toEnd } }, select: { createdAt: true, note: true, payout: { select: { ref: true, amountKobo: true, assetId: true, contractor: { select: { name: true } } } } }, take: 50_000 }),
     ]);
+    const assetIds = [...new Set([...paid.map((p) => p.assetId), ...returned.map((r) => r.payout.assetId)].filter((x): x is string => !!x))];
+    const assets = assetIds.length ? await tx.asset.findMany({ where: { companyId: c, id: { in: assetIds } }, select: { id: true, ref: true, name: true, companyRelationship: true } }) : [];
+    const assetOf = (id: string | null) => (id ? assets.find((a) => a.id === id) : undefined);
     const owned = (a: AssetBit) => a.companyRelationship === "OWNER";
     const sum = (xs: { amountKobo: bigint }[]) => xs.reduce((s, x) => s + x.amountKobo, 0n);
     const ev: AccountingEvent[] = [
@@ -68,6 +74,8 @@ export async function accountingEvents(ctx: Ctx, fromRaw: string, toRaw: string)
       ...assessments.map((x) => ({ kind: "SERVICE_ASSESSMENT" as const, date: toDateOnlyString(x.dueDate), ref: x.lease.ref, property: prop(x.period.asset), amount: x.amountKobo, memo: `${x.lease.occupantName}, ${x.period.name}` })),
       ...collections.map((x) => ({ kind: "SERVICE_COLLECTION" as const, date: toDateOnlyString(x.paidOn), ref: x.assessment.lease.ref, property: prop(x.assessment.period.asset), amount: x.amountKobo, memo: `${x.assessment.lease.occupantName}, ${x.assessment.period.name}${x.method ? `, ${x.method}` : ""}` })),
       ...colReversals.map((x) => ({ kind: "SERVICE_COLLECTION" as const, reversed: true, date: lagosDay(x.createdAt), ref: x.collection.assessment.lease.ref, property: prop(x.collection.assessment.period.asset), amount: x.collection.amountKobo, memo: x.reason.slice(0, 200) })),
+      ...paid.map((x) => { const a = assetOf(x.assetId); return { kind: "PAYOUT" as const, date: toDateOnlyString(x.paidOn!), ref: x.ref, property: a ? prop(a) : "", owned: a ? owned(a) : true, amount: x.amountKobo, memo: `${x.contractor.name}: ${x.reason} (${x.method.toLowerCase()})`.slice(0, 200) }; }),
+      ...returned.map((x) => { const a = assetOf(x.payout.assetId); return { kind: "PAYOUT" as const, reversed: true, date: lagosDay(x.createdAt), ref: x.payout.ref, property: a ? prop(a) : "", owned: a ? owned(a) : true, amount: x.payout.amountKobo, memo: `${x.payout.contractor.name}: ${x.note}`.slice(0, 200) }; }),
       ...expenses.map((x) => ({ kind: "SERVICE_EXPENSE" as const, date: toDateOnlyString(x.incurredOn), ref: x.period.name, property: prop(x.period.asset), amount: x.amountKobo, memo: `${x.description}${x.supplier ? ` (${x.supplier})` : ""}`.slice(0, 200) })),
     ];
     return ev;

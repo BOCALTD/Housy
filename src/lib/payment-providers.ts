@@ -293,3 +293,68 @@ export function stripeConnectApi(secretKey: string, fetchImpl: typeof fetch = fe
     },
   };
 }
+
+
+// ---------- Paying contractors and suppliers (Paystack Transfers, from the company's own Paystack balance) ----------
+
+export type TransferStatus = "success" | "pending" | "otp" | "failed" | "reversed" | "unknown";
+export type TransferApi = {
+  /** The company's available balance in its currency (to check the key works and there is money to send). */
+  balance(currency: string): Promise<{ ok: true; balanceMinor: bigint } | { ok: false; error: string }>;
+  banks(country?: string, currency?: string): Promise<Bank[]>;
+  resolveAccount(accountNumber: string, bankCode: string): Promise<{ ok: true; accountName: string } | { ok: false; error: string }>;
+  /** Save the bank account as a transfer recipient (once; the code is reused). */
+  createRecipient(i: { name: string; accountNumber: string; bankCode: string; currency: string; type: string }): Promise<{ ok: true; code: string } | { ok: false; error: string }>;
+  /** Send money. The reference makes it safe to repeat: Paystack refuses a second transfer with the same reference. */
+  transfer(i: { amountMinor: bigint; recipient: string; reference: string; reason: string; currency: string }): Promise<{ ok: true; status: TransferStatus; transferCode: string } | { ok: false; error: string; permanent: boolean }>;
+  verify(reference: string): Promise<{ ok: true; status: TransferStatus; amountMinor: bigint; reason: string } | { ok: false; error: string }>;
+};
+
+const transferStatus = (v: unknown): TransferStatus => {
+  const s = asStr(v, 30).toLowerCase();
+  return s === "success" ? "success" : s === "pending" || s === "processing" || s === "queued" || s === "received" ? "pending" : s === "otp" ? "otp" : s === "failed" || s === "abandoned" || s === "rejected" ? "failed" : s === "reversed" ? "reversed" : "unknown";
+};
+
+/** The recipient type Paystack uses for a country's bank accounts. */
+export const recipientTypeFor = (currency: string) => (currency === "GHS" ? "ghipss" : currency === "ZAR" ? "basa" : currency === "KES" ? "mobile_money" : "nuban");
+
+export function paystackTransferApi(secretKey: string, fetchImpl: typeof fetch = fetch): TransferApi {
+  const call = paystackCaller(secretKey, fetchImpl);
+  const split = paystackSplitApi(secretKey, fetchImpl);
+  return {
+    async balance(currency) {
+      const r = await call("/balance");
+      if (!r.ok) return { ok: false, error: r.http === 401 ? "Paystack did not accept this secret key" : r.message || "Paystack did not answer" };
+      const rows = (r as unknown as { data: unknown }).data;
+      const row = (Array.isArray(rows) ? rows : []).find((b: Record<string, unknown>) => asStr(b.currency, 5) === currency) as Record<string, unknown> | undefined;
+      return { ok: true, balanceMinor: BigInt(Math.trunc(Number(row?.balance ?? 0))) };
+    },
+    banks: (c, cur) => split.banks(c, cur),
+    resolveAccount: (n, b) => split.resolveAccount(n, b),
+    async createRecipient(i) {
+      const r = await call("/transferrecipient", { method: "POST", body: { type: i.type, name: i.name.slice(0, 100), account_number: i.accountNumber, bank_code: i.bankCode, currency: i.currency } });
+      const code = asStr(r.data.recipient_code, 60);
+      return r.ok && code.startsWith("RCP_") ? { ok: true, code } : { ok: false, error: r.message || "Paystack did not save the bank account" };
+    },
+    async transfer(i) {
+      const r = await call("/transfer", { method: "POST", body: { source: "balance", amount: Number(i.amountMinor), recipient: i.recipient, reference: i.reference, reason: i.reason.slice(0, 100), currency: i.currency } });
+      if (r.ok) return { ok: true, status: transferStatus(r.data.status), transferCode: asStr(r.data.transfer_code, 60) };
+      const permanent = r.http >= 400 && r.http < 500 && r.http !== 429 && r.http !== 408;
+      return { ok: false, permanent, error: (r.message || "Paystack did not send the money").slice(0, 300) };
+    },
+    async verify(reference) {
+      const r = await call(`/transfer/verify/${encodeURIComponent(reference)}`);
+      if (!r.ok) return { ok: false, error: r.message || "Paystack did not answer" };
+      return { ok: true, status: transferStatus(r.data.status), amountMinor: BigInt(Math.trunc(Number(r.data.amount ?? 0))), reason: asStr(r.data.reason, 200) };
+    },
+  };
+}
+
+/** A Paystack transfer message (transfer.success, transfer.failed, transfer.reversed) sent to the company's payout address. */
+export function parseTransferEvent(raw: string): { event: string; reference: string; status: TransferStatus; amountMinor: bigint; reason: string } | null {
+  try {
+    const j = JSON.parse(raw) as { event?: string; data?: Record<string, unknown> };
+    if (!j.event?.startsWith("transfer.") || !j.data) return null;
+    return { event: j.event, reference: asStr(j.data.reference, 100), status: transferStatus(j.data.status ?? j.event.split(".")[1]), amountMinor: BigInt(Math.trunc(Number(j.data.amount ?? 0))), reason: asStr((j.data as { failures?: unknown }).failures ?? j.data.reason, 200) };
+  } catch { return null; }
+}

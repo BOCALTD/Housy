@@ -124,6 +124,7 @@ function workspaceGroups(r: Role, incoming: number): SideGroup[] {
       ["/app/service-charges", "Service charges", "money", can(r, "finance.view")],
       ["/app/reports", "Reports", "doc", can(r, "finance.view")],
       ["/app/payments", "Client payments", "money", can(r, "billing.view")],
+      ["/app/payouts", "Paying contractors", "money", can(r, "payout.request")],
       ["/app/billing", "Billing", "money", can(r, "billing.view")],
       ["/app/ads", "Advertising", "megaphone", can(r, "billing.view")],
     ]),

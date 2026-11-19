@@ -80,7 +80,11 @@ async function main() {
       const t0 = Date.now();
       while (Date.now() - t0 < 20000 && !providerRequests.some((r) => r.status === 200)) await page.waitForTimeout(500);
       const script = providerRequests.find((r) => r.status === 200);
-      add("provider's script loads from its servers", !!script, script ? `${new URL(script.url).hostname} answered 200` : providerRequests.length ? `answers: ${providerRequests.map((r) => r.status).join(", ")}` : failedReq.length ? `request failed: ${failedReq[0]}` : `no request was made (cookie notice ${noticed ? "accepted" : "not shown, choice set directly"})`);
+      // With a made-up ID some providers answer with an error page instead of a script, which the browser blocks (ORB). That
+      // still shows Housy started the chat and reached the provider; only a real widget ID can show the script itself.
+      const refusedSample = !script && !realId && failedReq.some((f) => /ERR_BLOCKED_BY_ORB/.test(f));
+      if (refusedSample) add("provider's script loads from its servers", null, `the chat started and reached ${failedReq[0].split(":")[0]}, which refused the sample ID; needs your real widget ID as a GitHub secret`);
+      else add("provider's script loads from its servers", !!script, script ? `${new URL(script.url).hostname} answered 200` : providerRequests.length ? `answers: ${providerRequests.map((r) => r.status).join(", ")}` : failedReq.length ? `request failed: ${failedReq[0]}` : `no request was made (cookie notice ${noticed ? "accepted" : "not shown, choice set directly"})`);
       if (!script) await page.screenshot({ path: `${OUT}/${prov.p}-no-script.jpg`, type: "jpeg", quality: 60 }).catch(() => undefined);
       await page.waitForTimeout(6000);
       add("security policy allows it", blocked.length === 0, blocked.length ? blocked[0] : "no blocked requests");

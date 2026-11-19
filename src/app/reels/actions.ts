@@ -1,5 +1,8 @@
 "use server";
 
+import { after } from "next/server";
+import { processReel } from "@/lib/services/reel-media";
+
 import { requireUser } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
 import { addComment, recordShare, reportTarget, sendDraft, toggleLike, toggleSave, uploadReel, withdrawReel } from "@/lib/services/reels";
@@ -26,12 +29,16 @@ export async function shareAction(id: string) {
 export async function uploadAction(form: FormData) {
   return act("/reels/new", async () => {
     const u = await requireUser();
+    const uploadId = str(form, "uploadId");
     const f = form.get("video");
-    if (!(f instanceof File) || f.size === 0) throw new Error("Choose a video");
+    if (!uploadId && (!(f instanceof File) || f.size === 0)) throw new Error("Choose a video and wait for it to finish uploading");
     const draft = str(form, "intent") === "draft";
-    await uploadReel(u.id, { caption: str(form, "caption"), city: str(form, "city"), listingId: optStr(form, "listingId") }, { type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) }, {
+    const source = uploadId ? { uploadId } : { type: (f as File).type, bytes: new Uint8Array(await (f as File).arrayBuffer()) };
+    const reel = await uploadReel(u.id, { caption: str(form, "caption"), city: str(form, "city"), listingId: optStr(form, "listingId") }, source, {
       draft, music: { trackId: str(form, "musicTrackId"), start: str(form, "musicStart"), musicVolume: str(form, "musicVolume"), originalVolume: str(form, "originalVolume") },
     });
+    // The clip is prepared for every phone after the page answers (and by the scheduled job if this is interrupted).
+    after(() => processReel(reel.id).catch(() => {}));
     return withNotice("/reels/mine", draft ? "Saved as a draft. Only you can see it until you send it for checking." : "Your reel was sent for checking. You will be told when it is live.");
   });
 }

@@ -2,7 +2,16 @@
 // Paid plans, promotions and Gold status are not inputs. Reach comes from real, independent people engaging.
 
 export const REEL_MAX_BYTES = 4 * 1024 * 1024;
+/** Clips sent in pieces: up to 100 MB when the server can prepare them (ffmpeg), 25 MB when it keeps them as they are. */
+export const REEL_UPLOAD_MAX = 100 * 1024 * 1024;
+export const REEL_UPLOAD_MAX_RAW = 25 * 1024 * 1024;
+/** The largest clip kept (matches the database check). */
+export const REEL_STORED_MAX = 100 * 1024 * 1024;
+export const REEL_MAX_SECONDS = 120;
+export const REEL_CHUNK_BYTES = 2 * 1024 * 1024;
 export const REEL_TYPES = ["video/mp4", "video/webm"] as const;
+/** iPhone clips (MOV) are taken too when the server can turn them into MP4. */
+export const REEL_UPLOAD_TYPES = ["video/mp4", "video/webm", "video/quicktime"] as const;
 export const ENGAGER_MIN_AGE_HOURS = 24;     // an account must be a day old before its likes and comments move a reel
 export const HALF_LIFE_HOURS = 72;           // a reel's reach halves every three days
 export const FEED_WINDOW_DAYS = 60;
@@ -14,6 +23,11 @@ export const FORMULA_VERSION = 1;
 /** Check the first bytes of a clip against its declared type. */
 export function sniffVideo(type: string, b: Uint8Array): boolean {
   if (type === "video/mp4") return b.length > 12 && b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70; // "ftyp"
+  if (type === "video/quicktime") {
+    // A QuickTime file starts with an "ftyp" box, or (older files) a "moov", "mdat", "wide" or "free" atom.
+    const tag = b.length > 8 ? String.fromCharCode(b[4], b[5], b[6], b[7]) : "";
+    return ["ftyp", "moov", "mdat", "wide", "free", "skip"].includes(tag);
+  }
   if (type === "video/webm") return b.length > 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3;
   return false;
 }

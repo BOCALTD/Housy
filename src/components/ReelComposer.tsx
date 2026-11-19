@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { MUSIC_GENRES, durationLabel } from "@/lib/music-rules";
+
+type Limits = { maxBytes: number; chunkBytes: number; prepares: boolean; maxSeconds: number };
+type Up = { state: "idle" } | { state: "sending"; sent: number; total: number; note?: string } | { state: "done"; id: string } | { state: "error"; message: string };
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const typeOf = (f: File) => f.type || (/\.mov$/i.test(f.name) ? "video/quicktime" : /\.webm$/i.test(f.name) ? "video/webm" : /\.(mp4|m4v)$/i.test(f.name) ? "video/mp4" : "");
+const mbs = (n: number) => `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 
 type Track = { id: string; title: string; artist: string; genre: string; durationSec: number | null; licenceName: string; creditRequired: boolean };
 
@@ -19,6 +27,11 @@ export function ReelComposer({ tracks }: { tracks: Track[] }) {
   const [origVol, setOrigVol] = useState(40);
   const [listening, setListening] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [limits, setLimits] = useState<Limits>({ maxBytes: 25 * 1024 * 1024, chunkBytes: 2 * 1024 * 1024, prepares: false, maxSeconds: 120 });
+  const [up, setUp] = useState<Up>({ state: "idle" });
+  const run = useRef(0);
+  const file = useRef<HTMLInputElement>(null);
+  const picked = useRef<File | null>(null);
   const sample = useRef<HTMLAudioElement | null>(null);
   const song = useRef<HTMLAudioElement>(null);
   const video = useRef<HTMLVideoElement>(null);
@@ -30,11 +43,73 @@ export function ReelComposer({ tracks }: { tracks: Track[] }) {
 
   useEffect(() => () => { if (clip) URL.revokeObjectURL(clip.url); }, [clip]);
   useEffect(() => { setStart((s) => Math.min(s, maxStart)); }, [maxStart]);
-  useEffect(() => () => { sample.current?.pause(); }, []);
+  useEffect(() => () => { sample.current?.pause(); run.current++; }, []);
+  useEffect(() => {
+    fetch("/api/reels/uploads", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((l: Limits | null) => { if (l) setLimits(l); }).catch(() => {});
+  }, []);
+  // The reel is posted only once its clip has arrived in full.
+  const upRef = useRef(up);
+  upRef.current = up;
+  useEffect(() => {
+    const form = file.current?.form;
+    if (!form) return;
+    const stop = (e: SubmitEvent) => {
+      const u = upRef.current;
+      if (u.state === "done") return;
+      e.preventDefault();
+      toast.error(u.state === "sending" ? "Wait for the video to finish uploading, then send it." : u.state === "error" ? "The video did not upload. Press Try again." : "Choose a video first.");
+    };
+    form.addEventListener("submit", stop);
+    return () => form.removeEventListener("submit", stop);
+  }, []);
+
+  /** Send the clip in pieces, carrying on from where it stopped if the connection drops. */
+  async function send(f: File) {
+    const me = ++run.current;
+    const type = typeOf(f);
+    setUp({ state: "sending", sent: 0, total: f.size });
+    try {
+      const start = await fetch("/api/reels/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, size: f.size, name: f.name }) });
+      const s = await start.json().catch(() => ({}));
+      if (!start.ok) throw new Error(s.error || "The video could not be sent. Try again.");
+      let offset = 0, fails = 0;
+      while (offset < f.size) {
+        if (me !== run.current) return;
+        try {
+          const r = await fetch(`/api/reels/uploads/${s.id}`, { method: "PUT", headers: { "Upload-Offset": String(offset), "Content-Type": "application/octet-stream" }, body: f.slice(offset, offset + s.chunkBytes) });
+          const j = await r.json().catch(() => ({}));
+          if (r.status >= 500 || r.status === 429) throw Object.assign(new Error("busy"), { retry: true });
+          if (!r.ok) throw new Error(j.error || "The video could not be sent. Try again.");
+          offset = j.received; fails = 0;
+          if (me === run.current) setUp({ state: "sending", sent: offset, total: f.size });
+        } catch (e) {
+          if (e instanceof TypeError || (e as { retry?: boolean }).retry) {
+            if (++fails > 8) throw new Error("The connection keeps dropping. Press Try again when you have a better signal; what was sent is kept for a day.");
+            if (me === run.current) setUp({ state: "sending", sent: offset, total: f.size, note: "Connection lost. Trying again…" });
+            await wait(Math.min(30_000, 1000 * 2 ** fails));
+            const st = await fetch(`/api/reels/uploads/${s.id}`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+            if (st && typeof st.received === "number") offset = st.received;
+            continue;
+          }
+          throw e;
+        }
+      }
+      if (me === run.current) setUp({ state: "done", id: s.id });
+    } catch (e) {
+      if (me === run.current) setUp({ state: "error", message: (e as Error).message });
+    }
+  }
 
   function pickFile(f: File | undefined) {
     stopPreview();
-    if (!f) { setClip(null); return; }
+    run.current++;
+    picked.current = f ?? null;
+    if (!f) { setClip(null); setUp({ state: "idle" }); return; }
+    const type = typeOf(f);
+    const ok = limits.prepares ? ["video/mp4", "video/webm", "video/quicktime"] : ["video/mp4", "video/webm"];
+    if (!ok.includes(type)) { setUp({ state: "error", message: limits.prepares ? "Choose an MP4, MOV or WebM video." : "Choose an MP4 or WebM video." }); setClip(null); return; }
+    if (f.size > limits.maxBytes) { setUp({ state: "error", message: `This video is ${mbs(f.size)}. Videos must be ${mbs(limits.maxBytes)} or smaller: trim it or record at a lower quality.` }); setClip(null); return; }
+    void send(f);
     const url = URL.createObjectURL(f);
     const v = document.createElement("video");
     v.preload = "metadata";
@@ -66,9 +141,23 @@ export function ReelComposer({ tracks }: { tracks: Track[] }) {
   return (
     <div className="stack composer">
       <label className="field">Video
-        <input type="file" name="video" accept="video/mp4,video/webm" required onChange={(e) => pickFile(e.target.files?.[0])} />
-        <small>MP4 or WebM, up to 4 MB (roughly 10 to 20 seconds). Only film what you own or have permission to show; do not show people&apos;s faces or documents without consent.</small>
+        <input ref={file} type="file" accept={limits.prepares ? "video/mp4,video/webm,video/quicktime,.mov" : "video/mp4,video/webm"} onChange={(e) => pickFile(e.target.files?.[0])} />
+        <small>{limits.prepares ? "MP4, MOV (iPhone) or WebM" : "MP4 or WebM"}, up to {mbs(limits.maxBytes)} and {limits.maxSeconds / 60} minutes. The video starts uploading as soon as you choose it, and carries on if your connection drops. Only film what you own or have permission to show; do not show people&apos;s faces or documents without consent.</small>
       </label>
+      <input type="hidden" name="uploadId" value={up.state === "done" ? up.id : ""} />
+      {up.state === "sending" ? (
+        <div className="stack" style={{ gap: 4 }} role="status" aria-live="polite">
+          <div className="meter-bar" aria-hidden="true"><span style={{ width: `${Math.round((up.sent / Math.max(1, up.total)) * 100)}%` }} /></div>
+          <span className="small">{up.note ?? `Uploading: ${mbs(up.sent)} of ${mbs(up.total)} (${Math.round((up.sent / Math.max(1, up.total)) * 100)}%)`}</span>
+        </div>
+      ) : null}
+      {up.state === "done" ? <p className="small" role="status"><span className="pill ok">Uploaded</span> {clip && clip.seconds > limits.maxSeconds ? `Only the first ${limits.maxSeconds / 60} minutes will be kept.` : "Ready to send."}</p> : null}
+      {up.state === "error" ? (
+        <div className="row wrap" role="alert" style={{ gap: 8 }}>
+          <span className="small" style={{ color: "var(--danger, #b42318)" }}>{up.message}</span>
+          {picked.current && clip ? <button type="button" className="btn small" onClick={() => picked.current && void send(picked.current)}>Try again</button> : null}
+        </div>
+      ) : null}
 
       <fieldset className="composer-music">
         <legend>Music <span className="muted small">(optional)</span></legend>

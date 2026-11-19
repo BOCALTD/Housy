@@ -12,7 +12,8 @@ import { likeAction, reportAction, saveAction } from "@/app/reels/actions";
 export function ReelView({ r, back, signedIn, detail = false }: { r: Card; back: string; signedIn: boolean; detail?: boolean }) {
   return (
     <article className="card stack reel-card">
-      <ReelPlayer id={r.id} label={r.caption || "Property reel"} music={r.music} />
+      <ReelPlayer id={r.id} label={r.caption || "Property reel"} music={r.music} poster={r.poster} />
+      {r.mine && r.preparing ? <p className="small muted">Preparing the clip so it plays well on every phone. It plays as you sent it meanwhile.</p> : null}
       <div className="stack" style={{ gap: 4 }}>
         <div className="row between">
           <div><strong>{r.authorName}</strong>{r.companyName ? <span className="small muted"> · {r.companyName}</span> : null}</div>

@@ -5,13 +5,13 @@ import { useRef, useState } from "react";
 type Music = { trackId: string; mixed: boolean; startSec: number; volume: number; originalVolume: number } | null;
 
 /** The clip is only loaded when someone presses play, so a page of reels stays light on a phone connection. A song that is not mixed into the clip plays alongside it. */
-export default function ReelPlayer({ id, label, music = null }: { id: string; label: string; music?: Music }) {
+export default function ReelPlayer({ id, label, music = null, poster = null }: { id: string; label: string; music?: Music; poster?: string | null }) {
   const [on, setOn] = useState(false);
   const song = useRef<HTMLAudioElement>(null);
   const side = music && !music.mixed ? music : null;
   if (!on) {
     return (
-      <button type="button" className="reel-play" onClick={() => setOn(true)} aria-label={`Play reel: ${label}`}>
+      <button type="button" className={`reel-play${poster ? " has-poster" : ""}`} style={poster ? { backgroundImage: `url(${poster})` } : undefined} onClick={() => setOn(true)} aria-label={`Play reel: ${label}`}>
         <span aria-hidden="true" className="reel-play-icon">▶</span>
         <span>Play reel</span>
       </button>
@@ -26,7 +26,7 @@ export default function ReelPlayer({ id, label, music = null }: { id: string; la
   };
   return (
     <>
-      <video className="reel-video" controls autoPlay playsInline src={`/reels/${id}/video`} aria-label={label}
+      <video className="reel-video" controls autoPlay playsInline src={`/reels/${id}/video`} poster={poster ?? undefined} aria-label={label}
         onPlay={(e) => sync(e.currentTarget, "play")} onPause={(e) => sync(e.currentTarget, "pause")} onTimeUpdate={(e) => sync(e.currentTarget, "time")}
         onVolumeChange={(e) => { if (song.current) song.current.muted = e.currentTarget.muted; }} />
       {side ? <audio ref={song} src={`/music/${side.trackId}/audio`} preload="auto" /> : null}

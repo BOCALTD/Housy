@@ -11,7 +11,7 @@ import { reviewListing, saveListingDraft, setListingStatus } from "../../src/lib
 import { assignSubscription } from "../../src/lib/services/subscriptions";
 import { myNotifications } from "../../src/lib/services/notifications";
 import {
-  addComment, commentsFor, decideReports, discover, getReel, listingChoices, moderateReel, myReels, mySaved, recordShare, reelQueue, reelVideo, reportTarget,
+  addComment, commentsFor, decideReports, discover, getReel, listingChoices, moderateReel, myReels, mySaved, recordShare, reelQueue, reelMedia, reportTarget,
   toggleLike, toggleSave, uploadReel, withdrawReel, toggleCommentLike, deleteComment, sharedLinkOpened,
 } from "../../src/lib/services/reels";
 import { computeMonth } from "../../src/lib/services/awards";
@@ -67,10 +67,10 @@ test("a reel is private until the platform publishes it, and the platform decide
 
   assert.equal(await getReel(reel.id, null), null, "the public cannot see a pending reel");
   assert.equal(await getReel(reel.id, fan), null);
-  assert.equal(await reelVideo(reel.id, null), null);
-  assert.equal(await reelVideo(reel.id, fan), null);
+  assert.equal(await reelMedia(reel.id, null, "video", null), null);
+  assert.equal(await reelMedia(reel.id, fan, "video", null), null);
   assert.equal((await getReel(reel.id, co.userId))!.status, "PENDING", "the author can see their own");
-  assert.ok((await reelVideo(reel.id, co.userId))!.bytes.byteLength > 0);
+  assert.equal((await reelMedia(reel.id, co.userId, "video", null))!.status, 200);
   await assert.rejects(toggleLike(fan, reel.id), /not available/);
   await assert.rejects(addComment(fan, reel.id, "hello"), /not available/);
 
@@ -82,7 +82,7 @@ test("a reel is private until the platform publishes it, and the platform decide
   assert.ok((await myNotifications(fan)).some((n) => n.kind === "reel" && n.link === `/reels/${reel.id}`));
   assert.ok((await myNotifications(co.userId)).some((n) => n.title === "Your reel is live"));
   assert.equal((await getReel(reel.id, null))!.status, "PUBLISHED");
-  assert.equal((await reelVideo(reel.id, null))!.type, "video/mp4");
+  assert.equal((await reelMedia(reel.id, null, "video", null))!.headers["Content-Type"], "video/mp4");
   assert.equal(await moderateReel(admin.id, reel.id, "publish", ""), 0, "followers are told only the first time");
 
   // Hiding and withdrawing take it away again, and a removed reel stays removed.

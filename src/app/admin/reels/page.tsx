@@ -23,7 +23,8 @@ export default async function AdminReelsPage({ searchParams: searchP }: { search
           <ShowMore noun="more reels" limit={2} items={q.pending.map((r) => (
             <li key={r.id} style={{ listStyle: "none" }}>
               <div className="stack" style={{ width: "100%" }}>
-                <ReelPlayer id={r.id} label={r.caption || "Reel to check"} />
+                <ReelPlayer id={r.id} label={r.caption || "Reel to check"} poster={r.posterKey ? `/reels/${r.id}/poster` : null} />
+                {r.processing === "queued" || r.processing === "processing" ? <p className="small muted">The clip is still being prepared for every phone; it plays as sent meanwhile.</p> : null}
                 <div><strong>{r.authorName}</strong> <span className="small muted">{formatDate(r.createdAt)}{r.city ? ` · ${r.city}` : ""}</span></div>
                 {r.caption ? <p style={{ overflowWrap: "anywhere" }}>{r.caption}</p> : null}
                 <form action={moderateReelAction} className="stack"><input type="hidden" name="id" value={r.id} />

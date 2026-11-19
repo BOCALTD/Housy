@@ -61,6 +61,7 @@ import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./
 import { assignSubscription } from "./services/subscriptions";
 import { saveSearch, watchListing } from "./services/alerts";
 import { addComment, moderateReel, toggleLike, uploadReel } from "./services/reels";
+import { processReel } from "./services/reel-media";
 import { displayQueue, requestDisplay, reviewDisplay } from "./services/completed";
 import { decideKyc, submitAgentKyc, submitCompanyKyc } from "./services/kyc";
 import { confirmBooking, requestInspection } from "./services/inspection-bookings";
@@ -564,6 +565,7 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   // sample videos made from the demonstration photographs (scripts/make-demo-reels.ts).
   const clip = new Uint8Array(readFileSync(join(process.cwd(), "prisma/demo-media/reels/reel-06.mp4")));
   const demoReel = await uploadReel(alpha.userId, { caption: "Ikeja GRA duplex: from the gate to the family lounge", city: "Ikeja" }, { type: "video/mp4", bytes: clip });
+  await processReel(demoReel.id);
   await moderateReel(adminId, demoReel.id, "publish", "");
   await toggleLike(seeker.userId, demoReel.id);
   await addComment(seeker.userId, demoReel.id, "[DEMO] Lovely layout. Is the garden shared?");

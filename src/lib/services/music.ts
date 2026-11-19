@@ -12,7 +12,7 @@ import { z } from "zod";
 import { prisma, withPublic } from "../db";
 import { logActivity } from "../audit";
 import { system } from "./rewards";
-import { REEL_MAX_BYTES } from "../social-rules";
+import { REEL_STORED_MAX } from "../social-rules";
 import { MUSIC_GENRES, MUSIC_MAX_BYTES, mixArgs, musicType, sniffAudio, type Genre, type MusicChoice } from "../music-rules";
 
 const run = promisify(execFile);
@@ -107,7 +107,7 @@ export async function mixIntoClip(clip: { type: string; bytes: Uint8Array }, cho
     if (p.seconds === null || p.hasAudio === null) return null; // no ffprobe here: the player will mix
     await run(FFMPEG, mixArgs({ video, audio: track, out, container: ext, clipSeconds: p.seconds, clipHasAudio: p.hasAudio, choice }), { timeout: 45_000 });
     const mixed = new Uint8Array(await readFile(out));
-    return mixed.byteLength > 0 && mixed.byteLength <= REEL_MAX_BYTES ? mixed : null;
+    return mixed.byteLength > 0 && mixed.byteLength <= REEL_STORED_MAX ? mixed : null;
   } catch (e) {
     console.error("reel mix failed; the player will play the track alongside", e);
     return null;

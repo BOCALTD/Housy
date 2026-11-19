@@ -3,6 +3,7 @@ import { processOutbox } from "@/lib/services/delivery";
 import { processBulk } from "@/lib/services/bulk-messaging";
 import { purgeUndo } from "@/lib/services/undo";
 import { processSms } from "@/lib/services/sms";
+import { processPendingReels } from "@/lib/services/reel-media";
 import { sendReviewReminders } from "@/lib/services/reviews";
 import { withPlatformAdmin } from "@/lib/db";
 import { inspectionReminders } from "@/lib/services/inspection-bookings";
@@ -34,5 +35,6 @@ export async function GET(req: Request) {
     return claimed.count === 1;
   }).catch(() => false);
   if (due) reviewReminders = await sendReviewReminders().catch((e) => ({ error: String(e) }));
-  return Response.json({ ...outbox, reminders, safety, maintenance, bulk, undoPurged, sms, reviewReminders });
+  const reels = await processPendingReels().catch((e) => ({ error: String(e) }));
+  return Response.json({ ...outbox, reminders, safety, maintenance, bulk, undoPurged, sms, reviewReminders, reels });
 }

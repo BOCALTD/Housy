@@ -12,7 +12,7 @@ export DEBIAN_FRONTEND=noninteractive
 # Retry slow or dropped package downloads instead of stopping half way.
 echo 'Acquire::Retries "5"; Acquire::http::Timeout "60"; Acquire::https::Timeout "60";' > /etc/apt/apt.conf.d/80housy-retries
 apt-get update -y
-apt-get install -y curl ca-certificates gnupg git ufw nginx certbot python3-certbot-nginx fail2ban unattended-upgrades openssl ffmpeg
+apt-get install -y curl ca-certificates gnupg git ufw nginx certbot python3-certbot-nginx fail2ban unattended-upgrades openssl ffmpeg rsync
 
 # Node 20 (NodeSource)
 if ! command -v node >/dev/null || ! node -v | grep -q '^v20'; then
@@ -34,6 +34,8 @@ systemctl enable --now postgresql
 id housy >/dev/null 2>&1 || useradd --system --create-home --home-dir /opt/housy --shell /usr/sbin/nologin housy
 install -d -o housy -g housy /opt/housy /opt/housy/releases /opt/housy/shared
 install -d -o housy -g housy -m 0750 /var/backups/housy
+install -d -o housy -g housy -m 0750 /var/lib/housy /var/lib/housy/media
+# Reel videos when "Server folder" is chosen in Admin, Settings, Video storage (include it in backups).
 install -d -m 0750 -o root -g housy /etc/housy
 
 # Database and env file (only the first time)

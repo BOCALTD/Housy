@@ -7,6 +7,7 @@
  */
 import { chromium, devices, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
@@ -322,6 +323,26 @@ async function main() {
     }
     const gone = xShown && asked && await s.waitForFunction(() => !document.querySelector(".profile-avatar img") && (document.querySelector(".profile-avatar")?.textContent ?? "").trim().length > 0, null, { timeout: 15000 }).then(() => true).catch(() => false);
     await record(s, "remove profile photo", added && xShown && xSize >= 44 && asked && keptOnCancel && gone, `photo added ${added}; remove button shown ${xShown} (${xSize}px); asked first ${asked}; cancelling kept it ${keptOnCancel}; after confirming the initials are back ${gone}`);
+    await ctx.close();
+  });
+
+  await step("Reels: a clip is sent in pieces with progress, then saved as a draft and prepared", async () => {
+    const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const agent = out.trim().split("\n")[0];
+    const ctx = await newContext(browser, "phone");
+    await ctx.addCookies([{ name: "sid", value: agent, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
+    const p = await ctx.newPage(); watch(p, "reel upload");
+    await p.goto(BASE + "/reels/new", { waitUntil: "load" });
+    const input = p.locator('input[type="file"]').first();
+    if (!(await input.count())) { await record(p, "reel upload", false, "no video picker on Post a reel (is the demo agent listed?)"); await ctx.close(); return; }
+    const pieces: number[] = [];
+    p.on("request", (r) => { if (r.method() === "PUT" && r.url().includes("/api/reels/uploads/")) pieces.push(Number(r.headers()["upload-offset"])); });
+    await input.setInputFiles(join(process.cwd(), "prisma/demo-media/reels/reel-02.mp4"));
+    const done = await p.getByText("Uploaded", { exact: true }).first().waitFor({ timeout: 60000 }).then(() => true).catch(() => false);
+    await p.locator('textarea[name="caption"]').fill("[CHECK] Sent in pieces");
+    await p.getByRole("button", { name: "Save as draft" }).click();
+    const saved = await p.waitForURL(/\/reels\/mine/, { timeout: 30000 }).then(() => true).catch(() => false);
+    await record(p, "reel upload", done && saved && pieces.length >= 1, `uploaded: ${done}; pieces sent: ${pieces.length}; saved as a draft: ${saved}`);
     await ctx.close();
   });
 

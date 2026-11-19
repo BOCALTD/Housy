@@ -18,6 +18,7 @@ import { follow, registerSeeker, saveAgentProfile, saveCompanyProfile } from "./
 import { decideKyc, submitAgentKyc, submitCompanyKyc } from "./services/kyc";
 import { assignSubscription } from "./services/subscriptions";
 import { addComment, moderateReel, toggleLike, uploadReel } from "./services/reels";
+import { processReel } from "./services/reel-media";
 import { createClient } from "./services/crm";
 import { completeDeal, createDeal, decideAcceptance, moveStage, recordOffer, requestAcceptance } from "./services/deal";
 import { issueInvite, moderateReview, submitReview } from "./services/reviews";
@@ -118,6 +119,7 @@ export async function createDemoCatalogue(adminId: string, o: { password: string
     const song = trackIds.length && item.index % 4 !== 3 ? trackIds[item.index % trackIds.length] : "";
     const reel = await uploadReel(author.userId, { caption: d.reel, city: d.city, listingId: item.listingId }, { type: "video/mp4", bytes: readFileSync(file) },
       song ? { music: { trackId: song, start: String((item.index * 7) % 20), musicVolume: "85", originalVolume: "40" } } : {});
+    await processReel(reel.id);
     await moderateReel(adminId, reel.id, "publish", "");
     reels.push(reel.id);
   }

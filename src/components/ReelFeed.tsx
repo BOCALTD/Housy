@@ -222,7 +222,7 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
           <section key={r.id} className="rf-slide" data-i={i} aria-label={`Reel ${i + 1} of ${rows.length}${r.caption ? `: ${r.caption}` : ""}`}>
             <video
               ref={(v) => { if (v) vids.current.set(i, v); else vids.current.delete(i); }}
-              className="rf-video" src={near ? `/reels/${r.id}/video` : undefined} preload={i === active || i === active + 1 ? "auto" : "metadata"}
+              className="rf-video" src={near ? `/reels/${r.id}/video` : undefined} poster={r.poster ?? undefined} preload={i === active || i === active + 1 ? "auto" : "metadata"}
               muted={muted} loop playsInline aria-label={r.caption || "Property reel"}
               onTimeUpdate={(e) => { const v = e.currentTarget; if (i === active) setProgress(v.duration ? v.currentTime / v.duration : 0); syncSong(i, r, v, "time"); }}
               onPlay={(e) => syncSong(i, r, e.currentTarget, "play")} onPause={(e) => syncSong(i, r, e.currentTarget, "pause")}

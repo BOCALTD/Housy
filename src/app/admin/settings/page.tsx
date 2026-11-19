@@ -5,6 +5,9 @@ import { Field, Flash, sp, type SP } from "@/components/ui";
 import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, LIVE_CHAT_ID_HINTS, LIVE_CHAT_LABELS, LIVE_CHAT_PLACES, LIVE_CHAT_PLACE_LABELS, LIVE_CHAT_PROVIDERS, configForAdmin, watermarkCounts } from "@/lib/services/platform-config";
 import { inboundAction } from "./inbound-actions";
 import { smsAction } from "./sms-actions";
+import { mediaAction } from "./media-actions";
+import { mediaConfigForAdmin } from "@/lib/media-store";
+import { canPrepare } from "@/lib/services/reel-media";
 import { smsConfigForAdmin, smsSummary } from "@/lib/services/sms";
 import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, liveChatAction, paystackAction, watermarkPositionAction, watermarkSwitchAction, routesAction, stripeAction } from "./actions";
 import { COUNTRIES, COUNTRY_CODES, providerCanServe } from "@/lib/regions";
@@ -18,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function PlatformSettings({ searchParams: s }: { searchParams?: Promise<SP> }) {
   const searchParams = await s;
   await requirePlatformAdmin();
-  const [c, m, wm, inbound, sms, smsCounts] = await Promise.all([configForAdmin(), maintenanceNow(), watermarkCounts(), inboundConfig(), smsConfigForAdmin(), smsSummary()]);
+  const [c, m, wm, inbound, sms, smsCounts, media, prepares] = await Promise.all([configForAdmin(), maintenanceNow(), watermarkCounts(), inboundConfig(), smsConfigForAdmin(), smsSummary(), mediaConfigForAdmin(), canPrepare()]);
   const w = m.window;
   const soon = toLagosLocal(new Date(Date.now() + 25 * 3_600_000));
   const h = await headers();
@@ -180,6 +183,27 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
             </ol>
           </details>
         ) : null}
+      </section>
+
+      <section className="card stack" aria-labelledby="media-h">
+        <h2 id="media-h">Video storage</h2>
+        <p className="small muted">Where new reel videos and their pictures are kept. Videos already posted stay where they were. {prepares ? "This server prepares clips with ffmpeg: up to 100 MB and 2 minutes are taken, turned into MP4 for every phone, with a still picture." : "ffmpeg is not installed on this server, so clips are kept as sent (25 MB at most) without a still picture. Install ffmpeg to prepare them."}</p>
+        <p><span className="pill">{media.provider === "db" ? "Database" : media.provider === "disk" ? "Server folder" : "S3-compatible bucket"}</span></p>
+        <form action={mediaAction} className="stack" autoComplete="off">
+          <Field label="Keep new videos in" hint={`Database: simplest, but makes backups large. Server folder: ${media.dir} (set MEDIA_DIR to change it; include it in backups). Bucket: Amazon S3, Cloudflare R2, DigitalOcean Spaces, Backblaze B2 or MinIO, kept private.`}>
+            <select name="provider" defaultValue={media.provider}><option value="db">Database</option><option value="disk">Server folder</option><option value="s3">S3-compatible bucket</option></select>
+          </Field>
+          <details className="vp-fold" open={media.provider === "s3"}><summary>Bucket details</summary>
+            <div className="grid-2">
+              <Field label="Storage address" hint="Leave empty for Amazon S3. For others, such as https://<account>.r2.cloudflarestorage.com"><input name="endpoint" spellCheck={false} defaultValue={media.endpoint} /></Field>
+              <Field label="Region" hint="Amazon S3: such as eu-west-2. R2: auto."><input name="region" spellCheck={false} defaultValue={media.region} /></Field>
+              <Field label="Bucket"><input name="bucket" spellCheck={false} defaultValue={media.bucket} /></Field>
+              <Field label="Access key ID"><input name="accessKey" spellCheck={false} defaultValue={media.accessKey} /></Field>
+              <Field label="Secret access key" hint={media.secretTail ? `Saved (${media.secretTail}). Leave empty to keep it.` : "Shown once by your provider when you make the key."}><input name="secret" type="password" spellCheck={false} autoComplete="new-password" /></Field>
+            </div>
+          </details>
+          <div className="row"><button className="btn primary" type="submit" data-confirm="Save the video storage?" data-confirm-body="Housy writes, reads back and deletes a small test file first. New videos then go to this place." data-confirm-ok="Save">Save video storage</button></div>
+        </form>
       </section>
 
       <section className="card stack" aria-labelledby="sms-h">

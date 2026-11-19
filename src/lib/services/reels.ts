@@ -1,16 +1,17 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma, withPublic, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { rateLimit } from "../ratelimit";
 import {
-  REEL_MAX_BYTES, REEL_TYPES, FEED_WINDOW_DAYS, REPORTS_TO_HIDE_COMMENT, REPORTS_TO_HIDE_REEL, countedEngagement, isLikeMilestone, rankFeed, sniffVideo,
+  REEL_MAX_BYTES, REEL_STORED_MAX, REEL_TYPES, FEED_WINDOW_DAYS, REPORTS_TO_HIDE_COMMENT, REPORTS_TO_HIDE_REEL, countedEngagement, isLikeMilestone, rankFeed, sniffVideo,
   type Engagement, type FeedReel, type Viewer,
 } from "../social-rules";
 import { notify } from "./notifications";
 import { system } from "./rewards";
 import { shortName } from "./reviews";
 import { reelTaste } from "./signals";
-import { mixIntoClip } from "./music";
+import { placeOriginal, readUploadFile, serveReel, takeUpload } from "./reel-media";
 import { cleanChoice, type MusicChoice } from "../music-rules";
 import { comparableNaira } from "../match-rules";
 import { buildThreads, threadRoot, withMention, type ThreadComment } from "../comment-rules";
@@ -35,44 +36,66 @@ const postSchema = z.object({
   listingId: z.string().trim().optional(),
 });
 
-/** Post a reel for checking, or keep it as a draft only its author can see until they send it. */
-export async function uploadReel(userId: string, input: z.input<typeof postSchema>, file: { type: string; bytes: Uint8Array }, opts: { draft?: boolean; music?: { trackId?: string; start?: string; musicVolume?: string; originalVolume?: string } } = {}) {
+/**
+ * Post a reel for checking, or keep it as a draft only its author can see until they send it. The clip comes either as bytes (a
+ * small clip in the form) or as an upload sent in pieces. It is kept at once and prepared in the background (see reel-media).
+ */
+export async function uploadReel(userId: string, input: z.input<typeof postSchema>, file: { type: string; bytes: Uint8Array } | { uploadId: string }, opts: { draft?: boolean; music?: { trackId?: string; start?: string; musicVolume?: string; originalVolume?: string } } = {}) {
   const d = postSchema.parse(input);
-  if (!(REEL_TYPES as readonly string[]).includes(file.type)) throw new Error("Upload an MP4 or WebM video");
-  if (file.bytes.byteLength === 0) throw new Error("The video is empty");
-  if (file.bytes.byteLength > REEL_MAX_BYTES) throw new Error("Videos must be 4 MB or smaller for now. Trim the clip or lower its quality.");
-  if (!sniffVideo(file.type, file.bytes)) throw new Error("The file contents do not match its type");
-  // A song from the platform's licensed library, laid under the clip on the server when it can be; otherwise played alongside.
-  let choice: MusicChoice | null = null, stored = file.bytes, mixed = false;
+  // A song from the platform's licensed library, laid under the clip when it is prepared; otherwise played alongside.
+  let choice: MusicChoice | null = null;
   if (opts.music?.trackId) {
     const track = await withPublic((tx) => tx.musicTrack.findFirst({ where: { id: opts.music!.trackId, active: true }, select: { id: true, durationSec: true } }));
     if (!track) throw new Error("That track is no longer in the music library. Choose another.");
     choice = cleanChoice(opts.music, track.durationSec);
-    const m = choice ? await mixIntoClip(file, choice) : null;
-    if (m) { stored = m; mixed = true; }
   }
-  return system(async (tx) => {
-    const profile = await tx.agentProfile.findFirst({ where: { userId, listed: true }, orderBy: { createdAt: "asc" } });
-    if (!profile) throw new Error("Only a listed agent can post reels. Add your agent profile first and tick the box to list it.");
-    let listingId: string | null = null, city = d.city;
-    if (d.listingId) {
-      const l = await tx.listing.findFirst({ where: { id: d.listingId, companyId: profile.companyId, status: "PUBLISHED" } });
-      if (!l) throw new Error("Choose one of your company's published properties");
-      listingId = l.id; city = city || l.city;
-    }
-    const since = new Date(Date.now() - 864e5);
-    if ((await tx.reel.count({ where: { authorId: userId, createdAt: { gte: since } } })) >= 5) throw new Error("You have posted five reels today. Please come back tomorrow.");
-    if (!opts.draft && (await tx.reel.count({ where: { authorId: userId, status: "PENDING" } })) >= 3) throw new Error("You already have three reels waiting for review. Save this one as a draft for now.");
-    if (opts.draft && (await tx.reel.count({ where: { authorId: userId, status: "DRAFT" } })) >= 10) throw new Error("You have ten drafts. Send or delete some first.");
-    const reel = await tx.reel.create({ data: {
-      authorId: userId, companyId: profile.companyId, listingId, caption: d.caption, city, mimeType: file.type, sizeBytes: stored.byteLength, status: opts.draft ? "DRAFT" : "PENDING",
-      ...(choice ? { musicTrackId: choice.trackId, musicStartSec: choice.startSec, musicVolume: choice.musicVolume, originalVolume: choice.originalVolume, musicMixed: mixed } : {}),
-    } });
-    await tx.reelMedia.create({ data: { reelId: reel.id, bytes: Buffer.from(stored) } });
-    if (choice) await tx.musicTrack.update({ where: { id: choice.trackId }, data: { uses: { increment: 1 } } });
-    await logActivity(tx, { companyId: profile.companyId, actorId: userId, entityType: "reel", entityId: reel.id, action: "reel.posted", detail: { listingId } });
-    return reel;
-  });
+  let clip: { type: string; bytes: Uint8Array }, discard: (() => Promise<void>) | null = null, release: (() => Promise<void>) | null = null;
+  if ("uploadId" in file) {
+    const up = await takeUpload(userId, file.uploadId);
+    clip = { type: up.type, bytes: await readUploadFile(up.path) };
+    discard = up.discard; release = up.release;
+  } else {
+    if (!(REEL_TYPES as readonly string[]).includes(file.type)) throw new Error("Upload an MP4 or WebM video");
+    if (file.bytes.byteLength === 0) throw new Error("The video is empty");
+    if (file.bytes.byteLength > REEL_MAX_BYTES) throw new Error("Videos must be 4 MB or smaller here. Choose the video again to send it in pieces.");
+    clip = file;
+  }
+  if (!sniffVideo(clip.type, clip.bytes)) throw new Error("The file contents do not match its type");
+  if (clip.bytes.byteLength > REEL_STORED_MAX) throw new Error("That video is too large");
+  const reelId = randomUUID();
+  let placed: Awaited<ReturnType<typeof placeOriginal>> | null = null;
+  try {
+    placed = await placeOriginal(reelId, clip.type, clip.bytes);
+    const where = placed;
+    return await system(async (tx) => {
+      const profile = await tx.agentProfile.findFirst({ where: { userId, listed: true }, orderBy: { createdAt: "asc" } });
+      if (!profile) throw new Error("Only a listed agent can post reels. Add your agent profile first and tick the box to list it.");
+      let listingId: string | null = null, city = d.city;
+      if (d.listingId) {
+        const l = await tx.listing.findFirst({ where: { id: d.listingId, companyId: profile.companyId, status: "PUBLISHED" } });
+        if (!l) throw new Error("Choose one of your company's published properties");
+        listingId = l.id; city = city || l.city;
+      }
+      const since = new Date(Date.now() - 864e5);
+      if ((await tx.reel.count({ where: { authorId: userId, createdAt: { gte: since } } })) >= 5) throw new Error("You have posted five reels today. Please come back tomorrow.");
+      if (!opts.draft && (await tx.reel.count({ where: { authorId: userId, status: "PENDING" } })) >= 3) throw new Error("You already have three reels waiting for review. Save this one as a draft for now.");
+      if (opts.draft && (await tx.reel.count({ where: { authorId: userId, status: "DRAFT" } })) >= 10) throw new Error("You have ten drafts. Send or delete some first.");
+      const reel = await tx.reel.create({ data: {
+        id: reelId, storage: where.storage, mediaKey: where.mediaKey,
+        authorId: userId, companyId: profile.companyId, listingId, caption: d.caption, city, mimeType: clip.type, sizeBytes: clip.bytes.byteLength, status: opts.draft ? "DRAFT" : "PENDING",
+        processing: "queued",
+        ...(choice ? { musicTrackId: choice.trackId, musicStartSec: choice.startSec, musicVolume: choice.musicVolume, originalVolume: choice.originalVolume, musicMixed: false, musicPending: true } : {}),
+      } });
+      if (where.storage === "db") await tx.reelMedia.create({ data: { reelId: reel.id, bytes: Buffer.from(clip.bytes) } });
+      if (choice) await tx.musicTrack.update({ where: { id: choice.trackId }, data: { uses: { increment: 1 } } });
+      await logActivity(tx, { companyId: profile.companyId, actorId: userId, entityType: "reel", entityId: reel.id, action: "reel.posted", detail: { listingId, bytes: clip.bytes.byteLength, storage: where.storage } });
+      return reel;
+    });
+  } catch (e) {
+    if (placed) await placed.undo();
+    if (release) { await release().catch(() => {}); discard = null; }
+    throw e;
+  } finally { if (discard) await discard().catch(() => {}); }
 }
 
 /** Send a draft for checking, with its caption as it now reads. */
@@ -191,9 +214,12 @@ export interface ReelCard {
   following: boolean;
   /** The song under the reel. When it is not mixed into the clip, the player plays it from startSec at these volumes. */
   music: { trackId: string; title: string; artist: string; licence: string; credit: boolean; mixed: boolean; startSec: number; volume: number; originalVolume: number } | null;
+  /** The still picture shown before the clip plays (once prepared), and whether the clip is still being prepared. */
+  poster: string | null;
+  preparing: boolean;
 }
 
-type ReelRow = { id: string; authorId: string; listingId: string | null; caption: string; city: string; publishedAt: Date | null; status: string; sizeBytes: number; mimeType: string; musicTrackId?: string | null; musicStartSec?: number; musicVolume?: number; originalVolume?: number; musicMixed?: boolean };
+type ReelRow = { id: string; authorId: string; listingId: string | null; caption: string; city: string; publishedAt: Date | null; status: string; sizeBytes: number; mimeType: string; musicTrackId?: string | null; musicStartSec?: number; musicVolume?: number; originalVolume?: number; musicMixed?: boolean; posterKey?: string; processing?: string };
 async function cards(reels: ReelRow[], viewerId: string | null, whyBy = new Map<string, string[]>()): Promise<ReelCard[]> {
   if (!reels.length) return [];
   const ids = reels.map((r) => r.id);
@@ -219,6 +245,8 @@ async function cards(reels: ReelRow[], viewerId: string | null, whyBy = new Map<
       authorId: r.authorId, authorName: a?.displayName ?? "Agent", companyName: a?.companyName ?? "", listingRef: l?.publicRef ?? null, listingTitle: l?.title ?? null,
       likes: n(likes, r.id), comments: n(comments, r.id), shares: n(shares, r.id), liked: mine.likes.some((x) => x.reelId === r.id), saved: mine.saves.some((x) => x.reelId === r.id),
       why: whyBy.get(r.id) ?? [], mine: r.authorId === viewerId, following: mine.follows.some((f) => f.targetId === r.authorId),
+      poster: r.posterKey ? `/reels/${r.id}/poster?v=${encodeURIComponent((r.posterKey.split("/").pop() ?? "1").slice(0, 40))}` : null,
+      preparing: r.processing === "queued" || r.processing === "processing",
       music: (() => {
         const t = tracks.find((x) => x.id === r.musicTrackId);
         return t ? { trackId: t.id, title: t.title, artist: t.artist, licence: t.licenceName, credit: t.creditRequired, mixed: !!r.musicMixed, startSec: r.musicStartSec ?? 0, volume: r.musicVolume ?? 80, originalVolume: r.originalVolume ?? 40 } : null;
@@ -354,12 +382,12 @@ export async function commentsFor(reelId: string, page = 0, viewerId: string | n
   return { total, page, pages: Math.max(1, Math.ceil(topCount / COMMENT_PAGE)), rows };
 }
 
-/** The clip itself. Anyone can get a published reel; an author can also see their own while it waits. */
-export async function reelVideo(id: string, viewerId: string | null) {
+/** The clip or its still picture, in the asked-for range. Anyone can get a published reel; an author can also see their own while it waits. */
+export async function reelMedia(id: string, viewerId: string | null, what: "video" | "poster", range: string | null) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return null;
   const out = async (tx: Tx) => {
-    const reel = await tx.reel.findUnique({ where: { id } });
-    const media = reel ? await tx.reelMedia.findUnique({ where: { reelId: id } }) : null;
-    return reel && media ? { type: reel.mimeType, bytes: Buffer.from(media.bytes) } : null;
+    const reel = await tx.reel.findUnique({ where: { id }, select: { id: true, storage: true, mediaKey: true, posterKey: true, mimeType: true } });
+    return reel ? serveReel(reel, what, range, tx) : null;
   };
   return viewerId ? withUser(viewerId, out) : withPublic(out);
 }

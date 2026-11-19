@@ -148,7 +148,7 @@ test("no route hands out data without checking who is asking", () => {
     "app/photos/[id]/route.ts": "pictures of published listings; the database returns nothing for any other listing",
     "app/music/[id]/audio/route.ts": "tracks in the licensed music library that are switched on; the database hides the rest",
   };
-  const AUTH = /scope: "|getMember|getSession|requireUser|requireMember|requirePlatformAdmin|cronAuthorised|signature/;
+  const AUTH = /scope: "|getMember|getSession|requireUser|requireMember|requirePlatformAdmin|cronAuthorised|signature|uploader\(req/;
   for (const f of files.filter((f) => f.endsWith("/route.ts"))) {
     const rel = f.slice(SRC.length + 1);
     if (rel === "app/api/health/route.ts") continue; // up/down only; details need the cron secret

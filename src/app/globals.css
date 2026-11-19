@@ -291,6 +291,8 @@ input[type="file"]::file-selector-button { min-height: 32px; margin-right: 10px;
 .reel-card { max-width: 640px; }
 .reel-play { width: 100%; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: #111; color: #fff; border: 0; border-radius: 10px; cursor: pointer; font-size: 1rem; }
 .reel-play-icon { font-size: 2rem; line-height: 1; }
+.reel-play.has-poster { background-size: cover; background-position: center; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+.reel-play.has-poster .reel-play-icon { background: rgba(0,0,0,.45); border-radius: 999px; width: 56px; height: 56px; display: grid; place-items: center; }
 
 /* Simple horizontal bars for dashboards: a track and a fill, labelled in text so colour is never the only signal. */
 /* Small progress bars (the page's top bar is .bar: a shared name once drew these as a green band across it). */

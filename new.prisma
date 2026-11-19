@@ -40,6 +40,8 @@ model User {
   timeZone        String       @default("") @map("time_zone")
   /// Suggestions from what this person looks at (user_signals). They can turn it off.
   personalise     Boolean      @default(true)
+  /// The version of the terms and privacy policy this person last agreed to (see legal-pages).
+  legalAccepted   String       @default("") @map("legal_accepted")
   /// A line or two about them, shown on their profile.
   bio             String       @default("")
   /// "Take a break": profile hidden and emails paused until they sign in again (or until breakUntil).
@@ -7018,4 +7020,28 @@ model ClientPayment {
   @@index([commissionInvoiceId])
   @@index([method, status, paidAt])
   @@map("client_payments")
+}
+
+/// A version of a legal page (terms, privacy policy and others) written and published by the platform administrator. Published
+/// versions are never edited: a change is a new version. A material change asks signed-in people to agree again.
+model LegalPageVersion {
+  id            String    @id @default(uuid())
+  slug          String
+  version       Int
+  title         String
+  summary       String    @default("")
+  body          String
+  changeNote    String    @default("") @map("change_note")
+  material      Boolean   @default(false)
+  status        String    @default("DRAFT")
+  effectiveFrom DateTime? @map("effective_from") @db.Date
+  createdById   String    @map("created_by_id")
+  publishedById String?   @map("published_by_id")
+  publishedAt   DateTime? @map("published_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@unique([slug, version])
+  @@index([slug, status])
+  @@map("legal_page_versions")
 }

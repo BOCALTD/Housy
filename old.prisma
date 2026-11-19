@@ -114,6 +114,10 @@ model Company {
   industryTemplate String    @default("") @map("industry_template")
   /// The company's own account codes for the accounting export (accounting-rules.ts ACCOUNTS keys to codes).
   accountingCodes  Json      @default("{}") @map("accounting_codes")
+  /// The company's own Paystack secret key for paying contractors and suppliers (sealed), and the private part of its payout
+  /// webhook address.
+  payoutPaystackKey  String?  @map("payout_paystack_key")
+  payoutWebhookToken String?  @unique @map("payout_webhook_token")
   /// What the business does (account-type-rules.ts BUSINESS_TYPES), or INDEPENDENT_AGENT for an agent's own workspace.
   businessType     String    @default("") @map("business_type")
   /// The company's own contact details from sign-up, and its CAC number if given (checked in verification).
@@ -1563,6 +1567,16 @@ model Contractor {
   offerToClients Boolean  @default(false) @map("offer_to_clients")
   /// The artisan's own Housy account, when they registered themselves.
   userId      String?     @map("user_id")
+  /// Where payments to them go: a bank account (checked with the bank through Paystack, saved as a Paystack recipient) or a
+  /// Stripe account they set up themselves.
+  bankCode        String  @default("") @map("bank_code")
+  bankName        String  @default("") @map("bank_name")
+  accountNumber   String  @default("") @map("account_number")
+  accountName     String  @default("") @map("account_name")
+  paystackRecipient String @default("") @map("paystack_recipient")
+  stripeAccountId String  @default("") @map("stripe_account_id")
+  stripeReady     Boolean @default(false) @map("stripe_ready")
+  payouts         ContractorPayout[]
   createdById String      @map("created_by_id")
   createdAt   DateTime    @default(now()) @map("created_at")
   workOrders  WorkOrder[]
@@ -1570,6 +1584,78 @@ model Contractor {
 
   @@unique([companyId, name])
   @@map("contractors")
+}
+
+enum ContractorPayoutMethod {
+  PAYSTACK
+  STRIPE
+  BANK
+}
+
+enum ContractorPayoutStatus {
+  REQUESTED
+  APPROVED
+  SENDING
+  PAID
+  FAILED
+  REJECTED
+  CANCELLED
+  REVERSED
+}
+
+/// Money paid out to a contractor or supplier. One person asks, a different person approves; then it is sent through the
+/// company's Paystack (a transfer), through Stripe (to the contractor's own Stripe account), or recorded as a bank transfer.
+model ContractorPayout {
+  id             String       @id @default(uuid())
+  companyId      String       @map("company_id")
+  ref            String
+  contractorId   String       @map("contractor_id")
+  workOrderId    String?      @map("work_order_id")
+  assetId        String?      @map("asset_id")
+  amountKobo     BigInt       @map("amount_kobo")
+  currency       String       @default("NGN")
+  method         ContractorPayoutMethod
+  status         ContractorPayoutStatus @default(REQUESTED)
+  reason         String
+  requestedById  String       @map("requested_by_id")
+  requestedAt    DateTime     @default(now()) @map("requested_at")
+  decidedById    String?      @map("decided_by_id")
+  decidedAt      DateTime?    @map("decided_at")
+  decisionNote   String       @default("") @map("decision_note")
+  providerRef    String       @default("") @map("provider_ref")
+  transferCode   String       @default("") @map("transfer_code")
+  checkoutUrl    String       @default("") @map("checkout_url")
+  bankReference  String       @default("") @map("bank_reference")
+  paidOn         DateTime?    @map("paid_on") @db.Date
+  paidAt         DateTime?    @map("paid_at")
+  failedReason   String       @default("") @map("failed_reason")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  contractor     Contractor   @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  events         ContractorPayoutEvent[]
+
+  @@unique([companyId, ref])
+  @@index([companyId, status, createdAt])
+  @@index([status, updatedAt])
+  @@index([workOrderId])
+  @@map("contractor_payouts")
+}
+
+/// Every step of a payout. Append-only.
+model ContractorPayoutEvent {
+  id         String        @id @default(uuid())
+  companyId  String        @map("company_id")
+  payoutId   String        @map("payout_id")
+  kind       String
+  fromStatus ContractorPayoutStatus? @map("from_status")
+  toStatus   ContractorPayoutStatus? @map("to_status")
+  note       String        @default("")
+  actorId    String        @map("actor_id")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  payout     ContractorPayout @relation(fields: [payoutId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, payoutId])
+  @@map("contractor_payout_events")
 }
 
 model WorkOrder {

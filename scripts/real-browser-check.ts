@@ -325,6 +325,54 @@ async function main() {
     await ctx.close();
   });
 
+  await step("Field kit: work saved with no connection is kept, opens offline, and is sent in the background when the connection returns", async () => {
+    const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
+    const officer = out.trim().split("\n")[1];
+    const ctx = await newContext(browser, "phone");
+    await ctx.addCookies([{ name: "sid", value: officer, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
+    // Not watched for errors: requests made while offline fail on purpose.
+    const f = await ctx.newPage();
+    await f.goto(BASE + "/field", { waitUntil: "load" });
+    const sw = await f.evaluate(() => Promise.race([navigator.serviceWorker?.ready.then(() => true) ?? Promise.resolve(false), new Promise<boolean>((r) => setTimeout(() => r(false), 15000))]));
+    await f.reload({ waitUntil: "load" });
+    const row = f.locator(".fk-row").first();
+    if (!(await row.waitFor({ timeout: 15000 }).then(() => true).catch(() => false))) { await record(f, "field kit offline", false, `no inspection was downloaded for the demo officer (service worker ready: ${sw})`); await ctx.close(); return; }
+    await ctx.setOffline(true);
+    await row.click();
+    await f.locator('input[type="radio"][value="PASS"]').first().check();
+    await f.waitForTimeout(1500);
+    await f.getByRole("button", { name: /send when back online/i }).click();
+    const queued = await f.getByText(/waiting to send/i).first().waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
+    await f.reload({ waitUntil: "load" }).catch(() => {});
+    const keptOffline = await f.locator(".fk-row .pill", { hasText: /waiting to send/i }).first().waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+    await record(f, "field kit saved offline", queued && keptOffline, `queued while offline: ${queued}; the kit opened again with no connection and still shows it waiting: ${keptOffline}`);
+    // Close the kit, reconnect, and let the service worker send it with no field kit page open.
+    await f.close();
+    await ctx.setOffline(false);
+    const other = await ctx.newPage();
+    await other.goto(BASE + "/support", { waitUntil: "load" });
+    const sentInBackground = await other.evaluate(async () => {
+      const reg = await navigator.serviceWorker?.ready;
+      if (!reg?.active) return "no service worker";
+      reg.active.postMessage({ type: "field-sync-now" });
+      const states = () => new Promise<string[]>((resolve) => {
+        const req = indexedDB.open("housy-field", 1);
+        req.onsuccess = () => {
+          const g = req.result.transaction("kv").objectStore("kv").getAll(IDBKeyRange.bound("out:", "out:\uffff"));
+          g.onsuccess = () => { resolve((g.result as { state: string }[]).map((o) => o.state)); req.result.close(); };
+          g.onerror = () => resolve([]);
+        };
+        req.onerror = () => resolve([]);
+      });
+      for (let i = 0; i < 40; i++) { const s = await states(); if (s.includes("sent") && !s.includes("waiting")) return "sent"; await new Promise((r) => setTimeout(r, 500)); }
+      return (await states()).join(",") || "nothing stored";
+    });
+    await other.goto(BASE + "/field", { waitUntil: "load" });
+    const shown = await other.locator(".fk-row .pill", { hasText: /^sent$/i }).first().waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+    await record(other, "field kit background send", sentInBackground === "sent" && shown, `sent by the service worker with the kit closed: ${sentInBackground}; the kit shows it sent: ${shown}`);
+    await ctx.close();
+  });
+
   await step("Signed in on a phone: the opening loader shows once and never comes back", async () => {
     const out = process.env.SESSION_OUT ?? execFileSync("npx", ["tsx", "scripts/smoke-session.ts"], { encoding: "utf8" });
     const seeker = out.trim().split("\n")[2];

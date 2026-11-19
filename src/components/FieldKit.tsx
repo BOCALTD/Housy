@@ -45,6 +45,42 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+type SyncResult = { sent: number; failed: number; conflicts: number; signedOut: boolean; offline: boolean; waiting: number };
+type Engine = () => Promise<SyncResult>;
+let engine: Promise<Engine> | null = null;
+
+/** Load the shared sending steps (/field-sync.js, kept on the device by the service worker for offline use). */
+function fieldEngine(): Promise<Engine> {
+  const w = window as unknown as { housyFieldSync?: Engine };
+  if (w.housyFieldSync) return Promise.resolve(w.housyFieldSync);
+  engine ??= new Promise<Engine>((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = "/field-sync.js";
+    el.async = true;
+    el.onload = () => (w.housyFieldSync ? resolve(w.housyFieldSync) : reject(new Error("not loaded")));
+    el.onerror = () => { engine = null; el.remove(); reject(new Error("not loaded")); };
+    document.head.appendChild(el);
+  });
+  return engine;
+}
+
+/**
+ * Ask the browser to send waiting work when the connection returns, even if this page is closed (Chrome, Edge and Android;
+ * elsewhere the page sends it when it is next open and online). For the installed app, also check now and then.
+ */
+async function askBackgroundSync() {
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    const reg = (await navigator.serviceWorker.getRegistration()) as (ServiceWorkerRegistration & { sync?: { register(tag: string): Promise<void> }; periodicSync?: { register(tag: string, o: { minInterval: number }): Promise<void> } }) | undefined;
+    if (!reg) return;
+    await reg.sync?.register("housy-field");
+    if (reg.periodicSync) {
+      const perm = await navigator.permissions.query({ name: "periodic-background-sync" as PermissionName }).catch(() => null);
+      if (perm?.state === "granted") await reg.periodicSync.register("housy-field", { minInterval: 15 * 60 * 1000 });
+    }
+  } catch { /* not supported here: the page sends when it is open */ }
+}
+
 // ---------- The kit ----------
 
 export function FieldKit() {
@@ -93,59 +129,15 @@ export function FieldKit() {
     if (syncing.current) return;
     syncing.current = true;
     if (!quiet) setBusy("sync");
-    let sent = 0;
     try {
-      const entries = (await kvList<Outbox>(`out:${uid}:`)).map(([, v]) => v).filter((o) => o.state === "waiting").sort((a, b) => a.queuedAt.localeCompare(b.queuedAt));
-      for (const o of entries) {
-        const key = `out:${uid}:${o.inspectionId}`;
-        try {
-          if (!o.office) {
-            const r = await call<{ outcome: string; status?: string; record?: FieldRecord; revision?: number; conflicts?: Conflict[]; findings?: Record<string, string> }>("/api/field/sync", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ clientId: o.clientId, inspectionId: o.inspectionId, base: o.base, mine: o.mine, findings: o.findings }),
-            });
-            if (r.outcome === "closed") {
-              Object.assign(o, { state: "closed", note: `The office has already ${r.status === "CANCELLED" ? "cancelled" : "closed"} this inspection, so it was not changed. Your copy is kept here.` });
-              await kvPut(key, o); continue;
-            }
-            Object.assign(o, { office: r.record, conflicts: r.conflicts ?? [], findingIds: r.findings ?? {} });
-            await kvPut(key, o);
-            const p = await kvGet<Pack>(`pack:${uid}`);
-            if (p && r.record) { p.inspections = p.inspections.map((i) => (i.id === o.inspectionId ? { ...i, record: r.record!, revision: r.revision ?? i.revision } : i)); await kvPut(`pack:${uid}`, p); }
-          }
-          // Photos go after the record, so photos of a new defect can be attached to it.
-          o.sentPhotos ??= [];
-          for (const pid of o.photoIds.filter((x) => !o.sentPhotos!.includes(x))) {
-            const ph = await kvGet<Photo>(`photo:${uid}:${pid}`);
-            if (!ph) { o.sentPhotos.push(pid); continue; }
-            const fd = new FormData();
-            fd.set("file", new File([ph.blob], `site-${pid.slice(0, 8)}.jpg`, { type: ph.blob.type || "image/jpeg" }));
-            fd.set("clientId", pid); fd.set("inspectionId", o.inspectionId); fd.set("caption", ph.caption);
-            if (ph.findingClientId && o.findingIds?.[ph.findingClientId]) fd.set("findingId", o.findingIds[ph.findingClientId]);
-            await call("/api/field/photo", { method: "POST", body: fd });
-            o.sentPhotos.push(pid);
-            await kvDel(`photo:${uid}:${pid}`);
-            await kvPut(key, o);
-          }
-          if (o.conflicts?.length) { o.state = "conflicts"; await kvPut(key, o); continue; }
-          if (o.submit) {
-            try { await call("/api/field/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inspectionId: o.inspectionId }) }); o.note = "Sent and submitted for approval."; }
-            catch (e) { if (e instanceof Offline || e instanceof SignedOut) throw e; o.note = `Sent, but not submitted: ${(e as Error).message}`; }
-          } else o.note = "Sent. Submit it for approval from the inspection page when it is complete.";
-          Object.assign(o, { state: "sent", sentAt: new Date().toISOString() });
-          await kvPut(key, o);
-          sent += 1;
-        } catch (e) {
-          if (e instanceof Offline || e instanceof SignedOut) throw e;
-          Object.assign(o, { state: "error", error: (e as Error).message });
-          await kvPut(key, o);
-        }
-      }
-      if (sent && !quiet) toast.success(`${sent} inspection${sent === 1 ? "" : "s"} sent to the office`);
-      else if (sent) toast.success(`Back online: ${sent} inspection${sent === 1 ? "" : "s"} sent`);
-    } catch (e) {
-      if (e instanceof SignedOut) { setSignedOut(true); toast.error("Sign in again to send. Your work stays on this device."); }
-      else if (!quiet) toast.error("Still offline. Your work will be sent when the connection returns.");
+      // The same sending steps the service worker uses in the background (one copy, in /field-sync.js).
+      const r = await (await fieldEngine())();
+      if (r.signedOut) { setSignedOut(true); toast.error("Sign in again to send. Your work stays on this device."); }
+      else if (r.sent) toast.success(quiet ? `Back online: ${r.sent} inspection${r.sent === 1 ? "" : "s"} sent` : `${r.sent} inspection${r.sent === 1 ? "" : "s"} sent to the office`);
+      else if (r.offline && !quiet) toast.error("Still offline. Your work will be sent when the connection returns.");
+      if (r.offline && r.waiting) void askBackgroundSync();
+    } catch {
+      if (!quiet) toast.error("Your work could not be sent just now. It stays on this device; try again shortly.");
     } finally {
       syncing.current = false;
       if (!quiet) setBusy("");
@@ -168,10 +160,28 @@ export function FieldKit() {
       } catch { setStorageError("This browser is not letting the field kit store anything (private browsing, or storage turned off). Open it in a normal window to work offline."); }
       if (alive) setReady(true);
     })();
-    const on = () => { setOnline(true); void kvGet<string>("last-user").then((u) => { if (u) void sync(u, true); }); };
+    const now = () => void kvGet<string>("last-user").then((u) => { if (u) void sync(u, true); });
+    const on = () => { setOnline(true); now(); };
     const off = () => setOnline(false);
+    // Coming back to the page, and every two minutes while it is open, waiting work is tried again.
+    const seen = () => { if (document.visibilityState === "visible" && navigator.onLine) now(); };
+    const every = window.setInterval(() => { if (navigator.onLine && document.visibilityState === "visible") now(); }, 120_000);
+    // The service worker sent work in the background: show it.
+    const fromWorker = (e: MessageEvent) => {
+      if (e.data?.type !== "field-sync") return;
+      void kvGet<string>("last-user").then((u) => { if (u) void load(u); });
+      const r = e.data.result as SyncResult;
+      if (r?.sent) toast.success(`${r.sent} inspection${r.sent === 1 ? "" : "s"} sent to the office`);
+    };
     window.addEventListener("online", on); window.addEventListener("offline", off);
-    return () => { alive = false; window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+    document.addEventListener("visibilitychange", seen);
+    navigator.serviceWorker?.addEventListener("message", fromWorker);
+    return () => {
+      alive = false; window.clearInterval(every);
+      window.removeEventListener("online", on); window.removeEventListener("offline", off);
+      document.removeEventListener("visibilitychange", seen);
+      navigator.serviceWorker?.removeEventListener("message", fromWorker);
+    };
   }, [download, load, sync]);
 
   // Keep a copy of this page on the device so it opens without a connection (an anonymous copy, as for public pages).
@@ -218,7 +228,7 @@ export function FieldKit() {
 
       {current && user ? (
         <Editor key={current.id} uid={user} insp={current} draft={drafts[current.id]} out={outbox[current.id]} online={online}
-          onClose={() => setOpen(null)} onChange={() => load(user)} onSend={() => { if (online) void sync(user); }} />
+          onClose={() => setOpen(null)} onChange={() => load(user)} onSend={() => { void askBackgroundSync(); if (online) void sync(user); }} />
       ) : !pack ? (
         <section className="card stack">
           <h2>Before you go out</h2>

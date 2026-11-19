@@ -2,7 +2,9 @@
  * Caches static assets and anonymous copies of public pages only, so the app opens and public pages
  * can be read without a connection. Signed-in areas (/app, /admin, /me, /portal, /api, messages, documents)
  * are never cached. The one thing that works offline is the field kit (/field): its page holds nothing personal, the
- * inspector's work is kept in IndexedDB on their device, and it is sent through /api/field once back online. */
+ * inspector's work is kept in IndexedDB on their device, and it is sent through /api/field once back online, by the page or, when
+ * the page is closed, by this worker (background sync, with the same steps from /field-sync.js). */
+importScripts("/field-sync.js");
 const VERSION = "housy-v6";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
@@ -45,6 +47,7 @@ async function reelResponse(req) {
   return new Response(blob.slice(start, end + 1), { status: 206, headers: { ...base, "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": String(end - start + 1) } });
 }
 
+const FIELD_SYNC = "/field-sync.js";
 const STATIC_PATH = /^\/(?:_next\/static\/|icons\/|stock\/|icon\.svg$|apple-icon\.png$)/;
 
 self.addEventListener("install", (event) => {
@@ -54,6 +57,8 @@ self.addEventListener("install", (event) => {
     if (res.ok) await cache.put(OFFLINE, res);
     const kit = await fetch("/field", { credentials: "omit", cache: "reload" }).catch(() => null);
     if (kit && kit.ok) await cache.put("/field", kit);
+    const engine = await fetch(FIELD_SYNC, { cache: "reload" }).catch(() => null);
+    if (engine && engine.ok) await (await caches.open(STATIC)).put(FIELD_SYNC, engine);
     const s = await caches.open(STATIC);
     await s.addAll(["/icons/icon-192.png", "/icons/icon-512.png"]).catch(() => {});
     await self.skipWaiting();
@@ -94,6 +99,21 @@ self.addEventListener("fetch", (event) => {
   const path = url.pathname;
 
   if (REEL_PATH.test(path)) { event.respondWith(reelResponse(req)); return; }
+
+  // The field kit's sending steps: the newest copy when online, the kept copy when not.
+  if (path === FIELD_SYNC) {
+    event.respondWith((async () => {
+      const cache = await caches.open(STATIC);
+      try {
+        const res = await fetch(req, { cache: "no-cache" });
+        if (res.ok) await cache.put(FIELD_SYNC, res.clone());
+        return res;
+      } catch {
+        return (await cache.match(FIELD_SYNC)) || new Response("", { status: 503 });
+      }
+    })());
+    return;
+  }
 
   if (STATIC_PATH.test(path)) {
     event.respondWith((async () => {
@@ -149,4 +169,29 @@ self.addEventListener("notificationclick", (event) => {
     }
     await self.clients.openWindow(target);
   })());
+});
+
+/* Background sync for the field kit: the browser wakes this worker when the connection returns (and, for an installed app,
+ * now and then), even if the field kit page is closed. Open pages are told so they show the new state; when no page is open and
+ * notifications are allowed, a short notice says what was sent or what needs the person. */
+async function fieldSync() {
+  const r = await self.housyFieldSync();
+  const wins = await self.clients.matchAll({ type: "window" });
+  for (const w of wins) w.postMessage({ type: "field-sync", result: r });
+  const visible = wins.some((w) => w.visibilityState === "visible");
+  if (!visible && self.Notification && Notification.permission === "granted") {
+    let body = "";
+    if (r.sent) body = `${r.sent} inspection${r.sent === 1 ? "" : "s"} sent to the office.`;
+    if (r.conflicts || r.failed) body += `${body ? " " : ""}${r.conflicts + r.failed} need${r.conflicts + r.failed === 1 ? "s" : ""} you: open the field kit.`;
+    if (r.signedOut) body = "Sign in again to send your inspections. Your work is safe on this device.";
+    if (body) await self.registration.showNotification("Field kit", { body, icon: "/icons/icon-192.png", badge: "/icons/icon-192.png", tag: "field-sync", data: { url: "/field" } });
+  }
+  // Still waiting with a connection problem: fail the sync so the browser tries again later.
+  if (r.offline && r.waiting) throw new Error("still offline");
+}
+
+self.addEventListener("sync", (event) => { if (event.tag === "housy-field") event.waitUntil(fieldSync()); });
+self.addEventListener("periodicsync", (event) => { if (event.tag === "housy-field") event.waitUntil(fieldSync().catch(() => {})); });
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "field-sync-now" && event.source && new URL(event.source.url).origin === self.location.origin) event.waitUntil(fieldSync().catch(() => {}));
 });

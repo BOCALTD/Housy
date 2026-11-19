@@ -6,9 +6,11 @@ import { toast } from "sonner";
 import { dayLabel, timeLabel, type ChatMsg, type ChatReaction } from "@/lib/chat-shape";
 import { MAX_FILE_BYTES, MAX_VOICE_MS, REACTIONS, fileLabel, formatBytes, formatDuration, isAudio, isImage, tallyReactions } from "@/lib/chat-files";
 import { confirmAction } from "./Confirm";
+import { LocationBubble, LocationShare } from "./ChatLocation";
 
 type Pending = ChatMsg & { state?: "sending" | "failed" };
-type Live = { typing: (id: string) => Promise<void>; react: (messageId: string, emoji: string | null) => Promise<{ ok: true; reactions: ChatReaction[] } | { ok: false; error: string }> };
+type LocIn = { lat: number; lng: number; label?: string; accuracyM?: number | null; source: "device" | "map" };
+type Live = { location: (id: string, loc: LocIn) => Promise<{ ok: true; message: ChatMsg } | { ok: false; error: string }>; typing: (id: string) => Promise<void>; react: (messageId: string, emoji: string | null) => Promise<{ ok: true; reactions: ChatReaction[] } | { ok: false; error: string }> };
 
 const naira = (kobo: unknown) => { try { return `₦${(BigInt(String(kobo)) / 100n).toLocaleString("en-NG")}`; } catch { return ""; } };
 const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf,.docx,.xlsx,.pptx,text/plain,text/csv";
@@ -235,6 +237,9 @@ export function ChatThread({ conversationId, meId, initial, initialSeen, canRepl
                     <div className="bubble-insp"><strong>📅 Inspection request</strong><span>{d.title ? `${d.title} · ` : ""}{String(d.date)} at {String(d.time)}</span></div>
                   ) : null}
                   {m.kind === "INSPECTION_REPLY" ? <div className="bubble-insp"><strong>{String(d.decision) === "accept" ? "✅ Accepted" : "Declined"} the inspection request</strong></div> : null}
+                  {m.kind === "LOCATION" && typeof d.lat === "number" && typeof d.lng === "number" ? (
+                    <LocationBubble lat={d.lat} lng={d.lng} label={m.body} accuracyM={typeof d.accuracyM === "number" ? d.accuracyM : null} source={String(d.source ?? "map")} />
+                  ) : null}
                   {f && m.kind === "VOICE" ? (
                     <div className="bubble-voice">
                       {url ? <audio controls preload="metadata" src={url} aria-label={`Voice note, ${formatDuration(f.durationMs ?? 0)}`} /> : <span className="small">🎙 Sending voice note…</span>}
@@ -251,7 +256,7 @@ export function ChatThread({ conversationId, meId, initial, initialSeen, canRepl
                       <span className="bubble-file-text"><strong>{f.name}</strong><span className="bubble-file-meta">{fileLabel(f.mime)} · {formatBytes(f.size)}{url ? " · Download" : " · Sending…"}</span></span>
                     </a>
                   ) : null}
-                  {m.body ? <p className="bubble-text">{m.body}</p> : null}
+                  {m.body && m.kind !== "LOCATION" ? <p className="bubble-text">{m.body}</p> : null}
                   {m.masked ? <p className="bubble-note">Contact details were hidden: the sender&apos;s plan does not include sharing them.</p> : null}
                   {extras?.[m.id] ?? null}
                   <span className="bubble-meta">
@@ -298,6 +303,13 @@ export function ChatThread({ conversationId, meId, initial, initialSeen, canRepl
           <form className="composer" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
             <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={(e) => pick(e.target.files?.[0])} />
             <button type="button" className="composer-btn" aria-label="Attach a file" onClick={() => fileInput.current?.click()}>{Icon.clip}</button>
+            <LocationShare start={{ lat: 6.5244, lng: 3.3792 }} onSend={async (loc) => {
+              const temp: Pending = { id: `tmp-${Date.now()}`, senderId: meId, senderName: "You", kind: "LOCATION", body: loc.label ?? "", details: { lat: loc.lat, lng: loc.lng, accuracyM: loc.accuracyM ?? null, source: loc.source }, masked: false, at: new Date().toISOString(), state: "sending" };
+              stick.current = true;
+              setMsgs((all) => [...all, temp]);
+              const r = await live.location(conversationId, loc);
+              if (r.ok) replace(temp.id, r.message); else fail(temp.id, r.error);
+            }} />
             <div className="composer-main">
               {file ? (
                 <div className="composer-file">

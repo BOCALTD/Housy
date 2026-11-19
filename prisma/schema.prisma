@@ -3670,6 +3670,7 @@ enum MessageKind {
   INSPECTION_REPLY
   FILE
   VOICE
+  LOCATION
 }
 
 enum ModerationStatus {

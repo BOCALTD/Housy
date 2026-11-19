@@ -2,7 +2,7 @@
 
 import { currentActor } from "@/lib/collab-session";
 import { messageFor } from "@/lib/forms";
-import { reactToMessage, sendMessage, setTyping } from "@/lib/services/messaging";
+import { reactToMessage, sendLocation, sendMessage, setTyping } from "@/lib/services/messaging";
 import { chatMessage, type ChatMsg } from "@/lib/chat-shape";
 
 /** Send from the open chat without reloading the page; the message comes back to replace the one shown while sending. */
@@ -26,6 +26,16 @@ export async function reactAction(messageId: string, emoji: string | null): Prom
   try {
     const { actor } = await currentActor();
     return { ok: true, reactions: await reactToMessage(actor, messageId, emoji) };
+  } catch (e) {
+    return { ok: false, error: messageFor(e) };
+  }
+}
+
+/** Share a location pin in the chat. */
+export async function sendLocationAction(conversationId: string, loc: { lat: number; lng: number; label?: string; accuracyM?: number | null; source: "device" | "map" }): Promise<{ ok: true; message: ChatMsg } | { ok: false; error: string }> {
+  try {
+    const { actor } = await currentActor();
+    return { ok: true, message: chatMessage(await sendLocation(actor, conversationId, loc)) };
   } catch (e) {
     return { ok: false, error: messageFor(e) };
   }

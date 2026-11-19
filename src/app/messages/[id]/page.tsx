@@ -11,7 +11,7 @@ import { ChatThread } from "@/components/ChatThread";
 import { myFlatmateActivity, myRooms, roomForConversation } from "@/lib/services/flatmates";
 import { addToRoomAction, leaveRoomAction } from "../../flatmates/actions";
 import { blockAction, cardAction, inspectAction, inspectReplyAction, reportAction, unblockAction } from "../actions";
-import { reactAction, sendChatAction, typingAction } from "../live-actions";
+import { reactAction, sendChatAction, sendLocationAction, typingAction } from "../live-actions";
 
 export const metadata = { title: "Chat" };
 export const dynamic = "force-dynamic";
@@ -93,7 +93,7 @@ export default async function ConversationPage({ params: paramsP, searchParams: 
       </header>
       {t.olderFrom ? <Link className="chat-older" href={`/messages/${params.id}?before=${encodeURIComponent(t.olderFrom.toISOString())}`}>Load earlier messages</Link> : null}
       <ChatThread conversationId={params.id} meId={me.id} initial={t.messages.map(chatMessage)} initialSeen={t.seenUpTo?.toISOString() ?? null}
-        canReply={!t.cannotReply} send={sendChatAction} live={{ typing: typingAction, react: reactAction }} extras={extras} timeZone={currentTimeZone()} />
+        canReply={!t.cannotReply} send={sendChatAction} live={{ typing: typingAction, react: reactAction, location: sendLocationAction }} extras={extras} timeZone={currentTimeZone()} />
       {t.cannotReply ? <p className="chat-cant">{t.iBlocked ? "You blocked this person." : room && room.status !== "OPEN" ? "This chat room is closed." : "You cannot reply to this conversation."}</p> : null}
     </div>
   );

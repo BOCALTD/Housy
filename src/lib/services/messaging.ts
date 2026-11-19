@@ -53,7 +53,7 @@ async function membersOf(tx: Tx, conversationId: string) {
   return tx.conversationMember.findMany({ where: { conversationId } });
 }
 
-interface Post { kind: "TEXT" | "PROPERTY" | "INSPECTION_REQUEST" | "INSPECTION_REPLY" | "FILE" | "VOICE"; body: string; details?: Prisma.InputJsonValue; replyToId?: string | null }
+interface Post { kind: "TEXT" | "PROPERTY" | "INSPECTION_REQUEST" | "INSPECTION_REPLY" | "FILE" | "VOICE" | "LOCATION"; body: string; details?: Prisma.InputJsonValue; replyToId?: string | null }
 
 /** Add a message, move the conversation up, mark it read for the sender, and tell the others once rather than once per message. */
 async function post(tx: Tx, a: Actor, conversationId: string, p: Post) {
@@ -80,7 +80,7 @@ async function post(tx: Tx, a: Actor, conversationId: string, p: Post) {
   await tx.conversationMember.update({ where: { id: me.id }, data: { lastReadAt: now, typingAt: null } });
   for (const o of others) {
     const alreadyWaiting = (await tx.message.count({ where: { conversationId, senderId: a.userId, createdAt: { gt: o.lastReadAt ?? new Date(0), lt: now } } })) > 0;
-    const preview = msg.kind === "TEXT" ? screened.text.slice(0, 80) : msg.kind === "VOICE" ? "Voice note" : msg.kind === "FILE" ? `File${screened.text ? `: ${screened.text.slice(0, 60)}` : ""}` : "";
+    const preview = msg.kind === "TEXT" ? screened.text.slice(0, 80) : msg.kind === "VOICE" ? "Voice note" : msg.kind === "LOCATION" ? "Shared a location" : msg.kind === "FILE" ? `File${screened.text ? `: ${screened.text.slice(0, 60)}` : ""}` : "";
     if (!alreadyWaiting) await notify(tx, o.userId, { kind: "message.new", title: `New message from ${me.name}`, body: preview, link: `/messages/${conversationId}` });
   }
   return msg;
@@ -205,7 +205,7 @@ export async function listConversations(a: Actor, page = 1) {
         id: c.id, subject: c.subject, lastMessageAt: c.lastMessageAt,
         others: c.members.filter((m) => m.userId !== a.userId).map((m) => m.name),
         otherIds: c.members.filter((m) => m.userId !== a.userId).map((m) => m.userId),
-        preview: last ? (last.kind === "TEXT" ? last.body : last.kind === "PROPERTY" ? "Shared a property" : last.kind === "INSPECTION_REQUEST" ? "Asked to arrange an inspection" : "Answered an inspection request") : "",
+        preview: last ? (last.kind === "TEXT" ? last.body : last.kind === "PROPERTY" ? "Shared a property" : last.kind === "INSPECTION_REQUEST" ? "Asked to arrange an inspection" : last.kind === "INSPECTION_REPLY" ? "Answered an inspection request" : last.kind === "FILE" ? `📄 ${last.body || "File"}` : last.kind === "VOICE" ? "🎙 Voice note" : last.kind === "LOCATION" ? `📍 ${last.body || "Location"}` : "") : "",
         lastFromMe: last?.senderId === a.userId,
         unread: !!last && last.senderId !== a.userId && (!seen || seen < c.lastMessageAt),
       };
@@ -413,4 +413,19 @@ export async function reactToMessage(a: Actor, messageId: string, emoji: string 
 /** "Typing": shown to the others for a few seconds. */
 export async function setTyping(a: Actor, conversationId: string) {
   await run(a, (tx) => tx.conversationMember.updateMany({ where: { conversationId, userId: a.userId }, data: { typingAt: new Date() } }));
+}
+
+/**
+ * Share a location as a pin: where the sender is now (from their device) or a place they chose on the map, with an optional label
+ * such as "Gate 2". Positions are rounded to about a metre. The label is screened like any message.
+ */
+export async function sendLocation(a: Actor, conversationId: string, raw: { lat: number; lng: number; label?: string; accuracyM?: number | null; source: "device" | "map" }) {
+  const lat = Number(raw.lat), lng = Number(raw.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || (lat === 0 && lng === 0)) throw new Error("That location could not be read. Try again, or choose the place on the map.");
+  const label = String(raw.label ?? "").trim().slice(0, 120);
+  const accuracyM = raw.accuracyM && Number.isFinite(raw.accuracyM) ? Math.min(100_000, Math.max(1, Math.round(raw.accuracyM))) : null;
+  return run(a, (tx) => post(tx, a, conversationId, {
+    kind: "LOCATION", body: label,
+    details: { lat: Math.round(lat * 1e5) / 1e5, lng: Math.round(lng * 1e5) / 1e5, accuracyM, source: raw.source === "device" ? "device" : "map" },
+  }));
 }

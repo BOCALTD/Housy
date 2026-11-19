@@ -144,3 +144,14 @@ body:has(.chat-shell) .site-footer, body:has(.chat-shell) .to-top { display: non
   .chat-row, .send { transition: background-color .2s, transform .15s; }
 }
 @media (hover: hover) { .chat-row:hover { background: var(--surface-2); } .chat-row.on:hover { background: color-mix(in srgb, #E3A93F 20%, var(--surface)); } .chat-menu > summary:hover { background: var(--surface-2); } }
+/* Shared locations */
+.bubble-loc { display: grid; gap: 6px; min-width: min(260px, 62vw); }
+.bubble-loc-label { font-size: 14.5px; }
+.chat-map { height: 170px; border-radius: 12px; overflow: hidden; }
+.chat-map .street-map { height: 170px; min-height: 0; }
+.chat-map.pick { height: auto; overflow: visible; }
+.chat-map.pick .street-map { height: min(52vh, 360px); }
+.chat-map-tap { display: flex; align-items: center; justify-content: center; gap: 8px; height: 96px; border: 1px dashed var(--line); border-radius: 12px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+.chat-map-wait { display: grid; place-items: center; height: 100%; font-size: 13px; color: var(--muted); }
+.loc-box { width: min(560px, calc(100vw - 32px)); }
+@media (max-width: 420px) { .composer-btn { width: 44px; height: 44px; } }

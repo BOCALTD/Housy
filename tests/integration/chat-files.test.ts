@@ -80,3 +80,17 @@ test("one reaction per person per message, from the offered set; typing shows fo
   assert.deepEqual(since.reactions.map((x) => x.emoji), ["❤️"]);
   assert.equal((await messagesSince(agent, conversationId, new Date())).typing.length, 0, "you do not see yourself typing");
 });
+
+test("a location can be shared as a pin, with a screened label, and is checked", async () => {
+  const { sendLocation } = await import("../../src/lib/services/messaging");
+  const { agent, person, conversationId } = await chat();
+  const m = await sendLocation(person, conversationId, { lat: 6.4281234, lng: 3.4219876, label: "Gate 2", accuracyM: 12.4, source: "device" });
+  assert.equal(m.kind, "LOCATION");
+  assert.equal(m.body, "Gate 2");
+  assert.deepEqual(m.details, { lat: 6.42812, lng: 3.42199, accuracyM: 12, source: "device" });
+  await assert.rejects(sendLocation(person, conversationId, { lat: 123, lng: 3, source: "map" }), /could not be read/);
+  await assert.rejects(sendLocation(person, conversationId, { lat: 0, lng: 0, source: "map" }), /could not be read/);
+  const outsider = asPerson(await seeker("locnosy"));
+  await assert.rejects(sendLocation(outsider, conversationId, { lat: 6.4, lng: 3.4, source: "map" }), /not found/i);
+  assert.ok((await getConversation(agent, conversationId)).messages.some((x) => x.kind === "LOCATION"));
+});

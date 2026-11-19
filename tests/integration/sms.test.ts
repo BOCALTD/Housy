@@ -28,7 +28,7 @@ function recorder(result: (n: number) => Awaited<ReturnType<SmsDriver["send"]>>)
 test("important notices are texted to people who asked, at the right time", async () => {
   const co = await newCompany("sms");
   const rows = () => system((tx) => tx.smsOutbox.findMany({ where: { userId: co.userId }, orderBy: { createdAt: "asc" } }));
-  await processSms({ driver: null });
+  await processSms({ driver: null, limit: 1000 });
 
   // Not every notice is texted; the same notice on the same day goes once.
   await withTenant(co.companyId, co.userId, async (tx) => {
@@ -40,7 +40,7 @@ test("important notices are texted to people who asked, at the right time", asyn
 
   // SMS off: skipped, nothing sent.
   const r1 = recorder(() => ({ ok: true, id: "a" }));
-  await processSms({ driver: r1.driver });
+  await processSms({ driver: r1.driver, limit: 1000 });
   assert.equal(r1.sent.length, 0);
   assert.equal((await rows())[0].status, "SKIPPED");
 
@@ -51,7 +51,7 @@ test("important notices are texted to people who asked, at the right time", asyn
   assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: co.userId } })).phone, "+2348031234567");
 
   await withTenant(co.companyId, co.userId, (tx) => notify(tx, co.userId, { kind: "inspection.reminder", title: "Inspection tomorrow", link: "/me/inspections/x2" }));
-  await processSms({ driver: r1.driver });
+  await processSms({ driver: r1.driver, limit: 1000 });
   assert.ok(r1.sent.some((s) => s.to === "+2348031234567" && s.body === "Inspection tomorrow"));
   assert.equal((await rows()).find((r) => r.kind === "inspection.reminder")!.status, "SENT");
 
@@ -64,7 +64,7 @@ test("important notices are texted to people who asked, at the right time", asyn
     await notify(tx, co.userId, { kind: "security.password_changed", title: "Your password was changed", link: "/me/security" });
   });
   const r2 = recorder(() => ({ ok: true, id: "b" }));
-  await processSms({ driver: r2.driver });
+  await processSms({ driver: r2.driver, limit: 1000 });
   const mine = (b: string) => r2.sent.filter((s) => s.to === "+2348031234567" && s.body === b).length;
   assert.equal(mine("Your password was changed"), 1);
   assert.equal(mine("Your payment failed"), 0);
@@ -74,12 +74,12 @@ test("important notices are texted to people who asked, at the right time", asyn
   await savePrefs(co.userId, { ...base, smsImportant: true });
   const r3 = recorder(() => ({ ok: false, permanent: false, error: "503" }));
   const later = new Date(Date.now() + 3 * 3600_000);
-  await processSms({ driver: r3.driver, now: later });
+  await processSms({ driver: r3.driver, now: later, limit: 1000 });
   const failed = (await rows()).find((r) => r.kind === "billing.failed")!;
   assert.equal(failed.status, "FAILED");
   assert.ok(failed.nextAttemptAt > later);
   const r4 = recorder(() => ({ ok: false, permanent: true, error: "400 invalid number" }));
-  await processSms({ driver: r4.driver, now: new Date(Date.now() + 12 * 3600_000) });
+  await processSms({ driver: r4.driver, now: new Date(Date.now() + 12 * 3600_000), limit: 1000 });
   assert.equal((await rows()).find((r) => r.kind === "billing.failed")!.status, "DEAD");
 });
 

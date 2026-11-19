@@ -4590,6 +4590,11 @@ model ReviewInvite {
   usedById    String?     @map("used_by_id")
   revokedAt   DateTime?   @map("revoked_at")
   createdAt   DateTime    @default(now()) @map("created_at")
+  /// When Housy sent the link to the client (by email or text), how, and the link kept encrypted for one reminder.
+  sentVia     String      @default("") @map("sent_via")
+  sentTo      String      @default("") @map("sent_to")
+  sealedToken String?     @map("sealed_token")
+  remindedAt  DateTime?   @map("reminded_at")
 
   @@unique([basis, basisRef])
   @@index([companyId, createdAt])
@@ -4985,7 +4990,7 @@ model NotificationPref {
   emailActivity    Boolean    @default(true) @map("email_activity")
   emailAlerts      Boolean    @default(true) @map("email_alerts")
   emailPromotional Boolean    @default(false) @map("email_promotional")
-  /// Text messages for important notices (security, rent and inspection reminders, review requests). Off until turned on.
+  /// Text messages for important notices (security, inspections, review requests, plan renewals). Off until turned on.
   smsImportant     Boolean    @default(false) @map("sms_important")
   digest           DigestMode @default(INSTANT)
   quietStart       Int?       @map("quiet_start")

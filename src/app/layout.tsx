@@ -17,6 +17,8 @@ import { asPerson } from "@/lib/services/collab";
 import { feedbackDue } from "@/lib/services/feedback";
 import { PLATFORM_NAME } from "@/lib/labels";
 import { snoozeAction } from "./feedback/actions";
+import { acceptLegalAction } from "./legal-actions";
+import { needsConsent } from "@/lib/services/legal-pages";
 import { NavigationLoader } from "@/components/NavigationLoader";
 import { BackToTop } from "@/components/BackToTop";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -114,6 +116,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const closed = maint.phase === "active" && !!maint.window && !session?.user.isPlatformAdmin && !openDuringMaintenance(path);
   const showBanner = !!maint.window && (maint.phase === "notice" || (maint.phase === "active" && !closed));
   const railMini = jar.get("rail")?.value === "mini";
+  // Updated terms or privacy policy (a material change in effect): ask once, on every page but the legal pages themselves.
+  const agreeAgain = uid && !path.startsWith("/legal") ? await needsConsent(uid).catch(() => false) : false;
   // Live chat (Admin → Settings), where the administrator chose to show it; never on admin pages or while the site is closed.
   const lc = (await platformConfig().catch(() => null))?.liveChat;
   const place = liveChatPlaceOf(path);
@@ -147,6 +151,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {closed && maint.window ? <MaintenancePage window={maint.window} name={PLATFORM_NAME} /> : (<>
         {showBanner && maint.window ? <MaintenanceBanner window={maint.window} active={maint.phase === "active"} /> : null}
         <Frame sections={sections} user={user} notices={notices} unreadNotices={unread} unreadMessages={unreadMsgs} markAllRead={markAllNoticesReadAction} collapsed={railMini} theme={theme}>
+          {agreeAgain ? (
+            <aside className="rate-banner legal-banner" aria-label="Updated terms">
+              <div className="wrap">
+                <span>We have updated our <Link href="/legal/terms">Terms of use</Link> and <Link href="/legal/privacy">Privacy policy</Link>. Please read what changed and agree to keep using {PLATFORM_NAME}.</span>
+                <span className="row">
+                  <form action={acceptLegalAction}><input type="hidden" name="back" value={path} /><button className="btn primary" type="submit">I agree</button></form>
+                  <Link className="btn" href="/legal/terms">Read the changes</Link>
+                </span>
+              </div>
+            </aside>
+          ) : null}
           {rate ? (
             <aside className="rate-banner" aria-label="Rate the platform">
               <div className="wrap">

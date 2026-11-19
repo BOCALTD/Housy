@@ -258,12 +258,17 @@ async function main() {
       const reacted = await s.locator("li.me .reactions").last().waitFor({ timeout: 6000 }).then(() => true).catch(() => false);
       await record(s, "chat reaction", reacted, reacted ? "the reaction shows under the message" : "no reaction shown");
       // The designed promo banner on the homepage (folded corner), then like a property and undo it from the message.
+      // The welcome slides were already checked above; mark them seen for this visitor so the screenshot shows the banner itself.
+      await s.evaluate(() => { try { localStorage.setItem("intro-done", new Date().toISOString()); } catch { /* storage blocked */ } });
       await s.goto(`${BASE}/`, { waitUntil: "load" });
-      // Close the first-visit welcome slides, so the screenshot shows the banner itself.
       const skip = s.getByRole("button", { name: "Skip" }).first();
-      if (await skip.isVisible().catch(() => false)) { await skip.click(); await s.waitForTimeout(800); }
-      await s.locator(".pbanner").first().scrollIntoViewIfNeeded().catch(() => undefined);
-      const banner = await s.locator(".pbanner .pbanner-card img").first().isVisible().catch(() => false);
+      if (await skip.waitFor({ timeout: 1500 }).then(() => true).catch(() => false)) { await skip.click(); await s.waitForTimeout(800); }
+      const card = s.locator(".pbanner .pbanner-card img").first();
+      await card.scrollIntoViewIfNeeded().catch(() => undefined);
+      await card.evaluate((img: HTMLImageElement) => img.complete || new Promise((r) => { img.onload = img.onerror = () => r(null); })).catch(() => undefined);
+      await s.waitForTimeout(600);
+      const covered = await s.locator(".intro, [aria-label*='Welcome' i][role='dialog']").first().isVisible().catch(() => false);
+      const banner = !covered && await card.isVisible().catch(() => false);
       const fold = await s.locator(".pbanner .pbanner-fold").count();
       await record(s, "promo banner", banner && fold > 0, `banner picture shown: ${banner}; folded corner: ${fold > 0}`);
       const ref = (await s.$$eval('a[href^="/properties/"]', (as) => as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?"))))[0];

@@ -3,8 +3,7 @@
 import { requestTimeZone } from "@/lib/money-context";
 import { checkCaptcha } from "@/lib/captcha";
 import { visitorIp } from "@/lib/request-ip";
-import { recordConsent } from "@/lib/services/privacy";
-import { LEGAL_VERSION } from "@/lib/legal";
+import { acceptLegal } from "@/lib/services/legal-pages";
 
 import { safeLocalPath } from "@/lib/security";
 import { prisma, withUser } from "@/lib/db";
@@ -66,20 +65,20 @@ export async function joinAction(form: FormData) {
         businessType: str(form, "businessType") as never, contactPhone: phoneFrom(form), cacNumber: str(form, "cacNumber"), country: str(form, "country") || "NG", noCompanyDomain: form.get("noCompanyDomain") === "on",
       });
       await captureReferral({ id: userId, name, email: email.toLowerCase(), companyId }, "COMPANY", await takeReferral());
-      await recordConsent(userId, LEGAL_VERSION);
+      await acceptLegal(userId);
       await createSession(userId, companyId);
       return "/app?notice=" + encodeURIComponent("Your company workspace is ready. Start with Business set-up.");
     }
     if (as === "agent") {
       const { userId, companyId } = await registerAgent({ name, email, password: confirmedPassword(form), phone: phoneFrom(form), tradingName: str(form, "tradingName"), country: str(form, "country") || "NG" });
       await captureReferral({ id: userId, name, email: email.toLowerCase(), companyId }, "COMPANY", await takeReferral());
-      await recordConsent(userId, LEGAL_VERSION);
+      await acceptLegal(userId);
       await createSession(userId, companyId);
       return "/app/profile?notice=" + encodeURIComponent("Your agent account is ready. Finish your profile so clients can find you.");
     }
     const { userId } = await registerSeeker({ name, email, password: confirmedPassword(form), phone: phoneFrom(form), country: str(form, "country") || "NG" });
     await captureReferral({ id: userId, name, email: email.toLowerCase() }, "SEEKER", await takeReferral());
-    await recordConsent(userId, LEGAL_VERSION);
+    await acceptLegal(userId);
     await createSession(userId, null);
     const next = safeLocalPath(str(form, "next"), "");
     if (next) return next;

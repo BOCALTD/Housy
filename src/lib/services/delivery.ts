@@ -2,6 +2,7 @@ import { COUNTRIES, isCountry } from "../regions";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma, withUser } from "../db";
+import { toE164 } from "../phone-rules";
 import { logActivity } from "../audit";
 import { configuredDriver, type EmailDriver } from "../email-drivers";
 import { PLATFORM_NAME } from "../labels";
@@ -31,14 +32,18 @@ async function adminOnly(id: string) {
 // ---------- Preferences ----------
 
 export async function getPrefs(userId: string) {
-  const p = await withUser(userId, (tx) => tx.notificationPref.findUnique({ where: { userId } }));
-  return { ...DEFAULT_PREFS, areas: [] as string[], ...(p ? { emailActivity: p.emailActivity, emailAlerts: p.emailAlerts, emailPromotional: p.emailPromotional, digest: p.digest, quietStart: p.quietStart, quietEnd: p.quietEnd, areas: p.areas } : {}) };
+  const [p, u] = await Promise.all([
+    withUser(userId, (tx) => tx.notificationPref.findUnique({ where: { userId } })),
+    prisma.user.findUnique({ where: { id: userId }, select: { phone: true } }),
+  ]);
+  return { ...DEFAULT_PREFS, areas: [] as string[], smsImportant: false, phone: u?.phone ?? "", ...(p ? { emailActivity: p.emailActivity, emailAlerts: p.emailAlerts, emailPromotional: p.emailPromotional, digest: p.digest, quietStart: p.quietStart, quietEnd: p.quietEnd, areas: p.areas, smsImportant: p.smsImportant } : {}) };
 }
 
 const hour = z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(0).max(23).nullable());
 const prefSchema = z.object({
   emailActivity: z.boolean(), emailAlerts: z.boolean(), emailPromotional: z.boolean(), digest: z.enum(["INSTANT", "DAILY"]),
   quietStart: hour, quietEnd: hour, areas: z.string().default(""),
+  smsImportant: z.boolean().default(false), phone: z.string().trim().max(24).optional(),
 }).superRefine((d, ctx) => {
   if ((d.quietStart == null) !== (d.quietEnd == null)) ctx.addIssue({ code: "custom", message: "Set both the start and the end of your quiet hours, or neither" });
   else if (d.quietStart != null && d.quietStart === d.quietEnd) ctx.addIssue({ code: "custom", message: "Quiet hours cannot start and end at the same time" });
@@ -48,7 +53,15 @@ export async function savePrefs(userId: string, raw: z.input<typeof prefSchema>)
   const d = prefSchema.parse(raw);
   const areas = [...new Set(d.areas.split(/[,\n]/).map((a) => a.trim().toLowerCase()).filter(Boolean))].slice(0, 10);
   if (areas.some((a) => a.length > 60)) throw new Error("An area name is too long");
-  const data = { emailActivity: d.emailActivity, emailAlerts: d.emailAlerts, emailPromotional: d.emailPromotional, digest: d.digest, quietStart: d.quietStart, quietEnd: d.quietEnd, areas };
+  let phone: string | undefined;
+  if (d.phone !== undefined) {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { country: true } });
+    phone = d.phone ? toE164(d.phone, u?.country || "NG") ?? "" : "";
+    if (d.phone && !phone) throw new Error("Enter your mobile number with its country code, such as +234 803 123 4567");
+  }
+  if (d.smsImportant && !(phone ?? (await prisma.user.findUnique({ where: { id: userId }, select: { phone: true } }))?.phone)) throw new Error("Add your mobile number to get text messages");
+  const data = { emailActivity: d.emailActivity, emailAlerts: d.emailAlerts, emailPromotional: d.emailPromotional, digest: d.digest, quietStart: d.quietStart, quietEnd: d.quietEnd, areas, smsImportant: d.smsImportant };
+  if (phone !== undefined) await prisma.user.update({ where: { id: userId }, data: { phone } });
   await withUser(userId, (tx) => tx.notificationPref.upsert({ where: { userId }, create: { userId, ...data }, update: data }));
 }
 

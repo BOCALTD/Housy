@@ -10,6 +10,7 @@ export async function savePrefsAction(form: FormData) {
     await savePrefs(u.id, {
       emailActivity: form.get("emailActivity") === "on", emailAlerts: form.get("emailAlerts") === "on", emailPromotional: form.get("emailPromotional") === "on",
       digest: str(form, "digest") === "DAILY" ? "DAILY" : "INSTANT", quietStart: str(form, "quietStart") as never, quietEnd: str(form, "quietEnd") as never, areas: str(form, "areas"),
+      smsImportant: form.get("smsImportant") === "on", phone: str(form, "phone"),
     });
     return withNotice("/me/notification-settings", "Your notification settings were saved.");
   });

@@ -8,7 +8,7 @@ import {
 } from "../reputation-rules";
 import { assertCan, type Ctx } from "./context";
 import { notify } from "./notifications";
-import { system } from "./rewards";
+import { system, SYSTEM } from "./rewards";
 
 // Verified reviews and reputation. A review needs a real interaction behind it: a conversation the agent really answered, or a
 // single-use link a company gives for a viewing or deal it completed. Reviews that look manipulated are held for a person.
@@ -72,7 +72,7 @@ export async function issueInvite(ctx: Ctx, o: { basis: "INSPECTION" | "TRANSACT
     const agentUserId = o.aboutCompany ? null : owner?.userId ?? null;
     const existing = await tx.reviewInvite.findUnique({ where: { basis_basisRef: { basis: o.basis, basisRef: ref } } });
     if (existing?.usedAt) throw new Error("This one has already been reviewed");
-    if (existing) await tx.reviewInvite.update({ where: { id: existing.id }, data: { tokenHash: hash, expiresAt, revokedAt: null, agentUserId, createdById: ctx.userId } });
+    if (existing) await tx.reviewInvite.update({ where: { id: existing.id }, data: { tokenHash: hash, expiresAt, revokedAt: null, agentUserId, createdById: ctx.userId, sentVia: "", sentTo: "", sealedToken: null, sentAt: null, remindedAt: null } });
     else await tx.reviewInvite.create({ data: { tokenHash: hash, companyId: ctx.companyId, agentUserId, basis: o.basis, basisRef: ref, createdById: ctx.userId, expiresAt } });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "review_invite", entityId: ref, action: existing ? "review.invite_reissued" : "review.invite_issued", detail: { basis: o.basis } });
   });
@@ -82,7 +82,7 @@ export async function issueInvite(ctx: Ctx, o: { basis: "INSPECTION" | "TRANSACT
 export async function revokeInvite(ctx: Ctx, basis: "INSPECTION" | "TRANSACTION", basisRef: string) {
   assertCan(ctx, "crm.manage");
   await withTenant(ctx.companyId, ctx.userId, async (tx) => {
-    const r = await tx.reviewInvite.updateMany({ where: { companyId: ctx.companyId, basis, basisRef, usedAt: null }, data: { revokedAt: new Date() } });
+    const r = await tx.reviewInvite.updateMany({ where: { companyId: ctx.companyId, basis, basisRef, usedAt: null }, data: { revokedAt: new Date(), sealedToken: null } });
     if (r.count !== 1) throw new Error("No open link to cancel");
   });
 }
@@ -465,3 +465,104 @@ export async function refreshAllReputation(adminId: string) {
 
 export const publicAgent = (userId: string) => withPublic((tx) => tx.agentProfile.findFirst({ where: { userId, listed: true } }));
 export const publicCompany = (companyId: string) => withPublic((tx) => tx.companyProfile.findFirst({ where: { companyId, listed: true } }));
+
+// ---------- Sending review links, and reminders ----------
+
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** One email to an address outside Housy (a client), sent now. */
+async function emailClient(to: string, subject: string, lines: string[], link: string) {
+  const { configuredDriver } = await import("../email-drivers");
+  const driver = configuredDriver();
+  if (!driver) throw new Error("Email is not connected on this platform yet. Copy the link and send it yourself, or send it by text.");
+  const r = await driver.send({
+    to, subject, text: [...lines, "", link].join("\n"),
+    html: `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#1f2933;max-width:560px;margin:0 auto;padding:16px">${lines.map((l) => `<p>${esc(l)}</p>`).join("")}<p><a href="${esc(link)}" style="display:inline-block;background:#E3A93F;color:#1f2933;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:bold">Write your review</a></p><p style="font-size:12px;color:#52606d">${esc(link)}</p></body></html>`,
+  });
+  if (!r.ok) throw new Error("The email could not be sent just now. Try again in a few minutes, or send the link yourself.");
+}
+
+/**
+ * Send a review link the company just made to the client on the deal, by email and/or text, and keep it (encrypted) so one
+ * reminder can follow after three days if it has not been used.
+ */
+export async function sendInviteToClient(ctx: Ctx, o: { basis: "INSPECTION" | "TRANSACTION"; basisRef: string; token: string; email: boolean; sms: boolean }) {
+  assertCan(ctx, "crm.manage");
+  if (!o.email && !o.sms) return null;
+  const { baseUrl } = await import("./delivery");
+  const { queueSmsForClient } = await import("./sms");
+  const { sealSecret } = await import("../totp");
+  const info = await withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const dealId = o.basis === "TRANSACTION" ? o.basisRef : (await tx.viewing.findFirst({ where: { id: o.basisRef, companyId: ctx.companyId }, select: { dealId: true } }))?.dealId;
+    const deal = dealId ? await tx.deal.findFirst({ where: { id: dealId, companyId: ctx.companyId }, select: { client: { select: { name: true, email: true, phone: true } } } }) : null;
+    const co = await tx.company.findUniqueOrThrow({ where: { id: ctx.companyId }, select: { name: true, country: true } });
+    return { client: deal?.client ?? null, company: co };
+  });
+  if (!info.client) throw new Error("This has no client on record to send to.");
+  const link = `${baseUrl()}/reviews/write?invite=${o.token}`;
+  const what = o.basis === "TRANSACTION" ? "your recent deal" : "your recent viewing";
+  const sent: string[] = [];
+  if (o.email) {
+    if (!info.client.email) throw new Error("The client has no email address on record. Add it, or send by text.");
+    await emailClient(info.client.email, `${info.company.name}: how did it go?`, [`Hello ${info.client.name.split(" ")[0] || ""},`.replace(/ ,$/, ","), `${info.company.name} would like to know how ${what} went. Your review helps other people choose well. The link works once.`], link);
+    sent.push("email");
+  }
+  if (o.sms) {
+    if (!info.client.phone) throw new Error("The client has no phone number on record. Add it, or send by email.");
+    await queueSmsForClient({ companyId: ctx.companyId, phone: info.client.phone, country: info.company.country, kind: "review.request", ref: o.basisRef, text: `${info.company.name} asks how ${what} went. Review them (works once): ${link}` });
+    sent.push("text");
+  }
+  await withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    await tx.reviewInvite.updateMany({ where: { companyId: ctx.companyId, basis: o.basis, basisRef: o.basisRef, usedAt: null }, data: { sentVia: sent.join(","), sentAt: new Date(), sentTo: [o.email ? info.client!.email : "", o.sms ? info.client!.phone : ""].filter(Boolean).join(", ").slice(0, 300), sealedToken: sealSecret(o.token), remindedAt: null } });
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "review_invite", entityId: o.basisRef, action: "review.invite_sent", detail: { via: sent } });
+  });
+  return sent;
+}
+
+/**
+ * Scheduled: one reminder for review links Housy sent that are unused after three days; and a one-time nudge (in the app, by email,
+ * and by text for people who turned it on) to review an agent a person really talked to.
+ */
+export async function sendReviewReminders(now = new Date()) {
+  const { baseUrl } = await import("./delivery");
+  const { queueSmsForClient } = await import("./sms");
+  const { openSecret } = await import("../totp");
+  let invites = 0, nudges = 0;
+  const due = await system((tx) => tx.reviewInvite.findMany({ where: { sentVia: { not: "" }, sealedToken: { not: null }, usedAt: null, revokedAt: null, remindedAt: null, sentAt: { lt: new Date(now.getTime() - 3 * DAY) }, expiresAt: { gt: now } }, take: 200 }));
+  for (const i of due) {
+    let token = "";
+    try { token = openSecret(i.sealedToken!); } catch { token = ""; }
+    // Mark first, so a failure never sends it twice.
+    await system((tx) => tx.reviewInvite.update({ where: { id: i.id }, data: { remindedAt: now, sealedToken: null } }));
+    if (!token) continue;
+    // Company data is read inside the company (the platform role does not see deals or clients).
+    const ctxInfo = await withTenant(i.companyId, SYSTEM, async (tx) => {
+      const dealId = i.basis === "TRANSACTION" ? i.basisRef : (await tx.viewing.findFirst({ where: { id: i.basisRef, companyId: i.companyId }, select: { dealId: true } }))?.dealId;
+      const deal = dealId ? await tx.deal.findFirst({ where: { id: dealId, companyId: i.companyId }, select: { client: { select: { name: true, email: true, phone: true } } } }) : null;
+      const co = await tx.company.findUnique({ where: { id: i.companyId }, select: { name: true, country: true } });
+      return { client: deal?.client ?? null, company: co };
+    });
+    if (!ctxInfo.client || !ctxInfo.company) continue;
+    const link = `${baseUrl()}/reviews/write?invite=${token}`;
+    const what = i.basis === "TRANSACTION" ? "your recent deal" : "your recent viewing";
+    try {
+      if (i.sentVia.includes("email") && ctxInfo.client.email) await emailClient(ctxInfo.client.email, `Reminder: ${ctxInfo.company.name} would value your review`, [`${ctxInfo.company.name} would still like to know how ${what} went. This is the only reminder.`], link);
+      if (i.sentVia.includes("text") && ctxInfo.client.phone) await queueSmsForClient({ companyId: i.companyId, phone: ctxInfo.client.phone, country: ctxInfo.company.country, kind: "review.request", ref: `${i.basisRef}:reminder`, text: `Reminder: ${ctxInfo.company.name} would value your review of ${what} (last reminder): ${link}` });
+      invites++;
+    } catch { /* email not connected or a bad address: the reminder is simply not sent */ }
+  }
+  // People who talked with an agent between 1 and 14 days ago and have not reviewed: one nudge per conversation.
+  const recent = await system((tx) => tx.conversation.findMany({ where: { lastMessageAt: { gte: new Date(now.getTime() - 14 * DAY), lte: new Date(now.getTime() - DAY) }, collaborationId: null }, select: { id: true, members: { select: { userId: true } } }, take: 500 }));
+  for (const c of recent) {
+    for (const m of c.members) {
+      const link = `/reviews/write?conversation=${c.id}`;
+      const already = await system((tx) => tx.notification.findFirst({ where: { userId: m.userId, kind: "review.request", link }, select: { id: true } }));
+      if (already) continue;
+      const ok = (await reviewableConversations(m.userId, now)).find((x) => x.id === c.id);
+      if (!ok) continue;
+      await system((tx) => notify(tx, m.userId, { kind: "review.request", title: `How was ${ok.agentName}?`, body: "Rate the agent you talked to. It takes a minute and helps others choose.", link, dedupeKey: `review-nudge:${c.id}:${m.userId}` }));
+      nudges++;
+    }
+  }
+  return { invites, nudges };
+}

@@ -39,6 +39,8 @@ Each line says who does it and how you know it is done. The page `/admin/launch`
 - [ ] Confirm the schedules are running: `systemctl list-timers 'housy-*'` shows notifications (10 minutes), billing (daily) and backup (nightly). Run `sudo -u housy housy-job notifications` once by hand; it must finish without error.
 - [ ] Use "Forgot password" on a real address you own. The email arrives within a few minutes and the link works once.
 - [ ] `/api/health?detail=1` (with the cron secret) shows email queue empty.
+- [ ] Text messages (optional): open an account with Termii (sender ID approved) or Twilio (a number or Messaging Service), enter the keys in *Admin → Settings → Text messages*, turn on "Text me important notices" with your own mobile number in Notification settings, and change your password: the security alert text arrives within ten minutes.
+- [ ] Incoming email (optional): set the inbound domain in *Admin → Settings → Incoming email*, follow the Postmark steps shown there, and forward one email to a company's address: it appears in Correspondence.
 
 ## D. Payments (you and Paystack)
 - [ ] Register the webhook address `https://your-domain/api/webhooks/paystack` in the Paystack dashboard.

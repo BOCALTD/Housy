@@ -4,6 +4,8 @@ import { requirePlatformAdmin } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, LIVE_CHAT_ID_HINTS, LIVE_CHAT_LABELS, LIVE_CHAT_PLACES, LIVE_CHAT_PLACE_LABELS, LIVE_CHAT_PROVIDERS, configForAdmin, watermarkCounts } from "@/lib/services/platform-config";
 import { inboundAction } from "./inbound-actions";
+import { smsAction } from "./sms-actions";
+import { smsConfigForAdmin, smsSummary } from "@/lib/services/sms";
 import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, liveChatAction, paystackAction, watermarkPositionAction, watermarkSwitchAction, routesAction, stripeAction } from "./actions";
 import { COUNTRIES, COUNTRY_CODES, providerCanServe } from "@/lib/regions";
 import { maintenanceNow } from "@/lib/services/maintenance-mode";
@@ -16,7 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function PlatformSettings({ searchParams: s }: { searchParams?: Promise<SP> }) {
   const searchParams = await s;
   await requirePlatformAdmin();
-  const [c, m, wm, inbound] = await Promise.all([configForAdmin(), maintenanceNow(), watermarkCounts(), inboundConfig()]);
+  const [c, m, wm, inbound, sms, smsCounts] = await Promise.all([configForAdmin(), maintenanceNow(), watermarkCounts(), inboundConfig(), smsConfigForAdmin(), smsSummary()]);
   const w = m.window;
   const soon = toLagosLocal(new Date(Date.now() + 25 * 3_600_000));
   const h = await headers();
@@ -178,6 +180,28 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
             </ol>
           </details>
         ) : null}
+      </section>
+
+      <section className="card stack" aria-labelledby="sms-h">
+        <h2 id="sms-h">Text messages</h2>
+        <p>{sms.provider === "none" ? <span className="pill warn">Off</span> : <span className="pill ok">On: {sms.provider === "termii" ? "Termii" : "Twilio"}</span>} <span className="small muted">Important notices (account security alerts, inspection confirmations and reminders, failed payments) go by text to people who turn it on, and companies can text review requests to clients. Last 24 hours: {smsCounts.sent} sent, {smsCounts.waiting} waiting, {smsCounts.dead} could not be sent.</span></p>
+        <form action={smsAction} className="stack" autoComplete="off">
+          <Field label="Provider" hint="Termii suits Nigeria and much of Africa. Twilio works worldwide."><select name="provider" defaultValue={sms.provider}><option value="none">Off</option><option value="termii">Termii</option><option value="twilio">Twilio</option></select></Field>
+          <details className="vp-fold" open={sms.provider === "termii"}><summary>Termii</summary>
+            <div className="grid-2">
+              <Field label="API key" hint={sms.termiiKeyTail ? `Saved (${sms.termiiKeyTail}). Leave empty to keep it.` : "Termii dashboard, API Settings."}><input name="termiiKey" type="password" spellCheck={false} autoComplete="new-password" /></Field>
+              <Field label="Sender ID" hint="The name approved in your Termii account, 3 to 11 letters or numbers."><input name="termiiSender" spellCheck={false} maxLength={11} defaultValue={sms.termiiSender} /></Field>
+            </div>
+          </details>
+          <details className="vp-fold" open={sms.provider === "twilio"}><summary>Twilio</summary>
+            <div className="grid-2">
+              <Field label="Account SID" hint="Starts with AC, from the Twilio console."><input name="twilioSid" spellCheck={false} defaultValue={sms.twilioSid} /></Field>
+              <Field label="Auth token" hint={sms.twilioTokenTail ? `Saved (${sms.twilioTokenTail}). Leave empty to keep it.` : "From the Twilio console."}><input name="twilioToken" type="password" spellCheck={false} autoComplete="new-password" /></Field>
+              <Field label="Send from" hint="A Twilio phone number (+ and digits) or a Messaging Service SID (starts with MG)."><input name="twilioFrom" spellCheck={false} defaultValue={sms.twilioFrom} /></Field>
+            </div>
+          </details>
+          <div className="row"><button className="btn primary" type="submit" data-confirm="Save the text message settings?" data-confirm-body="Texts start going out through this provider straight away, and your provider charges for each one." data-confirm-ok="Save">Save text messages</button></div>
+        </form>
       </section>
 
       <section className="card stack" aria-labelledby="chat-h">

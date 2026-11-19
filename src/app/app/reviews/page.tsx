@@ -14,9 +14,11 @@ export default async function CompanyReviewsPage({ searchParams: searchP }: { se
   const member = await requireMember("crm.manage");
   const desk = await companyReviewDesk(member);
   const inviteForm = (basis: "TRANSACTION" | "INSPECTION", ref: string, state: string) => state === "REVIEWED" ? <span className="small muted">Reviewed</span> : (
-    <div className="row">
-      <form action={inviteAction} className="row"><input type="hidden" name="basis" value={basis} /><input type="hidden" name="basisRef" value={ref} />
+    <div className="row" style={{ flexWrap: "wrap" }}>
+      <form action={inviteAction} className="row" style={{ flexWrap: "wrap" }}><input type="hidden" name="basis" value={basis} /><input type="hidden" name="basisRef" value={ref} />
         <label className="check"><input type="checkbox" name="aboutCompany" /> <span>About the company</span></label>
+        <label className="check"><input type="checkbox" name="byEmail" /> <span>Email it to the client</span></label>
+        <label className="check"><input type="checkbox" name="bySms" /> <span>Text it to the client</span></label>
         <button className="btn small" type="submit">{state === "NONE" ? "Create review link" : "New link"}</button></form>
       {state === "OPEN" ? <form action={revokeInviteAction}><input type="hidden" name="basis" value={basis} /><input type="hidden" name="basisRef" value={ref} /><button className="btn small" type="submit">Cancel link</button></form> : null}
     </div>

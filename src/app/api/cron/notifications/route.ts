@@ -2,6 +2,9 @@ import { cronAuthorised } from "@/lib/cron-auth";
 import { processOutbox } from "@/lib/services/delivery";
 import { processBulk } from "@/lib/services/bulk-messaging";
 import { purgeUndo } from "@/lib/services/undo";
+import { processSms } from "@/lib/services/sms";
+import { sendReviewReminders } from "@/lib/services/reviews";
+import { withPlatformAdmin } from "@/lib/db";
 import { inspectionReminders } from "@/lib/services/inspection-bookings";
 import { safetyHousekeeping } from "@/lib/services/safety";
 import { sendMaintenanceNotice } from "@/lib/services/maintenance-mode";
@@ -19,5 +22,17 @@ export async function GET(req: Request) {
   // Companies' bulk messages go after the platform's own email, so a large send never delays account email.
   const bulk = await processBulk().catch((e) => ({ error: String(e) }));
   const undoPurged = await purgeUndo().catch(() => 0);
-  return Response.json({ ...outbox, reminders, safety, maintenance, bulk, undoPurged });
+  const sms = await processSms().catch((e) => ({ error: String(e) }));
+  // Review reminders at most once an hour (this job runs every few minutes).
+  let reviewReminders: unknown = "not due";
+  const due = await withPlatformAdmin("system", async (tx) => {
+    const row = await tx.platformSetting.findUnique({ where: { key: "review_reminders_at" } });
+    if (row && Date.now() - new Date(row.value).getTime() < 3600_000) return false;
+    const claimed = row
+      ? await tx.platformSetting.updateMany({ where: { key: "review_reminders_at", value: row.value }, data: { value: new Date().toISOString() } })
+      : await tx.platformSetting.createMany({ data: [{ key: "review_reminders_at", value: new Date().toISOString() }], skipDuplicates: true });
+    return claimed.count === 1;
+  }).catch(() => false);
+  if (due) reviewReminders = await sendReviewReminders().catch((e) => ({ error: String(e) }));
+  return Response.json({ ...outbox, reminders, safety, maintenance, bulk, undoPurged, sms, reviewReminders });
 }

@@ -1,3 +1,4 @@
+import { queueSmsForUser } from "./sms";
 import { withUser, type Tx } from "../db";
 import { categoryOf, dedupeKeyFor } from "../notification-rules";
 
@@ -21,6 +22,8 @@ export async function notify(tx: Tx, userId: string, n: NoticeInput) {
   await tx.notification.createMany({ data: [{ userId, kind: n.kind, title, body, link }] });
   // Also push it to the person's phone or computer if they turned that on (sent by the push job). Promotions are never pushed.
   if (categoryOf(n.kind) !== "PROMOTIONAL") await tx.pushOutbox.createMany({ data: [{ userId, kind: n.kind, title, body: body.slice(0, 300), link: link.slice(0, 500) }] });
+  // And a text message for important notices, for people who turned SMS on (checked when it is sent).
+  await queueSmsForUser(tx, userId, n.kind, body ? `${title}: ${body}` : title, link || title);
   if (n.email === false) return;
   await enqueueEmail(tx, userId, { kind: n.kind, template: n.template, vars: { title, body, link, ...(n.vars ?? {}) }, ref: link || title, dedupeKey: n.dedupeKey });
 }

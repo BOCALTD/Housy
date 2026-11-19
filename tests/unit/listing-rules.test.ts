@@ -46,6 +46,6 @@ test("price periods, amenities and key facts", () => {
   assert.equal(defaultPeriod("LEASE"), "YEAR");
   assert.equal(joinAmenities(["POOL", "GYM", "POOL", "x"]), "GYM,POOL");
   assert.deepEqual(parseAmenities("GYM,POOL,bad"), ["GYM", "POOL"]);
-  assert.deepEqual(keyFacts({ propertyType: "DUPLEX", bedrooms: 4, bathrooms: 5, toilets: 6, buildingSqm: 450, landSqm: 600, furnishing: "UNSPECIFIED" }), ["Duplex", "4 bed", "5 bath", "6 toilets", "450 m²"]);
-  assert.deepEqual(keyFacts({ propertyType: "LAND", bedrooms: null, bathrooms: null, toilets: null, buildingSqm: null, landSqm: 1000, furnishing: "UNSPECIFIED" }), ["Land", "1,000 m² land"]);
+  assert.deepEqual(keyFacts({ propertyType: "DUPLEX", bedrooms: 4, bathrooms: 5, toilets: 6, buildingSqm100: 45_050, landSqm100: 60_000, furnishing: "UNSPECIFIED" }), ["Duplex", "4 bed", "5 bath", "6 toilets", "450.5 m²"]);
+  assert.deepEqual(keyFacts({ propertyType: "LAND", bedrooms: null, bathrooms: null, toilets: null, buildingSqm100: null, landSqm100: 100_000, furnishing: "UNSPECIFIED" }), ["Land", "1,000 m² land"]);
 });

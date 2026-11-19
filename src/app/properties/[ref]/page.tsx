@@ -1,3 +1,4 @@
+import { formatArea } from "@/lib/area";
 import { Captcha } from "@/components/Captcha";
 import { visitorIp } from "@/lib/request-ip";
 import { recordSignal } from "@/lib/services/signals";
@@ -151,8 +152,8 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
             ["Caution deposit", money(listing.depositKobo)],
             ["Service charge", listing.serviceChargeKobo != null ? `${formatKobo(listing.serviceChargeKobo)} / year` : null],
             ["Other fees", listing.feesNote || null],
-            ["Building size", listing.buildingSqm != null ? `${listing.buildingSqm.toLocaleString("en-NG")} m²` : null],
-            ["Land size", listing.landSqm != null ? `${listing.landSqm.toLocaleString("en-NG")} m²` : null],
+            ["Building size", listing.buildingSqm100 != null ? formatArea(listing.buildingSqm100) : null],
+            ["Land size", listing.landSqm100 != null ? formatArea(listing.landSqm100) : null],
             ["Plot", listing.plotDimensions || null],
             ["Floors", listing.floors != null ? String(listing.floors) : null],
             ["Toilets", listing.toilets != null ? String(listing.toilets) : null],

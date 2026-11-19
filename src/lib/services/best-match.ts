@@ -16,8 +16,8 @@ export function freshWhere(now = new Date()): Prisma.ListingWhereInput {
 
 const MATCH_SELECT = {
   id: true, companyId: true, publicRef: true, purpose: true, pricePeriod: true, priceKobo: true, currency: true, bedrooms: true, propertyType: true,
-  city: true, state: true, estateName: true, lat: true, lng: true, description: true, videoUrl: true, bathrooms: true, buildingSqm: true,
-  landSqm: true, furnishing: true, availableFrom: true, publishedAt: true, _count: { select: { photos: true } },
+  city: true, state: true, estateName: true, lat: true, lng: true, description: true, videoUrl: true, bathrooms: true, buildingSqm100: true,
+  landSqm100: true, furnishing: true, availableFrom: true, publishedAt: true, _count: { select: { photos: true } },
 } as const;
 
 type Pricer = (l: { purpose: string; propertyType: string; bedrooms: number | null; city: string }) => AreaPrice;

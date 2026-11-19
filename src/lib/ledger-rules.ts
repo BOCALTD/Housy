@@ -181,11 +181,25 @@ export function checkClosure(input: {
 
 export type ServiceMethodName = "EQUAL" | "FLOOR_AREA" | "FIXED";
 
-export interface Share { id: string; floorAreaSqm: number | null; fixedKobo?: bigint }
+/**
+ * One tenancy's part in a service charge: its floor area (hundredths of a square metre) for sharing by floor area, the days of
+ * the period it was occupied (all of them when not given), and its amount for fixed shares.
+ */
+export interface Share { id: string; area: number | null; days?: number; fixedKobo?: bigint }
+
+/** The days a tenancy covers within a period, both ends counted (a closed lease stops on its closing date). */
+export function occupiedDays(period: { start: Date; end: Date }, lease: { start: Date; end: Date; closedOn?: Date | null }): number {
+  const day = 86_400_000;
+  const from = Math.max(period.start.getTime(), lease.start.getTime());
+  const to = Math.min(period.end.getTime(), lease.end.getTime(), lease.closedOn ? lease.closedOn.getTime() : Infinity);
+  return to < from ? 0 : Math.round((to - from) / day) + 1;
+}
 
 /**
  * Split a budget across tenants with the largest-remainder method, so the shares add up to the
  * budget exactly, with no kobo lost or invented. Ties go to the lower id so the result is stable.
+ * Pro rata: a tenancy that covers only part of the period is weighted by the days it was occupied, so someone there for a
+ * quarter of the period carries a quarter of a full share (by floor area, area × days).
  * FIXED shares are taken as given and must add up to the budget.
  */
 export function allocateBudget(budgetKobo: bigint, method: ServiceMethodName, shares: Share[]): { id: string; amountKobo: bigint }[] {
@@ -205,9 +219,11 @@ export function allocateBudget(budgetKobo: bigint, method: ServiceMethodName, sh
   }
 
   const weights = shares.map((s) => {
-    if (method === "EQUAL") return 1n;
-    if (!s.floorAreaSqm || s.floorAreaSqm <= 0) throw new Error("Every lease needs a floor area to share the charge by floor area");
-    return BigInt(s.floorAreaSqm);
+    const days = BigInt(s.days ?? 1);
+    if (s.days !== undefined && s.days <= 0) throw new Error("A lease that does not cover any day of the period cannot share its charge");
+    if (method === "EQUAL") return days;
+    if (!s.area || s.area <= 0) throw new Error("Every lease needs a floor area to share the charge by floor area");
+    return BigInt(s.area) * days;
   });
   const totalWeight = weights.reduce((a, b) => a + b, 0n);
   const rows = shares.map((s, i) => {

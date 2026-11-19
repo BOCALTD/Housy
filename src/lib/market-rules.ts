@@ -10,7 +10,7 @@ export const MIN_LISTINGS = 5;
 export const MIN_COMPANIES = 2;
 export const MIN_PEERS = 5;
 
-export type Sample = { companyId: string; purpose: "SALE" | "RENT" | "LEASE"; pricePeriod: string | null; priceKobo: bigint; bedrooms: number | null; propertyType: string; buildingSqm: number | null; city: string; state: string; publishedAt: Date | null; offMarketAt: Date | null };
+export type Sample = { companyId: string; purpose: "SALE" | "RENT" | "LEASE"; pricePeriod: string | null; priceKobo: bigint; bedrooms: number | null; propertyType: string; buildingSqm100: number | null; city: string; state: string; publishedAt: Date | null; offMarketAt: Date | null };
 
 /** Rent as a yearly figure. Nightly short lets are a different market and are left out of rent figures. */
 export function yearlyKobo(s: { purpose: string; pricePeriod: string | null; priceKobo: bigint }): bigint | null {
@@ -68,7 +68,7 @@ export function cityInsight(city: string, state: string, rows: Sample[], now: Da
     const t = stat(rent.filter((x) => bedroomBand(x.r.bedrooms) === band).map((x) => ({ v: naira(x.y), companyId: x.r.companyId })));
     return { band, sale: s, rent: t, yieldPct: grossYield(t, s) };
   }).filter((b) => b.sale || b.rent);
-  const sqm = sale.filter((r) => r.buildingSqm && r.buildingSqm >= 20).map((r) => ({ v: naira(r.priceKobo) / r.buildingSqm!, companyId: r.companyId }));
+  const sqm = sale.filter((r) => r.buildingSqm100 && r.buildingSqm100 >= 2000).map((r) => ({ v: naira(r.priceKobo) / (r.buildingSqm100! / 100), companyId: r.companyId }));
   const dom = rows.filter((r) => r.publishedAt && r.offMarketAt && r.offMarketAt > r.publishedAt && now.getTime() - r.offMarketAt.getTime() < 365 * 864e5)
     .map((r) => ({ v: (r.offMarketAt!.getTime() - r.publishedAt!.getTime()) / 864e5, companyId: r.companyId }));
   return {

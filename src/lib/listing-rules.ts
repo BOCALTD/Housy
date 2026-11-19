@@ -136,14 +136,16 @@ export function filtersToQuery(f: Partial<Filters>, change: Record<string, strin
 }
 
 /** Key facts for a listing card or page, in the order people look for them. */
-export function keyFacts(l: { propertyType: string; bedrooms: number | null; bathrooms: number | null; toilets: number | null; buildingSqm: number | null; landSqm: number | null; furnishing: string }, typeLabels?: Record<string, string>) {
+export function keyFacts(l: { propertyType: string; bedrooms: number | null; bathrooms: number | null; toilets: number | null; buildingSqm100: number | null; landSqm100: number | null; furnishing: string }, typeLabels?: Record<string, string>) {
   const out: string[] = [];
   if (l.propertyType !== "OTHER" && isCode(PROPERTY_TYPES, l.propertyType)) out.push(typeLabels?.[l.propertyType] ?? PROPERTY_TYPES[l.propertyType]);
   if (l.bedrooms != null) out.push(`${l.bedrooms} bed`);
   if (l.bathrooms != null) out.push(`${l.bathrooms} bath`);
   if (l.toilets != null) out.push(`${l.toilets} toilet${l.toilets === 1 ? "" : "s"}`);
-  if (l.buildingSqm != null) out.push(`${l.buildingSqm.toLocaleString("en-NG")} m²`);
-  else if (l.landSqm != null) out.push(`${l.landSqm.toLocaleString("en-NG")} m² land`);
+  if (l.buildingSqm100 != null) out.push(formatArea(l.buildingSqm100));
+  else if (l.landSqm100 != null) out.push(formatArea(l.landSqm100, " m² land"));
   if (l.furnishing !== "UNSPECIFIED" && isCode(FURNISHING, l.furnishing)) out.push(FURNISHING[l.furnishing]);
   return out;
 }
+
+import { formatArea } from "./area";

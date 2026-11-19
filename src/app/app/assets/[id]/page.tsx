@@ -1,3 +1,4 @@
+import { areaInput } from "@/lib/area";
 import { areaLabel, boundaryAreaSqm } from "@/lib/location-rules";
 import { StreetMap } from "@/components/StreetMap";
 import { countryView, visitorCountry } from "@/lib/countries";
@@ -159,7 +160,7 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                       <Field label={`Rent per period (${moneySymbol()})`}><input name="rent" required inputMode="decimal" /></Field>
                       <Field label="Paid"><select name="frequency" defaultValue="YEARLY"><EnumOptions values={FREQUENCIES} /></select></Field>
                       <Field label="Every how many months?" hint="Only for a custom frequency."><input name="intervalMonths" inputMode="numeric" /></Field>
-                      <Field label="Floor area (m², whole number)" hint="Needed to share a service charge by floor area."><input name="floorAreaSqm" inputMode="numeric" /></Field>
+                      <Field label="Floor area (m²)" hint="Up to two decimal places, e.g. 120.5. Needed to share a service charge by floor area."><input name="floorAreaSqm" inputMode="decimal" /></Field>
                       <Field label={`Deposit (${moneySymbol()})`}><input name="deposit" inputMode="decimal" /></Field>
                     </div>
                     <div className="fields">
@@ -402,8 +403,8 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
                     <summary>Size, condition and availability</summary>
                     <div className="stack">
                       <div className="fields">
-                        <Field label="Building size (m²)"><input name="buildingSqm" inputMode="numeric" defaultValue={listing?.buildingSqm ?? ""} /></Field>
-                        <Field label="Land size (m²)"><input name="landSqm" inputMode="numeric" defaultValue={listing?.landSqm ?? ""} /></Field>
+                        <Field label="Building size (m²)" hint="Up to two decimal places, e.g. 450.5"><input name="buildingSqm" inputMode="decimal" defaultValue={areaInput(listing?.buildingSqm100)} /></Field>
+                        <Field label="Land size (m²)" hint="Up to two decimal places"><input name="landSqm" inputMode="decimal" defaultValue={areaInput(listing?.landSqm100)} /></Field>
                         <Field label="Plot dimensions" hint="For example 18m x 36m"><input name="plotDimensions" maxLength={60} defaultValue={listing?.plotDimensions ?? ""} /></Field>
                         <Field label="Floors"><input name="floors" inputMode="numeric" defaultValue={listing?.floors ?? ""} /></Field>
                       </div>

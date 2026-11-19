@@ -20,7 +20,7 @@ async function samples(where: { city?: string } = {}): Promise<Sample[]> {
       publishedAt: { not: null }, country: "NG", platformHidden: false, ...(where.city ? { city: { equals: where.city, mode: "insensitive" as const } } : {}),
       OR: [{ status: "PUBLISHED" }, { status: "UNAVAILABLE", offMarketAt: { gte: since } }],
     },
-    select: { companyId: true, purpose: true, pricePeriod: true, priceKobo: true, currency: true, bedrooms: true, propertyType: true, buildingSqm: true, city: true, state: true, publishedAt: true, offMarketAt: true },
+    select: { companyId: true, purpose: true, pricePeriod: true, priceKobo: true, currency: true, bedrooms: true, propertyType: true, buildingSqm100: true, city: true, state: true, publishedAt: true, offMarketAt: true },
     take: 50_000,
   })) as Promise<Sample[]>;
 }

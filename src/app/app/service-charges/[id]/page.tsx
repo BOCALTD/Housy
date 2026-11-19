@@ -1,3 +1,5 @@
+import { formatArea } from "@/lib/area";
+import { occupiedDays } from "@/lib/ledger-rules";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -32,6 +34,8 @@ export default async function ServicePeriodPage({ params: paramsP, searchParams:
   const who = (id: string | null | undefined) => (id ? names[id] ?? "Unknown user" : "—");
   const hidden = <input type="hidden" name="periodId" value={period.id} />;
 
+  const span = { start: period.startDate, end: period.endDate };
+  const periodDays = occupiedDays(span, { start: period.startDate, end: period.endDate });
   return (
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}>
@@ -66,12 +70,12 @@ export default async function ServicePeriodPage({ params: paramsP, searchParams:
                 <ShowMore noun="more" limit={5} items={activeLeases.map((l) => (
                     <li key={l.id}>
                       <div className="row between" style={{ width: "100%" }}>
-                        <div>{l.occupantName} <span className="small muted">{l.ref}{l.unit ? ` · ${l.unit}` : ""}{l.floorAreaSqm ? ` · ${l.floorAreaSqm} m²` : period.method === "FLOOR_AREA" ? " · floor area missing" : ""}</span></div>
+                        <div>{l.occupantName} <span className="small muted">{l.ref}{l.unit ? ` · ${l.unit}` : ""}{l.floorAreaSqm100 ? ` · ${formatArea(l.floorAreaSqm100)}` : period.method === "FLOOR_AREA" ? " · floor area missing" : ""}{(() => { const d = occupiedDays(span, { start: l.startDate, end: l.endDate, closedOn: l.closedOn }); return d < periodDays ? ` · ${d} of ${periodDays} days (pro rata)` : ""; })()}</span></div>
                         {period.method === "FIXED" ? <input name={`fixed:${l.id}`} aria-label={`Fixed amount for ${l.occupantName}`} inputMode="decimal" placeholder="₦" style={{ width: 140 }} /> : null}
                       </div>
                     </li>
                   ))} />
-                {period.method === "FIXED" ? <p className="small muted">The fixed amounts must add up to exactly {formatKobo(period.budgetKobo)}.</p> : null}
+                {period.method === "FIXED" ? <p className="small muted">The fixed amounts must add up to exactly {formatKobo(period.budgetKobo)}.</p> : <p className="small muted">A tenancy that covers only part of the period pays pro rata: its share is weighted by the days it covers.</p>}
                 <Field label="Payment due on"><input name="dueDate" type="date" required /></Field>
                 <button className="btn primary" type="submit">Share the budget</button>
               </form>
@@ -87,7 +91,7 @@ export default async function ServicePeriodPage({ params: paramsP, searchParams:
                   <div className="row between">
                     <div>
                       <Link href={`/app/leases/${a.leaseId}`}><strong>{lease?.occupantName ?? "Tenant"}</strong></Link>
-                      <div className="small muted">{lease?.ref}{lease?.unit ? ` · ${lease.unit}` : ""} · due {formatDate(a.dueDate)}</div>
+                      <div className="small muted">{lease?.ref}{lease?.unit ? ` · ${lease.unit}` : ""} · due {formatDate(a.dueDate)}{a.daysOccupied != null && a.periodDays != null && a.daysOccupied < a.periodDays ? ` · ${a.daysOccupied} of ${a.periodDays} days (pro rata)` : ""}</div>
                     </div>
                     <div className="small">Share {formatKobo(a.amountKobo)} · paid {formatKobo(bal.collected)} · <strong>owes {formatKobo(bal.outstanding)}</strong></div>
                   </div>

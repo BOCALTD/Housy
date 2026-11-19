@@ -4,7 +4,7 @@ import { compareNotes, type CompareRow } from "../../src/lib/compare-notes";
 import type { CityInsight } from "../../src/lib/market-rules";
 
 const row = (o: Partial<CompareRow>): CompareRow => ({
-  ref: "P", name: "A", purpose: "RENT", pricePeriod: "YEAR", priceKobo: 500_000_000n, serviceChargeKobo: null, bedrooms: 2, buildingSqm: null, landSqm: null,
+  ref: "P", name: "A", purpose: "RENT", pricePeriod: "YEAR", priceKobo: 500_000_000n, serviceChargeKobo: null, bedrooms: 2, buildingSqm100: null, landSqm100: null,
   city: "Lekki", propertyType: "FLAT", titleDocument: "UNSPECIFIED", furnishing: "UNFURNISHED", serviced: false, amenities: [], verifiedCompany: false, ...o,
 });
 

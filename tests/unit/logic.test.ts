@@ -252,29 +252,29 @@ import { allocateBudget, assessmentBalance, checkClosure, checkRenewalPeriod, fu
 const day = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 test("service charge shares add up to the budget exactly, whatever the split", () => {
-  const equal = allocateBudget(1_000_000n, "EQUAL", [{ id: "a", floorAreaSqm: null }, { id: "b", floorAreaSqm: null }, { id: "c", floorAreaSqm: null }]);
+  const equal = allocateBudget(1_000_000n, "EQUAL", [{ id: "a", area: null }, { id: "b", area: null }, { id: "c", area: null }]);
   assert.equal(equal.reduce((s, r) => s + r.amountKobo, 0n), 1_000_000n);
   assert.deepEqual(equal.map((r) => r.amountKobo), [333_334n, 333_333n, 333_333n]);
 
-  const area = allocateBudget(1_000_001n, "FLOOR_AREA", [{ id: "x", floorAreaSqm: 30 }, { id: "y", floorAreaSqm: 70 }, { id: "z", floorAreaSqm: 17 }]);
+  const area = allocateBudget(1_000_001n, "FLOOR_AREA", [{ id: "x", area: 30 }, { id: "y", area: 70 }, { id: "z", area: 17 }]);
   assert.equal(area.reduce((s, r) => s + r.amountKobo, 0n), 1_000_001n);
   assert.ok(area.find((r) => r.id === "y")!.amountKobo > area.find((r) => r.id === "x")!.amountKobo);
 
   // Same input, same output: ties are broken by id, not by order.
-  const one = allocateBudget(100n, "EQUAL", [{ id: "b", floorAreaSqm: null }, { id: "a", floorAreaSqm: null }, { id: "c", floorAreaSqm: null }]);
-  const two = allocateBudget(100n, "EQUAL", [{ id: "c", floorAreaSqm: null }, { id: "a", floorAreaSqm: null }, { id: "b", floorAreaSqm: null }]);
+  const one = allocateBudget(100n, "EQUAL", [{ id: "b", area: null }, { id: "a", area: null }, { id: "c", area: null }]);
+  const two = allocateBudget(100n, "EQUAL", [{ id: "c", area: null }, { id: "a", area: null }, { id: "b", area: null }]);
   const byId = (r: { id: string; amountKobo: bigint }[]) => Object.fromEntries(r.map((x) => [x.id, x.amountKobo]));
   assert.deepEqual(byId(one), byId(two));
   assert.equal(byId(one).a, 34n);
 });
 
 test("service charge allocation rejects what cannot be shared fairly", () => {
-  assert.throws(() => allocateBudget(0n, "EQUAL", [{ id: "a", floorAreaSqm: null }]), /more than zero/);
+  assert.throws(() => allocateBudget(0n, "EQUAL", [{ id: "a", area: null }]), /more than zero/);
   assert.throws(() => allocateBudget(100n, "EQUAL", []), /No active leases/);
-  assert.throws(() => allocateBudget(100n, "FLOOR_AREA", [{ id: "a", floorAreaSqm: 10 }, { id: "b", floorAreaSqm: null }]), /floor area/);
-  assert.throws(() => allocateBudget(100n, "FIXED", [{ id: "a", floorAreaSqm: null, fixedKobo: 60n }, { id: "b", floorAreaSqm: null, fixedKobo: 30n }]), /exactly the budget/);
-  assert.throws(() => allocateBudget(100n, "FIXED", [{ id: "a", floorAreaSqm: null, fixedKobo: 60n }, { id: "b", floorAreaSqm: null }]), /every lease/);
-  assert.deepEqual(allocateBudget(100n, "FIXED", [{ id: "a", floorAreaSqm: null, fixedKobo: 60n }, { id: "b", floorAreaSqm: null, fixedKobo: 40n }]).map((r) => r.amountKobo), [60n, 40n]);
+  assert.throws(() => allocateBudget(100n, "FLOOR_AREA", [{ id: "a", area: 10 }, { id: "b", area: null }]), /floor area/);
+  assert.throws(() => allocateBudget(100n, "FIXED", [{ id: "a", area: null, fixedKobo: 60n }, { id: "b", area: null, fixedKobo: 30n }]), /exactly the budget/);
+  assert.throws(() => allocateBudget(100n, "FIXED", [{ id: "a", area: null, fixedKobo: 60n }, { id: "b", area: null }]), /every lease/);
+  assert.deepEqual(allocateBudget(100n, "FIXED", [{ id: "a", area: null, fixedKobo: 60n }, { id: "b", area: null, fixedKobo: 40n }]).map((r) => r.amountKobo), [60n, 40n]);
 });
 
 test("assessment balances ignore reversed collections, and the fund stays separate from the budget", () => {

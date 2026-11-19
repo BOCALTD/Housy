@@ -7,7 +7,7 @@ import { bedroomBand, compactNaira, position, segmentOf, yearlyKobo, type CityIn
 
 export type CompareRow = {
   ref: string; name: string; purpose: string; pricePeriod: string; priceKobo: bigint; serviceChargeKobo: bigint | null;
-  bedrooms: number | null; buildingSqm: number | null; landSqm: number | null; city: string; propertyType: string;
+  bedrooms: number | null; buildingSqm100: number | null; landSqm100: number | null; city: string; propertyType: string;
   titleDocument: string; furnishing: string; serviced: boolean; amenities: string[]; verifiedCompany: boolean;
 };
 
@@ -33,7 +33,7 @@ export function compareNotes(rows: CompareRow[], cities: CityInsight[] = [], ame
         notes.push(`${lo.r.name} has the lowest ${what} at ${naira(lo.v)}; ${hi.r.name} is ${pct}% more at ${naira(hi.v)}.`);
       }
     }
-    const sqm = rows.map((r) => { const a = r.buildingSqm ?? r.landSqm; const y = yearlyKobo(r); return a && y !== null ? { r, v: Number(y) / 100 / a } : null; })
+    const sqm = rows.map((r) => { const a = r.buildingSqm100 ?? r.landSqm100; const y = yearlyKobo(r); return a && y !== null ? { r, v: Number(y) / 100 / (a / 100) } : null; })
       .filter((x): x is { r: CompareRow; v: number } => !!x).sort((a, b) => a.v - b.v);
     if (sqm.length >= 2 && sqm[0].r !== cost[0]?.r) notes.push(`For the space you get, ${sqm[0].r.name} is the best value at ${compactNaira(sqm[0].v)} per m².`);
   }

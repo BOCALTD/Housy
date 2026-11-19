@@ -7,7 +7,7 @@ const daysAgo = (d: number) => new Date(now.getTime() - d * 864e5);
 let n = 0;
 const L = (o: Partial<MatchInput> = {}): MatchInput => ({
   id: `l${++n}`, companyId: "c1", publicRef: `R${n}`, purpose: "RENT", pricePeriod: "YEAR", priceKobo: 300_000_000n, bedrooms: 2, propertyType: "FLAT",
-  city: "Lekki", estateName: "", lat: null, lng: null, description: "", videoUrl: "", bathrooms: null, buildingSqm: null, landSqm: null,
+  city: "Lekki", estateName: "", lat: null, lng: null, description: "", videoUrl: "", bathrooms: null, buildingSqm100: null, landSqm100: null,
   furnishing: "", availableFrom: null, publishedAt: daysAgo(10), photos: 0, ...o,
 });
 
@@ -29,7 +29,7 @@ test("rents are compared as a year's rent", () => {
 
 test("completeness and freshness are bounded", () => {
   assert.equal(completeness(L()).score <= 1, true);
-  const full = completeness(L({ photos: 20, description: "x".repeat(400), videoUrl: "https://v", lat: 6.4, lng: 3.4, bathrooms: 2, buildingSqm: 90, furnishing: "FURNISHED", availableFrom: now }));
+  const full = completeness(L({ photos: 20, description: "x".repeat(400), videoUrl: "https://v", lat: 6.4, lng: 3.4, bathrooms: 2, buildingSqm100: 90, furnishing: "FURNISHED", availableFrom: now }));
   assert.equal(full.score, 30);
   assert.deepEqual(full.reasons, ["20 photos", "Has a video"]);
   assert.ok(Math.abs(freshness(now, now) - 15) < 1e-9);

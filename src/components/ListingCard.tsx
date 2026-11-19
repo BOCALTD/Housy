@@ -4,7 +4,7 @@ import { GoldBadge, PremiumTag, PriceBlock, PromoRibbon } from "./Promo";
 import type { TierName } from "@/lib/tier-rules";
 import { keyFacts, priceSuffix } from "@/lib/listing-rules";
 
-type L = { id: string; publicRef: string; title: string; purpose: string; priceKobo: bigint; currency?: string; bedrooms: number | null; bathrooms: number | null; city: string; state: string; propertyType: string; pricePeriod: string; toilets: number | null; buildingSqm: number | null; landSqm: number | null; furnishing: string; negotiable: boolean; coverPhotoId: string | null; tier: TierName; promo: { campaignName: string; pct: number; theme: string; originalKobo: bigint; promoKobo: bigint } | null;
+type L = { id: string; publicRef: string; title: string; purpose: string; priceKobo: bigint; currency?: string; bedrooms: number | null; bathrooms: number | null; city: string; state: string; propertyType: string; pricePeriod: string; toilets: number | null; buildingSqm100: number | null; landSqm100: number | null; furnishing: string; negotiable: boolean; coverPhotoId: string | null; tier: TierName; promo: { campaignName: string; pct: number; theme: string; originalKobo: bigint; promoKobo: bigint } | null;
   /** From Best match (lib/match-rules.ts): how the price compares with the area, why it ranks here, and copies of the same home. */
   verdict?: { kind: "good" | "fair" | "high"; pct: number } | null; matchWhy?: string[]; alsoListed?: { publicRef: string }[] };
 

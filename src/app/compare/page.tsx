@@ -1,3 +1,4 @@
+import { formatArea } from "@/lib/area";
 import Link from "next/link";
 import { compareRefs } from "@/lib/calc-rules";
 import { publicListingsByRefs } from "@/lib/services/listings";
@@ -30,7 +31,7 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
   ]);
   // Yearly cost to occupy: rent per year plus service charge (only for rent and lease; a sale has no yearly price).
   const yearly = (l: (typeof rows)[number]) => l.purpose === "SALE" ? null : (l.pricePeriod === "MONTH" ? l.priceKobo * 12n : l.pricePeriod === "NIGHT" ? null : l.priceKobo) as bigint | null;
-  const perSqm = (l: (typeof rows)[number]) => { const area = l.buildingSqm ?? l.landSqm; return area && (l.pricePeriod === "TOTAL" || l.pricePeriod === "YEAR") ? l.priceKobo / BigInt(area) : null; };
+  const perSqm = (l: (typeof rows)[number]) => { const area = l.buildingSqm100 ?? l.landSqm100; return area && (l.pricePeriod === "TOTAL" || l.pricePeriod === "YEAR") ? (l.priceKobo * 100n) / BigInt(area) : null; };
   const best = (vals: (bigint | null)[]) => { const v = vals.filter((x): x is bigint => x !== null); return v.length > 1 ? v.reduce((a, b) => (b < a ? b : a)) : null; };
   const bestSqm = best(rows.map(perSqm));
   const ref = await refData();
@@ -40,7 +41,7 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
   const shortName = (t: string) => (t.length > 40 ? `${t.slice(0, 38).trimEnd()}…` : t);
   const notes = compareNotes(rows.map((l) => ({
     ref: l.publicRef, name: `“${shortName(l.title)}”`, purpose: l.purpose, pricePeriod: l.pricePeriod, priceKobo: l.promo?.promoKobo ?? l.priceKobo, serviceChargeKobo: l.serviceChargeKobo,
-    bedrooms: l.bedrooms, buildingSqm: l.buildingSqm, landSqm: l.landSqm, city: l.city, propertyType: l.propertyType, titleDocument: l.titleDocument,
+    bedrooms: l.bedrooms, buildingSqm100: l.buildingSqm100, landSqm100: l.landSqm100, city: l.city, propertyType: l.propertyType, titleDocument: l.titleDocument,
     furnishing: l.furnishing, serviced: l.serviced, amenities: parseAmenities(l.amenities, Object.keys(amenL)), verifiedCompany: (trust.get(l.companyId)?.level ?? 0) >= 2,
   })), market?.cities ?? [], (c) => amenL[c] ?? c);
   const line = (name: string, f: (l: (typeof rows)[number]) => React.ReactNode) => <tr key={name}><th scope="row">{name}</th>{rows.map((l) => <td key={l.id}>{f(l)}</td>)}</tr>;
@@ -84,8 +85,8 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
               {line("Type", (l) => label(typeL, l.propertyType))}
               {line("Purpose", (l) => (l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`))}
               {line("Bedrooms / bathrooms / toilets", (l) => [l.bedrooms, l.bathrooms, l.toilets].map((n) => (n ?? "–")).join(" / "))}
-              {line("Building size", (l) => (l.buildingSqm != null ? `${l.buildingSqm.toLocaleString("en-NG")} m²` : "—"))}
-              {line("Land size", (l) => (l.landSqm != null ? `${l.landSqm.toLocaleString("en-NG")} m²` : "—"))}
+              {line("Building size", (l) => (l.buildingSqm100 != null ? formatArea(l.buildingSqm100) : "—"))}
+              {line("Land size", (l) => (l.landSqm100 != null ? formatArea(l.landSqm100) : "—"))}
               {line("Furnishing", (l) => label(FURNISHING, l.furnishing))}
               {line("Condition", (l) => label(CONDITIONS, l.condition))}
               {line("Construction", (l) => label(CONSTRUCTION, l.constructionStatus))}

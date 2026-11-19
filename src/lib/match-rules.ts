@@ -11,7 +11,7 @@ export type MatchInput = {
   id: string; companyId: string; publicRef: string;
   purpose: string; pricePeriod: string; priceKobo: bigint; bedrooms: number | null; propertyType: string;
   city: string; estateName: string; lat: number | null; lng: number | null;
-  description: string; videoUrl: string; bathrooms: number | null; buildingSqm: number | null; landSqm: number | null;
+  description: string; videoUrl: string; bathrooms: number | null; buildingSqm100: number | null; landSqm100: number | null;
   furnishing: string; availableFrom: Date | null; publishedAt: Date | null; photos: number;
 };
 
@@ -43,7 +43,7 @@ export function completeness(l: MatchInput): { score: number; reasons: string[] 
   if (l.description.trim().length >= 300) score += 5;
   if (l.videoUrl) { score += 3; reasons.push("Has a video"); }
   if (l.lat !== null && l.lng !== null) score += 3;
-  score += [l.bathrooms, l.buildingSqm ?? l.landSqm, l.furnishing || null, l.availableFrom].filter((x) => x !== null && x !== undefined && x !== "").length * 0.75;
+  score += [l.bathrooms, l.buildingSqm100 ?? l.landSqm100, l.furnishing || null, l.availableFrom].filter((x) => x !== null && x !== undefined && x !== "").length * 0.75;
   return { score: Math.min(30, score), reasons };
 }
 

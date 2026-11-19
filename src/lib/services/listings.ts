@@ -5,6 +5,7 @@ import { referralEvent } from "./referrals";
 import { alertNewListing, alertWatchers, notifyEnquiry } from "./alerts";
 import { vacancyListingPublished } from "./vacancies";
 import { z } from "zod";
+import { parseArea } from "../area";
 import { platformConfig } from "./platform-config";
 import { locate, publicPosition } from "../geo-rules";
 import { withTenant, withPublic, withPlatformAdmin } from "../db";
@@ -22,6 +23,11 @@ import {
 
 export const PURPOSES = ["SALE", "RENT", "LEASE"] as const;
 
+/** An optional area in square metres (two decimal places), kept in hundredths. */
+const optArea = (label: string, max100: number) => z.string().optional().transform((v, c) => {
+  if (!v || !v.trim()) return null;
+  try { const a = parseArea(v); if (a <= 0 || a > max100) throw new Error(); return a; } catch { c.addIssue({ code: "custom", message: `Enter the ${label} in square metres, for example 450 or 450.5` }); return null; }
+});
 const optInt = (label: string, max: number) => z.string().optional().transform((v) => (v && v.trim() ? Number.parseInt(v.replace(/[,\s]/g, ""), 10) : null))
   .refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= max), `Enter a valid ${label}`);
 const optMoney = z.string().optional().transform((v) => (v && v.trim() ? parseNairaToKobo(v) : null));
@@ -43,7 +49,7 @@ const listingSchema = z.object({
   deposit: optMoney, serviceCharge: optMoney,
   feesNote: z.string().trim().max(500).optional().default(""),
   toilets: optInt("number of toilets", 99), floors: optInt("number of floors", 200),
-  buildingSqm: optInt("building size in square metres", 10_000_000), landSqm: optInt("land size in square metres", 100_000_000),
+  buildingSqm: optArea("building size", 1_000_000_000), landSqm: optArea("land size", 2_000_000_000),
   plotDimensions: z.string().trim().max(60).optional().default(""),
   furnishing: code(FURNISHING, "UNSPECIFIED"), condition: code(CONDITIONS, "UNSPECIFIED"), constructionStatus: code(CONSTRUCTION, "COMPLETED"),
   serviced: z.union([z.boolean(), z.string()]).optional().transform((v) => v === true || v === "yes" || v === "on"),
@@ -83,7 +89,7 @@ export async function saveListingDraft(ctx: Ctx, assetId: string, input: z.input
       bathrooms: data.bathrooms, description: data.description, city: data.city, state: data.state,
       lat: shown?.lat ?? null, lng: shown?.lng ?? null,
       propertyType: data.propertyType as string, pricePeriod: data.pricePeriod, negotiable: data.negotiable, depositKobo: data.deposit, serviceChargeKobo: data.serviceCharge,
-      feesNote: data.feesNote, toilets: data.toilets, floors: data.floors, buildingSqm: data.buildingSqm, landSqm: data.landSqm, plotDimensions: data.plotDimensions,
+      feesNote: data.feesNote, toilets: data.toilets, floors: data.floors, buildingSqm100: data.buildingSqm, landSqm100: data.landSqm, plotDimensions: data.plotDimensions,
       furnishing: data.furnishing as string, condition: data.condition as string, constructionStatus: data.constructionStatus as string, serviced: data.serviced,
       amenities: data.amenities, titleDocument: data.titleDocument as string, availableFrom: data.availableFrom, minLeaseMonths: data.minLeaseMonths,
       estateName: data.estateName, videoUrl: data.videoUrl,
@@ -229,7 +235,7 @@ export function listingWhere(f: Filters, rule: CategoryRule = {}, companyIds?: s
   if (f.serviced) and.push({ serviced: true });
   if (f.negotiable) and.push({ negotiable: true });
   for (const a of f.amenities) and.push({ OR: [{ amenities: a }, { amenities: { startsWith: `${a},` } }, { amenities: { endsWith: `,${a}` } }, { amenities: { contains: `,${a},` } }] });
-  if (f.minSize !== undefined) and.push({ OR: [{ buildingSqm: { gte: f.minSize } }, { landSqm: { gte: f.minSize } }] });
+  if (f.minSize !== undefined) and.push({ OR: [{ buildingSqm100: { gte: f.minSize * 100 } }, { landSqm100: { gte: f.minSize * 100 } }] });
   if (f.construction) and.push({ constructionStatus: f.construction });
   if (f.titleDoc) and.push({ titleDocument: f.titleDoc });
   if (f.estate) and.push({ estateName: { contains: f.estate, mode: "insensitive" } });
@@ -243,7 +249,7 @@ const ORDER: Record<Filters["sort"], Prisma.ListingOrderByWithRelationInput[]> =
   newest: [{ publishedAt: "desc" }, { publicRef: "asc" }],
   price_asc: [{ priceKobo: "asc" }, { publicRef: "asc" }],
   price_desc: [{ priceKobo: "desc" }, { publicRef: "asc" }],
-  size_desc: [{ buildingSqm: { sort: "desc", nulls: "last" } }, { landSqm: { sort: "desc", nulls: "last" } }, { publicRef: "asc" }],
+  size_desc: [{ buildingSqm100: { sort: "desc", nulls: "last" } }, { landSqm100: { sort: "desc", nulls: "last" } }, { publicRef: "asc" }],
 };
 
 /** One page of search results with the total, for the browse and category pages. */

@@ -132,9 +132,9 @@ test("a service charge budget is shared to the kobo: each share is the exact fra
   for (let i = 0; i < 3000; i++) {
     const n = int(r, 1, 12), budget = big(r, 1n, 900_000_000n);
     const method = (["EQUAL", "FLOOR_AREA"] as const)[int(r, 0, 1)];
-    const shares = Array.from({ length: n }, (_, k) => ({ id: `L${String(k).padStart(2, "0")}`, floorAreaSqm: int(r, 5, 900) }));
+    const shares = Array.from({ length: n }, (_, k) => ({ id: `L${String(k).padStart(2, "0")}`, area: int(r, 5, 900) }));
     const got = allocateBudget(budget, method, shares);
-    const w = shares.map((s) => (method === "EQUAL" ? 1n : BigInt(s.floorAreaSqm)));
+    const w = shares.map((s) => (method === "EQUAL" ? 1n : BigInt(s.area)));
     const W = w.reduce((a, b) => a + b, 0n);
     assert.equal(got.reduce((s, x) => s + x.amountKobo, 0n), budget, "the shares add up to the budget exactly");
     const exact = w.map((wi) => ({ floor: (budget * wi) / W, rem: (budget * wi) % W }));
@@ -152,9 +152,9 @@ test("a service charge budget is shared to the kobo: each share is the exact fra
     assert.equal(extras, budget - exact.reduce((s, e) => s + e.floor, 0n));
   }
   // By hand: ₦100.00 between three equal leases is 33.34, 33.33, 33.33.
-  assert.deepEqual(allocateBudget(10_000n, "EQUAL", [{ id: "a", floorAreaSqm: null }, { id: "b", floorAreaSqm: null }, { id: "c", floorAreaSqm: null }]).map((x) => x.amountKobo), [3334n, 3333n, 3333n]);
-  assert.throws(() => allocateBudget(100n, "FIXED", [{ id: "a", floorAreaSqm: null, fixedKobo: 40n }, { id: "b", floorAreaSqm: null, fixedKobo: 50n }]), /exactly the budget/);
-  assert.throws(() => allocateBudget(100n, "FLOOR_AREA", [{ id: "a", floorAreaSqm: null }]), /floor area/);
+  assert.deepEqual(allocateBudget(10_000n, "EQUAL", [{ id: "a", area: null }, { id: "b", area: null }, { id: "c", area: null }]).map((x) => x.amountKobo), [3334n, 3333n, 3333n]);
+  assert.throws(() => allocateBudget(100n, "FIXED", [{ id: "a", area: null, fixedKobo: 40n }, { id: "b", area: null, fixedKobo: 50n }]), /exactly the budget/);
+  assert.throws(() => allocateBudget(100n, "FLOOR_AREA", [{ id: "a", area: null }]), /floor area/);
 });
 
 // ---------- commissions ----------

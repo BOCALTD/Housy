@@ -5,7 +5,7 @@ import { cityInsight, compactNaira, grossYield, monthlyTrend, position, rentAtRi
 const N = (n: number) => BigInt(Math.round(n * 100));
 const now = new Date("2026-10-30T09:00:00Z");
 function sample(o: Partial<Sample> & { companyId: string; price: number }): Sample {
-  return { purpose: "SALE", pricePeriod: "TOTAL", priceKobo: N(o.price), bedrooms: 3, propertyType: "HOUSE", buildingSqm: null, city: "Lekki", state: "Lagos", publishedAt: new Date("2026-09-10"), offMarketAt: null, ...o } as Sample;
+  return { purpose: "SALE", pricePeriod: "TOTAL", priceKobo: N(o.price), bedrooms: 3, propertyType: "HOUSE", buildingSqm100: null, city: "Lekki", state: "Lagos", publishedAt: new Date("2026-09-10"), offMarketAt: null, ...o } as Sample;
 }
 
 test("rents become yearly, short lets and rooms are kept out of home figures", () => {
@@ -27,7 +27,7 @@ test("no figure is shown unless enough listings from enough companies sit behind
 
 test("a city's insight: prices by bedrooms, per square metre, yields and time on the market", () => {
   const rows: Sample[] = [];
-  for (let i = 0; i < 6; i++) rows.push(sample({ companyId: `c${i % 3}`, price: 100_000_000 + i * 10_000_000, buildingSqm: 250 }));
+  for (let i = 0; i < 6; i++) rows.push(sample({ companyId: `c${i % 3}`, price: 100_000_000 + i * 10_000_000, buildingSqm100: 25_000 }));
   for (let i = 0; i < 6; i++) rows.push(sample({ companyId: `c${i % 3}`, price: 5_000_000 + i * 500_000, purpose: "RENT", pricePeriod: "YEAR", publishedAt: new Date("2026-03-01"), offMarketAt: new Date(new Date("2026-03-01").getTime() + (20 + i) * 864e5) }));
   rows.push(sample({ companyId: "c9", price: 120_000, purpose: "RENT", pricePeriod: "NIGHT" }));
   const c = cityInsight("Lekki", "Lagos", rows, now);

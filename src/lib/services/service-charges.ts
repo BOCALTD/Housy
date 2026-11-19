@@ -3,7 +3,7 @@ import { withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { parseNairaToKobo } from "../money";
 import { parseDateOnly, todayInLagos } from "../dates";
-import { allocateBudget, assessmentBalance, evidenceKey, fundPosition } from "../ledger-rules";
+import { allocateBudget, occupiedDays, assessmentBalance, evidenceKey, fundPosition } from "../ledger-rules";
 import { lockKey } from "../locks";
 import { assertCan, type Ctx } from "./context";
 
@@ -69,18 +69,23 @@ export async function assessPeriod(ctx: Ctx, periodId: string, input: z.input<ty
       where: { companyId: ctx.companyId, assetId: period.assetId, status: "ACTIVE", startDate: { lte: period.endDate }, endDate: { gte: period.startDate } },
       orderBy: { ref: "asc" },
     });
+    // Pro rata: each tenancy is weighted by the days of the period it covers.
+    const span = { start: period.startDate, end: period.endDate };
+    const periodDays = occupiedDays(span, { start: period.startDate, end: period.endDate });
+    const days = new Map(leases.map((l) => [l.id, occupiedDays(span, { start: l.startDate, end: l.endDate, closedOn: l.closedOn })]));
     const shares = allocateBudget(period.budgetKobo, period.method, leases.map((l) => ({
       id: l.id,
-      floorAreaSqm: l.floorAreaSqm,
+      area: l.floorAreaSqm100,
+      days: days.get(l.id)!,
       ...(period.method === "FIXED" ? { fixedKobo: data.fixed[l.id] === undefined || data.fixed[l.id] === "" ? undefined : parseNairaToKobo(data.fixed[l.id]) } : {}),
     })));
     await tx.serviceAssessment.createMany({
-      data: shares.map((s) => ({ companyId: ctx.companyId, periodId, leaseId: s.id, amountKobo: s.amountKobo, dueDate: data.dueDate })),
+      data: shares.map((s) => ({ companyId: ctx.companyId, periodId, leaseId: s.id, amountKobo: s.amountKobo, dueDate: data.dueDate, daysOccupied: days.get(s.id)!, periodDays })),
     });
     await tx.serviceChargePeriod.update({ where: { id: periodId }, data: { status: "ASSESSED", assessedAt: new Date() } });
     await logActivity(tx, {
       companyId: ctx.companyId, actorId: ctx.userId, entityType: "asset", entityId: period.assetId, action: "service_charge.assessed",
-      detail: { periodId, leases: shares.length, budgetKobo: period.budgetKobo.toString() },
+      detail: { periodId, leases: shares.length, budgetKobo: period.budgetKobo.toString(), partPeriod: [...days.values()].filter((d) => d < periodDays).length },
     });
     return shares;
   });
@@ -247,10 +252,10 @@ export async function getServicePeriod(ctx: Ctx, periodId: string) {
     const position = await periodPosition(tx, ctx.companyId, periodId);
     const asset = await tx.asset.findUniqueOrThrow({ where: { id: position.period.assetId }, select: { id: true, ref: true, name: true } });
     const leaseIds = position.period.assessments.map((a) => a.leaseId);
-    const leases = await tx.lease.findMany({ where: { id: { in: leaseIds } }, select: { id: true, ref: true, occupantName: true, unit: true, floorAreaSqm: true } });
+    const leases = await tx.lease.findMany({ where: { id: { in: leaseIds } }, select: { id: true, ref: true, occupantName: true, unit: true, floorAreaSqm100: true } });
     const activeLeases = await tx.lease.findMany({
       where: { companyId: ctx.companyId, assetId: position.period.assetId, status: "ACTIVE", startDate: { lte: position.period.endDate }, endDate: { gte: position.period.startDate } },
-      select: { id: true, ref: true, occupantName: true, unit: true, floorAreaSqm: true }, orderBy: { ref: "asc" },
+      select: { id: true, ref: true, occupantName: true, unit: true, floorAreaSqm100: true, startDate: true, endDate: true, closedOn: true }, orderBy: { ref: "asc" },
     });
     const userIds = new Set<string>();
     for (const e of position.period.expenses) { userIds.add(e.requestedById); if (e.decidedById) userIds.add(e.decidedById); }

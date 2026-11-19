@@ -1,3 +1,5 @@
+import { Reactions } from "@/components/Reactions";
+import { reactionSummary } from "@/lib/services/reactions";
 import { formatArea } from "@/lib/area";
 import { Captcha } from "@/components/Captcha";
 import { visitorIp } from "@/lib/request-ip";
@@ -31,7 +33,6 @@ import { recordView, viewerKeyFor } from "@/lib/services/ads";
 import { isBot } from "@/lib/ad-rules";
 import { enquiryAction, requestInspectionAction, watchAction } from "./actions";
 import { VerifyModal, type ProviderView } from "./VerifyModal";
-import ShareButton from "@/components/ShareButton";
 import { LockedPhotos, SignupNudge } from "@/components/SignupNudge";
 import { GUEST_PHOTOS, shareText } from "@/lib/share-rules";
 import { PLATFORM_NAME } from "@/lib/labels";
@@ -80,6 +81,7 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
   const allPics = photos.filter((p) => p.kind !== "FLOOR_PLAN");
   // Visitors who are not signed in see the first few photos; the rest, the floor plans and the video tour are behind a free sign-up.
   const guest = !session;
+  const reactions = await reactionSummary("LISTING", listing.id, session?.user.id ?? null);
   const pics = guest ? allPics.slice(0, GUEST_PHOTOS) : allPics;
   const hiddenPics = allPics.length - pics.length;
   const here = `/properties/${listing.publicRef}`;
@@ -211,15 +213,14 @@ export default async function PropertyPage({ params: paramsP, searchParams: sear
 
       <aside className="card stack">
         <div className="row">
-          <ShareButton kind="property" path={here} signedIn={!guest} title={listing.title}
-            photos={pics.map((ph) => `/photos/${ph.id}`)}
-            text={shareText("property", {
+          <Reactions kind="LISTING" id={listing.id} initial={reactions} signedIn={!guest} share={{ kind: "property", path: here, title: listing.title, photos: pics.map((ph) => `/photos/${ph.id}`),
+            text: shareText("property", {
               title: listing.title,
               price: `${formatMoney(listing.priceKobo, listing.currency)}${priceSuffix(listing.pricePeriod)}`,
               place: `${listing.city}, ${listing.state}`,
               details: [listing.bedrooms != null ? `${listing.bedrooms} bedrooms` : "", listing.bathrooms != null ? `${listing.bathrooms} bathrooms` : "", listing.purpose === "SALE" ? "For sale" : `For ${listing.purpose.toLowerCase()}`],
               by: company?.displayName,
-            }, PLATFORM_NAME)} />
+            }, PLATFORM_NAME) }} />
           <CompareToggle refId={listing.publicRef} />
           <Link className="btn" href={calcHref}>{listing.purpose === "SALE" ? "Work out buying costs" : "Work out move-in costs"}</Link>
         </div>

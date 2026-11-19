@@ -1,3 +1,5 @@
+import { PromoBanner } from "@/components/PromoBanner";
+import { bannersFor } from "@/lib/services/banners";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { dashboard } from "@/lib/services/dashboard";
@@ -35,8 +37,10 @@ export default async function DashboardPage({ searchParams: searchP }: { searchP
   const dueSoon = calendar.items.filter((i) => i.state === "DUE_SOON").length;
   const s = (k: string) => d.statusCounts[k] ?? 0;
 
+  const banners = await bannersFor("DASHBOARD").catch(() => []);
   return (
     <div className="stack-lg">
+      {banners.length ? <PromoBanner banners={banners} slim /> : null}
       <div className="row between">
         <h1>Dashboard</h1>
         {can(member.role, "asset.create") ? <Link className="btn primary" href="/app/assets/new">Register an asset</Link> : null}

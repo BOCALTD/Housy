@@ -1,6 +1,7 @@
 import { cronAuthorised } from "@/lib/cron-auth";
 import { processOutbox } from "@/lib/services/delivery";
 import { processBulk } from "@/lib/services/bulk-messaging";
+import { purgeUndo } from "@/lib/services/undo";
 import { inspectionReminders } from "@/lib/services/inspection-bookings";
 import { safetyHousekeeping } from "@/lib/services/safety";
 import { sendMaintenanceNotice } from "@/lib/services/maintenance-mode";
@@ -17,5 +18,6 @@ export async function GET(req: Request) {
   const outbox = await processOutbox();
   // Companies' bulk messages go after the platform's own email, so a large send never delays account email.
   const bulk = await processBulk().catch((e) => ({ error: String(e) }));
-  return Response.json({ ...outbox, reminders, safety, maintenance, bulk });
+  const undoPurged = await purgeUndo().catch(() => 0);
+  return Response.json({ ...outbox, reminders, safety, maintenance, bulk, undoPurged });
 }

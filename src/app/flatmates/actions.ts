@@ -1,13 +1,11 @@
 "use server";
 
+import { hideFlatmateWithUndo } from "@/lib/services/undo-everyday";
+
 import { requireUser } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
 import { FACTORS } from "@/lib/flatmate-rules";
-import {
-  acceptFlatmateRequest, addToFlatmateRoom, declineFlatmateRequest, deleteFlatmateProfile, endFlatmateMatch, hideFlatmate, leaveFlatmateRoom,
-  saveFlatmateProfile, sendFlatmateRequest, setFlatmateStatus, withdrawFlatmateRequest,
-  submitFlatmateCheck,
-} from "@/lib/services/flatmates";
+import { acceptFlatmateRequest, addToFlatmateRoom, declineFlatmateRequest, deleteFlatmateProfile, endFlatmateMatch, leaveFlatmateRoom, saveFlatmateProfile, sendFlatmateRequest, setFlatmateStatus, withdrawFlatmateRequest, submitFlatmateCheck } from "@/lib/services/flatmates";
 
 export async function saveProfileAction(form: FormData) {
   return act("/flatmates/profile", async () => {
@@ -79,8 +77,8 @@ export async function endMatchAction(form: FormData) {
 export async function hideAction(form: FormData) {
   return act("/flatmates/matches", async () => {
     const user = await requireUser();
-    await hideFlatmate(user.id, str(form, "userId"));
-    return withNotice("/flatmates/matches", "Hidden. You will not see them in your matches again.");
+    const undo = await hideFlatmateWithUndo(user.id, str(form, "userId"));
+    return withNotice("/flatmates/matches", "Hidden. You will not see them in your matches again.", undo);
   });
 }
 

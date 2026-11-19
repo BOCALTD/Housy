@@ -4,7 +4,8 @@ import { MAX_SAVED_SEARCHES, myWatched, mySearches } from "@/lib/services/alerts
 import { PURPOSES } from "@/lib/services/listings";
 import { humanize } from "@/lib/labels";
 import { Field, Flash, ShowMore, sp, type SP } from "@/components/ui";
-import { deleteSearchAction, saveSearchAction, toggleAlertsAction, unwatchAction } from "./actions";
+import { deleteSearchAction, saveSearchAction, toggleAlertsAction, unshareAction, unwatchAction } from "./actions";
+import { mySharedListings } from "@/lib/services/reactions";
 
 export const metadata = { title: "Saved searches and watched properties" };
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function SavedPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const user = await requireUser();
-  const [searches, watched] = await Promise.all([mySearches(user.id), myWatched(user.id)]);
+  const [searches, watched, shared] = await Promise.all([mySearches(user.id), myWatched(user.id), mySharedListings(user.id)]);
   const describe = (s: (typeof searches)[number]) => [s.purpose ? (s.purpose === "SALE" ? "Buy" : humanize(s.purpose)) : "", s.city, s.q ? `"${s.q}"` : "", s.maxKobo ? `up to ₦${Math.round(Number(s.maxKobo) / 100).toLocaleString("en-NG")}` : "", s.minBeds != null ? `${s.minBeds}+ beds` : ""].filter(Boolean).join(" · ");
   return (
     <div className="stack-lg">
@@ -49,6 +50,17 @@ export default async function SavedPage({ searchParams: searchP }: { searchParam
             <li key={w.id}><div className="row between" style={{ width: "100%" }}>
               <div>{w.listing && w.listing.status === "PUBLISHED" ? <Link href={`/properties/${w.listing.publicRef}`}>{w.listing.title}</Link> : <span>{w.listing?.title ?? "Property"} <span className="small muted">(not available now)</span></span>}</div>
               {w.listing ? <form action={unwatchAction}><input type="hidden" name="ref" value={w.listing.publicRef} /><button className="btn small" type="submit">Stop watching</button></form> : null}
+            </div></li>))} />
+        )}
+      </section>
+
+      <section className="card stack" aria-labelledby="shared-h">
+        <h2 id="shared-h">Shared by you ({shared.length})</h2>
+        {shared.length === 0 ? <p className="muted">Properties you share with the Share button are listed here. Taking a share back removes it from the property&apos;s share count.</p> : (
+          <ShowMore noun="more properties" limit={4} items={shared.map((r) => (
+            <li key={r.targetId}><div className="row between" style={{ width: "100%", flexWrap: "wrap", gap: 8 }}>
+              <div><Link href={`/properties/${r.listing!.publicRef}`}>{r.listing!.title}</Link> <span className="small muted">{r.listing!.city}</span></div>
+              <form action={unshareAction}><input type="hidden" name="listingId" value={r.targetId} /><button className="btn small" type="submit">Take back</button></form>
             </div></li>))} />
         )}
       </section>

@@ -1,12 +1,10 @@
 "use server";
 
+import { maintenanceScheduleWithUndo } from "@/lib/services/undo-everyday";
+
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import {
-  addMaterial, addWorkOrderPhoto, approveWorkOrder, assignWorkOrder, cancelWorkOrder, closeWorkOrder, completeWorkOrder,
-  createContractor, createSchedule, generateDueWorkOrders, removeMaterial, reopenWorkOrder, reportWorkOrder, setContractorActive,
-  setProgress, setScheduleActive, triageWorkOrder,
-} from "@/lib/services/maintenance";
+import { addMaterial, addWorkOrderPhoto, approveWorkOrder, assignWorkOrder, cancelWorkOrder, closeWorkOrder, completeWorkOrder, createContractor, createSchedule, generateDueWorkOrders, removeMaterial, reopenWorkOrder, reportWorkOrder, setContractorActive, setProgress, triageWorkOrder } from "@/lib/services/maintenance";
 import { clearInvoicePayment, decideSubmission, markInvoicePaid } from "@/lib/services/portals";
 
 const woPath = (id: string) => `/app/maintenance/${encodeURIComponent(id)}`;
@@ -168,8 +166,9 @@ export async function createScheduleAction(form: FormData) {
 export async function toggleScheduleAction(form: FormData) {
   return act("/app/maintenance/schedules", async () => {
     const member = await requireMember("maintenance.manage");
-    await setScheduleActive(member, str(form, "scheduleId"), str(form, "active") === "true");
-    return withNotice("/app/maintenance/schedules", "Recurring job updated.");
+    const active = str(form, "active") === "true";
+    const undo = await maintenanceScheduleWithUndo(member, str(form, "scheduleId"), active);
+    return withNotice("/app/maintenance/schedules", active ? "Recurring job switched on." : "Recurring job paused.", undo);
   });
 }
 

@@ -1,3 +1,5 @@
+import { PromoBanner } from "@/components/PromoBanner";
+import { bannersFor } from "@/lib/services/banners";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { myFollowing } from "@/lib/services/community";
@@ -15,8 +17,10 @@ export default async function MePage({ searchParams: searchP }: { searchParams?:
   const user = await requireUser();
   const [follows, notes, plan, companies] = await Promise.all([myFollowing(user.id), myNotifications(user.id, 30), mySubscription(user.id), myCompanies(user.id)]);
   const unread = notes.filter((n) => !n.readAt);
+  const banners = await bannersFor("DASHBOARD").catch(() => []);
   return (
     <div className="stack-lg">
+      {banners.length ? <PromoBanner banners={banners} slim /> : null}
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <h1>My account</h1>
       <section className="stats" aria-label="Summary">

@@ -5,6 +5,8 @@ import { getSession } from "@/lib/auth";
 import { CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, SORTS, extraFilterCount, filtersToQuery, parseFilters, type Category } from "@/lib/listing-rules";
 import { listingWhere, searchListingsPage } from "@/lib/services/listings";
 import { boostedMatching } from "@/lib/services/boosts";
+import { bannersFor } from "@/lib/services/banners";
+import { PromoBanner } from "./PromoBanner";
 import { priceVerdicts, type MatchExtras } from "@/lib/services/best-match";
 import { getSearchPref, prefLabel, prefParams } from "@/lib/services/search-prefs";
 import { decorateListings } from "@/lib/services/promotions";
@@ -33,6 +35,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
   const page = await searchListingsPage(f, category?.rule ?? {}, companyIds);
   const decorated = await decorateListings(page.rows, f.sort === "newest");
   // Boosted properties that match this search get their own labelled row on the first page; the results' own order is untouched.
+  const banners = f.page === 1 ? await bannersFor("SEARCH").catch(() => []) : [];
   const boostRows = f.page === 1 ? await decorateListings(await boostedMatching(listingWhere(f, category?.rule ?? {}, companyIds), 3).catch(() => []), false) : [];
   // Best match already carries its price verdicts; any other order gets them here, for the "Good price" badge.
   const verdicts = f.sort === "best" ? null : await priceVerdicts(page.rows).catch(() => null);
@@ -107,6 +110,7 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
       {myPref && !f.city && !f.purpose && !f.maxPrice && !f.minBeds && !f.q ? (
         <Link className="use-my-search" href={`${basePath}?${new URLSearchParams(prefParams(myPref))}`}><span aria-hidden="true">★</span> Use my search: <strong>{prefLabel(myPref)}</strong></Link>
       ) : null}
+      {banners.length ? <PromoBanner banners={banners} slim /> : null}
       <SponsoredStrip items={sponsored} where="search" />
       {boostRows.length ? (
         <section className="sec" aria-labelledby="boosted-h">

@@ -3,6 +3,9 @@ import { priceSuffix } from "@/lib/listing-rules";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PromoSlides } from "@/components/PromoSlides";
+import { PromoBanner } from "@/components/PromoBanner";
+import { bannersFor, promoLayoutOn } from "@/lib/services/banners";
+import { reactionSummaries } from "@/lib/services/reactions";
 import { HomeHero } from "@/components/HomeHero";
 import { Carousel } from "@/components/Carousel";
 import { CountUp } from "@/components/CountUp";
@@ -77,6 +80,8 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
   const bot = isBot(h.get("user-agent"));
   const country = visitorCountry(h);
   const session = await getSession();
+  const [banners, layoutOn] = await Promise.all([bannersFor("HOME").catch(() => []), promoLayoutOn().catch(() => true)]);
+  const bannerReactions = Object.fromEntries(await reactionSummaries("BANNER", banners.map((b) => b.id), session?.user.id ?? null).catch(() => new Map()));
   const [listings, sponsored, pickSet] = await Promise.all([
     searchListingsRanked(filters),
     sponsoredFor("HOME_FEATURED", { filters, bot }).catch(() => []),
@@ -123,8 +128,9 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
   ]);
   const trusts = new Map([...(await trustMany("COMPANY", companies.map((c) => c.targetId))), ...(await trustMany("AGENT", agents.map((a) => a.targetId)))]);
   const pros = [...companies, ...agents].sort((a, b) => (trusts.get(b.targetId)?.score ?? 0) - (trusts.get(a.targetId)?.score ?? 0)).slice(0, 10);
-  const promoted = listings.filter((l) => l.promo);
-  const featured = listings.filter((l) => !l.promo);
+  // With the promo layout off, the festive offers slideshow is hidden too (promotion prices on cards stay).
+  const promoted = layoutOn ? listings.filter((l) => l.promo) : [];
+  const featured = listings.filter((l) => !promoted.includes(l));
   const slides = promoted.slice(0, 5).map((l) => ({
     href: `/properties/${l.publicRef}`, title: l.title, place: `${l.city}, ${l.state}`, purpose: l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`,
     name: l.promo!.campaignName, tagline: l.promo!.tagline, pct: l.promo!.pct, was: formatKobo(l.promo!.originalKobo) + priceSuffix(l.pricePeriod),
@@ -139,6 +145,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
   return (
     <div className="stack-lg">
       <ModeSwitch active="listings" />
+      {banners.length ? <PromoBanner banners={banners} reactions={bannerReactions} signedIn={!!session} /> : null}
       <div>
         {hero}
         {countRows.some((c) => c.n > 0) ? <section className="counts" aria-label={`${PLATFORM_NAME} in numbers`}>

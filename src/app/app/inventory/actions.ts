@@ -1,11 +1,10 @@
 "use server";
 
+import { removeHandoverLineWithUndo } from "@/lib/services/undo-everyday";
+
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import {
-  acknowledgeSchedule, addScheduleLine, applyHandoverToRegister, addSchedulePhoto, cancelCount, createHandoverSchedule, createItem, decideAdjustment, decideCount,
-  findItemByCode, recordMovement, removeScheduleLine, requestAdjustment, saveCountLines, startCount, submitCount, updateItem, useOnWorkOrder,
-} from "@/lib/services/inventory";
+import { acknowledgeSchedule, addScheduleLine, applyHandoverToRegister, addSchedulePhoto, cancelCount, createHandoverSchedule, createItem, decideAdjustment, decideCount, findItemByCode, recordMovement, requestAdjustment, saveCountLines, startCount, submitCount, updateItem, useOnWorkOrder } from "@/lib/services/inventory";
 
 const itemPath = (id: string) => `/app/inventory/${encodeURIComponent(id)}`;
 const countPath = (id: string) => `/app/inventory/counts/${encodeURIComponent(id)}`;
@@ -175,8 +174,8 @@ export async function removeLineAction(form: FormData) {
   const leaseId = str(form, "leaseId");
   return act(handoverPath(leaseId), async () => {
     const member = await requireMember("handover.record");
-    await removeScheduleLine(member, str(form, "scheduleId"), str(form, "lineId"));
-    return withNotice(handoverPath(leaseId), "Item removed.");
+    const undo = await removeHandoverLineWithUndo(member, str(form, "scheduleId"), str(form, "lineId"));
+    return withNotice(handoverPath(leaseId), "Item removed.", undo);
   });
 }
 

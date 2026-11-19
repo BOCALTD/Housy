@@ -256,6 +256,24 @@ async function main() {
       await s.locator(".react-pick button").first().click();
       const reacted = await s.locator("li.me .reactions").last().waitFor({ timeout: 6000 }).then(() => true).catch(() => false);
       await record(s, "chat reaction", reacted, reacted ? "the reaction shows under the message" : "no reaction shown");
+      // The designed promo banner on the homepage (folded corner), then like a property and undo it from the message.
+      await s.goto(`${BASE}/`, { waitUntil: "load" });
+      const banner = await s.locator(".pbanner .pbanner-card img").first().isVisible().catch(() => false);
+      const fold = await s.locator(".pbanner .pbanner-fold").count();
+      await record(s, "promo banner", banner && fold > 0, `banner picture shown: ${banner}; folded corner: ${fold > 0}`);
+      const ref = (await s.$$eval('a[href^="/properties/"]', (as) => as.map((a) => a.getAttribute("href")!.split("/")[2]).filter((r) => r && !r.includes("?"))))[0];
+      if (ref) {
+        await s.goto(`${BASE}/properties/${ref}`, { waitUntil: "load" });
+        const likeBtn = s.locator(".reactions-bar .react").first();
+        await likeBtn.click();
+        const liked = await likeBtn.getAttribute("aria-pressed").then((v) => v === "true").catch(() => false);
+        const undoBtn = s.getByRole("button", { name: "Undo" }).first();
+        const undoShown = await undoBtn.waitFor({ timeout: 6000 }).then(() => true).catch(() => false);
+        if (undoShown) await undoBtn.click();
+        await s.waitForTimeout(1500);
+        const back = await likeBtn.getAttribute("aria-pressed").then((v) => v === "false").catch(() => false);
+        await record(s, "like and undo", liked && undoShown && back, `liked: ${liked}; Undo offered: ${undoShown}; undone: ${back}`);
+      }
     }
     await s.goto(BASE + "/me/settings", { waitUntil: "load" });
     await s.waitForTimeout(800);

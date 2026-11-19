@@ -267,3 +267,47 @@ details.more-figures > summary { display: inline-flex; padding: 9px 16px; border
 @media (pointer: coarse) { .mode-switch .mode-hint { display: inline; } }
 @media (max-width: 420px) { .mode-switch .mode-hint { display: none; } }
 @media (prefers-reduced-motion: no-preference) { .mode-switch a { transition: background .25s ease, color .25s ease; } }
+
+/* Designed promo banners: the picture as designed, lifted off the page, a folded corner and a gentle float. */
+.pbanner { display: grid; gap: 8px; padding: 6px 4px 14px; }
+.pbanner-card { position: relative; border-radius: 18px; isolation: isolate; box-shadow: 0 18px 38px -18px rgba(16, 24, 40, .45), 0 4px 10px -4px rgba(16, 24, 40, .18); background: var(--surface-2); transform: translateZ(0); }
+.pbanner-card picture, .pbanner-card img { display: block; width: 100%; height: auto; border-radius: inherit; }
+.pbanner-link { display: block; border-radius: inherit; }
+.pbanner-link:focus-visible { outline: 3px solid var(--focus, #E3A93F); outline-offset: 3px; }
+.pbanner.slim .pbanner-card { border-radius: 14px; }
+.pbanner.slim .pbanner-card img { max-height: 160px; object-fit: cover; }
+/* The fold: the corner of the picture is clipped away and a curled flap sits over it, with its shadow on the page. */
+.pbanner-card.fold-bottom-right picture, .pbanner-card.fold-bottom-right img { clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--fold)), calc(100% - var(--fold)) 100%, 0 100%); }
+.pbanner-card.fold-top-right picture, .pbanner-card.fold-top-right img { clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
+.pbanner-card { --fold: clamp(28px, 6vw, 58px); }
+.pbanner.slim .pbanner-card { --fold: clamp(22px, 4vw, 38px); }
+.pbanner-fold { position: absolute; width: var(--fold); height: var(--fold); pointer-events: none; z-index: 2; }
+.fold-bottom-right .pbanner-fold { right: 0; bottom: 0; border-radius: 0 0 14px 0; background: linear-gradient(315deg, transparent 50%, #e8e1d4 50%, #fbf8f2 68%, #d9cfbd 100%); box-shadow: -4px -4px 8px -2px rgba(0, 0, 0, .22); border-top-left-radius: 2px; }
+.fold-top-right .pbanner-fold { right: 0; top: 0; border-radius: 0 14px 0 0; background: linear-gradient(225deg, transparent 50%, #e8e1d4 50%, #fbf8f2 68%, #d9cfbd 100%); box-shadow: -4px 4px 8px -2px rgba(0, 0, 0, .22); }
+@media (hover: hover) { .pbanner-card .pbanner-fold { transition: width .35s var(--ease-spring, ease), height .35s var(--ease-spring, ease); } .pbanner-card:hover { --fold: clamp(34px, 7vw, 70px); } }
+.pbanner-card.floating { animation: pbanner-float 6s ease-in-out infinite; }
+@keyframes pbanner-float {
+  0%, 100% { transform: translateY(0); box-shadow: 0 18px 38px -18px rgba(16, 24, 40, .45), 0 4px 10px -4px rgba(16, 24, 40, .18); }
+  50% { transform: translateY(-6px); box-shadow: 0 28px 44px -20px rgba(16, 24, 40, .38), 0 6px 14px -6px rgba(16, 24, 40, .16); }
+}
+@media (prefers-reduced-motion: reduce) { .pbanner-card.floating { animation: none; } .pbanner-card .pbanner-fold { transition: none; } }
+.pbanner-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Like, dislike and share */
+.reactions-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.reactions-bar .react { min-height: 44px; min-width: 64px; display: inline-flex; align-items: center; gap: 6px; }
+.reactions-bar .react.on { border-color: #1F7A4D; color: #1F7A4D; background: color-mix(in srgb, #1F7A4D 10%, var(--surface)); }
+.reactions-bar .react.on.down { border-color: #B42318; color: #B42318; background: color-mix(in srgb, #B42318 9%, var(--surface)); }
+.shared-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 6px 0 14px; border-radius: 999px; background: var(--surface-2); font-size: 14px; }
+.shared-chip .linklike { min-height: 44px; padding: 0 10px; border: 0; background: none; color: var(--brand-ink, #8A5A00); font-weight: 700; text-decoration: underline; cursor: pointer; font-size: 14px; }
+.reactions-bar.compact .react { min-width: 56px; }
+
+/* On/off switch */
+.toggle-form { display: inline-block; }
+.toggle { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 6px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 16px; cursor: pointer; text-align: left; }
+.toggle-track { position: relative; width: 52px; height: 30px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 22%, transparent); transition: background-color .2s; flex: none; }
+.toggle-knob { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .25s var(--ease-spring, ease); }
+.toggle.on .toggle-track { background: #1F7A4D; }
+.toggle.on .toggle-knob { transform: translateX(22px); }
+.toggle:focus-visible .toggle-track { outline: 3px solid #E3A93F; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .toggle-knob, .toggle-track { transition: none; } }

@@ -9,6 +9,10 @@ import { PLATFORM_NAME } from "@/lib/labels";
 import type { ReelCard } from "@/lib/services/reels";
 import { commentOn, commentsPage, followAgent, likeComment, likeReel, morePage, removeComment, reportComment, reportReel, saveReel, watched } from "@/app/reels/live-actions";
 import { CommentThread, type ThreadActions } from "./CommentThread";
+import { Reactions } from "./Reactions";
+import { showUndo } from "./Toasts";
+import { reactionSummaryAction } from "@/app/reaction-actions";
+import type { Summary } from "@/lib/services/reactions";
 import type { ThreadComment } from "@/lib/comment-rules";
 
 type Tab = "foryou" | "following" | "trending";
@@ -44,6 +48,13 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
   const [muted, setMuted] = useState(true);
   const [paused, setPaused] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
+  // Dislike and "take back my share" live in the reel's More panel; their counts load when it opens.
+  const [moreSummary, setMoreSummary] = useState<{ id: string; s: Summary } | null>(null);
+  useEffect(() => {
+    if (sheet?.kind !== "more" || !signedIn) return;
+    const id = sheet.reel.id;
+    void reactionSummaryAction("REEL", id).then((r) => { if (r.ok) setMoreSummary({ id, s: r.summary }); });
+  }, [sheet, signedIn]);
   const [burst, setBurst] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const loaded = useRef(new Set<number>([0, 1]));
@@ -152,14 +163,25 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
     patch(r.id, { liked: !r.liked, likes: r.likes + (r.liked ? -1 : 1) });
     const out = await likeReel(r.id);
     if (!out.ok) { patch(r.id, { liked: r.liked, likes: r.likes }); if (out.signIn) needSignIn("like reels", r.id); else toast.error(out.error ?? "That did not work"); }
-    else patch(r.id, { liked: out.liked, likes: out.count });
+    else {
+      patch(r.id, { liked: out.liked, likes: out.count });
+      showUndo(out.liked ? "Liked" : "Like removed", async () => {
+        const u = await likeReel(r.id);
+        if (u.ok) patch(r.id, { liked: u.liked, likes: u.count });
+        return u.ok ? { ok: true as const, message: "Undone." } : { ok: false as const, error: u.error ?? "That could not be undone." };
+      });
+    }
   }
   async function save(r: ReelCard) {
     if (!signedIn) return needSignIn("save reels", r.id);
     patch(r.id, { saved: !r.saved });
     const out = await saveReel(r.id);
     if (!out.ok) { patch(r.id, { saved: r.saved }); toast.error(out.error ?? "That did not work"); }
-    else toast.success(out.saved ? "Saved to your reels" : "Removed from your saved reels");
+    else showUndo(out.saved ? "Saved to your reels" : "Removed from your saved reels", async () => {
+      const u = await saveReel(r.id);
+      if (u.ok) patch(r.id, { saved: u.saved });
+      return u.ok ? { ok: true as const, message: "Undone." } : { ok: false as const, error: u.error ?? "That could not be undone." };
+    });
   }
   async function followIt(r: ReelCard) {
     if (!signedIn) return needSignIn("follow agents", r.id);
@@ -167,7 +189,11 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
     setRows((rs) => rs.map((x) => (x.authorId === r.authorId ? { ...x, following: on } : x)));
     const out = await followAgent(r.authorId, on);
     if (!out.ok) { setRows((rs) => rs.map((x) => (x.authorId === r.authorId ? { ...x, following: !on } : x))); toast.error(out.error ?? "That did not work"); }
-    else toast.success(on ? `Following ${r.authorName}` : `Stopped following ${r.authorName}`);
+    else showUndo(on ? `Following ${r.authorName}` : `Stopped following ${r.authorName}`, async () => {
+      const u = await followAgent(r.authorId, !on);
+      if (u.ok) setRows((rs) => rs.map((x) => (x.authorId === r.authorId ? { ...x, following: !on } : x)));
+      return u.ok ? { ok: true as const, message: "Undone." } : { ok: false as const, error: u.error ?? "That could not be undone." };
+    });
   }
 
   function onTap(r: ReelCard) {
@@ -259,7 +285,7 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
         {canPost ? <Link className="rf-post rf-top-right" href="/reels/new" aria-label="Post a reel">+</Link> : null}
       </div>
 
-      {sheet ? <SheetView sheet={sheet} signedIn={signedIn} onClose={() => setSheet(null)} onCommented={(id, d) => patch(id, { comments: Math.max(0, (rows.find((x) => x.id === id)?.comments ?? 0) + d) })} onSignIn={(verb, id) => setSheet({ kind: "signin", verb, reelId: id })} /> : null}
+      {sheet ? <SheetView sheet={sheet} signedIn={signedIn} moreSummary={moreSummary} onClose={() => setSheet(null)} onCommented={(id, d) => patch(id, { comments: Math.max(0, (rows.find((x) => x.id === id)?.comments ?? 0) + d) })} onSignIn={(verb, id) => setSheet({ kind: "signin", verb, reelId: id })} /> : null}
     </div>
   );
 }
@@ -283,7 +309,7 @@ const reelThreadActions = (reelId: string): ThreadActions => ({
   report: (id, reason) => reportComment(id, reason),
 });
 
-function SheetView({ sheet, signedIn, onClose, onCommented, onSignIn }: { sheet: NonNullable<Sheet>; signedIn: boolean; onClose: () => void; onCommented: (id: string, delta: number) => void; onSignIn: (verb: string, id: string) => void }) {
+function SheetView({ sheet, signedIn, moreSummary, onClose, onCommented, onSignIn }: { sheet: NonNullable<Sheet>; signedIn: boolean; moreSummary: { id: string; s: Summary } | null; onClose: () => void; onCommented: (id: string, delta: number) => void; onSignIn: (verb: string, id: string) => void }) {
   const first = useRef<HTMLButtonElement>(null);
   const [comments, setComments] = useState<ThreadComment[] | null>(null);
   const [cPage, setCPage] = useState({ page: 0, pages: 1, total: 0 });
@@ -348,6 +374,7 @@ function SheetView({ sheet, signedIn, onClose, onCommented, onSignIn }: { sheet:
           <div className="stack rf-sheet-body">
             {sheet.reel.listingRef ? <Link className="btn" href={`/properties/${sheet.reel.listingRef}`}>See the property{sheet.reel.listingTitle ? `: ${sheet.reel.listingTitle}` : ""}</Link> : null}
 {sheet.reel.music ? <p className="small muted">Music: {sheet.reel.music.title} by {sheet.reel.music.artist}, used under {sheet.reel.music.licence}.</p> : null}
+            {signedIn && moreSummary?.id === sheet.reel.id ? <Reactions kind="REEL" id={sheet.reel.id} initial={moreSummary.s} signedIn noLike /> : null}
             <Link className="btn" href={`/agents/${sheet.reel.authorId}`}>{sheet.reel.authorName}&apos;s profile</Link>
             <Link className="btn" href={`/reels/${sheet.reel.id}`}>Open this reel on its own page</Link>
             {signedIn && !sheet.reel.mine ? (

@@ -1,9 +1,11 @@
 "use server";
 
+import { removeLogoWithUndo } from "@/lib/services/undo-everyday";
+
 import { requireMember } from "@/lib/auth";
 import { act, str, withNotice } from "@/lib/forms";
 import { saveAgentProfile, saveCompanyProfile } from "@/lib/services/community";
-import { removeCompanyLogo, saveCompanyLogo, setLogoWatermark } from "@/lib/services/company-logo";
+import { saveCompanyLogo, setLogoWatermark } from "@/lib/services/company-logo";
 
 export async function agentProfileAction(form: FormData) {
   return act("/app/profile", async () => {
@@ -36,8 +38,8 @@ export async function logoUploadAction(form: FormData) {
 
 export async function logoRemoveAction() {
   return act("/app/profile", async () => {
-    await removeCompanyLogo(await requireMember("settings.manage"));
-    return withNotice("/app/profile", "Logo removed.");
+    const undo = await removeLogoWithUndo(await requireMember("settings.manage"));
+    return withNotice("/app/profile", "Logo removed.", undo);
   });
 }
 

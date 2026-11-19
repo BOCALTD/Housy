@@ -183,6 +183,7 @@ export function adminSection(): NavSection {
       { href: "/admin/plans", label: "Plans and limits", icon: "doc" },
       { href: "/admin/ads", label: "Advertising", icon: "megaphone" },
       { href: "/admin/promotions", label: "Promotions", icon: "megaphone" },
+      { href: "/admin/banners", label: "Promo banners", icon: "megaphone" },
     ] },
     { label: "Community", items: [
       { href: "/admin/collaborations", label: "Collaborations", icon: "people" },

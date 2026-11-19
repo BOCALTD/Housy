@@ -1,12 +1,10 @@
 "use server";
 
+import { archiveClientWithUndo } from "@/lib/services/undo-everyday";
+
 import { requireMember } from "@/lib/auth";
 import { act, optStr, phoneFrom, str, withNotice } from "@/lib/forms";
-import {
-  addBranch, addClientActivity, addLeadSource, addRequirement, addTeam, archiveClient, assignLead, completeFollowUp, createClient, createLead, createLeadFromEnquiry,
-  dismissDuplicate, mergeClients, reassignClient, setLeadSourceActive, setLeadStatus, setMatchStatus, setMemberPlacement, setRequirementActive, setTeamLead,
-  updateClient, updateQualification,
-} from "@/lib/services/crm";
+import { addBranch, addClientActivity, addLeadSource, addRequirement, addTeam, assignLead, completeFollowUp, createClient, createLead, createLeadFromEnquiry, dismissDuplicate, mergeClients, reassignClient, setLeadSourceActive, setLeadStatus, setMatchStatus, setMemberPlacement, setRequirementActive, setTeamLead, updateClient, updateQualification } from "@/lib/services/crm";
 
 const client = (id: string) => `/app/crm/clients/${encodeURIComponent(id)}`;
 const flag = (form: FormData, name: string) => form.get(name) === "on";
@@ -41,8 +39,8 @@ export async function archiveClientAction(form: FormData) {
   return act(client(id), async () => {
     const member = await requireMember("crm.manage");
     const restore = optStr(form, "restore") === "yes";
-    await archiveClient(member, id, restore);
-    return withNotice(client(id), restore ? "Client restored." : "Client archived.");
+    const undo = await archiveClientWithUndo(member, id, restore);
+    return withNotice(client(id), restore ? "Client restored." : "Client archived.", undo);
   });
 }
 

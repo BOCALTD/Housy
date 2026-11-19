@@ -74,9 +74,10 @@ export function safeTarget(target: string): string {
   return "/";
 }
 
-export function withNotice(path: string, notice: string) {
+/** Back to a page with a success message; with an undo id, the message carries an Undo button (services/undo.ts). */
+export function withNotice(path: string, notice: string, undo?: string | null) {
   const sep = path.includes("?") ? "&" : "?";
-  return `${path}${sep}notice=${encodeURIComponent(notice)}`;
+  return `${path}${sep}notice=${encodeURIComponent(notice)}${undo ? `&undo=${encodeURIComponent(undo)}` : ""}`;
 }
 
 function isNextRedirect(err: unknown): boolean {

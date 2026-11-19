@@ -1,12 +1,14 @@
 "use server";
 
+import { removeListingPhotoWithUndo } from "@/lib/services/undo-everyday";
+
 import { requireMember } from "@/lib/auth";
 import { act, messageFor, optStr, str, withNotice } from "@/lib/forms";
 import { addParty, createAsset, setAssetBoundary, setAssetPosition, updateAssetStatus, uploadDocument } from "@/lib/services/assets";
 import { createLease, recordPayment } from "@/lib/services/leases";
 import { createTask, updateTaskStatus } from "@/lib/services/tasks";
 import { saveListingDraft, setListingStatus } from "@/lib/services/listings";
-import { addListingPhoto, makeCoverPhoto, removeListingPhoto } from "@/lib/services/listing-photos";
+import { addListingPhoto, makeCoverPhoto } from "@/lib/services/listing-photos";
 
 const assetPath = (id: string) => `/app/assets/${encodeURIComponent(id)}`;
 
@@ -182,8 +184,8 @@ export async function removeListingPhotoAction(form: FormData) {
   const id = str(form, "assetId");
   return act(assetPath(id), async () => {
     const member = await requireMember("listing.manage");
-    await removeListingPhoto(member, id, str(form, "photoId"));
-    return withNotice(assetPath(id), "Photograph removed.");
+    const undo = await removeListingPhotoWithUndo(member, id, str(form, "photoId"));
+    return withNotice(assetPath(id), "Photograph removed.", undo);
   });
 }
 

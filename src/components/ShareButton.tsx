@@ -14,11 +14,13 @@ import { NETWORKS, networkLink, shareLink, type ShareKind } from "@/lib/share-ru
  * Every shared link opens the page again, greets the visitor and invites them to sign up; a signed-in sharer's link carries their
  * invite code.
  */
-export default function ShareButton({ kind, path, title, text, photos = [], video, reelId, count, signedIn, small = false, rail = false }: {
+export default function ShareButton({ kind, path, title, text, photos = [], video, reelId, count, signedIn, small = false, rail = false, onShared }: {
   kind: ShareKind; path: string; title: string; text: string; photos?: string[]; video?: string;
   reelId?: string; count?: number; signedIn: boolean; small?: boolean;
   /** Drawn as an icon with its count in the reels side rail. */
   rail?: boolean;
+  /** Told when the person shared (the share sheet sent it, or they copied the link), to record "Shared by you". */
+  onShared?: () => void;
 }) {
   const box = useRef<HTMLDialogElement>(null);
   const headId = `share-h-${useId().replace(/:/g, "")}`;
@@ -103,7 +105,7 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
     let p: Promise<void>;
     try { p = navigator.share(data); } catch (e) { p = Promise.reject(e); }
     setBusy(true);
-    p.then(() => { setStatus("Shared"); return counted1(); })
+    p.then(() => { setStatus("Shared"); onShared?.(); return counted1(); })
       .catch((e: Error) => {
         if (e?.name === "AbortError") { setStatus(""); return; } // they closed the share sheet: nothing was shared
         setStatus(withFiles ? "This phone would not attach the file. Use Share link with an app, or download it below." : "Sharing did not open here. Use a button below or copy the link.");
@@ -116,6 +118,7 @@ export default function ShareButton({ kind, path, title, text, photos = [], vide
     try {
       if (!(await copyText(what === "link" ? u : `${text}\n${u}`))) throw new Error("blocked");
       toast.success(what === "link" ? "Link copied" : "Text and link copied");
+      onShared?.();
       setStatus(what === "link" ? "Link copied. It counts as a share when someone opens it." : "Text and link copied: paste them with the photos");
     } catch { setStatus("Copying is blocked here. Press and hold the link to copy it."); }
   }

@@ -635,5 +635,11 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   // The showcase catalogue: sample companies, agents, properties with photographs and reels, deals and reviews.
   await createDemoCatalogue(adminId, { password: DEMO_PASSWORD, alpha, beta, seekerId: seeker.userId, campaignId: sale.id });
 
+  // A designed promo banner, as the administrator would upload one (drawn here so the demo needs no files).
+  const sharp = (await import("sharp")).default;
+  const art = (w: number, h: number, big: number) => sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B3122E"/><stop offset="1" stop-color="#F2A007"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><circle cx="${w * 0.85}" cy="${h * 0.2}" r="${h * 0.5}" fill="#fff" fill-opacity=".12"/><text x="${w * 0.06}" y="${h * 0.45}" font-family="Arial, sans-serif" font-weight="700" font-size="${big}" fill="#fff">Festive homes sale</text><text x="${w * 0.06}" y="${h * 0.45 + big * 1.1}" font-family="Arial, sans-serif" font-size="${big * 0.5}" fill="#fff">Up to 25% off selected homes in Lekki and Ikoyi [DEMO]</text></svg>`)).png().toBuffer();
+  const { saveBanner } = await import("./services/banners");
+  await saveBanner(adminId, null, { title: "Festive homes sale: up to 25% off selected homes in Lekki and Ikoyi [DEMO]", linkUrl: "/browse?city=Lekki", places: ["HOME", "SEARCH", "DASHBOARD"], fold: "BOTTOM_RIGHT", float: true }, { desktop: new Uint8Array(await art(1600, 500, 88)), mobile: new Uint8Array(await art(1080, 1080, 70)) });
+
   return true;
 }

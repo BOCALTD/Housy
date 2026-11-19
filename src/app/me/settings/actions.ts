@@ -1,12 +1,14 @@
 "use server";
 
+import { removeProfileImageWithUndo } from "@/lib/services/undo-everyday";
+
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireUser, setActiveCompany } from "@/lib/auth";
 import { act, phoneFrom, str, withNotice } from "@/lib/forms";
 import { clearSearchPref, saveSearchPref } from "@/lib/services/search-prefs";
 import { setMyRegion } from "@/lib/services/business-region";
-import { becomeAgent, checkModeTarget, removeProfileImage, saveProfileImage, takeBreak, updateAbout, type BreakLength } from "@/lib/services/profile";
+import { becomeAgent, checkModeTarget, saveProfileImage, takeBreak, updateAbout, type BreakLength } from "@/lib/services/profile";
 
 const BACK = "/me/settings";
 
@@ -26,9 +28,9 @@ export async function removeProfileImageAction(form: FormData) {
   return act(BACK, async () => {
     const u = await requireUser();
     const kind = str(form, "kind") === "cover" ? "cover" : "avatar";
-    await removeProfileImage(u.id, kind);
+    const undo = await removeProfileImageWithUndo(u.id, kind);
     revalidatePath("/", "layout");
-    return withNotice(BACK, kind === "cover" ? "Cover photo removed." : "Profile photo removed.");
+    return withNotice(BACK, kind === "cover" ? "Cover photo removed." : "Profile photo removed.", undo);
   });
 }
 

@@ -65,6 +65,12 @@ Short answers to "how do I…" for company staff. Each section names the menu it
 - *Promotions*: put a published property in a platform sale. On the Basic plan the fee is an invoice you pay online or by transfer before the platform reviews it. *Boost a property* lifts one property to a labelled "Boosted" row above matching searches for 3 to 30 days, from the day the invoice is paid.
 - *Bulk messages* (managers and administrators, on plans that include it): email all clients who agreed to marketing, or the tenants of your current leases. Each person gets their own email with a link to stop your messages.
 - *Messages*: send photos and documents with the paper clip, hold a conversation with voice notes (the microphone when the box is empty), and react to a message with the smiley.
+- *Like, dislike and share*: on a property, reel or promo banner. Tap a reaction again to clear it. *Saved* lists what you shared, with *Take back*.
+- *Undo*: after most everyday actions the message shows **Undo** for a few seconds. Payments, approvals, verifications and account removal cannot be undone, so they always ask first.
+
+## Promo banners (platform administrator)
+- *Admin → Promo banners*: upload a banner you designed (and a phone version if you like), say what it shows, choose where it appears and when. Housy adds the folded corner and gentle float.
+- The *Promo layout* switch turns all banners and the festive offers on or off at once.
 
 ## Your team and company (administrators)
 - *Settings → Pause or close this workspace* (top administrator only). **Pause**: listings and profiles leave public view, the team cannot work in it, the plan is not renewed; resume it from the page shown when you open the workspace. **Close for good**: type CLOSE and your password; waiting payment links and the plan stop, records are kept, and only Housy support can reopen it. Each asks you to confirm first.

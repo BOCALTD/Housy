@@ -1,11 +1,10 @@
 "use server";
 
+import { templateActiveWithUndo } from "@/lib/services/undo-everyday";
+
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
-import {
-  addFinding, addInspectionPhoto, cancelInspection, createTemplate, decideInspection, installStarterTemplates,
-  saveInspectionRecord, scheduleInspection, setTemplateActive, submitInspection,
-} from "@/lib/services/inspections";
+import { addFinding, addInspectionPhoto, cancelInspection, createTemplate, decideInspection, installStarterTemplates, saveInspectionRecord, scheduleInspection, submitInspection } from "@/lib/services/inspections";
 
 const insPath = (id: string) => `/app/inspections/${encodeURIComponent(id)}`;
 
@@ -49,8 +48,9 @@ export async function createTemplateAction(form: FormData) {
 export async function toggleTemplateAction(form: FormData) {
   return act("/app/inspections/templates", async () => {
     const member = await requireMember("inspection.manage");
-    await setTemplateActive(member, str(form, "templateId"), str(form, "active") === "true");
-    return withNotice("/app/inspections/templates", "Template updated.");
+    const active = str(form, "active") === "true";
+    const undo = await templateActiveWithUndo(member, str(form, "templateId"), active);
+    return withNotice("/app/inspections/templates", active ? "Template switched on." : "Template switched off.", undo);
   });
 }
 

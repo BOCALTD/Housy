@@ -1,5 +1,6 @@
 import { cronAuthorised } from "@/lib/cron-auth";
 import { processOutbox } from "@/lib/services/delivery";
+import { processBulk } from "@/lib/services/bulk-messaging";
 import { inspectionReminders } from "@/lib/services/inspection-bookings";
 import { safetyHousekeeping } from "@/lib/services/safety";
 import { sendMaintenanceNotice } from "@/lib/services/maintenance-mode";
@@ -13,5 +14,8 @@ export async function GET(req: Request) {
   const safety = await safetyHousekeeping().catch((e) => ({ error: String(e) }));
   // Planned maintenance: everyone is told in the app and by email 24 hours before (queued here, sent just below).
   const maintenance = await sendMaintenanceNotice().catch((e) => ({ error: String(e) }));
-  return Response.json({ ...(await processOutbox()), reminders, safety, maintenance });
+  const outbox = await processOutbox();
+  // Companies' bulk messages go after the platform's own email, so a large send never delays account email.
+  const bulk = await processBulk().catch((e) => ({ error: String(e) }));
+  return Response.json({ ...outbox, reminders, safety, maintenance, bulk });
 }

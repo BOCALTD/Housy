@@ -113,7 +113,7 @@ for p in $PAGES; do
   open_page "administrator" "$TOKEN" "$p"
   # The officer cannot open settings, team or new-asset pages, which are limited to managers, the sales pages, which are for agents and managers, or billing and client payments (managers and administrators).
   case "$p" in
-    /app/settings|/app/setup|/app/setup?*|/app/team|/app/import|/app/import/*|/app/verification|/app/api-keys|/app/portals|/app/portals/*|/app/bookings|/app/bookings/*|/app/safety/*|/app/assets/new|/app/crm|/app/crm/*|/app/deals|/app/deals/*|/app/sales|/app/sales/*|/app/commissions|/app/profile|/app/promotions|/app/reviews|/app/completed|/app/billing|/app/payments|/app/payments?*|/app/ads|/app/collaborations|/app/collaborations/*) ;;
+    /app/settings|/app/setup|/app/setup?*|/app/team|/app/import|/app/import/*|/app/verification|/app/api-keys|/app/portals|/app/portals/*|/app/bookings|/app/bookings/*|/app/safety/*|/app/assets/new|/app/crm|/app/crm/*|/app/deals|/app/deals/*|/app/sales|/app/sales/*|/app/commissions|/app/profile|/app/promotions|/app/bulk-messages|/app/reviews|/app/completed|/app/billing|/app/payments|/app/payments?*|/app/ads|/app/collaborations|/app/collaborations/*) ;;
     *) open_page "officer" "$OFFICER_TOKEN" "$p" ;;
   esac
 done

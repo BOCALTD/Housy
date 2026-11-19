@@ -1,6 +1,6 @@
 // Email delivery. A driver sends one message and says plainly whether it worked and whether trying again could help.
 
-export interface Outgoing { to: string; subject: string; text: string; html: string; headers?: Record<string, string>; idempotencyKey?: string }
+export interface Outgoing { to: string; subject: string; text: string; html: string; headers?: Record<string, string>; idempotencyKey?: string; replyTo?: string }
 export type SendResult = { ok: true; id: string } | { ok: false; permanent: boolean; error: string };
 export interface EmailDriver { name: string; send(m: Outgoing): Promise<SendResult> }
 
@@ -13,7 +13,7 @@ export function resendDriver(apiKey: string, from: string, fetchImpl: typeof fet
         const res = await fetchImpl("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", ...(m.idempotencyKey ? { "Idempotency-Key": m.idempotencyKey } : {}) },
-          body: JSON.stringify({ from, to: [m.to], subject: m.subject, text: m.text, html: m.html, headers: m.headers }),
+          body: JSON.stringify({ from, to: [m.to], subject: m.subject, text: m.text, html: m.html, headers: m.headers, ...(m.replyTo ? { reply_to: m.replyTo } : {}) }),
           signal: AbortSignal.timeout(15000),
         });
         const body = (await res.json().catch(() => ({}))) as { id?: string; message?: string };

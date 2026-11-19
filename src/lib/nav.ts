@@ -129,6 +129,7 @@ function workspaceGroups(r: Role, incoming: number): SideGroup[] {
     ]),
     g("Marketing", [
       ["/app/promotions", "Promotions", "megaphone", can(r, "listing.manage")],
+      ["/app/bulk-messages", "Bulk messages", "chat", can(r, "message.bulk")],
       ["/app/profile", "Public profile", "person", can(r, "crm.view")],
     ]),
     g("Records", [

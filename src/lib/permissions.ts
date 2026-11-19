@@ -72,6 +72,7 @@ export type Action =
   | "crm.configure"
   | "crm.approve"
   | "crm.report"
+  | "message.bulk"
   | "collab.view"
   | "collab.company"
   | "billing.view"
@@ -168,6 +169,7 @@ const MATRIX: Record<Action, Role[]> = {
   "crm.configure": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "crm.approve": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   "crm.report": ["COMPANY_SUPER_ADMIN", "MANAGER"],
+  "message.bulk": ["COMPANY_SUPER_ADMIN", "MANAGER"],
   // Collaboration: agents and managers take part; managers and administrators speak for the company (invite, accept, suspend, add people).
   "collab.view": ["COMPANY_SUPER_ADMIN", "MANAGER", "AGENT"],
   "collab.company": ["COMPANY_SUPER_ADMIN", "MANAGER"],

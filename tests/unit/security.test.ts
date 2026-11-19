@@ -128,6 +128,7 @@ test("no route hands out data without checking who is asking", () => {
     "app/u/[id]/[kind]/route.ts": "a profile or cover photo, shown wherever the person appears; nothing while they are on a break",
     "app/ads/click/[ref]/route.ts": "an advert click: the service decides whether to charge; the visitor always reaches the property",
     "app/api/webhooks/paystack/route.ts": "verified by the provider's signature",
+    "app/api/unsubscribe/company/route.ts": "one-click unsubscribe from a company's bulk email: the signed token names one company and one address, and it only ever stops messages",
     "app/reels/[id]/video/route.ts": "the service returns only clips the viewer may see",
     "app/api/v1/listings/route.ts": "published listings only; read-only; rate limited",
     "app/api/v1/listings/[ref]/route.ts": "one published listing; read-only; rate limited",

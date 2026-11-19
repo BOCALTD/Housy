@@ -394,6 +394,7 @@ model Lease {
   charges       RentCharge[]
   receipts      Receipt[]
   depositEntries DepositEntry[]
+  handoverCharges HandoverCharge[]
   renewals      LeaseRenewal[]
   notices       LeaseNotice[]
   handovers     LeaseHandover[]
@@ -1866,6 +1867,9 @@ model HandoverSchedule {
   createdAt      DateTime       @default(now()) @map("created_at")
   /// When the move-in/move-out differences on register items were sent to the inventory register (move-out only; once).
   registerUpdatedAt DateTime?   @map("register_updated_at")
+  /// When the value of lost or damaged items was deducted from the deposit (move-out only; once), and the deposit entry made.
+  chargesDeductedAt DateTime?   @map("charges_deducted_at")
+  depositEntryId    String?     @map("deposit_entry_id")
   lease          Lease          @relation(fields: [leaseId], references: [id], onDelete: Restrict)
   lines          HandoverScheduleLine[]
 
@@ -1892,6 +1896,30 @@ model HandoverScheduleLine {
   @@index([companyId, scheduleId])
   @@index([itemId])
   @@map("handover_schedule_lines")
+}
+
+/// The money value put on one item lost or damaged between move-in and move-out (keyed like the comparison: register item or
+/// room and description). Set by staff, starting from a suggestion from the register's unit cost.
+model HandoverCharge {
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  leaseId       String   @map("lease_id")
+  lineKey       String   @map("line_key")
+  room          String
+  description   String
+  kind          String
+  quantity      Int      @default(0)
+  amountKobo    BigInt   @map("amount_kobo")
+  suggestedKobo BigInt?  @map("suggested_kobo")
+  note          String   @default("")
+  setById       String   @map("set_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  lease         Lease    @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+
+  @@unique([leaseId, lineKey])
+  @@index([companyId])
+  @@map("handover_charges")
 }
 
 // ---------- Phase 7a: valuation ----------
@@ -4595,6 +4623,7 @@ model ReviewInvite {
   sentTo      String      @default("") @map("sent_to")
   sealedToken String?     @map("sealed_token")
   remindedAt  DateTime?   @map("reminded_at")
+  sentAt      DateTime? @map("sent_at")
 
   @@unique([basis, basisRef])
   @@index([companyId, createdAt])

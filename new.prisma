@@ -705,6 +705,7 @@ model Listing {
   asset       Asset          @relation(fields: [assetId], references: [id], onDelete: Restrict)
   enquiries   Enquiry[]
   adCampaigns AdCampaign[]
+  boosts      ListingBoost[]
   photos      ListingPhoto[]
 
   @@index([status, city])
@@ -1842,6 +1843,7 @@ model InventoryCountLine {
 
   @@unique([countId, itemId])
   @@index([companyId, countId])
+  @@index([itemId])
   @@map("inventory_count_lines")
 }
 
@@ -1882,6 +1884,7 @@ model HandoverScheduleLine {
   item        InventoryItem?   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@index([companyId, scheduleId])
+  @@index([itemId])
   @@map("handover_schedule_lines")
 }
 
@@ -4251,11 +4254,44 @@ model PromoPayment {
   note         String             @default("")
   verifiedById String?            @map("verified_by_id")
   verifiedAt   DateTime?          @map("verified_at")
+  /// The invoice the company pays the fee through (online, or by bank transfer the administrator records).
+  invoiceId    String?            @unique @map("invoice_id")
   createdAt    DateTime           @default(now()) @map("created_at")
   entry        PromoEntry         @relation(fields: [entryId], references: [id], onDelete: Restrict)
 
   @@index([companyId, status])
   @@map("promo_payments")
+}
+
+enum BoostStatus {
+  AWAITING_PAYMENT
+  ACTIVE
+  CANCELLED
+}
+
+/// A paid lift for one published property: it shows first in search results, marked "Boosted", for a number of days.
+model ListingBoost {
+  id              String      @id @default(uuid())
+  ref             String      @unique
+  companyId       String      @map("company_id")
+  listingId       String      @map("listing_id")
+  days            Int
+  priceKobo       BigInt      @map("price_kobo")
+  currency        String      @default("NGN")
+  status          BoostStatus @default(AWAITING_PAYMENT)
+  invoiceId       String?     @unique @map("invoice_id")
+  /// Set when paid: it starts then, or when an earlier boost of the same property ends.
+  startsAt        DateTime?   @map("starts_at")
+  endsAt          DateTime?   @map("ends_at")
+  cancelReason    String      @default("") @map("cancel_reason")
+  createdById     String      @map("created_by_id")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  listing         Listing     @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  @@index([status, endsAt])
+  @@index([companyId, createdAt])
+  @@index([listingId, status])
+  @@map("listing_boosts")
 }
 
 /// What a person thinks of the platform, and what would make it serve them better.
@@ -4810,6 +4846,8 @@ enum InvoicePurpose {
   AD_CAMPAIGN
   VERIFICATION
   COMMISSION
+  PROMOTION
+  BOOST
 }
 
 enum BillingInvoiceStatus {

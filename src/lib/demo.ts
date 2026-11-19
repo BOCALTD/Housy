@@ -373,12 +373,6 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await requestStockAdjustment(officer, paint.id, { kind: "DAMAGE", quantity: "1", reason: "Tin damaged in the store room" });
   const wrongCount = await requestStockAdjustment(officer, cement.id, { kind: "ADJUSTMENT", quantity: "2", direction: "DOWN", reason: "Recount found two bags short" });
   await decideAdjustment(manager, wrongCount.id, "approve", "");
-  const stocktake = await startCount(alpha, { title: "[DEMO] Shop store room count", assetId: shop.id });
-  {
-    const lines = await withTenant(alpha.companyId, alpha.userId, (tx) => tx.inventoryCountLine.findMany({ where: { countId: stocktake.id }, include: { item: { select: { itemNo: true } } } }));
-    await saveCountLines(officer, stocktake.id, Object.fromEntries(lines.map((l) => [l.id, { counted: String(l.item.itemNo === cement.itemNo ? l.expectedQty - 1 : l.expectedQty), note: l.item.itemNo === cement.itemNo ? "One torn bag" : "" }])));
-    await submitCount(officer, stocktake.id);
-  }
   const moveIn = await createHandoverSchedule(officer, shopLease.id, "MOVE_IN");
   await addScheduleLine(officer, moveIn.id, { room: "Main shop floor", description: "Ceiling fans", quantity: "3", condition: "GOOD" }, { ...demoPhoto, caption: "Fans" });
   await addScheduleLine(officer, moveIn.id, { room: "Main shop floor", description: "Display shelving units", quantity: "6", condition: "FAIR", notes: "Two shelves chipped" });
@@ -451,6 +445,13 @@ export async function createDemoData(adminId: string): Promise<boolean> {
   await recordDelivery(officer, cementReq.id, { quantity: "20", inventoryItemId: cement.id });
   await addProcurement(officer, reno.id, { description: "Aluminium frames", quantity: "12", unit: "pcs", requiredBy: daysFromToday(14), workPackageId: wpFront.id });
   await useOnProject(officer, cement.id, reno.id, { quantity: "5", workPackageId: wpFront.id });
+  // A stock count waiting for approval. It freezes the shop's items, so it comes after their other movements.
+  const stocktake = await startCount(alpha, { title: "[DEMO] Shop store room count", assetId: shop.id });
+  {
+    const lines = await withTenant(alpha.companyId, alpha.userId, (tx) => tx.inventoryCountLine.findMany({ where: { countId: stocktake.id }, include: { item: { select: { itemNo: true } } } }));
+    await saveCountLines(officer, stocktake.id, Object.fromEntries(lines.map((l) => [l.id, { counted: String(l.item.itemNo === cement.itemNo ? l.expectedQty - 1 : l.expectedQty), note: l.item.itemNo === cement.itemNo ? "One torn bag" : "" }])));
+    await submitCount(officer, stocktake.id);
+  }
   await addRisk(officer, reno.id, { title: "Rain delays the roof work", likelihood: "4", impact: "4", ownerId: manager.membershipId, mitigation: "Cover the opened roof each evening", category: "Weather", reviewOn: daysFromToday(7) });
   await addRisk(officer, reno.id, { title: "Imported glass arrives late", likelihood: "2", impact: "3", category: "Supply" });
   await recordSiteInspection(officer, reno.id, { inspectedOn: daysFromToday(-4), summary: "Roof timbers replaced on the north side. Work tidy.", outcome: "SATISFACTORY", workPackageId: wpRoof.id });

@@ -17,10 +17,11 @@ export default async function ItemPage({ params: paramsP, searchParams: searchP 
   const member = await requireMember("asset.view");
   const data = await getItem(member, params.id);
   if (!data) notFound();
-  const { item, movements, adjustments, names, members, myWorkOrders, woRefs } = data;
+  const { item, movements, adjustments, names, members, myWorkOrders, woRefs, frozenBy } = data;
   const back = `/app/inventory/${item.id}`;
   const active = item.status === "ACTIVE";
-  const move = can(member.role, "inventory.move") && active;
+  // While a stock count includes this item, its stock is frozen: no movements until the count is approved or cancelled.
+  const move = can(member.role, "inventory.move") && active && !frozenBy;
   const manage = can(member.role, "inventory.manage") && active;
   const approve = can(member.role, "inventory.approve");
   const who = (id: string | null) => (id ? names[id] ?? "Unknown user" : "—");
@@ -43,6 +44,9 @@ export default async function ItemPage({ params: paramsP, searchParams: searchP 
         </div>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+      {frozenBy ? (
+        <p className="flash warn" role="status">Stock is frozen while this item is counted in <Link href={`/app/inventory/counts/${frozenBy.id}`}>{frozenBy.ref}</Link> ({frozenBy.status === "OPEN" ? "counting" : "waiting for approval"}). Movements and corrections wait until the count is approved or cancelled.</p>
+      ) : null}
 
       <section className="card stack" aria-labelledby="bal-h">
         <h2 id="bal-h">Balance</h2>

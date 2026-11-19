@@ -6,7 +6,7 @@ import { formatDate, todayInLagos, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import { EnumOptions, Field, Flash, Pill, TableMore, sp, type SP } from "@/components/ui";
-import { acknowledgeAction, addLineAction, addLinePhotoAction, createScheduleAction, removeLineAction } from "../../inventory/actions";
+import { acknowledgeAction, addLineAction, applyRegisterAction, addLinePhotoAction, createScheduleAction, removeLineAction } from "../../inventory/actions";
 
 export const metadata = { title: "Handover inventory" };
 
@@ -19,6 +19,8 @@ export default async function HandoverInventoryPage({ params: paramsP, searchPar
   const d = await getHandoverInventory(member, params.leaseId);
   if (!d) notFound();
   const record = can(member.role, "handover.record");
+  const manageStock = can(member.role, "inventory.manage");
+  const linkedDiffs = d.comparison ? d.comparison.filter((c) => c.before?.itemId && (c.kind === "MISSING" || c.kind === "FEWER" || c.kind === "WORSE")) : [];
   const todayText = toDateOnlyString(todayInLagos());
   const sections = [
     { kind: "MOVE_IN" as const, schedule: d.moveIn },
@@ -49,7 +51,7 @@ export default async function HandoverInventoryPage({ params: paramsP, searchPar
                         const photos = d.photos.filter((p) => p.subjectId === l.id);
                         return (
                           <tr key={l.id}>
-                            <td>{l.room}</td><td>{l.description}</td><td className="r num">{l.quantity}</td><td>{humanize(l.condition)}</td><td className="small">{l.notes}</td>
+                            <td>{l.room}</td><td>{l.description}{l.item ? <> <Link className="pill brand" href={`/app/inventory/${l.item.id}`} title="In the inventory register">{l.item.itemNo}</Link></> : null}</td><td className="r num">{l.quantity}</td><td>{humanize(l.condition)}</td><td className="small">{l.notes}</td>
                             <td>
                               <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
                                 {photos.map((p) => (
@@ -83,7 +85,15 @@ export default async function HandoverInventoryPage({ params: paramsP, searchPar
                       <input type="hidden" name="leaseId" value={d.lease.id} /><input type="hidden" name="scheduleId" value={schedule.id} />
                       <div className="fields">
                         <Field label="Room"><input name="room" required placeholder="Lounge, Kitchen, Bedroom 1" /></Field>
-                        <Field label="Item"><input name="description" required placeholder="Sofa, ceiling fan, wardrobe" /></Field>
+                        {d.register.length ? (
+                          <Field label="Register item (optional)" hint="Choose it if the item is in this property's inventory register; it is then matched at move-out and can update the register.">
+                            <select name="itemId" defaultValue="">
+                              <option value="">Not in the register</option>
+                              {d.register.map((r) => <option key={r.id} value={r.id}>{r.itemNo} · {r.name} ({r.quantity} {r.unit})</option>)}
+                            </select>
+                          </Field>
+                        ) : null}
+                        <Field label="Item" hint={d.register.length ? "Leave empty to use the register item's name." : undefined}><input name="description" required={!d.register.length} placeholder="Sofa, ceiling fan, wardrobe" /></Field>
                         <Field label="Quantity"><input name="quantity" inputMode="numeric" defaultValue="1" required /></Field>
                         <Field label="Condition"><select name="condition" defaultValue="GOOD"><EnumOptions values={CONDITIONS} /></select></Field>
                       </div>
@@ -129,6 +139,15 @@ export default async function HandoverInventoryPage({ params: paramsP, searchPar
                 ))} />
           </div>
           <p className="small muted">This comparison is a record of differences for people to review. It does not decide any deduction from the deposit.</p>
+          {d.moveOut?.registerUpdatedAt ? (
+            <p className="small">The inventory register was updated from this handover on {formatDate(d.moveOut.registerUpdatedAt)}.</p>
+          ) : d.moveIn?.status === "ACKNOWLEDGED" && d.moveOut?.status === "ACKNOWLEDGED" && manageStock && linkedDiffs.length > 0 ? (
+            <form action={applyRegisterAction} className="stack" style={{ gap: 6 }}>
+              <input type="hidden" name="leaseId" value={d.lease.id} />
+              <p className="small">{linkedDiffs.length} register {linkedDiffs.length === 1 ? "item is" : "items are"} missing, fewer or in worse condition. Missing items become write-off requests that another person approves; worse condition is written to the register.</p>
+              <button className="btn" type="submit" data-confirm="Send the differences to the register?" data-confirm-body="Write-off requests are made for missing register items and conditions are updated. This can be done once for this handover." data-confirm-ok="Send to register">Send the differences to the register</button>
+            </form>
+          ) : null}
         </section>
       ) : null}
     </div>

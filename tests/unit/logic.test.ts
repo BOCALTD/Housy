@@ -492,3 +492,20 @@ test("inventory: move-in and move-out schedules are compared room by room", () =
   const diff = Object.fromEntries(compareSchedules(inn, out).map((d) => [`${d.room.toLowerCase()}/${d.description.toLowerCase()}`, d.kind]));
   assert.deepEqual(diff, { "lounge/sofa": "WORSE", "lounge/curtains": "SAME", "kitchen/chairs": "FEWER", "kitchen/cooker": "BETTER", "bedroom/wardrobe": "MISSING", "garden/hose": "NEW" });
 });
+
+test("handover lines that are register items are matched by item, even when recorded in another room", () => {
+  const before = [
+    { room: "Kitchen", description: "Fridge", quantity: 1, condition: "GOOD" as const, itemId: "i1" },
+    { room: "Lounge", description: "Rug", quantity: 1, condition: "GOOD" as const },
+  ];
+  const after = [
+    { room: "Lounge", description: "Fridge (moved)", quantity: 1, condition: "FAIR" as const, itemId: "i1" },
+    { room: "lounge", description: "rug", quantity: 1, condition: "GOOD" as const },
+  ];
+  const r = compareSchedules(before, after);
+  assert.equal(r.length, 2);
+  assert.deepEqual(r.map((x) => x.kind).sort(), ["SAME", "WORSE"]);
+  // A linked line does not match an unlinked line with the same words.
+  const r2 = compareSchedules([{ room: "Kitchen", description: "Fridge", quantity: 1, condition: "GOOD", itemId: "i1" }], [{ room: "Kitchen", description: "Fridge", quantity: 1, condition: "GOOD" }]);
+  assert.deepEqual(r2.map((x) => x.kind).sort(), ["MISSING", "NEW"]);
+});

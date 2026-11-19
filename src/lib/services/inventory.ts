@@ -41,11 +41,23 @@ async function activeMember(tx: Tx, companyId: string, membershipId: string | nu
   return m;
 }
 
+/** Refuses when any of these items is in a count that is still open or waiting for approval. */
+export async function assertNotBeingCounted(tx: Tx, companyId: string, itemIds: string[]) {
+  if (!itemIds.length) return;
+  const hit = await tx.inventoryCountLine.findFirst({
+    where: { companyId, itemId: { in: itemIds }, count: { status: { in: ["OPEN", "SUBMITTED"] } } },
+    select: { count: { select: { ref: true } }, item: { select: { name: true } } },
+  });
+  if (hit) throw new Error(`${hit.item.name} is being counted in ${hit.count.ref}. Stock does not move until that count is approved or cancelled.`);
+}
+
 async function addMovement(
   tx: Tx, ctx: Ctx,
   m: { itemId: string; kind: DirectKind | ReviewedKind; delta: number; balanceAfter: number; fromLocation?: string; toLocation?: string;
     workOrderId?: string | null; reference?: string; note?: string; performedById?: string; approvedById?: string | null; adjustmentId?: string | null; countId?: string | null },
 ) {
+  // A stock count freezes its items: nothing moves until the count is approved or cancelled (the count's own corrections excepted).
+  if (!m.countId) await assertNotBeingCounted(tx, ctx.companyId, [m.itemId]);
   return tx.inventoryMovement.create({
     data: {
       companyId: ctx.companyId, itemId: m.itemId, kind: m.kind, delta: m.delta, balanceAfter: m.balanceAfter,
@@ -342,6 +354,13 @@ export async function startCount(ctx: Ctx, input: z.input<typeof countStartSchem
     }
     const items = await tx.inventoryItem.findMany({ where: { companyId: ctx.companyId, status: "ACTIVE", ...(d.assetId ? { assetId: d.assetId } : {}) }, select: { id: true, quantity: true }, orderBy: { itemNo: "asc" } });
     if (items.length === 0) throw new Error("There are no items to count");
+    const busy = await tx.inventoryCountLine.findFirst({ where: { companyId: ctx.companyId, itemId: { in: items.map((i) => i.id) }, count: { status: { in: ["OPEN", "SUBMITTED"] } } }, select: { count: { select: { ref: true } } } });
+    if (busy) throw new Error(`Some of these items are already being counted in ${busy.count.ref}. Finish or cancel that count first.`);
+    // Lock the items so nothing moves between reading their balances and the count starting.
+    for (const i of items) await lockItem(tx, i.id, ctx.companyId);
+    const fresh = await tx.inventoryItem.findMany({ where: { id: { in: items.map((i) => i.id) } }, select: { id: true, quantity: true } });
+    const qty = new Map(fresh.map((i) => [i.id, i.quantity]));
+    for (const i of items) i.quantity = qty.get(i.id) ?? i.quantity;
     const year = todayInLagos().getUTCFullYear();
     const n = await nextNumber(tx, ctx.companyId, "STK", year);
     const count = await tx.inventoryCount.create({ data: { companyId: ctx.companyId, ref: `STK-${year}-${String(n).padStart(4, "0")}`, title: d.title, assetId: d.assetId, startedById: ctx.userId } });
@@ -455,14 +474,24 @@ export async function createHandoverSchedule(ctx: Ctx, leaseId: string, kind: "M
     const existing = await tx.handoverSchedule.findUnique({ where: { leaseId_kind: { leaseId, kind } } });
     if (existing) throw new Error("There is already an inventory schedule of this kind for this lease");
     const row = await tx.handoverSchedule.create({ data: { companyId: ctx.companyId, leaseId, kind, recordedById: ctx.userId } });
-    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "lease", entityId: leaseId, action: "handover_schedule.created", detail: { kind } });
+    // The move-out schedule starts as a copy of the acknowledged move-in lines, to be checked and corrected room by room.
+    let copied = 0;
+    if (kind === "MOVE_OUT") {
+      const moveIn = await tx.handoverSchedule.findUnique({ where: { leaseId_kind: { leaseId, kind: "MOVE_IN" } }, include: { lines: { orderBy: { sortOrder: "asc" } } } });
+      if (moveIn?.status === "ACKNOWLEDGED" && moveIn.lines.length) {
+        await tx.handoverScheduleLine.createMany({ data: moveIn.lines.map((l, i) => ({ companyId: ctx.companyId, scheduleId: row.id, room: l.room, description: l.description, quantity: l.quantity, condition: l.condition, notes: "", sortOrder: i, itemId: l.itemId })) });
+        copied = moveIn.lines.length;
+      }
+    }
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "lease", entityId: leaseId, action: "handover_schedule.created", detail: { kind, copiedFromMoveIn: copied } });
     return row;
   });
 }
 
 const lineSchema = z.object({
   room: z.string().trim().min(2, "Enter the room").max(100),
-  description: z.string().trim().min(2, "Describe the item").max(200),
+  description: z.string().trim().max(200).default(""),
+  itemId: z.string().optional().transform((v) => v || null),
   quantity: z.string().trim().regex(/^\d{1,5}$/, "Enter the quantity as a whole number"),
   condition: z.enum(CONDITIONS).default("GOOD"),
   notes: z.string().trim().max(500).default(""),
@@ -481,12 +510,22 @@ export async function addScheduleLine(ctx: Ctx, scheduleId: string, input: z.inp
   const d = lineSchema.parse(input);
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const s = await draftSchedule(tx, ctx, scheduleId);
+    // A line can be an item from the property's register: it is then matched by item at move-out and can update the register.
+    let description = d.description;
+    if (d.itemId) {
+      const lease = await tx.lease.findUniqueOrThrow({ where: { id: s.leaseId }, select: { assetId: true } });
+      const item = await tx.inventoryItem.findFirst({ where: { id: d.itemId, companyId: ctx.companyId, assetId: lease.assetId, status: "ACTIVE" }, select: { name: true } });
+      if (!item) throw new Error("Choose an item from this property's register");
+      if (await tx.handoverScheduleLine.findFirst({ where: { scheduleId, itemId: d.itemId } })) throw new Error("That register item is already on this schedule");
+      description = description || item.name;
+    }
+    if (description.length < 2) throw new Error("Describe the item, or choose it from the register");
     const count = await tx.handoverScheduleLine.count({ where: { scheduleId } });
     const line = await tx.handoverScheduleLine.create({
-      data: { companyId: ctx.companyId, scheduleId, room: d.room, description: d.description, quantity: Number(d.quantity), condition: d.condition, notes: d.notes, sortOrder: count },
+      data: { companyId: ctx.companyId, scheduleId, room: d.room, description, quantity: Number(d.quantity), condition: d.condition, notes: d.notes, sortOrder: count, itemId: d.itemId },
     });
     if (photo) await savePhoto(tx, ctx, "handover_line", line.id, { phase: "EVIDENCE", caption: photo.caption ?? "" }, photo);
-    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "lease", entityId: s.leaseId, action: "handover_schedule.line_added", detail: { kind: s.kind, room: d.room, description: d.description } });
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "lease", entityId: s.leaseId, action: "handover_schedule.line_added", detail: { kind: s.kind, room: d.room, description, itemId: d.itemId } });
     return line;
   });
 }
@@ -582,7 +621,8 @@ export async function getItem(ctx: Ctx, id: string) {
     ]);
     const names = await nameMap(tx, [...movements.flatMap((m) => [m.performedById, m.approvedById]), ...adjustments.flatMap((a) => [a.requestedById, a.decidedById])]);
     const woRefs = Object.fromEntries((await tx.workOrder.findMany({ where: { id: { in: movements.map((m) => m.workOrderId).filter((x): x is string => !!x) } }, select: { id: true, ref: true } })).map((w) => [w.id, w.ref]));
-    return { item, movements, adjustments, names, members: members.map((m) => ({ id: m.id, name: m.user.name })), myWorkOrders: workOrders, woRefs };
+    const frozen = await tx.inventoryCountLine.findFirst({ where: { companyId: ctx.companyId, itemId: id, count: { status: { in: ["OPEN", "SUBMITTED"] } } }, select: { count: { select: { id: true, ref: true, status: true } } } });
+    return { item, movements, adjustments, names, members: members.map((m) => ({ id: m.id, name: m.user.name })), myWorkOrders: workOrders, woRefs, frozenBy: frozen?.count ?? null };
   });
 }
 
@@ -616,12 +656,13 @@ export async function getHandoverInventory(ctx: Ctx, leaseId: string) {
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const lease = await tx.lease.findFirst({ where: { id: leaseId, companyId: ctx.companyId }, select: { id: true, ref: true, occupantName: true, asset: { select: { id: true, ref: true, name: true } } } });
     if (!lease) return null;
-    const schedules = await tx.handoverSchedule.findMany({ where: { companyId: ctx.companyId, leaseId }, include: { lines: { orderBy: { sortOrder: "asc" } } } });
+    const schedules = await tx.handoverSchedule.findMany({ where: { companyId: ctx.companyId, leaseId }, include: { lines: { orderBy: { sortOrder: "asc" }, include: { item: { select: { id: true, itemNo: true } } } } } });
     const photos = await photosFor(tx, ctx.companyId, "handover_line", schedules.flatMap((s) => s.lines.map((l) => l.id)));
     const moveIn = schedules.find((s) => s.kind === "MOVE_IN") ?? null;
     const moveOut = schedules.find((s) => s.kind === "MOVE_OUT") ?? null;
-    const asLines = (s: typeof moveIn): RoomLine[] => (s ? s.lines.map((l) => ({ room: l.room, description: l.description, quantity: l.quantity, condition: l.condition })) : []);
-    return { lease, moveIn, moveOut, photos, comparison: moveIn && moveOut ? compareSchedules(asLines(moveIn), asLines(moveOut)) : null };
+    const asLines = (s: typeof moveIn): RoomLine[] => (s ? s.lines.map((l) => ({ room: l.room, description: l.description, quantity: l.quantity, condition: l.condition, itemId: l.itemId })) : []);
+    const register = await tx.inventoryItem.findMany({ where: { companyId: ctx.companyId, assetId: lease.asset.id, status: "ACTIVE" }, select: { id: true, itemNo: true, name: true, quantity: true, condition: true, unit: true }, orderBy: { name: "asc" }, take: 300 });
+    return { lease, moveIn, moveOut, photos, register, comparison: moveIn && moveOut ? compareSchedules(asLines(moveIn), asLines(moveOut)) : null };
   });
 }
 
@@ -638,5 +679,46 @@ export async function inventorySummary(ctx: Ctx) {
       items: items.length, lowStock: items.filter((i) => isLowStock(i)).length, pendingAdjustments: pending, openCounts,
       stockValueKobo: items.reduce((s, i) => s + BigInt(i.quantity) * (i.unitCostKobo ?? 0n), 0n),
     };
+  });
+}
+
+/**
+ * After move-out, send the differences on register items to the inventory register, once: an item missing or fewer becomes a
+ * write-off request (a loss) for another person to approve, as any adjustment does; an item handed back in worse condition has its
+ * condition updated. Lines not linked to the register are left for people to deal with.
+ */
+export async function applyHandoverToRegister(ctx: Ctx, leaseId: string) {
+  assertCan(ctx, "inventory.manage");
+  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+    const schedules = await tx.handoverSchedule.findMany({ where: { companyId: ctx.companyId, leaseId }, include: { lines: true } });
+    const moveIn = schedules.find((x) => x.kind === "MOVE_IN"), moveOut = schedules.find((x) => x.kind === "MOVE_OUT");
+    if (!moveIn || !moveOut || moveIn.status !== "ACKNOWLEDGED" || moveOut.status !== "ACKNOWLEDGED") throw new Error("Both the move-in and the move-out schedules must be acknowledged first");
+    const locked = await tx.$queryRawUnsafe<{ register_updated_at: Date | null }[]>(`SELECT register_updated_at FROM handover_schedules WHERE id = $1 FOR UPDATE`, moveOut.id);
+    if (locked[0]?.register_updated_at) throw new Error("The register has already been updated from this handover");
+    const lease = await tx.lease.findUniqueOrThrow({ where: { id: leaseId }, select: { ref: true } });
+    const asLines = (ls: typeof moveIn.lines): RoomLine[] => ls.map((l) => ({ room: l.room, description: l.description, quantity: l.quantity, condition: l.condition, itemId: l.itemId }));
+    const diff = compareSchedules(asLines(moveIn.lines), asLines(moveOut.lines));
+    let losses = 0, worse = 0;
+    for (const d of diff) {
+      const itemId = d.before?.itemId ?? null;
+      if (!itemId) continue;
+      if (d.kind === "MISSING" || d.kind === "FEWER") {
+        const short = d.before!.quantity - (d.after?.quantity ?? 0);
+        const item = await tx.inventoryItem.findFirst({ where: { id: itemId, companyId: ctx.companyId, status: "ACTIVE" }, select: { quantity: true } });
+        const delta = -Math.min(short, item?.quantity ?? 0);
+        if (delta < 0) {
+          const adj = await tx.inventoryAdjustment.create({ data: { companyId: ctx.companyId, itemId, kind: "LOSS", delta, reason: `Missing at move-out, lease ${lease.ref} (${d.room}: ${d.description})`, requestedById: ctx.userId } });
+          await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "inventory_item", entityId: itemId, action: "inventory.adjustment_requested", detail: { adjustmentId: adj.id, kind: "LOSS", delta, from: "handover", leaseRef: lease.ref } });
+          losses++;
+        }
+      } else if (d.kind === "WORSE" && d.after) {
+        await tx.inventoryItem.update({ where: { id: itemId }, data: { condition: d.after.condition } });
+        await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "inventory_item", entityId: itemId, action: "inventory.condition_changed", detail: { from: d.before!.condition, to: d.after.condition, leaseRef: lease.ref } });
+        worse++;
+      }
+    }
+    await tx.$executeRawUnsafe(`UPDATE handover_schedules SET register_updated_at = now() WHERE id = $1`, moveOut.id);
+    await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "lease", entityId: leaseId, action: "handover_schedule.register_updated", detail: { losses, worse } });
+    return { losses, worse };
   });
 }

@@ -75,14 +75,15 @@ const RANK = { EXCELLENT: 0, GOOD: 1, FAIR: 2, POOR: 3, CRITICAL: 4 } as const;
 export type Condition = keyof typeof RANK;
 export const conditionRank = (c: Condition) => RANK[c];
 
-export interface RoomLine { room: string; description: string; quantity: number; condition: Condition }
+export interface RoomLine { room: string; description: string; quantity: number; condition: Condition; itemId?: string | null }
 export interface RoomDifference {
   room: string; description: string;
   kind: "MISSING" | "NEW" | "FEWER" | "MORE" | "WORSE" | "BETTER" | "SAME";
   before: RoomLine | null; after: RoomLine | null;
 }
 
-const key = (l: { room: string; description: string }) => `${l.room.trim().toLowerCase()}|${l.description.trim().toLowerCase()}`;
+/** Lines that are register items are matched by item, wherever they were recorded; others by room and description. */
+const key = (l: { room: string; description: string; itemId?: string | null }) => (l.itemId ? `item:${l.itemId}` : `${l.room.trim().toLowerCase()}|${l.description.trim().toLowerCase()}`);
 
 /** Compare a move-in schedule with a move-out schedule, item by item within each room. */
 export function compareSchedules(moveIn: RoomLine[], moveOut: RoomLine[]): RoomDifference[] {

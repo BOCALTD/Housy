@@ -1754,6 +1754,7 @@ model InventoryItem {
   adjustments   InventoryAdjustment[]
   countLines    InventoryCountLine[]
   projectUses   ProjectStockUse[]
+  handoverLines HandoverScheduleLine[]
 
   @@unique([companyId, itemNo])
   @@unique([companyId, code])
@@ -1841,6 +1842,7 @@ model InventoryCountLine {
 
   @@unique([countId, itemId])
   @@index([companyId, countId])
+  @@index([itemId])
   @@map("inventory_count_lines")
 }
 
@@ -1855,6 +1857,8 @@ model HandoverSchedule {
   acknowledgedOn DateTime?      @map("acknowledged_on") @db.Date
   recordedById   String         @map("recorded_by_id")
   createdAt      DateTime       @default(now()) @map("created_at")
+  /// When the move-in/move-out differences on register items were sent to the inventory register (move-out only; once).
+  registerUpdatedAt DateTime?   @map("register_updated_at")
   lease          Lease          @relation(fields: [leaseId], references: [id], onDelete: Restrict)
   lines          HandoverScheduleLine[]
 
@@ -1873,9 +1877,13 @@ model HandoverScheduleLine {
   condition   ConditionRating
   notes       String           @default("")
   sortOrder   Int              @default(0) @map("sort_order")
+  /// The register item this line is, when it is one (contents and equipment on the property).
+  itemId      String?          @map("item_id")
   schedule    HandoverSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  item        InventoryItem?   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@index([companyId, scheduleId])
+  @@index([itemId])
   @@map("handover_schedule_lines")
 }
 

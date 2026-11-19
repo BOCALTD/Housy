@@ -3,7 +3,7 @@
 import { requireMember } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
 import {
-  acknowledgeSchedule, addScheduleLine, addSchedulePhoto, cancelCount, createHandoverSchedule, createItem, decideAdjustment, decideCount,
+  acknowledgeSchedule, addScheduleLine, applyHandoverToRegister, addSchedulePhoto, cancelCount, createHandoverSchedule, createItem, decideAdjustment, decideCount,
   findItemByCode, recordMovement, removeScheduleLine, requestAdjustment, saveCountLines, startCount, submitCount, updateItem, useOnWorkOrder,
 } from "@/lib/services/inventory";
 
@@ -164,7 +164,7 @@ export async function addLineAction(form: FormData) {
     const member = await requireMember("handover.record");
     const file = upload(form, "photo");
     await addScheduleLine(member, str(form, "scheduleId"), {
-      room: str(form, "room"), description: str(form, "description"), quantity: str(form, "quantity") || "1",
+      room: str(form, "room"), description: str(form, "description"), itemId: str(form, "itemId"), quantity: str(form, "quantity") || "1",
       condition: (optStr(form, "condition") ?? "GOOD") as never, notes: str(form, "notes"),
     }, file ? { ...(await bytesOf(file)), caption: str(form, "caption") } : null);
     return withNotice(handoverPath(leaseId), "Item added.");
@@ -197,5 +197,18 @@ export async function acknowledgeAction(form: FormData) {
     const member = await requireMember("handover.record");
     await acknowledgeSchedule(member, str(form, "scheduleId"), { acknowledgedBy: str(form, "acknowledgedBy"), acknowledgedOn: str(form, "acknowledgedOn") });
     return withNotice(handoverPath(leaseId), "Acknowledged. The schedule is now locked.");
+  });
+}
+
+export async function applyRegisterAction(form: FormData) {
+  const leaseId = str(form, "leaseId");
+  return act(handoverPath(leaseId), async () => {
+    const member = await requireMember("inventory.manage");
+    const r = await applyHandoverToRegister(member, leaseId);
+    const parts = [
+      r.losses ? `${r.losses} write-off ${r.losses === 1 ? "request" : "requests"} sent for approval` : "",
+      r.worse ? `${r.worse} ${r.worse === 1 ? "item's" : "items'"} condition updated` : "",
+    ].filter(Boolean);
+    return withNotice(handoverPath(leaseId), parts.length ? `Register updated: ${parts.join(", ")}.` : "Register checked: no register items were missing or worse.");
   });
 }

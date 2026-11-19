@@ -37,6 +37,7 @@ export default async function CountPage({ params: paramsP, searchParams: searchP
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       {count.decisionNote ? <p className="small muted">Note: {count.decisionNote}</p> : null}
+      {open || count.status === "SUBMITTED" ? <p className="flash warn" role="status">Stock is frozen for the {count.lines.length} {count.lines.length === 1 ? "item" : "items"} on this count: no movements or corrections are recorded for them until the count is approved or cancelled.</p> : null}
 
       <form action={saveCountAction} className="card stack">
         {hidden}

@@ -175,8 +175,9 @@ test("a physical count needs every line counted and a different approver, then a
   assert.equal(view.count.lines.length, 2);
   assert.ok(!view.count.lines.some((l) => l.itemId === other.id));
 
-  // Stock moves after the count starts; the variance is measured against the balance at approval.
-  await recordMovement(manager, cement.id, { kind: "ISSUE", quantity: "1" });
+  // A count freezes its items: stock does not move until it is approved or cancelled.
+  await assert.rejects(recordMovement(manager, cement.id, { kind: "ISSUE", quantity: "1" }), /being counted in .*approved or cancelled/);
+  await assert.rejects(startCount(admin, { title: "Overlapping count", assetId: asset.id }), /already being counted/);
 
   await assert.rejects(submitCount(officer, count.id), /not been counted/);
   const lineOf = (id: string) => view.count.lines.find((l) => l.itemId === id)!.id;
@@ -198,7 +199,7 @@ test("a physical count needs every line counted and a different approver, then a
   assert.ok((await getItem(admin, sand.id))!.item.lastVerifiedOn);
   const adj = (await movements(admin, cement.id)).filter((m) => m.kind === "ADJUSTMENT");
   assert.equal(adj.length, 1);
-  assert.equal(adj[0].delta, -2);
+  assert.equal(adj[0].delta, -3);
   assert.equal(adj[0].countId, count.id);
   assert.equal(adj[0].approvedById, manager.userId);
   assert.equal(adj[0].performedById, officer.userId);
@@ -295,10 +296,13 @@ test("handover schedules are built room by room, acknowledged, then frozen", asy
   await assert.rejects(withTenant(admin.companyId, admin.userId, (tx) => tx.handoverScheduleLine.delete({ where: { id: sofa.id } })));
   await assert.rejects(withTenant(admin.companyId, admin.userId, (tx) => tx.handoverSchedule.update({ where: { id: inn.id }, data: { acknowledgedBy: "Changed" } })));
 
+  // The move-out schedule starts as a copy of the acknowledged move-in lines, corrected room by room.
   const out = await createHandoverSchedule(officer, lease.id, "MOVE_OUT");
+  const copied = (await getHandoverInventory(admin, lease.id))!.moveOut!.lines;
+  assert.deepEqual(copied.map((l) => `${l.room}/${l.description}/${l.quantity}/${l.condition}`), ["Lounge/Sofa/1/GOOD", "Lounge/Curtains/2/GOOD", "Kitchen/Chairs/4/FAIR"]);
+  for (const l of copied.filter((l) => l.description !== "Curtains")) await removeScheduleLine(officer, out.id, l.id);
   await addScheduleLine(officer, out.id, { room: "lounge", description: "sofa", quantity: "1", condition: "POOR" });
   await addScheduleLine(officer, out.id, { room: "Kitchen", description: "Chairs", quantity: "3", condition: "FAIR" });
-  await addScheduleLine(officer, out.id, { room: "Lounge", description: "Curtains", quantity: "2", condition: "GOOD" });
   const d = (await getHandoverInventory(admin, lease.id))!;
   assert.equal(d.moveIn!.status, "ACKNOWLEDGED");
   assert.equal(d.moveOut!.status, "DRAFT");

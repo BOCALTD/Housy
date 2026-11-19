@@ -4896,7 +4896,22 @@ model Reel {
   /// True when the track was mixed into the stored clip; otherwise the player plays it alongside.
   musicMixed     Boolean     @default(false) @map("music_mixed")
   musicTrack     MusicTrack? @relation(fields: [musicTrackId], references: [id], onDelete: SetNull)
+  /// Where the clip and its picture are kept: "db" (reel_media, reel_posters), "disk" or "s3" (by key).
+  storage        String      @default("db")
+  mediaKey       String      @default("") @map("media_key")
+  posterKey      String      @default("") @map("poster_key")
+  /// Preparing the clip for every phone: queued, processing, ready or failed (the original plays meanwhile).
+  processing     String      @default("ready")
+  processError   String      @default("") @map("process_error")
+  processTries   Int         @default(0) @map("process_tries")
+  processStartedAt DateTime? @map("process_started_at")
+  durationSec    Float?      @map("duration_sec")
+  width          Int?
+  height         Int?
+  /// The music choice still to be laid under the clip when it is prepared.
+  musicPending   Boolean     @default(false) @map("music_pending")
 
+  @@index([processing, createdAt])
   @@index([status, publishedAt])
   @@index([authorId, status])
   @@index([musicTrackId])
@@ -4908,6 +4923,31 @@ model ReelMedia {
   bytes  Bytes
 
   @@map("reel_media")
+}
+
+/// A reel's still picture, when reels are kept in the database.
+model ReelPoster {
+  reelId String @id @map("reel_id")
+  bytes  Bytes
+
+  @@map("reel_posters")
+}
+
+/// A video being sent in pieces (so large clips and weak connections work). The bytes wait in a temporary file on the server.
+model ReelUpload {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  mimeType      String    @map("mime_type")
+  fileName      String    @default("") @map("file_name")
+  totalBytes    Int       @map("total_bytes")
+  receivedBytes Int       @default(0) @map("received_bytes")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  expiresAt     DateTime  @map("expires_at")
+  usedAt        DateTime? @map("used_at")
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("reel_uploads")
 }
 
 model ReelLike {

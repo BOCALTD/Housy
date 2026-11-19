@@ -4412,6 +4412,107 @@ model BulkOptOut {
   @@map("bulk_opt_outs")
 }
 
+enum BannerPlace {
+  HOME
+  SEARCH
+  DASHBOARD
+}
+
+enum BannerFold {
+  BOTTOM_RIGHT
+  TOP_RIGHT
+  NONE
+}
+
+/// A promotion banner the platform administrator designs elsewhere and uploads. Housy shows it with a folded corner and a gentle
+/// float in the places chosen, while the promo layout is switched on (Admin, Promo banners).
+model PromoBanner {
+  id           String        @id @default(uuid())
+  /// What the banner says, for people who cannot see it (screen readers) and when the picture cannot load.
+  title        String
+  linkUrl      String        @default("") @map("link_url")
+  places       BannerPlace[]
+  fold         BannerFold    @default(BOTTOM_RIGHT)
+  float        Boolean       @default(true)
+  desktopMime  String        @map("desktop_mime")
+  desktopBytes Bytes         @map("desktop_bytes")
+  desktopW     Int           @map("desktop_w")
+  desktopH     Int           @map("desktop_h")
+  /// An optional version for phones (often taller).
+  mobileMime   String?       @map("mobile_mime")
+  mobileBytes  Bytes?        @map("mobile_bytes")
+  mobileW      Int?          @map("mobile_w")
+  mobileH      Int?          @map("mobile_h")
+  startsAt     DateTime?     @map("starts_at")
+  endsAt       DateTime?     @map("ends_at")
+  active       Boolean       @default(true)
+  sortOrder    Int           @default(0) @map("sort_order")
+  /// Removed banners stay for a short while so the removal can be undone.
+  deletedAt    DateTime?     @map("deleted_at")
+  createdById  String        @map("created_by_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@index([active, sortOrder])
+  @@map("promo_banners")
+}
+
+enum ContentKind {
+  LISTING
+  BANNER
+  REEL
+}
+
+enum ReactionValue {
+  LIKE
+  DISLIKE
+}
+
+/// A like or dislike: one per person per item (properties and banners; reels keep their likes in reel_likes and their dislikes here).
+model ContentReaction {
+  id        String        @id @default(uuid())
+  kind      ContentKind
+  targetId  String        @map("target_id")
+  userId    String        @map("user_id")
+  value     ReactionValue
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@unique([kind, targetId, userId])
+  @@index([kind, targetId])
+  @@map("content_reactions")
+}
+
+/// Someone shared an item (properties and banners; reels use reel_shares). Taking the share back removes the row.
+model ContentShare {
+  id        String      @id @default(uuid())
+  kind      ContentKind
+  targetId  String      @map("target_id")
+  userId    String      @map("user_id")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@unique([kind, targetId, userId])
+  @@index([kind, targetId])
+  @@index([userId, createdAt])
+  @@map("content_shares")
+}
+
+/// How to reverse an everyday action someone just did, for the Undo button. It works once, for the same person, for a short time.
+model UndoEntry {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  companyId String?   @map("company_id")
+  kind      String
+  label     String
+  payload   Json
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("undo_entries")
+}
+
 /// What a person thinks of the platform, and what would make it serve them better.
 model PlatformRating {
   id           String       @id @default(uuid())

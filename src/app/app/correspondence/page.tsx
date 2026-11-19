@@ -5,6 +5,9 @@ import { isOverdue, STATUS_LABELS, type CorrStatus } from "@/lib/correspondence-
 import { formatDate, todayInLagos } from "@/lib/dates";
 import { can } from "@/lib/permissions";
 import { Flash, Pill, TableMore, sp, type SP } from "@/components/ui";
+import { companyInboundAddress } from "@/lib/services/inbound-email";
+import { CopyButton } from "@/components/CopyButton";
+import { newInboundAddressAction } from "./inbound-actions";
 
 export const metadata = { title: "Correspondence" };
 
@@ -27,6 +30,7 @@ export default async function CorrespondencePage({ searchParams: searchP }: { se
     correspondenceSummary(member),
   ]);
   const today = todayInLagos();
+  const inbound = can(member.role, "correspondence.register") ? await companyInboundAddress(member).catch(() => null) : null;
 
   return (
     <div className="stack">
@@ -35,6 +39,18 @@ export default async function CorrespondencePage({ searchParams: searchP }: { se
         {can(member.role, "correspondence.register") ? <Link className="btn primary" href="/app/correspondence/new">Register correspondence</Link> : null}
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+
+      {inbound ? (
+        <details className="card inline">
+          <summary>Receive letters by email</summary>
+          <div className="stack" style={{ gap: 8, marginTop: 8 }}>
+            <p className="small">Emails sent or forwarded to this address are registered here as incoming letters, with their attachments, and linked to the client whose email address sent them.</p>
+            <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}><code className="break">{inbound}</code><CopyButton text={inbound} label="Copy address" done="Address copied" /></div>
+            <p className="small muted">Share it only with people who should be able to send letters to your register. If it is passed around, make a new one: the old one stops working.</p>
+            {can(member.role, "settings.manage") ? <form action={newInboundAddressAction}><button className="btn small" type="submit" data-confirm="Make a new address?" data-confirm-body="Emails to the old address will no longer arrive. Tell the people who use it." data-confirm-ok="Make new address">Make a new address</button></form> : null}
+          </div>
+        </details>
+      ) : null}
 
       <section className="stats" aria-label="Correspondence summary">
         <Link href="/app/correspondence?view=mine" className="stat" style={{ textDecoration: "none" }}><b>{summary.mine}</b><span>Assigned to me</span></Link>

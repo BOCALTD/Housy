@@ -3,9 +3,11 @@ import { headers } from "next/headers";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { CAPTCHA_PLACES, CAPTCHA_PLACE_LABELS, COMMISSION_KINDS, COMMISSION_LABELS, LIVE_CHAT_ID_HINTS, LIVE_CHAT_LABELS, LIVE_CHAT_PLACES, LIVE_CHAT_PLACE_LABELS, LIVE_CHAT_PROVIDERS, configForAdmin, watermarkCounts } from "@/lib/services/platform-config";
+import { inboundAction } from "./inbound-actions";
 import { captchaAction, cloudflareAction, commissionAction, endMaintenanceAction, maintenanceAction, liveChatAction, paystackAction, watermarkPositionAction, watermarkSwitchAction, routesAction, stripeAction } from "./actions";
 import { COUNTRIES, COUNTRY_CODES, providerCanServe } from "@/lib/regions";
 import { maintenanceNow } from "@/lib/services/maintenance-mode";
+import { inboundConfig } from "@/lib/services/inbound-email";
 import { formatDateTime, toLagosLocal, zoneLabel } from "@/lib/dates";
 
 export const metadata = { title: "Platform settings" };
@@ -14,7 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function PlatformSettings({ searchParams: s }: { searchParams?: Promise<SP> }) {
   const searchParams = await s;
   await requirePlatformAdmin();
-  const [c, m, wm] = await Promise.all([configForAdmin(), maintenanceNow(), watermarkCounts()]);
+  const [c, m, wm, inbound] = await Promise.all([configForAdmin(), maintenanceNow(), watermarkCounts(), inboundConfig()]);
   const w = m.window;
   const soon = toLagosLocal(new Date(Date.now() + 25 * 3_600_000));
   const h = await headers();
@@ -155,6 +157,27 @@ export default async function PlatformSettings({ searchParams: s }: { searchPara
           </fieldset>
           <div className="row"><button className="btn" type="submit" data-confirm="Move Housy's mark?" data-confirm-body="Every photo that carries it shows it in the new place within a minute or two." data-confirm-ok="Save" data-confirm-tone="default">Save position</button></div>
         </form>
+      </section>
+
+      <section className="card stack" aria-labelledby="inbound-h">
+        <h2 id="inbound-h">Incoming email</h2>
+        <p>{inbound.domain ? <span className="pill ok">On: {inbound.domain}</span> : <span className="pill warn">Off</span>} <span className="small muted">Each company gets a private address on this domain. Emails sent or forwarded to it go into the company&apos;s correspondence register, linked to the client who sent them.</span></p>
+        <form action={inboundAction} className="stack" autoComplete="off">
+          <Field label="Inbound domain" hint="A domain (or sub-domain) whose mail your email provider receives, such as in.yourdomain.com. Leave empty to switch incoming email off."><input name="domain" spellCheck={false} defaultValue={inbound.domain} placeholder="in.yourdomain.com" /></Field>
+          <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+            <button className="btn primary" type="submit" data-confirm="Save incoming email?" data-confirm-body="Companies see their forwarding address on the Correspondence page once a domain is set." data-confirm-ok="Save" data-confirm-tone="default">Save</button>
+            {inbound.secret ? <button className="btn" type="submit" name="newSecret" value="1" data-confirm="Make a new secret?" data-confirm-body="The address below changes. Update it in your email provider straight away, or received emails will be refused." data-confirm-ok="Make new secret">Make a new secret</button> : null}
+          </div>
+        </form>
+        {inbound.domain && inbound.secret ? (
+          <details className="vp-fold"><summary>Set up your email provider</summary>
+            <ol className="small muted">
+              <li>In Postmark (Servers, your server, Default Inbound Stream, Settings), set the inbound domain to <code className="break">{inbound.domain}</code> and add the MX record it shows at your domain host.</li>
+              <li>Set the inbound webhook to <code className="break">{origin}/api/inbound-email?key={inbound.secret}</code> and tick &ldquo;Include raw email content&rdquo; off (not needed).</li>
+              <li>Keep this address private: anyone with it could post emails into the register.</li>
+            </ol>
+          </details>
+        ) : null}
       </section>
 
       <section className="card stack" aria-labelledby="chat-h">

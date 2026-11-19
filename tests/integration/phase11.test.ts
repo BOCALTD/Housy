@@ -82,7 +82,7 @@ test("a Basic company pays per property and cannot be approved before the paymen
   assert.equal(mine[0].payment?.status, "PENDING");
   assert.equal(mine[0].payment?.feeKobo, 5_000_000n);
 
-  await assert.rejects(reviewPromo(admin.id, e.id, "approve", ""), /Payment has not been confirmed/);
+  await assert.rejects(reviewPromo(admin.id, e.id, "approve", ""), /fee has not been paid/);
   await assert.rejects(markPaymentReceived(admin.id, e.id, "ab"), /at least 4/);
   await assert.rejects(markPaymentReceived(basic.userId, e.id, "BANK-1234"), /Only the platform administrator/);
   await markPaymentReceived(admin.id, e.id, "BANK-1234");

@@ -86,10 +86,13 @@ export async function post(tx: Tx, e: Posting) {
   if (!e.eventId && !e.actorId) throw new Error("A ledger entry needs a verified event or an authorising person");
   return tx.financeEntry.create({ data: { ledger: e.ledger, kind: e.kind, account: e.account, amountKobo: e.amountKobo, currency: e.currency ?? "NGN", entryKey: e.entryKey ?? null, invoiceId: e.invoiceId ?? null, paymentId: e.paymentId ?? null, refundId: e.refundId ?? null, campaignId: e.campaignId ?? null, eventId: e.eventId ?? null, actorId: e.actorId ?? null, note: (e.note ?? "").slice(0, 300) } });
 }
-type Purpose = "SUBSCRIPTION" | "AD_CAMPAIGN" | "VERIFICATION" | "COMMISSION";
+type Purpose = "SUBSCRIPTION" | "AD_CAMPAIGN" | "VERIFICATION" | "COMMISSION" | "PROMOTION" | "BOOST";
 export const ledgerFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" ? "SUBSCRIPTION" : purpose === "VERIFICATION" ? "VERIFICATION" : purpose === "COMMISSION" ? "COMMISSION" : "ADVERTISING") as "SUBSCRIPTION" | "ADVERTISING" | "VERIFICATION" | "COMMISSION";
-/** Subscriptions and commission are earned when paid. Advertising budgets and verification fees are held until spent or the work is delivered. */
-export const accountFor = (purpose: Purpose) => (purpose === "SUBSCRIPTION" || purpose === "COMMISSION" ? "REVENUE" : "FUNDS_HELD") as "REVENUE" | "FUNDS_HELD";
+/**
+ * Subscriptions, commission, promotion fees and boosts are earned when paid (promotion fees and boosts are on the advertising
+ * ledger). Advertising budgets and verification fees are held until spent or the work is delivered.
+ */
+export const accountFor = (purpose: Purpose) => (purpose === "AD_CAMPAIGN" || purpose === "VERIFICATION" ? "FUNDS_HELD" : "REVENUE") as "REVENUE" | "FUNDS_HELD";
 
 // ---------- Raising an invoice ----------
 
@@ -240,6 +243,16 @@ export async function applyInvoice(tx: Tx, inv: Prisma.InvoiceGetPayload<object>
   if (inv.purpose === "COMMISSION") {
     // Housy's commission on payments the company recorded as received directly: nothing to switch on, just settled.
     await tx.invoice.update({ where: { id: inv.id }, data: { appliedAt: now } });
+    return { planName: null };
+  }
+  if (inv.purpose === "PROMOTION") {
+    const { applyPromoPayment } = await import("./promotions");
+    await applyPromoPayment(tx, inv, now);
+    return { planName: null };
+  }
+  if (inv.purpose === "BOOST") {
+    const { applyBoostPayment } = await import("./boosts");
+    await applyBoostPayment(tx, inv, now);
     return { planName: null };
   }
   if (inv.purpose === "VERIFICATION") {

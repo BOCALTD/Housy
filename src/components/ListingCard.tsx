@@ -6,7 +6,9 @@ import { keyFacts, priceSuffix } from "@/lib/listing-rules";
 
 type L = { id: string; publicRef: string; title: string; purpose: string; priceKobo: bigint; currency?: string; bedrooms: number | null; bathrooms: number | null; city: string; state: string; propertyType: string; pricePeriod: string; toilets: number | null; buildingSqm100: number | null; landSqm100: number | null; furnishing: string; negotiable: boolean; coverPhotoId: string | null; tier: TierName; promo: { campaignName: string; pct: number; theme: string; originalKobo: bigint; promoKobo: bigint } | null;
   /** From Best match (lib/match-rules.ts): how the price compares with the area, why it ranks here, and copies of the same home. */
-  verdict?: { kind: "good" | "fair" | "high"; pct: number } | null; matchWhy?: string[]; alsoListed?: { publicRef: string }[] };
+  verdict?: { kind: "good" | "fair" | "high"; pct: number } | null; matchWhy?: string[]; alsoListed?: { publicRef: string }[];
+  /** Paid to be lifted in search (lib/services/boosts.ts): always labelled. */
+  boosted?: boolean };
 
 /** One property card, used in carousels and result grids. */
 export function ListingCard({ l, typeLabels }: { l: L; typeLabels?: Record<string, string> }) {
@@ -17,6 +19,7 @@ export function ListingCard({ l, typeLabels }: { l: L; typeLabels?: Record<strin
         {l.promo ? <PromoRibbon name={l.promo.campaignName} pct={l.promo.pct} theme={l.promo.theme} /> : null}
         <span className="promo-tags">
           <span className="pill brand">{l.purpose === "SALE" ? "For sale" : `For ${l.purpose.toLowerCase()}`}</span>
+          {l.boosted ? <span className="pill disc" title="The company paid to show this property higher in search">Boosted</span> : null}
           <PremiumTag tier={l.tier} /><GoldBadge tier={l.tier} />
           {l.verdict?.kind === "good" ? <span className="pill ok good-price" title={`About ${Math.abs(l.verdict.pct)}% under the typical price for this kind of home in ${l.city}`}>Good price</span> : null}
         </span>

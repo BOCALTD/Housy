@@ -6,12 +6,18 @@ import { parseNairaToKobo } from "../money";
 import { randomRef } from "../tokens";
 import { discountPct, promoFee, promoLive, promoPriceProblem, rankListings, tierPerks, type TierName } from "../tier-rules";
 import { notify } from "./notifications";
+import type { Prisma } from "@prisma/client";
+import type { Tx } from "../db";
+import { lockKey } from "../locks";
+import { system } from "./rewards";
 import { assertCan, type Ctx } from "./context";
 import { tierOf, tiersFor } from "./tiers";
 import { searchListings, type SearchFilters } from "./listings";
+import { boostedNow } from "./boosts";
 
 // Promotions. The platform runs campaigns; companies choose which of their published properties join; the platform approves each one.
-// Basic companies pay a fee per property (recorded by hand once received). Silver and Gold companies join free. The public only ever
+// Basic companies pay a fee per property through an invoice: online (Paystack or Stripe), or by bank transfer that the administrator
+// records. Pro and Elite companies join free. The public only ever
 // sees an approved entry whose campaign is running and whose property is still published at the price it was approved against.
 
 export const THEMES = ["RED", "GOLD", "GREEN", "PURPLE", "BLUE"] as const;
@@ -100,7 +106,7 @@ export async function requestPromo(ctx: Ctx, campaignId: string, listingId: stri
   let promo: bigint;
   try { promo = parseNairaToKobo(promoPrice); } catch { throw new Error("Enter the promotional price as a naira amount"); }
   const tier = await tierOf(ctx.companyId);
-  return withTenant(ctx.companyId, ctx.userId, async (tx) => {
+  const made = await withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const campaign = await tx.promoCampaign.findUnique({ where: { id: campaignId } });
     if (!campaign || !campaign.active || campaign.endsOn.getTime() + 864e5 <= Date.now()) throw new Error("That campaign is not open");
     const listing = await tx.listing.findFirst({ where: { id: listingId, companyId: ctx.companyId } });
@@ -118,8 +124,41 @@ export async function requestPromo(ctx: Ctx, campaignId: string, listingId: stri
     const fee = promoFee(tier, campaign.feeKobo, 1);
     await tx.promoPayment.create({ data: { entryId: entry.id, companyId: ctx.companyId, tierAtRequest: tier, feeKobo: fee, status: fee === 0n ? "NOT_REQUIRED" : "PENDING" } });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "promo_entry", entityId: entry.id, action: "promo.requested", detail: { campaign: campaign.name, listing: listing.publicRef, tier } });
-    return entry;
+    return { entry, fee, campaignName: campaign.name, listingRef: listing.publicRef, listingTitle: listing.title };
   });
+  if (made.fee === 0n) return { ...made.entry, invoiceId: null as string | null };
+  // The fee is an invoice like any other: paid online, or by bank transfer the administrator records.
+  const invoiceId = await system(async (tx) => {
+    const inv = await tx.invoice.create({
+      data: {
+        ref: randomRef("INV", 8), purpose: "PROMOTION", ownerKind: "COMPANY", ownerCompanyId: ctx.companyId, ownerName: (await tx.company.findUnique({ where: { id: ctx.companyId }, select: { name: true } }))?.name ?? "Company",
+        subjectId: made.entry.id, description: `Promotion fee: ${made.campaignName}, ${made.listingTitle} (${made.listingRef})`.slice(0, 300), amountKobo: made.fee, dueOn: new Date(), createdById: ctx.userId,
+      },
+    });
+    await tx.promoPayment.update({ where: { entryId: made.entry.id }, data: { invoiceId: inv.id } });
+    return inv.id;
+  });
+  return { ...made.entry, invoiceId };
+}
+
+/** A paid promotion fee: the request can now be approved. Called once, from settling the invoice's payment. */
+export async function applyPromoPayment(tx: Tx, inv: Prisma.InvoiceGetPayload<object>, now: Date) {
+  const p = await tx.promoPayment.findUnique({ where: { entryId: inv.subjectId } });
+  if (!p) throw new Error("The promotion on this invoice no longer exists");
+  if (p.status === "PENDING") await tx.promoPayment.update({ where: { id: p.id }, data: { status: "VERIFIED", reference: inv.ref, note: "Paid through the invoice (online, or by a bank transfer the administrator recorded)", verifiedById: "system", verifiedAt: now } });
+  await tx.invoice.update({ where: { id: inv.id }, data: { appliedAt: now } });
+  await logActivity(tx, { companyId: p.companyId, actorId: inv.createdById, entityType: "promo_entry", entityId: p.entryId, action: "promo.payment_verified", detail: { invoice: inv.ref } });
+  const admins = await tx.user.findMany({ where: { isPlatformAdmin: true }, select: { id: true }, take: 50 });
+  for (const a of admins) await notify(tx, a.id, { kind: "promo", title: "A paid promotion is waiting for review", body: inv.description, link: "/admin/promotions", dedupeKey: `promo-paid:${p.entryId}` });
+}
+
+/** Void the fee invoice of a request that will not go ahead, if it is still unpaid. */
+async function voidPromoInvoice(tx: Tx, entryId: string, reason: string) {
+  const p = await tx.promoPayment.findUnique({ where: { entryId } });
+  if (!p?.invoiceId) return;
+  await lockKey(tx, `invoice:${p.invoiceId}`);
+  const inv = await tx.invoice.findUnique({ where: { id: p.invoiceId } });
+  if (inv?.status === "OPEN") await tx.invoice.update({ where: { id: inv.id }, data: { status: "VOID", voidedAt: new Date(), voidReason: reason.slice(0, 300) } });
 }
 
 export async function withdrawPromo(ctx: Ctx, entryId: string) {
@@ -131,6 +170,7 @@ export async function withdrawPromo(ctx: Ctx, entryId: string) {
     await tx.promoEntry.update({ where: { id: e.id }, data: { status: "WITHDRAWN" } });
     await logActivity(tx, { companyId: ctx.companyId, actorId: ctx.userId, entityType: "promo_entry", entityId: e.id, action: "promo.withdrawn", detail: {} });
   });
+  await system((tx) => voidPromoInvoice(tx, entryId, "The promotion request was withdrawn"));
 }
 
 export async function myPromoEntries(ctx: Ctx) {
@@ -139,7 +179,17 @@ export async function myPromoEntries(ctx: Ctx) {
     const rows = await tx.promoEntry.findMany({ where: { companyId: ctx.companyId }, include: { campaign: true, payment: true }, orderBy: { createdAt: "desc" }, take: 200 });
     const listings = await tx.listing.findMany({ where: { id: { in: rows.map((r) => r.listingId) } }, select: { id: true, title: true, publicRef: true, priceKobo: true, currency: true, status: true } });
     return rows.map((r) => ({ ...r, listing: listings.find((l) => l.id === r.listingId) ?? null }));
+  }).then(async (rows) => {
+    const invoices = await feeInvoices(rows.map((r) => r.payment?.invoiceId), ctx.companyId);
+    return rows.map((r) => ({ ...r, invoice: invoices.find((i) => i.id === r.payment?.invoiceId) ?? null }));
   });
+}
+
+/** The fee invoices behind promotion requests (only the company's own, when a company is asking). */
+async function feeInvoices(ids: (string | null | undefined)[], companyId?: string) {
+  const want = ids.filter((x): x is string => !!x);
+  if (!want.length) return [];
+  return system((tx) => tx.invoice.findMany({ where: { id: { in: want }, ...(companyId ? { ownerCompanyId: companyId } : {}) }, select: { id: true, ref: true, status: true, amountKobo: true, currency: true } }));
 }
 
 // ---------- Admin: review ----------
@@ -150,7 +200,8 @@ export async function promoQueue(adminId: string, state: "REQUESTED" | "APPROVED
     const rows = await tx.promoEntry.findMany({ where: state === "ALL" ? {} : { status: state }, include: { campaign: true, payment: true }, orderBy: { createdAt: "asc" }, take: 300 });
     const listings = await tx.listing.findMany({ where: { id: { in: rows.map((r) => r.listingId) } }, select: { id: true, title: true, publicRef: true, priceKobo: true, currency: true, status: true } });
     const companies = await tx.company.findMany({ where: { id: { in: rows.map((r) => r.companyId) } }, select: { id: true, name: true } });
-    return rows.map((r) => ({ ...r, listing: listings.find((l) => l.id === r.listingId) ?? null, companyName: companies.find((c) => c.id === r.companyId)?.name ?? "Company" }));
+    const invoices = await tx.invoice.findMany({ where: { id: { in: rows.map((r) => r.payment?.invoiceId).filter((x): x is string => !!x) } }, select: { id: true, ref: true, status: true, amountKobo: true, currency: true } });
+    return rows.map((r) => ({ ...r, listing: listings.find((l) => l.id === r.listingId) ?? null, companyName: companies.find((c) => c.id === r.companyId)?.name ?? "Company", invoice: invoices.find((i) => i.id === r.payment?.invoiceId) ?? null }));
   });
 }
 
@@ -158,6 +209,16 @@ const refSchema = z.string().trim().min(4, "Enter the payment reference (at leas
 export async function markPaymentReceived(adminId: string, entryId: string, reference: string, note = "") {
   await assertAdmin(adminId);
   const ref = refSchema.parse(reference);
+  // A fee with an invoice is recorded as a bank transfer against that invoice, so the books show the money.
+  const p0 = await withPlatformAdmin(adminId, (tx) => tx.promoPayment.findUnique({ where: { entryId } }));
+  if (!p0) throw new Error("Payment not found");
+  if (p0.status !== "PENDING") throw new Error("This payment does not need confirming");
+  if (p0.invoiceId) {
+    const { recordOfflinePayment } = await import("./billing");
+    const k = p0.feeKobo;
+    await recordOfflinePayment(adminId, p0.invoiceId, { amount: `${k / 100n}.${(k % 100n).toString().padStart(2, "0")}`, reference: ref, note });
+    return;
+  }
   await withPlatformAdmin(adminId, async (tx) => {
     const p = await tx.promoPayment.findUnique({ where: { entryId } });
     if (!p) throw new Error("Payment not found");
@@ -184,11 +245,14 @@ export async function reviewPromo(adminId: string, entryId: string, decision: "a
         // A company that upgraded after asking no longer owes the fee.
         const tier = (await tx.companyTier.findUnique({ where: { companyId: e.companyId } }));
         const now = tier && tier.validUntil.getTime() > Date.now() ? tier.tier : "BASIC";
-        if (tierPerks(now as TierName).freePromos) await tx.promoPayment.update({ where: { id: e.payment.id }, data: { status: "NOT_REQUIRED", feeKobo: 0n, note: `Waived: the company is now on a plan with free promotions (fee was ${e.payment.feeKobo} kobo)` } });
-        else throw new Error("Payment has not been confirmed yet");
+        if (tierPerks(now as TierName).freePromos) {
+          await tx.promoPayment.update({ where: { id: e.payment.id }, data: { status: "NOT_REQUIRED", feeKobo: 0n, note: `Waived: the company is now on a plan with free promotions (fee was ${e.payment.feeKobo} kobo)` } });
+          await voidPromoInvoice(tx, e.id, "Waived: the company is now on a plan with free promotions");
+        } else throw new Error("The fee has not been paid yet. It can be paid online from the company's billing page, or record the bank transfer here.");
       }
     }
     await tx.promoEntry.update({ where: { id: e.id }, data: { status: decision === "approve" ? "APPROVED" : "REJECTED", reviewNote: reason, reviewedById: adminId, reviewedAt: new Date() } });
+    if (decision === "reject") await voidPromoInvoice(tx, e.id, "The promotion request was turned down");
     notice = { companyId: e.companyId, title: decision === "approve" ? "Your promotion was approved" : "Your promotion was not approved", body: `${e.campaign.name}${reason ? `: ${reason}` : ""}` };
     await logActivity(tx, { companyId: e.companyId, actorId: adminId, entityType: "promo_entry", entityId: e.id, action: decision === "approve" ? "promo.approved" : "promo.rejected", detail: { reason } });
   });
@@ -225,11 +289,11 @@ export async function searchListingsRanked(f: SearchFilters) {
 
 /** Add each listing's plan level, live promotion and cover photograph. With rank, Gold listings are lifted as the ranking rules say. */
 export async function decorateListings<T extends { id: string; companyId: string; status: string; priceKobo: bigint; publishedAt: Date | null }>(rows: T[], rank: boolean) {
-  const [tiers, promos] = await Promise.all([tiersFor(rows.map((r) => r.companyId)), livePromos(rows)]);
+  const [tiers, promos, boosted] = await Promise.all([tiersFor(rows.map((r) => r.companyId)), livePromos(rows), boostedNow(rows.map((r) => r.id))]);
   const seed = new Date().toISOString().slice(0, 10);
-  const ranked = rank ? rankListings(rows, (r) => tierPerks(tiers.get(r.companyId) ?? "BASIC").autoBoost, seed) : rows;
+  const ranked = rank ? rankListings(rows, (r) => tierPerks(tiers.get(r.companyId) ?? "BASIC").autoBoost, seed, (r) => boosted.has(r.id)) : rows;
   const covers = await coverPhotoIds(ranked.map((r) => r.id));
-  return ranked.map((r) => ({ ...r, tier: tiers.get(r.companyId) ?? ("BASIC" as TierName), promo: promos.get(r.id) ?? null, coverPhotoId: covers.get(r.id) ?? null }));
+  return ranked.map((r) => ({ ...r, tier: tiers.get(r.companyId) ?? ("BASIC" as TierName), promo: promos.get(r.id) ?? null, coverPhotoId: covers.get(r.id) ?? null, boosted: boosted.has(r.id) }));
 }
 
 export async function listingExtras(l: { id: string; companyId: string; status: string; priceKobo: bigint }) {

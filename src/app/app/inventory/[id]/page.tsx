@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { CONDITIONS, getItem } from "@/lib/services/inventory";
-import { qrSvg, scanPath } from "@/lib/codes";
+import { qrSvg, scanPath, svgImage } from "@/lib/codes";
 import { siteOrigin } from "@/lib/origin";
 import { formatKobo } from "@/lib/money";
 import { formatDate, formatDateTime, toDateOnlyString } from "@/lib/dates";
@@ -68,7 +68,8 @@ export default async function ItemPage({ params: paramsP, searchParams: searchP 
         {item.notes ? <p className="small">{item.notes}</p> : null}
         {active ? (
           <div className="row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div role="img" aria-label={`QR code for ${item.code}`} style={{ width: 88, height: 88, padding: 6, background: "#fff", borderRadius: 8, lineHeight: 0 }} dangerouslySetInnerHTML={{ __html: qr.replace("<svg ", '<svg width="100%" height="100%" ') }} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img alt={`QR code for ${item.code}`} src={svgImage(qr)} width={88} height={88} style={{ padding: 6, background: "#fff", borderRadius: 8 }} />
             <div className="stack" style={{ gap: 4 }}>
               <span className="small muted">Scanning this code with a phone opens this item.</span>
               <Link className="btn small" href={`/app/inventory/labels?ids=${item.id}`}>Print label</Link>

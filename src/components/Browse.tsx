@@ -3,7 +3,8 @@ import Link from "next/link";
 import { CURRENCIES, CURRENCY_CODES } from "@/lib/regions";
 import { getSession } from "@/lib/auth";
 import { CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, SORTS, extraFilterCount, filtersToQuery, parseFilters, type Category } from "@/lib/listing-rules";
-import { searchListingsPage } from "@/lib/services/listings";
+import { listingWhere, searchListingsPage } from "@/lib/services/listings";
+import { boostedMatching } from "@/lib/services/boosts";
 import { priceVerdicts, type MatchExtras } from "@/lib/services/best-match";
 import { getSearchPref, prefLabel, prefParams } from "@/lib/services/search-prefs";
 import { decorateListings } from "@/lib/services/promotions";
@@ -31,6 +32,8 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
   const companyIds = f.verifiedOnly ? await verifiedCompanyIds() : undefined;
   const page = await searchListingsPage(f, category?.rule ?? {}, companyIds);
   const decorated = await decorateListings(page.rows, f.sort === "newest");
+  // Boosted properties that match this search get their own labelled row on the first page; the results' own order is untouched.
+  const boostRows = f.page === 1 ? await decorateListings(await boostedMatching(listingWhere(f, category?.rule ?? {}, companyIds), 3).catch(() => []), false) : [];
   // Best match already carries its price verdicts; any other order gets them here, for the "Good price" badge.
   const verdicts = f.sort === "best" ? null : await priceVerdicts(page.rows).catch(() => null);
   const rows = decorated.map((r) => {
@@ -105,9 +108,15 @@ export async function Browse({ searchParams, category, basePath }: { searchParam
         <Link className="use-my-search" href={`${basePath}?${new URLSearchParams(prefParams(myPref))}`}><span aria-hidden="true">★</span> Use my search: <strong>{prefLabel(myPref)}</strong></Link>
       ) : null}
       <SponsoredStrip items={sponsored} where="search" />
+      {boostRows.length ? (
+        <section className="sec" aria-labelledby="boosted-h">
+          <div className="sec-head"><div><h2 id="boosted-h">Boosted</h2><p className="small muted">These companies paid to show these matching properties here.</p></div></div>
+          <div className="grid">{boostRows.map((l) => <div key={l.id} className="card-wrap"><ListingCard l={l} typeLabels={typeLabels} /><CompareToggle refId={l.publicRef} compact /></div>)}</div>
+        </section>
+      ) : null}
       <section className="sec" aria-label="Results">
         <div className="sec-head">
-          <div><h2>{page.total} {page.total === 1 ? "property" : "properties"}</h2><p className="small muted">{f.sort === "best" ? <>Best match puts good value for the area, complete listings, verified companies and fresh listings first. Paid promotion never changes this order, and copies of the same home are grouped. </> : null}Title documents are listed as the company states them; {PLATFORM_NAME} has not verified title.</p></div>
+          <div><h2>{page.total} {page.total === 1 ? "property" : "properties"}</h2><p className="small muted">{f.sort === "best" ? <>Best match puts good value for the area, complete listings, verified companies and fresh listings first. Paid promotions and boosts never change this order, and copies of the same home are grouped. </> : null}Title documents are listed as the company states them; {PLATFORM_NAME} has not verified title.</p></div>
           <nav className="sort-links" aria-label="Sort">{Object.entries(SORTS).map(([k, v]) => <Link key={k} href={href({ sort: k === "best" ? undefined : k, page: undefined })} aria-current={f.sort === k ? "page" : undefined}>{v}</Link>)}</nav>
         </div>
         {session ? (

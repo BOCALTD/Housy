@@ -21,3 +21,6 @@ export function barcodeSvg(code: string): string | null {
 
 /** The address a label's QR code opens. */
 export const scanPath = (code: string) => `/scan?code=${encodeURIComponent(code)}`;
+
+/** An SVG as an image address, so pages show codes as plain images (no raw markup in the page). */
+export const svgImage = (svg: string) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;

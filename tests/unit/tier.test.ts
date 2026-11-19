@@ -70,3 +70,14 @@ test("the rating prompt returns after the interval, and a reminder-later pauses 
   assert.equal(ratingDue({ ...o, snoozedUntil: new Date("2026-11-01") }), true);
   assert.equal(ratingDue({ ...o, intervalDays: 90, lastRatedAt: new Date("2026-10-01") }), false, "the administrator can lengthen it");
 });
+
+test("paid boosts take the first places, taking turns by day, before the Gold rule", () => {
+  const items = ["a", "b", "c", "d", "e", "f"].map((id) => ({ id, gold: id === "e", boost: id === "c" || id === "f" }));
+  const r = rankListings(items, (x) => x.gold, "2026-11-27", (x) => x.boost);
+  assert.deepEqual(r.slice(0, 2).map((x) => x.id).sort(), ["c", "f"]);
+  assert.equal(r[2].id, "e");
+  assert.equal(r.length, 6);
+  assert.deepEqual(new Set(r.map((x) => x.id)), new Set(items.map((x) => x.id)));
+  // Without boosts nothing changes.
+  assert.deepEqual(rankListings(items, (x) => x.gold, "d"), rankListings(items, (x) => x.gold, "d", () => false));
+});

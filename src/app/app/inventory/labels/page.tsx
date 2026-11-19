@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { siteOrigin } from "@/lib/origin";
-import { barcodeSvg, qrSvg, scanPath } from "@/lib/codes";
+import { barcodeSvg, qrSvg, scanPath, svgImage } from "@/lib/codes";
 import { labelItems } from "@/lib/services/inventory";
 import { Field, sp, type SP } from "@/components/ui";
 import { PrintButton } from "@/components/PrintButton";
@@ -66,12 +66,14 @@ export default async function LabelsPage({ searchParams: searchP }: { searchPara
             const bar = size === "standard" ? barcodeSvg(i.code) : null;
             return (
               <div key={i.id} className="inv-label">
-                <div className="inv-qr" role="img" aria-label={`QR code for ${i.itemNo}`} dangerouslySetInnerHTML={{ __html: qrSvg(`${origin}${scanPath(i.code)}`) }} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="inv-qr" alt={`QR code for ${i.code}`} src={svgImage(qrSvg(`${origin}${scanPath(i.code)}`))} />
                 <div className="inv-text">
                   <strong className="inv-name">{i.name}</strong>
                   <span className="mono inv-no">{i.code}</span>
                   {size === "standard" ? <span className="inv-meta">{[member.companyName, i.asset?.ref, i.location].filter(Boolean).join(" · ")}</span> : null}
-                  {bar ? <div className="inv-bar" role="img" aria-label={`Barcode ${i.code}`} dangerouslySetInnerHTML={{ __html: bar }} /> : null}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {bar ? <img className="inv-bar" alt={`Barcode ${i.code}`} src={svgImage(bar)} /> : null}
                 </div>
               </div>
             );

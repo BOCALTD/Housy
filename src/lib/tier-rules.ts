@@ -68,10 +68,13 @@ function hashSeed(s: string): number {
  * Order a page of results. Gold companies' listings are lifted so that one of every three places goes to a Gold listing, while there are
  * any, and Gold listings take turns day by day instead of the same one always sitting first. Everything else keeps its order.
  */
-export function rankListings<T extends { id: string }>(items: T[], isGold: (item: T) => boolean, daySeed: string): T[] {
-  const gold = items.filter(isGold).sort((a, b) => hashSeed(`${daySeed}:${a.id}`) - hashSeed(`${daySeed}:${b.id}`));
-  const rest = items.filter((i) => !isGold(i));
-  const out: T[] = [];
+export function rankListings<T extends { id: string }>(items: T[], isGold: (item: T) => boolean, daySeed: string, isBoosted: (item: T) => boolean = () => false): T[] {
+  // Paid boosts go first, taking turns day by day; then the Gold rule for the rest.
+  const boosted = items.filter(isBoosted).sort((a, b) => hashSeed(`${daySeed}:b:${a.id}`) - hashSeed(`${daySeed}:b:${b.id}`));
+  const others = items.filter((i) => !isBoosted(i));
+  const gold = others.filter(isGold).sort((a, b) => hashSeed(`${daySeed}:${a.id}`) - hashSeed(`${daySeed}:${b.id}`));
+  const rest = others.filter((i) => !isGold(i));
+  const out: T[] = [...boosted];
   while (gold.length || rest.length) {
     if (gold.length) out.push(gold.shift()!);
     for (let i = 0; i < 2; i++) if (rest.length) out.push(rest.shift()!); else if (gold.length) out.push(gold.shift()!);

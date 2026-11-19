@@ -6,7 +6,8 @@ import { formatDate, toDateOnlyString } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { PromoRibbon } from "@/components/Promo";
-import { campaignActiveAction, instructionsAction, paymentAction, reviewPromoAction, saveCampaignAction } from "./actions";
+import { boostPriceAction, campaignActiveAction, instructionsAction, paymentAction, reviewPromoAction, saveCampaignAction } from "./actions";
+import { adminBoosts, BOOST_DAYS, boostPricePerDay } from "@/lib/services/boosts";
 
 export const metadata = { title: "Promotions" };
 export const dynamic = "force-dynamic";
@@ -14,7 +15,9 @@ export const dynamic = "force-dynamic";
 export default async function AdminPromotionsPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
-  const [campaigns, queue, instructions] = await Promise.all([listCampaigns(), promoQueue(admin.id, "REQUESTED"), readPaymentInstructions()]);
+  const [campaigns, queue, instructions, perDay, boosts] = await Promise.all([listCampaigns(), promoQueue(admin.id, "REQUESTED"), readPaymentInstructions(), boostPricePerDay(), adminBoosts(admin.id)]);
+  const now = new Date();
+  const running = boosts.filter((b) => b.status === "ACTIVE" && b.endsAt && b.endsAt > now);
   const form = (c?: (typeof campaigns)[number]) => (
     <form action={saveCampaignAction} className="stack">
       {c ? <input type="hidden" name="id" value={c.id} /> : null}
@@ -48,9 +51,13 @@ export default async function AdminPromotionsPage({ searchParams: searchP }: { s
                   <Pill status={pending ? "PENDING" : "ACTIVE"} label={e.payment?.status === "NOT_REQUIRED" ? "No payment due" : pending ? `Awaiting ${formatKobo(e.payment!.feeKobo)}` : "Payment confirmed"} /></div>
                 <div className="small">Was {formatKobo(e.originalPriceKobo)}, offered at {formatKobo(e.promoPriceKobo)}.{stale ? " The listed price has changed since this request." : ""}</div>
                 {pending ? (
-                  <form action={paymentAction} className="row"><input type="hidden" name="entryId" value={e.id} />
-                    <Field label="Payment reference"><input name="reference" required minLength={4} /></Field><Field label="Note"><input name="note" /></Field>
-                    <button className="btn" type="submit">Payment received</button></form>
+                  <details className="inline"><summary>Record a bank transfer{e.invoice ? ` for invoice ${e.invoice.ref}` : ""}</summary>
+                    <p className="small muted">{e.invoice ? "The company can also pay this invoice online from its billing page; it is then confirmed automatically." : "This request was made before fees were invoiced."}</p>
+                    <form action={paymentAction} className="row" style={{ flexWrap: "wrap" }}><input type="hidden" name="entryId" value={e.id} /><input type="hidden" name="invoiceId" value={e.invoice?.status === "OPEN" ? e.invoice.id : ""} />
+                      {e.invoice?.status === "OPEN" ? <Field label="Amount received (₦)"><input name="amount" required inputMode="decimal" defaultValue={String(Number(e.invoice.amountKobo) / 100)} /></Field> : null}
+                      <Field label="Bank reference"><input name="reference" required minLength={4} /></Field><Field label="Note"><input name="note" /></Field>
+                      <button className="btn" type="submit" data-confirm="Record this bank transfer?" data-confirm-body="Only record money you can see on the bank statement. The same bank reference cannot be recorded twice." data-confirm-ok="Record transfer" data-confirm-tone="default">Record transfer</button></form>
+                  </details>
                 ) : null}
                 <form action={reviewPromoAction} className="row"><input type="hidden" name="entryId" value={e.id} />
                   <Field label="Note (needed to turn down)"><input name="note" /></Field>
@@ -76,10 +83,25 @@ export default async function AdminPromotionsPage({ searchParams: searchP }: { s
         <details className="inline"><summary>New campaign</summary>{form()}</details>
       </section>
 
+      <section className="card stack" aria-labelledby="boost-h">
+        <h2 id="boost-h">Boosts</h2>
+        <p className="muted">A company pays to lift one property for {BOOST_DAYS.join(", ")} days: it appears in a &ldquo;Boosted&rdquo; row above matching search results and first among the newest, always labelled &ldquo;Boosted&rdquo;.</p>
+        <form action={boostPriceAction} className="row" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Field label="Price per day (₦)" hint="0 stops selling boosts. Boosts already paid for keep running."><input name="price" inputMode="decimal" defaultValue={String(Number(perDay) / 100)} /></Field>
+          <button className="btn primary" type="submit" data-confirm="Change the boost price?" data-confirm-body="New boost requests use this price. Unpaid requests keep the price they were made at." data-confirm-ok="Save price" data-confirm-tone="default">Save price</button>
+        </form>
+        <p className="small muted">{running.length} running · {boosts.filter((b) => b.status === "AWAITING_PAYMENT").length} waiting for payment.</p>
+        {running.length ? (
+          <ShowMore noun="more boosts" limit={5} items={running.map((b) => (
+            <li key={b.id}><div><strong>{b.listing.title}</strong> <span className="small muted">{b.companyName} · <span className="mono">{b.ref}</span> · {b.days} days · {formatKobo(b.priceKobo, b.currency)} · {b.startsAt && b.startsAt > now ? `starts ${formatDate(b.startsAt)}` : `until ${formatDate(b.endsAt!)}`}</span></div></li>
+          ))} />
+        ) : null}
+      </section>
+
       <section className="card stack">
         <h2>How companies pay</h2>
         <form action={instructionsAction} className="stack">
-          <Field label="Payment instructions shown to Basic companies" hint="For example the account to pay and the reference to use. Payments are confirmed by hand."><textarea name="instructions" rows={3} defaultValue={instructions} maxLength={600} /></Field>
+          <Field label="Bank transfer instructions shown to Basic companies" hint="For companies that pay by transfer instead of online: the account to pay and the reference to use (the invoice number). You record each transfer above."><textarea name="instructions" rows={3} defaultValue={instructions} maxLength={600} /></Field>
           <button className="btn primary" type="submit">Save</button>
         </form>
       </section>

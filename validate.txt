@@ -1,0 +1,14 @@
+Prisma schema loaded from new.prisma.
+The schema at new.prisma is valid 🚀
+Prisma schema loaded from new.prisma.
+┌─────────────────────────────────────────────────────────┐
+│  Update available 7.10.1 -> 8.0.0-rc.34                 │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+Formatted new.prisma in 172ms 🚀

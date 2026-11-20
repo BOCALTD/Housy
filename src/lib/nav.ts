@@ -64,6 +64,7 @@ export function accountSection(c: { incoming: number; portals: number; flatmateW
       { href: "/directory", label: "Find agents and companies", icon: "search" },
     ] },
     { label: "Plan and payments", items: [
+      { href: "/me/upgrades", label: "Upgrades", icon: "megaphone" },
       { href: "/me/plan", label: "My plan", icon: "star" },
       { href: "/me/billing", label: "Billing", icon: "money" },
       { href: "/me/ads", label: "Advertising", icon: "megaphone" },
@@ -125,6 +126,7 @@ function workspaceGroups(r: Role, incoming: number): SideGroup[] {
       ["/app/reports", "Reports", "doc", can(r, "finance.view")],
       ["/app/payments", "Client payments", "money", can(r, "billing.view")],
       ["/app/payouts", "Paying contractors", "money", can(r, "payout.request")],
+      ["/app/upgrades", "Upgrades", "star", true],
       ["/app/billing", "Billing", "money", can(r, "billing.view")],
       ["/app/ads", "Advertising", "megaphone", can(r, "billing.view")],
     ]),

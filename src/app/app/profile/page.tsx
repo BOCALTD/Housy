@@ -77,7 +77,7 @@ export default async function ProfilePage({ searchParams: searchP }: { searchPar
                 <span className="small">{logo.watermark ? <span className="pill ok">On</span> : <span className="pill">Off</span>}</span>
                 <button className="btn" type="submit" disabled={!logo.hasLogo && !logo.watermark} data-confirm={logo.watermark ? "Turn off the logo watermark?" : "Put your logo on your property photos?"} data-confirm-body={logo.watermark ? "Your logo leaves your photos, which then show clean (no watermark)." : "It shows on every photo of your published listings, in the bottom corner."} data-confirm-ok={logo.watermark ? "Turn off" : "Turn on"} data-confirm-tone="default">{logo.watermark ? "Turn off" : "Turn on"}</button>
               </form>
-            ) : <p className="small muted">Part of the Pro and Elite plans. <Link href="/app/billing">See plans</Link></p>}
+            ) : <p className="small muted">Part of the Pro and Elite plans. <Link href="/app/upgrades">See plans and free trials</Link></p>}
           </div>
         </section>
       ) : null}

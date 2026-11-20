@@ -9,7 +9,8 @@ import { CURRENCIES, CURRENCY_CODES, moneyInput } from "@/lib/regions";
 import { humanize } from "@/lib/labels";
 import { tierLabel } from "@/lib/tier-rules";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
-import { assignAction, cancelAction, renewAction, savePlanAction, settingsAction } from "./actions";
+import { promoCodes, upgradeStats } from "@/lib/services/upgrades";
+import { promoActiveAction, savePromoAction, assignAction, cancelAction, renewAction, savePlanAction, settingsAction } from "./actions";
 
 export const metadata = { title: "Plans and limits" };
 export const dynamic = "force-dynamic";
@@ -19,7 +20,8 @@ const stateTone = (s: string) => (s === "ACTIVE" || s === "TRIAL" ? "ACTIVE" : s
 export default async function PlansPage({ searchParams: searchP }: { searchParams?: Promise<SP> }) {
   const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
-  const [plans, subs, companies, settings] = await Promise.all([listPlans(admin.id), listSubscriptions(admin.id), companyChoices(admin.id), readSettings()]);
+  const [plans, subs, companies, settings, promos, stats] = await Promise.all([listPlans(admin.id), listSubscriptions(admin.id), companyChoices(admin.id), readSettings(), promoCodes(admin.id), upgradeStats(admin.id)]);
+  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "No finished trials yet");
   const planForm = (p?: (typeof plans)[number]) => (
     <form action={savePlanAction} className="stack">
       {p ? <input type="hidden" name="id" value={p.id} /> : null}
@@ -104,6 +106,60 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
             <button className="btn primary" type="submit">Save subscription</button>
           </form>
         </details>
+      </section>
+
+      <section className="card stack" aria-labelledby="funnel-h">
+        <h2 id="funnel-h">How upgrades are going</h2>
+        <div className="fields">
+          <div><div className="small muted">Paying subscribers</div><strong className="num" style={{ fontSize: 22 }}>{stats.byPlan.reduce((n, r) => n + r.active, 0)}</strong></div>
+          <div><div className="small muted">Free trials running</div><strong className="num" style={{ fontSize: 22 }}>{stats.trials}</strong></div>
+          <div><div className="small muted">Trials that paid (last 90 days)</div><strong className="num" style={{ fontSize: 22 }}>{stats.finishedTrials ? `${stats.converted} of ${stats.finishedTrials}` : "0"}</strong> <span className="small muted">{pct(stats.converted, stats.finishedTrials)}</span></div>
+          <div><div className="small muted">Plan income, last 30 days</div><strong className="num" style={{ fontSize: 22 }}>{stats.revenue.length ? stats.revenue.map((r) => formatKobo(r.minor, r.currency)).join(" + ") : formatKobo(0n)}</strong> <span className="small muted">{stats.revenue.reduce((n, r) => n + r.count, 0)} payments</span></div>
+        </div>
+        {stats.byPlan.length ? (
+          <details className="vp-fold"><summary>By plan ({stats.byPlan.length})</summary>
+            <div className="table-wrap"><table><thead><tr><th scope="col">Plan</th><th scope="col">Paying</th><th scope="col">On trial</th></tr></thead>
+              <tbody>{stats.byPlan.map((r) => <tr key={r.plan}><td>{r.plan}</td><td className="num">{r.active}</td><td className="num">{r.trial}</td></tr>)}</tbody></table></div>
+          </details>
+        ) : <p className="small muted">Nobody holds a plan yet.</p>}
+        <p className="small muted">Set &ldquo;Trial days&rdquo; on a plan to let people try it free once. A short trial (7 to 14 days) on your middle plan usually brings the most paying customers.</p>
+      </section>
+
+      <section className="card stack" aria-labelledby="promo-h">
+        <h2 id="promo-h">Promo codes</h2>
+        <p className="muted">Codes people type on the upgrades page to take money off the first period of a plan. Use them for launches, events and partners.</p>
+        <details className="vp-fold"><summary>Create a code</summary>
+          <form action={savePromoAction} className="stack">
+            <div className="fields">
+              <Field label="Code" hint="4 to 30 letters or digits, such as LAUNCH25"><input name="code" required maxLength={30} autoCapitalize="characters" autoComplete="off" /></Field>
+              <Field label="Note for you" hint="Not shown to customers"><input name="description" maxLength={200} /></Field>
+              <Field label="Kind of discount"><select name="kind" defaultValue="percent"><option value="percent">A percentage off</option><option value="amount">An amount off</option></select></Field>
+              <Field label="Percentage off" hint="1 to 100, for a percentage code"><input name="percentOff" inputMode="numeric" /></Field>
+              <Field label="Amount off" hint="For an amount code"><input name="amountOff" inputMode="decimal" /></Field>
+              <Field label="Currency of the amount"><select name="currency" defaultValue="NGN">{CURRENCY_CODES.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
+              <Field label="Times it can be used" hint="Leave empty for no limit"><input name="maxRedemptions" inputMode="numeric" /></Field>
+              <Field label="Starts on" hint="Leave empty to start now"><input type="date" name="startsAt" /></Field>
+              <Field label="Ends on" hint="Leave empty for no end"><input type="date" name="endsAt" /></Field>
+            </div>
+            <fieldset className="stack"><legend className="small">Works for these plans (none ticked means every plan)</legend>
+              <div className="row" style={{ flexWrap: "wrap" }}>{plans.filter((p) => p.priceKobo && p.priceKobo > 0n).map((p) => <label key={p.id} className="check"><input type="checkbox" name="planIds" value={p.id} /> {p.name}</label>)}</div>
+            </fieldset>
+            <label className="check"><input type="checkbox" name="perOwnerOnce" defaultChecked /> Each person or company can use it once</label>
+            <label className="check"><input type="checkbox" name="newCustomersOnly" /> Only for people who have never paid for a plan</label>
+            <div><button className="btn primary" type="submit" data-confirm="Create this promo code?" data-confirm-body="Anyone who has the code can use it within the limits you set. You can switch it off at any time." data-confirm-ok="Create code" data-confirm-tone="default">Create code</button></div>
+          </form>
+        </details>
+        {promos.length === 0 ? <p className="small muted">No codes yet.</p> : (
+          <ShowMore limit={5} noun="more codes" items={promos.map((c) => (
+            <li key={c.id}>
+              <div className="row between" style={{ flexWrap: "wrap" }}>
+                <div><strong>{c.code}</strong> <span className="small muted">{c.percentOff != null ? `${c.percentOff}% off` : `${formatKobo(c.amountOffMinor ?? 0n, c.currency)} off`} · used {c.uses}{c.maxRedemptions != null ? ` of ${c.maxRedemptions}` : ""} times{c.given.length ? ` · ${c.given.map((g) => formatKobo(g.minor, g.currency)).join(" + ")} given` : ""}{c.endsAt ? ` · ends ${formatDate(c.endsAt)}` : ""}{c.planIds.length ? ` · ${c.planIds.length} ${c.planIds.length === 1 ? "plan" : "plans"}` : " · every plan"}{c.description ? ` · ${c.description}` : ""}</span></div>
+                <form action={promoActiveAction}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="active" value={c.active ? "" : "on"} />
+                  <button className="btn small" type="submit" data-confirm={c.active ? `Switch ${c.code} off?` : `Switch ${c.code} on?`} data-confirm-body={c.active ? "Nobody can use it after this. Invoices already raised with it keep their discount." : "People can use it again within its limits."} data-confirm-ok={c.active ? "Switch off" : "Switch on"} data-confirm-tone={c.active ? "danger" : "default"}>{c.active ? "Switch off" : "Switch on"}</button></form>
+              </div>
+            </li>
+          ))} />
+        )}
       </section>
 
       <section className="card stack">

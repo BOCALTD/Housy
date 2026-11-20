@@ -5,6 +5,7 @@ import { CURRENCY_CODES } from "@/lib/regions";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
 import { assignSubscription, cancelSubscription, renewSubscription, savePlan, setPlanEntitlements, setPlanPrices } from "@/lib/services/subscriptions";
+import { savePromoCode, setPromoActive } from "@/lib/services/upgrades";
 import { saveSettings } from "@/lib/services/platform-settings";
 import { ENTITLEMENT_KEYS } from "@/lib/subscription-rules";
 
@@ -57,5 +58,28 @@ export async function settingsAction(form: FormData) {
       contactPolicy: str(form, "contactPolicy") as never, reportMuteThreshold: str(form, "reportMuteThreshold") as never,
     });
     return withNotice(BACK, "Settings saved.");
+  });
+}
+
+export async function savePromoAction(form: FormData) {
+  return act(`${BACK}#promo-h`, async () => {
+    const admin = await requirePlatformAdmin();
+    const row = await savePromoCode(admin.id, {
+      code: str(form, "code"), description: str(form, "description"), kind: str(form, "kind") === "amount" ? "amount" : "percent",
+      percentOff: str(form, "percentOff"), amountOff: str(form, "amountOff"), currency: str(form, "currency") || "NGN",
+      planIds: form.getAll("planIds").map(String).filter(Boolean), maxRedemptions: str(form, "maxRedemptions"),
+      perOwnerOnce: str(form, "perOwnerOnce") === "on", newCustomersOnly: str(form, "newCustomersOnly") === "on",
+      startsAt: str(form, "startsAt"), endsAt: str(form, "endsAt"),
+    });
+    return `${withNotice(BACK, `Code ${row.code} created. Share it with the people it is for.`)}#promo-h`;
+  });
+}
+
+export async function promoActiveAction(form: FormData) {
+  return act(`${BACK}#promo-h`, async () => {
+    const admin = await requirePlatformAdmin();
+    const on = str(form, "active") === "on";
+    await setPromoActive(admin.id, str(form, "id"), on);
+    return `${withNotice(BACK, on ? "Code switched on." : "Code switched off. Nobody can use it from now on.")}#promo-h`;
   });
 }

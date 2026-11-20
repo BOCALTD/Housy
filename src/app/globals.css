@@ -372,3 +372,8 @@ input[type="file"]::file-selector-button { min-height: 32px; margin-right: 10px;
 .chat-filters .chip.on { background: var(--accent-soft, #fdf1d9); border-color: var(--accent, #c88a1a); }
 .chat-sort { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); margin-left: auto; }
 .chat-sort select { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: var(--surface); font-size: 16px; min-height: 44px; }
+
+/* Add-ons on the upgrades page: cards in a grid that wraps, one per row on phones. */
+.addon-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+.addon-grid > li { display: flex; flex-direction: column; }
+.addon-grid h3 { margin: 0; }

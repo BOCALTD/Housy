@@ -47,7 +47,7 @@ export async function AdsPanel({ payer, from }: { payer: Payer; from: "me" | "ap
       <section className="card stack">
         <h1>Advertising</h1>
         <p>Promote a published property above the ordinary results. Every advert is marked <strong>Sponsored</strong>, is reviewed first, and you pay only for real clicks from new visitors, never for your own people or for robots. Spending can never pass your budget.</p>
-        {ent.access !== "FULL" ? <p className="small">{ent.explanation} {ent.access === "NONE" ? "Advertising is part of some plans." : ""} <Link href={from === "app" ? "/app/billing" : "/me/billing"}>See plans</Link></p> : <p className="small muted">{ent.limit !== null ? `Your plan allows ${ent.limit} ${ent.limit === 1 ? "campaign" : "campaigns"} at a time.` : "Your plan has no limit on campaigns."}</p>}
+        {ent.access !== "FULL" ? <p className="small">{ent.explanation} {ent.access === "NONE" ? "Advertising is part of some plans." : ""} <Link href={from === "app" ? "/app/upgrades" : "/me/upgrades"}>See plans and free trials</Link></p> : <p className="small muted">{ent.limit !== null ? `Your plan allows ${ent.limit} ${ent.limit === 1 ? "campaign" : "campaigns"} at a time.` : "Your plan has no limit on campaigns."}</p>}
       </section>
       {can ? (
         <details className="inline"><summary>New campaign</summary>

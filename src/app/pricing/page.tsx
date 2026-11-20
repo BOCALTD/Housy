@@ -23,7 +23,7 @@ export default async function PricingPage() {
         <p className="eyebrow">Plans and pricing</p>
         <h1>Choose the plan that fits</h1>
         <p className="muted">Every plan shows the same list, so you can see at a glance what each one adds. Anything a plan does not include is struck through; the most complete plan includes everything. Prices are shown in your currency where a plan has one, and in naira otherwise.</p>
-        {session ? <p className="small"><Link href={session.companyId ? "/app/billing" : "/me/billing"}>Go to your plan and billing</Link></p> : null}
+        {session ? <p className="small"><Link href={session.companyId ? "/app/upgrades" : "/me/upgrades"}>Upgrade your plan or start a free trial</Link></p> : null}
       </div>
       <section className="stack" aria-labelledby="p-co"><h2 id="p-co">For property companies</h2><PlanCompare audience="COMPANY" plans={group("COMPANY")} currency={currency} /></section>
       <section className="stack" aria-labelledby="p-ag"><h2 id="p-ag">For agents</h2><PlanCompare audience="AGENT" plans={group("AGENT")} currency={currency} /></section>

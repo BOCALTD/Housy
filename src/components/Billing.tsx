@@ -59,7 +59,7 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
       ) : null}
 
       <section className="stack">
-        <h2>Plans</h2>
+        <div className="row between" style={{ flexWrap: "wrap" }}><h2>Plans</h2><Link className="btn" href={from === "app" ? "/app/upgrades" : "/me/upgrades"}>Free trials and promo codes</Link></div>
         {!online ? <div className="card"><p className="small muted">Online payment is not connected yet. Choose a plan to get an invoice, then pay by bank transfer and the platform administrator will confirm it.{bank ? "" : " Ask the platform administrator for the account details."}</p></div> : null}
         {payer.companyId ? <PlanCompare audience="COMPANY" plans={all.filter((x) => x.audience === "COMPANY")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} /> : (
           <>
@@ -93,7 +93,9 @@ export async function InvoicePanel({ payer, from, invoice }: { payer: Payer; fro
       <section className="card stack">
         <div className="row between"><h2>{invoice.ref}</h2><Pill status={invTone(invoice.status)} label={humanize(invoice.status)} /></div>
         <p>{invoice.description}</p>
-        <p><strong>{formatKobo(invoice.amountKobo, invoice.currency)}</strong></p>
+        {invoice.discountKobo > 0n && invoice.listAmountKobo != null ? (
+          <p><s className="muted">{formatKobo(invoice.listAmountKobo, invoice.currency)}</s> <strong>{formatKobo(invoice.amountKobo, invoice.currency)}</strong> <span className="small muted">({formatKobo(invoice.discountKobo, invoice.currency)} off with a promo code)</span></p>
+        ) : <p><strong>{formatKobo(invoice.amountKobo, invoice.currency)}</strong></p>}
         <p className="small muted">Raised {formatDate(invoice.createdAt)}{invoice.dueOn ? ` · due ${formatDate(invoice.dueOn)}` : ""}{invoice.paidAt ? ` · paid ${formatDate(invoice.paidAt)}` : ""}{invoice.voidReason ? ` · cancelled: ${invoice.voidReason}` : ""}</p>
         {invoice.status === "OPEN" && online ? <form action={payInvoiceAction}><input type="hidden" name="from" value={from} /><input type="hidden" name="invoiceId" value={invoice.id} /><button className="btn primary" type="submit">Pay {formatKobo(invoice.amountKobo, invoice.currency)} now</button></form> : null}
         {invoice.status === "OPEN" && !online ? (

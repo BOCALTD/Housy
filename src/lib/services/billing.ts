@@ -1,3 +1,4 @@
+import { applyPromo, normaliseCode, promoProblem } from "../promo-rules";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma, withTenant, type Tx } from "../db";
@@ -107,7 +108,7 @@ export async function allPlans(audiences: ("COMPANY" | "SEEKER" | "AGENT")[]) {
 }
 
 /** An invoice for one period of a plan. Asking again for the same plan returns the invoice already open; asking for another plan replaces it. */
-export async function createSubscriptionInvoice(p: Payer, planId: string, deps?: Deps) {
+export async function createSubscriptionInvoice(p: Payer, planId: string, deps?: Deps, promoRaw = "") {
   assertMayPay(p);
   const owner = ownerOf(p);
   const now = nowOf(deps);
@@ -117,20 +118,75 @@ export async function createSubscriptionInvoice(p: Payer, planId: string, deps?:
     if ((plan.audience === "COMPANY") !== (owner.kind === "COMPANY")) throw new Error(owner.kind === "COMPANY" ? "This plan is for individuals, not companies" : "This plan is for companies, not individuals");
     if (!plan.priceKobo || plan.priceKobo <= 0n || plan.billingPeriod === "NONE") throw new Error("This plan cannot be bought online. Ask the platform administrator.");
     await lockKey(tx, `invoice-owner:${owner.kind}:${owner.kind === "USER" ? owner.userId : owner.companyId}`);
-    const price = await planPriceFor(tx, plan, owner);
+    const list = await planPriceFor(tx, plan, owner);
+    const promo = promoRaw.trim() ? await checkPromo(tx, promoRaw, plan.id, owner, list.currency, now) : null;
+    const { discount, pay } = promo ? applyPromo(promo, list.amount) : { discount: 0n, pay: list.amount };
+    const price = { amount: pay, currency: list.currency };
     const open = await tx.invoice.findFirst({ where: { ...ownerWhere(owner), purpose: "SUBSCRIPTION", status: "OPEN" } });
-    if (open && open.subjectId === plan.id && open.amountKobo === price.amount && open.currency === price.currency) return open;
+    if (open && open.subjectId === plan.id && open.amountKobo === price.amount && open.currency === price.currency && (open.promoCodeId ?? null) === (promo?.id ?? null)) return open;
     if (open) await tx.invoice.update({ where: { id: open.id }, data: { status: "VOID", voidedAt: now, voidReason: "Replaced by an invoice for another plan" } });
     const months = PERIOD_MONTHS[plan.billingPeriod as Period];
     const inv = await tx.invoice.create({
       data: {
         ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null,
-        ownerName: await ownerLabel(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}`, amountKobo: price.amount, currency: price.currency, periodMonths: months, dueOn: now, createdById: p.userId,
+        ownerName: await ownerLabel(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}${promo ? ` (code ${promo.code})` : ""}`, amountKobo: price.amount, currency: price.currency, periodMonths: months, dueOn: now, createdById: p.userId,
+        promoCodeId: promo?.id ?? null, listAmountKobo: promo ? list.amount : null, discountKobo: discount,
       },
     });
-    await logActivity(tx, { companyId: owner.kind === "COMPANY" ? owner.companyId : null, actorId: p.userId, entityType: "invoice", entityId: inv.id, action: "invoice.created", detail: { ref: inv.ref, plan: plan.code } });
+    await logActivity(tx, { companyId: owner.kind === "COMPANY" ? owner.companyId : null, actorId: p.userId, entityType: "invoice", entityId: inv.id, action: "invoice.created", detail: { ref: inv.ref, plan: plan.code, promo: promo?.code ?? null } });
+    // A code that covers the whole price: nothing to pay, so the plan starts now.
+    if (pay === 0n) {
+      const paid = await tx.invoice.update({ where: { id: inv.id }, data: { status: "PAID", paidAt: now } });
+      await applyInvoice(tx, paid, now);
+      return paid;
+    }
     return inv;
   });
+}
+
+export type PromoPreview = { code: string; error: string | null; byPlan: Record<string, { list: bigint; pay: bigint; currency: string } | { problem: string }> };
+
+/**
+ * What a typed code would do to each plan this person or company can buy, before anything is billed. Limited to 20 tries in
+ * 15 minutes per person so codes cannot be guessed by trying many.
+ */
+export async function previewPromo(p: Payer, raw: string, deps?: Deps): Promise<PromoPreview> {
+  const code = normaliseCode(raw);
+  if (!code) return { code, error: "Enter the code", byPlan: {} };
+  const { rateLimit } = await import("../ratelimit");
+  if (!(await rateLimit(`promo-try:${p.userId}`, 20, 15 * 60_000))) return { code, error: "Too many codes tried. Wait 15 minutes and try again.", byPlan: {} };
+  const owner = ownerOf(p);
+  const now = nowOf(deps);
+  const plans = await buyablePlans(p);
+  return system(async (tx) => {
+    if (!(await tx.promoCode.findUnique({ where: { code }, select: { id: true } }))) return { code, error: "That code is not right. Check it and try again.", byPlan: {} };
+    const byPlan: PromoPreview["byPlan"] = {};
+    for (const plan of plans) {
+      const list = await planPriceFor(tx, plan, owner);
+      try {
+        const promo = await checkPromo(tx, code, plan.id, owner, list.currency, now);
+        byPlan[plan.id] = { list: list.amount, pay: applyPromo(promo, list.amount).pay, currency: list.currency };
+      } catch (e) { byPlan[plan.id] = { problem: e instanceof Error ? e.message : "That code cannot be used for this plan" }; }
+    }
+    const usable = Object.values(byPlan).some((v) => "pay" in v);
+    const firstProblem = Object.values(byPlan).find((v): v is { problem: string } => "problem" in v)?.problem;
+    return { code, error: usable ? null : firstProblem ?? "That code cannot be used for any plan you can buy", byPlan };
+  });
+}
+
+/** A promo code checked for this plan and owner (limits, dates, currency, once per owner, new customers only). */
+async function checkPromo(tx: Tx, raw: string, planId: string, owner: Owner, currency: string, now: Date) {
+  const code = normaliseCode(raw);
+  if (!code) throw new Error("Enter the code");
+  const promo = await tx.promoCode.findUnique({ where: { code } });
+  if (!promo) throw new Error("That code is not right. Check it and try again.");
+  const used = await tx.promoRedemption.count({ where: { promoCodeId: promo.id } });
+  const problem = promoProblem(promo, { planId, currency, used, now });
+  if (problem) throw new Error(problem);
+  const ownerKey = owner.kind === "COMPANY" ? `COMPANY:${owner.companyId}` : `USER:${owner.userId}`;
+  if (promo.perOwnerOnce && (await tx.promoRedemption.count({ where: { promoCodeId: promo.id, ownerKey } }))) throw new Error("You have already used that code");
+  if (promo.newCustomersOnly && (await tx.invoice.count({ where: { ...ownerWhere(owner), purpose: "SUBSCRIPTION", status: "PAID" } }))) throw new Error("That code is for first plans only");
+  return promo;
 }
 
 /**
@@ -239,6 +295,11 @@ export async function settlePaymentIn(tx: Tx, paymentId: string, s: SettleInput)
 
 /** What a paid invoice switches on. */
 export async function applyInvoice(tx: Tx, inv: Prisma.InvoiceGetPayload<object>, now: Date): Promise<{ planName: string | null }> {
+  if (inv.promoCodeId) {
+    // The code counts as used once the invoice is paid (abandoned checkouts do not use it up).
+    const ownerKey = inv.ownerCompanyId ? `COMPANY:${inv.ownerCompanyId}` : `USER:${inv.ownerUserId}`;
+    await tx.promoRedemption.createMany({ data: [{ promoCodeId: inv.promoCodeId, invoiceId: inv.id, ownerKey, discountMinor: inv.discountKobo, currency: inv.currency }], skipDuplicates: true });
+  }
   if (inv.purpose === "SUBSCRIPTION") return applySubscription(tx, inv, now);
   if (inv.purpose === "COMMISSION") {
     // Housy's commission on payments the company recorded as received directly: nothing to switch on, just settled.

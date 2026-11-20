@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { bulkOverview } from "@/lib/services/bulk-messaging";
 import { BODY_MAX, SUBJECT_MAX } from "@/lib/bulk-rules";
 import { formatDateTime } from "@/lib/dates";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
+import { UpgradeNudge } from "@/components/Upgrades";
 import { cancelBulkAction, sendBulkAction } from "./actions";
 
 export const metadata = { title: "Bulk messages" };
@@ -29,11 +29,7 @@ export default async function BulkMessagesPage({ searchParams: searchP }: { sear
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
 
       {!d.allowance.allowed ? (
-        <section className="card stack">
-          <h2>Not on your plan</h2>
-          <p>{d.allowance.planName ? `The ${d.allowance.planName} plan does not include bulk messaging.` : "Bulk messaging comes with a paid plan."} Upgrade to send messages to all your clients or tenants at once.</p>
-          <div><Link className="btn primary" href="/app/billing">See plans</Link></div>
-        </section>
+        <UpgradeNudge feature="BULK_MESSAGING" audience="COMPANY" from="app" what="email all your clients or tenants at once" planName={d.allowance.planName} />
       ) : (
         <>
           <section className="card stack" aria-labelledby="allow-h">

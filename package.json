@@ -4,7 +4,7 @@
   "private": true,
   "description": "Multi-tenant real estate marketplace and asset management CRM. First end-to-end vertical slice.",
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.12"
   },
   "scripts": {
     "dev": "next dev --webpack",
@@ -16,7 +16,7 @@
     "check:nearby": "tsx scripts/check-nearby.ts",
     "admin:password": "tsx scripts/admin-password.ts",
     "nearby:warm": "tsx scripts/nearby-warm.ts",
-    "db:check-drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code",
+    "db:check-drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "tsx --test tests/unit/*.test.ts",
     "test:integration": "tsx --test --test-concurrency=1 tests/integration/*.test.ts",
@@ -27,7 +27,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1150.0",
-    "@prisma/client": "5.22.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@types/nodemailer": "7.0.3",
     "@zxing/browser": "0.2.1",
     "@zxing/library": "0.23.0",
@@ -36,6 +37,7 @@
     "leaflet": "1.9.4",
     "next": "16.4.6",
     "nodemailer": "10.3.1",
+    "pg": "8.23.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "sharp": "^0.35.5",
@@ -47,9 +49,10 @@
     "@types/bcryptjs": "2.4.6",
     "@types/leaflet": "1.9.12",
     "@types/node": "22.9.0",
+    "@types/pg": "8.23.1",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "prisma": "5.22.0",
+    "prisma": "7.10.1",
     "tsx": "4.19.2",
     "typescript": "5.6.3"
   }

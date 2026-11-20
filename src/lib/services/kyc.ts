@@ -1,5 +1,5 @@
 import { loadRuntimeEnv } from "../runtime-env";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { withPlatformAdmin, withPublic, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { validateUpload } from "../storage";

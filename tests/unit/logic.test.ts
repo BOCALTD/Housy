@@ -94,7 +94,7 @@ test("hosted deployments connect as the restricted runtime role", async () => {
   const u = new URL(url!);
   assert.equal(u.username, "estate_app");
   assert.equal(decodeURIComponent(u.password), "p@ss/word");
-  assert.equal(u.searchParams.get("pgbouncer"), "true");
+  assert.equal(u.searchParams.get("pgbouncer"), null, "the node-postgres driver needs no pooler setting");
   assert.equal(u.searchParams.get("sslmode"), "require");
   assert.equal(runtimeDatabaseUrl("postgresql://a:b@localhost/db", ""), undefined, "no password means no rewrite");
 });

@@ -7,3 +7,4 @@ storage/
 *.tsbuildinfo
 npm-debug.log*
 page.html
+src/generated/

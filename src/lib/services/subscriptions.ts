@@ -2,7 +2,7 @@ import { referralEvent } from "./referrals";
 import { syncCompanyTier, syncTiersForPlan } from "./tiers";
 import { reverseSource } from "./rewards";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma, withPlatformAdmin, withUser, withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { parseDateOnly, endOfLagosDay } from "../dates";

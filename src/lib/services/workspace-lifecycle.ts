@@ -9,7 +9,7 @@
  * tells them apart from a suspension by Housy, which only Housy can lift.
  */
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma, withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { verifyPassword } from "../auth-hash";

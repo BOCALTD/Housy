@@ -4,7 +4,7 @@
  * allowed to open elsewhere (confidential letters, deals they may see, and so on). Searched by title, file name and what it is
  * attached to; sorted by date, name, size, expiry or where it belongs.
  */
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { withTenant } from "../db";
 import { can } from "../permissions";
 import { sortBy, type Sort, type SortOption } from "../list-sort";

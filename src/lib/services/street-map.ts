@@ -1,6 +1,6 @@
 // Data for the street map. The public sees published listings at a position blurred to about a kilometre (never an address);
 // a company sees its own assets at the position it set. Requests ask only for what is inside the visible map area.
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { withPublic } from "../db";
 import { PLACES, clusterCell, distanceKm, inBounds, shortMoney, type Bounds } from "../geo-rules";
 import { circleBounds, distanceLabel } from "../location-rules";

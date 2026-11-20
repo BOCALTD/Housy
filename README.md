@@ -31,7 +31,7 @@ Uploads are capped at 4 MB per file.
 
 ## Set up locally
 
-Requirements: Node 20+, PostgreSQL 16.
+Requirements: Node 22.12+ (LTS), PostgreSQL 16.
 
 1. Create an owner role and a database. The owner needs `CREATEROLE` so setup can create the restricted runtime role `estate_app`.
 
@@ -71,7 +71,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs all of these, plus the type che
 |---|---|
 | `prisma/schema.prisma` | Data model |
 | `prisma/migrations/` | SQL migrations, including row-level security policies |
-| `src/lib/db.ts` | Tenant-scoped transactions that set the security context |
+| `prisma.config.ts` | Prisma 7 command-line settings: schema, migrations, seed, and the connection strings (from the environment) |
+| `src/generated/prisma/` | The Prisma client, written by `npx prisma generate` (not committed; the build, deploy and install scripts run it) |
+| `src/lib/db.ts` | The database client (node-postgres driver adapter; `DATABASE_POOL_MAX` sets the pool, 10 by default) and tenant-scoped transactions that set the security context |
 | `src/lib/services/` | Business rules: companies, assets, leases, tasks, listings, verification |
 | `src/lib/permissions.ts` | Role permission matrix |
 | `src/app/app/` | Company workspace |

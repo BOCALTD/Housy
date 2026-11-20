@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 import "./zod-messages";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { toE164 } from "./phone-rules";
 
 export function str(form: FormData, name: string): string {

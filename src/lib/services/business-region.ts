@@ -5,7 +5,7 @@
  * is cleared, because each country's banks and online payment provider differ. Listings already published keep their own
  * currency until they are edited.
  */
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma, withPlatformAdmin, withTenant } from "../db";
 import { logActivity } from "../audit";
 import { assertCan, type Ctx } from "./context";

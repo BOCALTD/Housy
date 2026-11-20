@@ -40,7 +40,7 @@ const nextConfig = {
   allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.16.*.*", "*.local", ...(process.env.DEV_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean)],
   reactStrictMode: true,
   poweredByHeader: false,
-  serverExternalPackages: ["@prisma/client", "bcryptjs", "bwip-js"],
+  serverExternalPackages: ["@prisma/adapter-pg", "pg", "bcryptjs", "bwip-js"],
   experimental: {
     serverActions: { bodySizeLimit: "4.5mb" },
   },

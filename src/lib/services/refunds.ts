@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { lockKey } from "../locks";

@@ -2,7 +2,7 @@ import { withPublic, withTenant } from "../db";
 import { parseNairaToKobo } from "../money";
 import { money } from "../api-rules";
 import { parseAmenities } from "../listing-rules";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 const PURPOSES = ["SALE", "RENT", "LEASE"] as const;
 

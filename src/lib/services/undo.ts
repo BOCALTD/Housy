@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { withPlatformAdmin, withUser } from "../db";
 import type { Ctx } from "./context";
 

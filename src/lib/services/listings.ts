@@ -15,7 +15,7 @@ import { randomRef } from "../tokens";
 import { rateLimit } from "../ratelimit";
 import { assertCan, type Ctx } from "./context";
 import { refData } from "./reference";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import {
   CONDITIONS, CONSTRUCTION, FURNISHING, PRICE_PERIODS, PROPERTY_TYPES, SEARCH_PAGE, defaultPeriod, isCode, joinAmenities,
   type CategoryRule, type Filters, type PricePeriod,

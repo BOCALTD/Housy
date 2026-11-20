@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { withPublic } from "../db";
 import { bedroomBand, segmentOf } from "../market-rules";
 import { CONFIRM_EVERY_DAYS, bestMatch, comparableNaira, groupDuplicates, priceVerdict, type AreaPrice, type MatchInput, type PriceVerdict } from "../match-rules";

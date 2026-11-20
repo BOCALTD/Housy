@@ -1,11 +1,20 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { runtimeDatabaseUrl } from "./db-url";
 import "./zod-messages";
 
+/**
+ * A Prisma client on the node-postgres driver (Prisma 7 always talks to the database through a driver adapter).
+ * The pool waits up to 10 seconds for a free connection, as Prisma's own pool did before; DATABASE_POOL_MAX sets its size.
+ */
+export function clientFor(connectionString: string) {
+  const max = Number(process.env.DATABASE_POOL_MAX) || 10;
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString, max, connectionTimeoutMillis: 10_000, idleTimeoutMillis: 30_000 }) });
+}
+
 // One Prisma client per process. In development, reuse it across hot reloads.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-const datasourceUrl = runtimeDatabaseUrl();
-export const prisma = globalForPrisma.prisma ?? new PrismaClient(datasourceUrl ? { datasourceUrl } : undefined);
+export const prisma = globalForPrisma.prisma ?? clientFor(runtimeDatabaseUrl() ?? process.env.DATABASE_URL ?? "");
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export type Tx = Prisma.TransactionClient;

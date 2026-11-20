@@ -4,7 +4,7 @@ import { z } from "zod";
 import { isCountry } from "../regions";
 import { enqueueEmail } from "./notifications";
 import { announceNewProfile } from "./alerts";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma, withPublic, withTenant, withUser } from "../db";
 import { hashPassword } from "../auth-hash";
 import { assertCan, type Ctx } from "./context";

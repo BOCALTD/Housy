@@ -50,8 +50,9 @@ export DEBIAN_FRONTEND=noninteractive
 sudo sh -c 'echo "Acquire::Retries \"5\";" > /etc/apt/apt.conf.d/80housy-retries'
 sudo apt-get update -y
 sudo apt-get install -y curl ca-certificates gnupg git openssl ffmpeg
-if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 20 ]; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# Node 22 LTS or newer (Node 20 is past its end of life; Prisma 7 needs 22.12 or later on this line).
+if ! command -v node >/dev/null || ! node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)'; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
   sudo apt-get install -y nodejs
 fi
 if ! command -v psql >/dev/null; then
@@ -127,12 +128,14 @@ else
 say "Installing the app's packages"
 npm ci --include=dev --no-audit --no-fund --fetch-retries=6 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=180000
 
+# Prisma 7 writes its client into src/generated/prisma; the seed and the build both import it, so it comes first.
+npx prisma generate
+
 say "Preparing the database (secure app role, migrations)"
 npm run db:setup
 SEED_DEMO_DATA=$DEMO npm run db:seed
 
 say "Building Housy (a few minutes the first time)"
-npx prisma generate
 NODE_ENV=production npx next build --webpack
 echo "$STAMP" > .next/housy-build-stamp
 fi

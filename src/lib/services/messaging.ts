@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma, withPlatformAdmin, withTenant, withUser, type Tx } from "../db";
 import { parseDateOnly, todayInLagos, formatDate } from "../dates";
 import { maskContactDetails, hasContactDetails } from "../subscription-rules";

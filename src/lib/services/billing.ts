@@ -1,6 +1,6 @@
 import { applyPromo, normaliseCode, promoProblem } from "../promo-rules";
 import { randomUUID } from "node:crypto";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma, withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { lockKey } from "../locks";

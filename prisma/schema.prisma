@@ -3,13 +3,17 @@
 //   1. the application scopes every query by company (src/lib/db.ts), and
 //   2. PostgreSQL row-level security (prisma/migrations/*_rls) rejects rows from other companies.
 
+// The client is generated as TypeScript into src/generated/prisma (not committed; `prisma generate` writes it, and the build,
+// typecheck and install scripts run that first). It connects through the node-postgres driver adapter (src/lib/db.ts); the
+// connection strings for the CLI live in prisma.config.ts.
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------- Identity and multi-tenancy ----------

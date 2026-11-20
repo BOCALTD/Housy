@@ -7,8 +7,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { PrismaClient } from "@prisma/client";
-import { prisma, withPublic, withTenant } from "../../src/lib/db";
+import { clientFor, prisma, withPublic, withTenant } from "../../src/lib/db";
 import { assetOptions, assetPage } from "../../src/lib/services/assets";
 import { searchListings } from "../../src/lib/services/listings";
 import { companyAnalytics } from "../../src/lib/services/analytics";
@@ -73,7 +72,7 @@ test("load a realistic portfolio", async () => {
   await seed(co.companyId, co.userId);
   console.log(`PERF name=seed ms=${(performance.now() - t).toFixed(0)} assets=${ASSETS} leases=${LEASES} charges=${LEASES * 12}`);
   // Give the planner honest statistics, as autovacuum would in production. Skipped quietly if the owner connection is not available.
-  const owner = process.env.MIGRATION_DATABASE_URL ? new PrismaClient({ datasourceUrl: process.env.MIGRATION_DATABASE_URL }) : null;
+  const owner = process.env.MIGRATION_DATABASE_URL ? clientFor(process.env.MIGRATION_DATABASE_URL) : null;
   try { if (owner) for (const t of ["assets", "listings", "leases", "rent_charges", "stored_files"]) await owner.$executeRawUnsafe(`ANALYZE ${t}`); } catch { /* best effort */ } finally { await owner?.$disconnect(); }
 });
 

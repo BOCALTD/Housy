@@ -6,7 +6,7 @@ import { parseNairaToKobo } from "../money";
 import { randomRef } from "../tokens";
 import { discountPct, promoFee, promoLive, promoPriceProblem, rankListings, tierPerks, type TierName } from "../tier-rules";
 import { notify } from "./notifications";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import type { Tx } from "../db";
 import { lockKey } from "../locks";
 import { system } from "./rewards";

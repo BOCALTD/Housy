@@ -15,8 +15,9 @@ apt-get update -y
 apt-get install -y curl ca-certificates gnupg git ufw nginx certbot python3-certbot-nginx fail2ban unattended-upgrades openssl ffmpeg rsync
 
 # Node 20 (NodeSource)
-if ! command -v node >/dev/null || ! node -v | grep -q '^v20'; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+# Node 22 LTS (Node 20 is past its end of life; Prisma 7 needs 22.12 or later on this line).
+if ! command -v node >/dev/null || ! node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)'; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y nodejs
 fi
 

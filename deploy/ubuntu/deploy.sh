@@ -22,10 +22,11 @@ echo "Installing (commit $SHA)"
 # The env file sets NODE_ENV=production, which would make npm skip the build tools (TypeScript, type definitions) and the build
 # would fail; they are needed to build, so they are always installed here.
 if [ -f package-lock.json ]; then npm ci --include=dev --no-audit --no-fund; else npm install --include=dev --no-audit --no-fund; fi
+# Prisma 7 writes its client into src/generated/prisma here; the seed, the jobs and the build all import it.
+npx prisma generate
 echo "Preparing the database (runtime role, migrations, privileges)"
 npm run db:setup
 echo "Building"
-npx prisma generate
 npx next build --webpack
 
 PREVIOUS=$(readlink -f $ROOT/current || true)

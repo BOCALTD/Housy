@@ -1,5 +1,5 @@
 import { checkBoundary } from "../location-rules";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { z } from "zod";
 import { distanceKm, locate, publicPosition, validPosition } from "../geo-rules";
 import { withTenant, type Tx } from "../db";

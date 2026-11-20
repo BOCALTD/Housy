@@ -8,7 +8,6 @@ export function runtimeDatabaseUrl(base = process.env.DATABASE_URL, password = p
   const url = new URL(base);
   url.username = "estate_app";
   url.password = password;
-  // PgBouncer-style poolers need Prisma's pgbouncer mode.
-  if (url.hostname.includes("-pooler") && !url.searchParams.has("pgbouncer")) url.searchParams.set("pgbouncer", "true");
+  // The node-postgres driver sends unnamed statements, which PgBouncer-style poolers accept, so no pooler setting is added.
   return url.toString();
 }

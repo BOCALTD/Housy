@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { offerArtisansAfterDeal } from "./artisans";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { parseDateOnly, todayInLagos } from "../dates";

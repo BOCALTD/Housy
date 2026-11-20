@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma, withPlatformAdmin, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
 import { formatDate, parseDateOnly, todayInLagos, endOfLagosDay } from "../dates";

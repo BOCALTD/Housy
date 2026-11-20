@@ -15,10 +15,32 @@ export function newPeriodEnd(o: { now: Date; currentEnd: Date | null; samePlan: 
 
 export const RENEWAL_NOTICE_DAYS = 7;
 /** Whether it is time to ask for the next period's payment: shortly before the end, and for as long as the plan's grace period lasts. */
-export function renewalDue(o: { periodEnd: Date; graceDays: number; now: Date; cancelled: boolean }): boolean {
+/** A free trial is reminded 3 days before it ends, so a short trial is not asked to pay the moment it starts. */
+export const TRIAL_NOTICE_DAYS = 3;
+/** How long after a trial ends the "your trial has ended" reminder can still go out (the job may have been down that day). */
+const TRIAL_AFTER_DAYS = 3;
+
+export function renewalDue(o: { periodEnd: Date; graceDays: number; now: Date; cancelled: boolean; trial?: boolean }): boolean {
   if (o.cancelled) return false;
   const t = o.now.getTime(), end = o.periodEnd.getTime();
-  return t >= end - RENEWAL_NOTICE_DAYS * 864e5 && t <= end + o.graceDays * 864e5;
+  const before = (o.trial ? TRIAL_NOTICE_DAYS : RENEWAL_NOTICE_DAYS) * 864e5;
+  const after = (o.trial ? TRIAL_AFTER_DAYS : o.graceDays) * 864e5;
+  return t >= end - before && t <= end + after;
+}
+
+/** Whole days left before a period ends, counted up (a period ending in 30 hours has 2 days left); 0 once it has ended. */
+export const daysLeft = (periodEnd: Date, now: Date) => Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 864e5));
+
+/** The reminder sent at each stage, in plain words, for a plan renewal or the end of a free trial. */
+export function renewalMessage(o: { planName: string; stage: "NOTICE" | "LAST_DAY" | "OVERDUE"; trial: boolean; days: number; amount: string }): { title: string; body: string } {
+  if (o.trial) {
+    if (o.stage === "OVERDUE") return { title: `Your free trial of ${o.planName} has ended`, body: `You can still see what you made during the trial. Choose ${o.planName} for ${o.amount} to switch everything back on.` };
+    if (o.stage === "LAST_DAY") return { title: `Your free trial of ${o.planName} ends today`, body: `Choose ${o.planName} for ${o.amount} today to keep everything on without a break.` };
+    return { title: `Your free trial of ${o.planName} ends in ${o.days} ${o.days === 1 ? "day" : "days"}`, body: `Choose ${o.planName} for ${o.amount} to keep everything you use now.` };
+  }
+  if (o.stage === "OVERDUE") return { title: `Your ${o.planName} plan has run out`, body: `Pay ${o.amount} now to keep your features.` };
+  if (o.stage === "LAST_DAY") return { title: `Your ${o.planName} plan ends today`, body: `Pay ${o.amount} to continue without a break.` };
+  return { title: `Your ${o.planName} plan ends in ${o.days} ${o.days === 1 ? "day" : "days"}`, body: `Pay ${o.amount} to continue without a break.` };
 }
 
 /** Which reminder stage a renewal invoice is at, so each stage is sent once: advance notice, the last day, overdue. */

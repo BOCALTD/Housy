@@ -28,6 +28,9 @@ const DAY = 864e5;
  * Where a subscription stands at a moment.
  *  - Until the period ends: trial or active.
  *  - A cancelled subscription stops at the end of the period it paid for and has no grace.
+ *  - A free trial that ends without a payment has no grace (grace protects paying customers from a late payment): it becomes
+ *    read-only for the plan's read-only days, so people can still see what they made during the trial, then it is simply over
+ *    (back to free, never "suspended").
  *  - Otherwise, after the period ends: grace (everything still works, with a warning), then read-only (people can look but not add),
  *    then suspended (records are kept, nothing can be used). The two lengths come from the plan.
  */
@@ -37,6 +40,7 @@ export function subscriptionState(sub: SubLike | null | undefined, policy: Polic
   const t = now.getTime();
   if (t <= end) return sub.status === "TRIAL" ? "TRIAL" : "ACTIVE";
   if (sub.status === "CANCELLED") return "NONE";
+  if (sub.status === "TRIAL") return t <= end + policy.readOnlyDays * DAY ? "READ_ONLY" : "NONE";
   if (t <= end + policy.graceDays * DAY) return "GRACE";
   if (t <= end + (policy.graceDays + policy.readOnlyDays) * DAY) return "READ_ONLY";
   return "SUSPENDED";
@@ -60,6 +64,12 @@ export function nextChange(sub: SubLike, policy: PolicyLike, now: Date = new Dat
   const t = now.getTime();
   const graceEnd = end + policy.graceDays * DAY;
   const readEnd = graceEnd + policy.readOnlyDays * DAY;
+  if (sub.status === "TRIAL") {
+    const trialReadEnd = end + policy.readOnlyDays * DAY;
+    if (t <= end) return { on: new Date(end), becomes: policy.readOnlyDays > 0 ? "READ_ONLY" : "NONE" };
+    if (t <= trialReadEnd) return { on: new Date(trialReadEnd), becomes: "NONE" };
+    return null;
+  }
   if (t <= end) return { on: new Date(end), becomes: sub.status === "CANCELLED" ? "NONE" : policy.graceDays > 0 ? "GRACE" : policy.readOnlyDays > 0 ? "READ_ONLY" : "SUSPENDED" };
   if (sub.status === "CANCELLED") return null;
   if (t <= graceEnd) return { on: new Date(graceEnd), becomes: policy.readOnlyDays > 0 ? "READ_ONLY" : "SUSPENDED" };

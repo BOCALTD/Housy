@@ -7,7 +7,8 @@ import { logActivity } from "../audit";
 import { lockKey } from "../locks";
 import { parseNairaToKobo } from "../money";
 import { can, type Role } from "../permissions";
-import { PERIOD_MONTHS, REVIEW_TEXT, checkReceived, newPeriodEnd, randomRef, renewalDue, reminderStage, sha256, type Period } from "../billing-rules";
+import { PERIOD_MONTHS, REVIEW_TEXT, checkReceived, daysLeft, newPeriodEnd, randomRef, renewalDue, renewalMessage, reminderStage, sha256, type Period } from "../billing-rules";
+import { formatKobo } from "../money";
 import { type ParsedEvent, type PaymentProvider } from "../payment-providers";
 import { notify } from "./notifications";
 import { system } from "./rewards";
@@ -515,7 +516,8 @@ export async function generateRenewalInvoices(deps?: Deps): Promise<{ invoices: 
   }));
   let invoices = 0, reminders = 0;
   for (const s of subs) {
-    if (!renewalDue({ periodEnd: s.periodEnd, graceDays: s.plan.graceDays, now, cancelled: s.status === "CANCELLED" })) continue;
+    const trial = s.status === "TRIAL";
+    if (!renewalDue({ periodEnd: s.periodEnd, graceDays: s.plan.graceDays, now, cancelled: s.status === "CANCELLED", trial })) continue;
     const owner: Owner = s.ownerUserId ? { kind: "USER", userId: s.ownerUserId } : { kind: "COMPANY", companyId: s.ownerCompanyId! };
     // A paused, closed or suspended workspace is not asked to renew.
     if (owner.kind === "COMPANY" && (await system((tx) => tx.company.findUnique({ where: { id: owner.companyId }, select: { suspendedAt: true } })))?.suspendedAt) continue;
@@ -527,18 +529,22 @@ export async function generateRenewalInvoices(deps?: Deps): Promise<{ invoices: 
       if (!sub || sub.status === "CANCELLED") return null;
       let inv = await tx.invoice.findFirst({ where: { ...ownerWhere(owner), purpose: "SUBSCRIPTION", status: "OPEN" } });
       let created = false;
-      if (inv && (inv.subjectId !== sub.planId || inv.amountKobo !== sub.plan.priceKobo)) return null; // the person chose something else; leave it
+      // An open invoice for another plan means the person chose something else: leave it. One for this plan (in their currency,
+      // or with a promo code) is the one to remind them about.
+      if (inv && inv.subjectId !== sub.planId) return null;
       if (!inv) {
         const months = PERIOD_MONTHS[sub.plan.billingPeriod as Period];
-        inv = await tx.invoice.create({ data: { ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null, ownerName: await ownerLabel(tx, owner), subjectId: sub.planId, description: `${sub.plan.name} plan renewal for ${months} ${months === 1 ? "month" : "months"}`, amountKobo: sub.plan.priceKobo!, periodMonths: months, renewal: true, dueOn: sub.periodEnd, createdById: sub.createdById } });
+        const price = await planPriceFor(tx, sub.plan, owner);
+        inv = await tx.invoice.create({ data: { ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null, ownerName: await ownerLabel(tx, owner), subjectId: sub.planId, description: `${sub.plan.name} plan ${trial ? "after the free trial" : "renewal"} for ${months} ${months === 1 ? "month" : "months"}`, currency: price.currency, amountKobo: price.amount, periodMonths: months, renewal: true, dueOn: sub.periodEnd, createdById: sub.createdById } });
         created = true;
       }
       // Each stage is told once, however often this job runs.
       if (inv.reminderStage === stage) return { created, sent: 0 };
-      const text = stage === "OVERDUE" ? "has run out. Pay now to keep your features." : stage === "LAST_DAY" ? "ends today." : "ends soon.";
+      const msg = renewalMessage({ planName: sub.plan.name, stage, trial, days: daysLeft(sub.periodEnd, now), amount: formatKobo(inv.amountKobo, inv.currency) });
       let sent = 0;
       for (const uid of recipients) {
-        await notify(tx, uid, { kind: "billing.renewal", title: `Your ${sub.plan.name} plan ${text}`, body: `${inv.description}. Pay to continue without a break.`, link: billingLink(owner), dedupeKey: `renewal:${inv.id}:${stage}` });
+        // The link opens the invoice itself, where one button pays it.
+        await notify(tx, uid, { kind: "billing.renewal", title: msg.title, body: msg.body, link: `${billingLink(owner)}/${inv.id}`, dedupeKey: `renewal:${inv.id}:${stage}` });
         sent++;
       }
       await tx.invoice.update({ where: { id: inv.id }, data: { reminderStage: stage } });

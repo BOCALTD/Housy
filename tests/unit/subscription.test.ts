@@ -61,3 +61,16 @@ test("phone numbers and email addresses are found and hidden", () => {
   assert.equal(m, "Ring [phone hidden] or mail [email hidden] today");
   assert.equal(hasContactDetails(m), false);
 });
+
+test("a free trial that ends unpaid has no grace: read-only for the plan's read-only days, then back to free, never suspended", () => {
+  const trial = { status: "TRIAL" as const, periodEnd: end };
+  assert.equal(subscriptionState(trial, policy, at(0)), "TRIAL");
+  assert.equal(subscriptionState(trial, policy, at(1)), "READ_ONLY");
+  assert.equal(subscriptionState(trial, policy, at(30)), "READ_ONLY");
+  assert.equal(subscriptionState(trial, policy, at(31)), "NONE");
+  assert.equal(subscriptionState(trial, { graceDays: 7, readOnlyDays: 0 }, at(1)), "NONE");
+  assert.deepEqual(nextChange(trial, policy, at(-2)), { on: end, becomes: "READ_ONLY" });
+  assert.deepEqual(nextChange(trial, policy, at(2)), { on: at(30), becomes: "NONE" });
+  assert.equal(nextChange(trial, policy, at(40)), null);
+  assert.equal(nextChange(trial, { graceDays: 7, readOnlyDays: 0 }, at(-2))?.becomes, "NONE");
+});

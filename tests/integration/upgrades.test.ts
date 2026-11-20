@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { prisma, withPlatformAdmin, withUser } from "../../src/lib/db";
 import { registerSeeker } from "../../src/lib/services/community";
 import { savePlan, setPlanEntitlements, entitlementIn } from "../../src/lib/services/subscriptions";
-import { createSubscriptionInvoice, previewPromo, type Payer } from "../../src/lib/services/billing";
+import { createSubscriptionInvoice, generateRenewalInvoices, previewPromo, type Payer } from "../../src/lib/services/billing";
 import { planFor, promoCodes, savePromoCode, setPromoActive, startTrial, trialsAvailable, upgradeStats } from "../../src/lib/services/upgrades";
 import { newCompany, newPlatformAdmin, PASSWORD } from "./helpers";
 
@@ -142,4 +142,36 @@ test("people cannot read promo codes, redemptions or trial records directly", as
   const someone = await person();
   const seen = await withUser(someone.id, async (tx) => [await tx.promoCode.count(), await tx.promoRedemption.count(), await tx.trialUse.count()]);
   assert.deepEqual(seen, [0, 0, 0]);
+});
+
+test("a trial is reminded 3 days before it ends, with the invoice to pay, and loses its features (not its records) when it ends unpaid", async () => {
+  const admin = await newPlatformAdmin();
+  const p = await plan(admin, { trialDays: 14 });
+  const buyer = await person();
+  await startTrial(buyer, p.id);
+  const sub = await sys((tx) => tx.subscription.findFirstOrThrow({ where: { ownerUserId: buyer.id } }));
+  const invoices = () => sys((tx) => tx.invoice.findMany({ where: { ownerUserId: buyer.id, purpose: "SUBSCRIPTION" } }));
+  const told = () => withUser(buyer.id, (tx) => tx.notification.findMany({ where: { userId: buyer.id, kind: "billing.renewal" }, orderBy: { createdAt: "asc" } }));
+  // On the day the trial starts, nothing is asked.
+  await generateRenewalInvoices({ now: new Date() });
+  assert.equal((await invoices()).length, 0);
+  assert.equal((await told()).length, 0);
+  // Two days before the end: one invoice for the plan, and a reminder that links straight to it.
+  const near = new Date(sub.periodEnd.getTime() - 2 * 864e5 + 60_000);
+  await generateRenewalInvoices({ now: near });
+  await generateRenewalInvoices({ now: near });
+  const inv = await invoices();
+  assert.equal(inv.length, 1);
+  assert.equal(inv[0].amountKobo, 1_000_000n);
+  assert.match(inv[0].description, /after the free trial/);
+  const n = await told();
+  assert.equal(n.length, 1, "each stage is told once");
+  assert.match(n[0].title, /free trial of .* ends in 2 days/);
+  assert.equal(n[0].link, `/me/billing/${inv[0].id}`);
+  // A day after it ends, unpaid: read-only (no grace for a trial), and the "trial has ended" notice goes once.
+  const after = new Date(sub.periodEnd.getTime() + 864e5);
+  await generateRenewalInvoices({ now: after });
+  assert.match((await told()).at(-1)!.title, /free trial of .* has ended/);
+  const ent = await withUser(buyer.id, (tx) => entitlementIn(tx, { kind: "USER", userId: buyer.id }, "COLLAB_SEEKER_AGENT", after));
+  assert.equal(ent.access, "READ_ONLY");
 });

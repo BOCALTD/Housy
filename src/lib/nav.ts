@@ -185,6 +185,7 @@ export function adminSection(): NavSection {
       { href: "/admin/ads", label: "Advertising", icon: "megaphone" },
       { href: "/admin/promotions", label: "Promotions", icon: "megaphone" },
       { href: "/admin/banners", label: "Promo banners", icon: "megaphone" },
+      { href: "/admin/connections", label: "Connections", icon: "key" },
       { href: "/admin/legal", label: "Legal pages", icon: "doc" },
     ] },
     { label: "Community", items: [

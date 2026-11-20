@@ -9,6 +9,7 @@
  * - Travel time: an estimate from the distance, or real driving times when ROUTING_URL points at an OSRM-compatible server.
  * Only the property's public position (blurred to about a kilometre) is ever sent out, never an address or a person's data.
  */
+import { envNow } from "../runtime-env";
 import { prisma, withPublic } from "../db";
 import { nearbyCacheKey, nearbyCell, overpassFailed, overpassQueries, overpassHeaders, overpassServers, parseOverpass, parseRoute, summariseNearby, travelEstimate, type Amenity } from "../location-rules";
 
@@ -140,7 +141,7 @@ export const nearbyLookupsSettled = () => Promise.allSettled([...inflight.values
  * Look up every published property's area that is not known yet, one area at a time (the free servers allow two requests
  * at once per machine, and a polite gap between them). For a schedule or by hand: npm run nearby:warm.
  */
-export async function warmAllNearby(env: Env = process.env, opts: { limit?: number; retry?: boolean; onEach?: (cell: string, ok: boolean, left: number, why: "offline" | "busy" | null) => void; onRetry?: (n: number) => void } = {}) {
+export async function warmAllNearby(env: Env = envNow(), opts: { limit?: number; retry?: boolean; onEach?: (cell: string, ok: boolean, left: number, why: "offline" | "busy" | null) => void; onRetry?: (n: number) => void } = {}) {
   if (env.NEARBY_PLACES === "off") return { looked: 0, ok: 0, offline: false as const };
   const rows = await withPublic((tx) => tx.listing.findMany({ where: { status: "PUBLISHED", lat: { not: null }, lng: { not: null } }, select: { lat: true, lng: true } }));
   const cells = new Map<string, { lat: number; lng: number }>();
@@ -205,7 +206,7 @@ async function placesAround(p: { lat: number; lng: number }, env: Env, now: Date
  * nearest first. waitMs is how long this visit waits for a lookup that is not known yet; after that it answers "pending"
  * and the lookup carries on in the background. Left out, it waits for the lookup to finish.
  */
-export async function nearbyForListing(ref: string, env: Env = process.env, now = new Date(), opts: { waitMs?: number } = {}) {
+export async function nearbyForListing(ref: string, env: Env = envNow(), now = new Date(), opts: { waitMs?: number } = {}) {
   if (env.NEARBY_PLACES === "off") return { available: false as const, reason: "off" as const };
   const p = await listingPoint(ref);
   if (!p) return { available: false as const, reason: "no-position" as const };
@@ -216,7 +217,7 @@ export async function nearbyForListing(ref: string, env: Env = process.env, now 
 }
 
 /** How long it takes to get from a place to a published property: real driving time when a routing server is set, otherwise an estimate. */
-export async function travelToListing(ref: string, from: { lat: number; lng: number }, env: Env = process.env) {
+export async function travelToListing(ref: string, from: { lat: number; lng: number }, env: Env = envNow()) {
   const p = await listingPoint(ref);
   if (!p) return null;
   const estimate = travelEstimate(from, p);

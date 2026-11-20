@@ -22,6 +22,8 @@ export default async function PayoutsPage({ searchParams: spP }: { searchParams?
   const searchParams = await spP;
   const m = await requireMember("payout.request");
   const approve = can(m.role, "payout.approve"), manage = can(m.role, "settings.manage");
+  // People who can approve and send money confirm it is them before seeing this page.
+  if (approve) await requireMember("payout.approve");
   const [s, data, origin] = await Promise.all([payoutSettings(m), payouts(m), siteOrigin()]);
   const banks = s.paystack && approve ? await payoutBanks(m) : [];
   const link = sp(searchParams, "link");

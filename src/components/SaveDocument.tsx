@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { publicConfig } from "@/lib/public-config";
 
 // "Save or share" for a document. Download always works. On phones and tablets, "Send to another app" opens the
 // system share sheet, which offers Files, iCloud Drive, Google Drive, Dropbox, OneDrive and similar apps the person has.
-// "Save to Google Drive" appears when the company's deployment has a Google client ID (NEXT_PUBLIC_GOOGLE_CLIENT_ID).
+// "Save to Google Drive" appears when the administrator has set a Google client ID (Admin, Connections).
 
 declare global {
   interface Window {
@@ -13,7 +14,7 @@ declare global {
 }
 
 const GSI = "https://accounts.google.com/gsi/client";
-const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+let CLIENT_ID = "";
 
 function loadGoogle(): Promise<void> {
   if (window.google?.accounts) return Promise.resolve();
@@ -50,6 +51,8 @@ function accessToken(): Promise<string> {
 
 export default function SaveDocument({ url, fallbackName = "document", label = "Save or share" }: { url: string; fallbackName?: string; label?: string }) {
   const [msg, setMsg] = useState("");
+  const [clientId, setClientId] = useState(CLIENT_ID);
+  useEffect(() => { void publicConfig().then((c) => { CLIENT_ID = c.googleClientId; setClientId(c.googleClientId); }); }, []);
   const [busy, setBusy] = useState(false);
   const [canShare, setCanShare] = useState(false);
 
@@ -101,13 +104,13 @@ export default function SaveDocument({ url, fallbackName = "document", label = "
       const can = typeof navigator !== "undefined" && typeof navigator.share === "function" && typeof navigator.canShare === "function";
       setCanShare(can);
       if (can) void prepare();
-      if (CLIENT_ID) void loadGoogle().catch(() => undefined); // ready before the tap, so Google's sign-in window is not blocked
+      if (clientId) void loadGoogle().catch(() => undefined); // ready before the tap, so Google's sign-in window is not blocked
     }}>
       <summary>{label}</summary>
       <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
         <a className="btn" href={url} download>Download</a>
         {canShare && prep !== "none" ? <button className="btn" type="button" onClick={share} disabled={busy || prep !== "ready"}>{prep === "ready" ? "Send to another app" : "Getting the file ready…"}</button> : null}
-        {CLIENT_ID ? <button className="btn" type="button" onClick={drive} disabled={busy}>Save to Google Drive</button> : null}
+        {clientId ? <button className="btn" type="button" onClick={drive} disabled={busy}>Save to Google Drive</button> : null}
       </div>
       {canShare && prep !== "none" ? <p className="small muted">Another app means Files, iCloud Drive, Google Drive, Dropbox, OneDrive or any app on this device that accepts files.</p> : null}
       <p className="small muted" role="status">{busy ? "Working…" : msg}</p>

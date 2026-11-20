@@ -1,3 +1,4 @@
+import { envNow } from "./runtime-env";
 import { PLATFORM_NAME } from "./labels";
 
 /**
@@ -11,11 +12,12 @@ export const LEGAL_VERSION = "2026-11-05";
 export const LEGAL_UPDATED = "5 November 2026";
 
 export function operator() {
-  const name = process.env.LEGAL_ENTITY_NAME?.trim() || `the operator of ${PLATFORM_NAME}`;
-  const address = process.env.LEGAL_ADDRESS?.trim() || "";
-  const support = process.env.SUPPORT_EMAIL?.trim() || "";
-  const privacy = process.env.PRIVACY_EMAIL?.trim() || support;
-  return { name, address, support, privacy, configured: !!process.env.LEGAL_ENTITY_NAME?.trim() };
+  const e = envNow();
+  const name = e.LEGAL_ENTITY_NAME?.trim() || `the operator of ${PLATFORM_NAME}`;
+  const address = e.LEGAL_ADDRESS?.trim() || "";
+  const support = e.SUPPORT_EMAIL?.trim() || "";
+  const privacy = e.PRIVACY_EMAIL?.trim() || support;
+  return { name, address, support, privacy, configured: !!e.LEGAL_ENTITY_NAME?.trim() };
 }
 
 export type LegalDoc = { slug: string; title: string; summary: string; body: string };

@@ -1,5 +1,6 @@
 // Web Push (RFC 8030) with message encryption (RFC 8291, aes128gcm) and VAPID sender identification (RFC 8292),
 // using only Node's built-in crypto. The push service (Google, Mozilla, Apple, Microsoft) only ever sees ciphertext.
+import { envNow } from "./runtime-env";
 import { createECDH, createPrivateKey, createPublicKey, createSign, createVerify, generateKeyPairSync, randomBytes, createCipheriv, hkdfSync } from "node:crypto";
 
 export type PushSubscriptionKeys = { endpoint: string; p256dh: string; auth: string };
@@ -80,7 +81,7 @@ export function verifyVapid(authorization: string, publicKey: string): boolean {
   return m[4] === publicKey && v.verify({ key, dsaEncoding: "ieee-p1363" }, unb64u(m[3]));
 }
 
-export function vapidFromEnv(env: Record<string, string | undefined> = process.env): VapidKeys | null {
+export function vapidFromEnv(env: Record<string, string | undefined> = envNow()): VapidKeys | null {
   const publicKey = env.VAPID_PUBLIC_KEY ?? "", privateKey = env.VAPID_PRIVATE_KEY ?? "";
   if (!/^[A-Za-z0-9_-]{80,100}$/.test(publicKey) || !/^[A-Za-z0-9_-]{40,50}$/.test(privateKey)) return null;
   const subject = env.VAPID_SUBJECT && /^(mailto:|https:\/\/)/.test(env.VAPID_SUBJECT) ? env.VAPID_SUBJECT : `mailto:${env.SUPPORT_EMAIL || "support@example.invalid"}`;

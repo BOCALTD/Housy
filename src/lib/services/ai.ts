@@ -1,3 +1,4 @@
+import { loadRuntimeEnv } from "../runtime-env";
 import { prisma, withPlatformAdmin, withTenant } from "../db";
 import { logActivity } from "../audit";
 import { AI_FEATURES, DEFAULT_AI_CONFIG, aiConfigProblem, type AiConfig, type AiFeature } from "../ai-rules";
@@ -77,6 +78,7 @@ export async function runAi<T>(s: RunSpec<T>): Promise<AiOutcome<T>> {
   const started = Date.now();
   const now = s.deps?.now ?? new Date();
   const cfg = await readAiConfig();
+  await loadRuntimeEnv();
   const provider = s.deps?.provider !== undefined ? s.deps.provider : aiProvider();
   const finish = async (status: "OK" | "FALLBACK" | "ERROR" | "LIMITED", providerName: string, result: T, source: "AI" | "RULES", note: string, notice: string) => {
     await audit({ actor: s.actor, feature: s.feature, provider: providerName, status, inputChars: s.inputChars, outputChars: size(result), ms: Date.now() - started, subject: s.subject, note });

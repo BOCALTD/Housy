@@ -1,3 +1,4 @@
+import { configuredDriver } from "./email-drivers";
 import { identityProviders } from "./identity-providers";
 import { mapLayers } from "./location-rules";
 import { vapidFromEnv } from "./webpush";
@@ -30,7 +31,7 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
     long(env.MFA_ENCRYPTION_KEY, 32) ? "Set to its own value." : "MFA_ENCRYPTION_KEY is missing or short (use 32 or more random characters). Without it the database password is used, so changing that password would lock out everyone with two-step on.");
 
   add("admin-mfa", "Two-step sign-in required for platform administrators", env.REQUIRE_ADMIN_MFA === "true" ? "ok" : "fail",
-    env.REQUIRE_ADMIN_MFA === "true" ? "Required." : "Set REQUIRE_ADMIN_MFA=true. Until then a platform administrator can work without it.");
+    env.REQUIRE_ADMIN_MFA === "true" ? "Required." : "Turn it on in Admin, Connections, Sign-in security. Until then a platform administrator can work without it.");
 
   add("setup-token", "First-administrator setup token", long(env.SETUP_TOKEN, 24) && !PLACEHOLDER.test(env.SETUP_TOKEN!) ? "ok" : "warn",
     long(env.SETUP_TOKEN, 24) ? "Set. After the first administrator exists the setup page is closed; remove the token." : "SETUP_TOKEN is missing or short; the setup page cannot be used safely.");
@@ -43,21 +44,22 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
   add("brand", "Product name", has(name) && PLACEHOLDER.test(name!) ? "warn" : "ok",
     !has(name) ? "Housy (the default brand)." : PLACEHOLDER.test(name!) ? "NEXT_PUBLIC_PLATFORM_NAME still holds a placeholder." : `Set to ${name}.`);
 
-  add("email", "Email provider", has(env.RESEND_API_KEY) && has(env.EMAIL_FROM) ? "ok" : "fail",
-    has(env.RESEND_API_KEY) && has(env.EMAIL_FROM) ? "Key and sender address set. Send one real test message before launch." : "RESEND_API_KEY and EMAIL_FROM are both needed. Without them no email is delivered, including password resets.", "provider");
+  const mail = configuredDriver(env);
+  add("email", "Email provider", mail ? "ok" : "fail",
+    mail ? `${mail.name === "smtp" ? "SMTP" : "Resend"} and a sender address are set. Send a test from Admin, Connections before launch.` : "Not connected. Choose Resend or SMTP in Admin, Connections, Outgoing email. Without it no email is delivered, including password resets.", "provider");
 
   const push = vapidFromEnv(env);
   add("push", "Push notifications", push ? "ok" : "warn",
-    push ? "VAPID keys set. Turn notifications on for one phone and send a test from Notification settings." : "VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are not set, so phones get no push notifications (in-app notices and email still work). install.sh makes them; or run scripts/vapid-keys.ts.", "provider");
+    push ? "VAPID keys set. Turn notifications on for one phone and send a test from Notification settings." : "No keys yet, so phones get no push notifications (in-app notices and email still work). Make them in Admin, Connections, Push notifications.", "provider");
 
   const tiles = env.NEXT_PUBLIC_MAP_TILES ?? "";
   add("map", "Street map tiles", /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? "ok" : "warn",
-    /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? `A tile provider is set.${mapLayers(env).length > 1 ? " A satellite layer is available." : " No satellite layer: use MapTiler (its key also gives satellite) or set NEXT_PUBLIC_MAP_SATELLITE_TILES."} Nearby places use ${env.NEARBY_PLACES === "off" ? "nothing (switched off)" : env.OVERPASS_URL ? "your own Overpass server" : "the public Overpass server, cached for 30 days"}; travel times are ${env.ROUTING_URL ? "real driving times from your routing server" : "estimates (set ROUTING_URL to an OSRM server for real times)"}.` : "Using OpenStreetMap's public tiles, which are fine for testing and light use only. Set NEXT_PUBLIC_MAP_TILES (and NEXT_PUBLIC_MAP_ATTRIBUTION) to a provider such as MapTiler or Stadia Maps before real traffic, then rebuild.", "provider");
+    /^https:\/\/.+\{z\}.+\{x\}.+\{y\}/.test(tiles) ? `A tile provider is set.${mapLayers(env).length > 1 ? " A satellite layer is available." : " No satellite layer: use MapTiler (its key also gives satellite) or add satellite tiles in Admin, Connections."} Nearby places use ${env.NEARBY_PLACES === "off" ? "nothing (switched off)" : env.OVERPASS_URL ? "your own Overpass server" : "the public Overpass server, cached for 30 days"}; travel times are ${env.ROUTING_URL ? "real driving times from your routing server" : "estimates (add a routing server in Admin, Connections for real times)"}.` : "Using OpenStreetMap's public tiles, which are fine for testing and light use only. Add a provider such as MapTiler or Stadia Maps in Admin, Connections, Maps before real traffic.", "provider");
 
   const kyc = identityProviders(env);
   const sandbox = /sandbox/.test(`${env.DOJAH_BASE_URL ?? ""} ${env.YOUVERIFY_BASE_URL ?? ""}`);
   add("kyc", "Automatic identity checks", kyc.length && !sandbox ? "ok" : "warn",
-    kyc.length ? `${kyc.map((p) => p.name).join(", then ")}${sandbox ? " (SANDBOX: test records only)" : ""}. Checks people agree to are confirmed against NIMC, CAC and FIRS records; anything not confirmed goes to the verification team. Verify one real NIN and one real RC number before launch.` : "No provider keys (DOJAH_APP_ID and DOJAH_SECRET_KEY, or YOUVERIFY_TOKEN), so every identity and business check is reviewed by hand.", "provider");
+    kyc.length ? `${kyc.map((p) => p.name).join(", then ")}${sandbox ? " (SANDBOX: test records only)" : ""}. Checks people agree to are confirmed against NIMC, CAC and FIRS records; anything not confirmed goes to the verification team. Verify one real NIN and one real RC number before launch.` : "No provider keys (Dojah or Youverify, in Admin, Connections), so every identity and business check is reviewed by hand.", "provider");
 
   const pk = env.PAYSTACK_SECRET_KEY ?? "";
   add("payments", "Payment provider", /^sk_live_/.test(pk) ? "ok" : /^sk_test_/.test(pk) ? "warn" : "warn",
@@ -73,10 +75,10 @@ export function readinessChecks(env: Env): ReadinessCheck[] {
     env.SEED_DEMO_DATA === "true" ? "SEED_DEMO_DATA is true: sample companies would be created. Turn it off for production." : "Off.");
 
   add("support", "Support contact shown to users", has(env.SUPPORT_EMAIL) ? "ok" : "warn",
-    has(env.SUPPORT_EMAIL) ? "Set." : "SUPPORT_EMAIL is not set, so the support page has no address to show.");
+    has(env.SUPPORT_EMAIL) ? "Set." : "No support email yet, so the support page has no address to show. Add it in Admin, Connections, Contact and legal details.");
 
   add("legal", "Operator named on the legal pages", has(env.LEGAL_ENTITY_NAME) ? "ok" : "warn",
-    has(env.LEGAL_ENTITY_NAME) ? "Set." : "LEGAL_ENTITY_NAME is not set, so the Terms and Privacy policy do not say which company runs the service. App stores and the data protection law expect it (add LEGAL_ADDRESS and PRIVACY_EMAIL too).");
+    has(env.LEGAL_ENTITY_NAME) ? "Set." : "The operator's registered name is not set, so the built-in legal text does not say which company runs the service. Add it (with the address and privacy email) in Admin, Connections, Contact and legal details.");
 
   add("ai", "Assistant (optional)", has(env.ANTHROPIC_API_KEY) ? "ok" : "ok",
     has(env.ANTHROPIC_API_KEY) ? "Connected." : "Not connected. The assistant runs on its built-in rules, which is fine.");

@@ -8,6 +8,7 @@
  *  - Dojah: https://docs.dojah.io (GET /api/v1/kyc/nin, /api/v1/kyc/cac/basic, /api/v1/kyc/cac/tin; headers AppId and Authorization)
  *  - Youverify: https://doc.youverify.co (POST /v2/api/identity/ng/nin, /pvc, /drivers-license; header token; subject consent required)
  */
+import { envNow } from "./runtime-env";
 import type { Lookup } from "./kyc-auto-rules";
 
 /** What a provider found. Only the fields needed for the comparison are kept; photos, dates of birth and phone numbers are dropped. */
@@ -99,7 +100,7 @@ let override: IdentityProvider[] | null = null;
 export function setIdentityProvidersForTests(list: IdentityProvider[] | null) { override = list; }
 
 /** The configured providers, in the order to try them. KYC_PROVIDERS="dojah,youverify"; unset means every one that has keys. */
-export function identityProviders(env: Env = process.env): IdentityProvider[] {
+export function identityProviders(env: Env = envNow()): IdentityProvider[] {
   if (override) return override;
   const all: Record<string, IdentityProvider | null> = { dojah: dojah(env), youverify: youverify(env) };
   const order = (env.KYC_PROVIDERS || "dojah,youverify").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
@@ -107,4 +108,4 @@ export function identityProviders(env: Env = process.env): IdentityProvider[] {
 }
 
 /** Whether any configured provider could check this kind of record. */
-export const canAutoCheck = (l: Lookup, env: Env = process.env) => identityProviders(env).some((p) => p.supports(l));
+export const canAutoCheck = (l: Lookup, env: Env = envNow()) => identityProviders(env).some((p) => p.supports(l));

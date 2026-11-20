@@ -1,3 +1,4 @@
+import { loadRuntimeEnv } from "../runtime-env";
 import { z } from "zod";
 import { withPlatformAdmin, withTenant, type Tx } from "../db";
 import { logActivity } from "../audit";
@@ -168,6 +169,7 @@ export interface BulkRun { configured: boolean; sent: number; skipped: number; r
 /** Send what is due. Run by the scheduled job with the other emails. With no email provider connected, nothing is sent. */
 export async function processBulk(o: { now?: Date; driver?: EmailDriver | null; limit?: number } = {}): Promise<BulkRun> {
   const now = o.now ?? new Date();
+  await loadRuntimeEnv();
   const driver = o.driver === undefined ? configuredDriver() : o.driver;
   const due = { status: { in: ["QUEUED", "FAILED"] as ("QUEUED" | "FAILED")[] }, nextAttemptAt: { lte: now } };
   const out: BulkRun = { configured: !!driver, sent: 0, skipped: 0, retrying: 0, dead: 0, waiting: 0 };

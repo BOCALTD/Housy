@@ -13,20 +13,18 @@ Each line says who does it and how you know it is done. The page `/admin/launch`
 | `DATABASE_URL`, `MIGRATION_DATABASE_URL` | local PostgreSQL owner connection, written by `install.sh` | The deploy step creates the restricted `estate_app` role |
 | `APP_DB_PASSWORD` | random, 24+ characters | |
 | `MFA_ENCRYPTION_KEY` | random, 32+ characters | **Never change after people turn on two-step** |
-| `REQUIRE_ADMIN_MFA` | `true` | |
 | `SETUP_TOKEN` | random, 24+ characters | Remove after step A8 |
 | `NEXT_PUBLIC_APP_URL` | `https://your-domain` | |
 | `NEXT_PUBLIC_PLATFORM_NAME` | optional: leave unset for Housy | |
 | `CRON_SECRET`, `UNSUBSCRIBE_SECRET` | random, 24+ characters each | |
-| `RESEND_API_KEY`, `EMAIL_FROM` | from the email provider | Sender domain verified (SPF, DKIM) |
-| `PAYSTACK_SECRET_KEY` | live key, once the business account is approved | |
-| `SUPPORT_EMAIL`, `SUPPORT_PHONE`, `SUPPORT_HOURS` | what users should call | Shown at `/support` |
-| `ANTHROPIC_API_KEY` | optional | |
 | `SEED_DEMO_DATA` | unset or `false` | |
+
+Everything else (email, payments, text messages, identity checks, push keys, maps, contact and legal details, the AI key, the two-step rule for administrators) is set in the admin area, not here: see the steps below.
 
 - [ ] Run `deploy.sh`. It applies migrations and checks health. Open `/api/health`: it answers `"ok":true`.
 - [ ] Open `/setup` with the setup token and create the first platform administrator. Then **remove `SETUP_TOKEN`** and restart the service.
 - [ ] A8: sign in as that administrator at the staff page `/auth/login` (the public `/login` refuses administrator accounts, and `/admin` shows "not found" to everyone else), open `/me/security`, turn on two-step sign-in, save the recovery codes somewhere safe (not on the same phone). Create a **second** platform administrator the same way, so one lost phone is not a lockout.
+- [ ] In *Admin → Connections*: connect outgoing email (Resend, or your host's SMTP) and press **Send me a test email**; fill in Contact and legal details; press **Make keys** under Push notifications; add a map tile provider; add Dojah or Youverify keys if you use automatic identity checks; then turn on **Platform administrators must use two-step sign-in**. In *Admin → Settings*: Paystack (live key once approved), and the rest you use. Opening these pages asks for your password again if you have not confirmed it in the last 15 minutes.
 - [ ] Add an uptime monitor on `/api/health` that alerts you by email or text, and certbot check: `sudo certbot renew --dry-run`.
 - [ ] Open `/admin/launch`. Every row is Ready, or you understand and accept each warning.
 

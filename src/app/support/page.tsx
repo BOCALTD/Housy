@@ -1,13 +1,15 @@
+import { runtimeEnv } from "@/lib/runtime-env";
 import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/labels";
 
 export const metadata = { title: "Help and support" };
 export const dynamic = "force-dynamic";
 
-export default function SupportPage() {
-  const email = process.env.SUPPORT_EMAIL?.trim();
-  const phone = process.env.SUPPORT_PHONE?.trim();
-  const hours = process.env.SUPPORT_HOURS?.trim();
+export default async function SupportPage() {
+  const env = await runtimeEnv();
+  const email = env.SUPPORT_EMAIL?.trim();
+  const phone = env.SUPPORT_PHONE?.trim();
+  const hours = env.SUPPORT_HOURS?.trim();
   return (
     <div className="stack-lg" style={{ maxWidth: 720 }}>
       <h1>Help and support</h1>

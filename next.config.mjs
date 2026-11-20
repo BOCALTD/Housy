@@ -1,21 +1,5 @@
 /** @type {import('next').NextConfig} */
 // The only outside services the pages use are Google Fonts and, when the user saves a file to Google Drive, Google sign-in and Drive.
-// Street map tiles: OpenStreetMap by default; set NEXT_PUBLIC_MAP_TILES to a provider's template (MapTiler, Stadia, Carto...) for production traffic.
-const tiles = process.env.NEXT_PUBLIC_MAP_TILES || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const tileHost = (() => {
-  try {
-    const u = new URL(tiles.replace(/\{s\}/g, "a").replace(/\{[a-z]+\}/g, "0"));
-    return tiles.includes("{s}") ? `${u.protocol}//*.${u.host.split(".").slice(1).join(".")}` : u.origin;
-  } catch { return "https://tile.openstreetmap.org"; }
-})();
-// A satellite layer, when one is set up, may come from another host (NEXT_PUBLIC_MAP_SATELLITE_TILES); MapTiler's hybrid layer
-// shares the streets host.
-const satHost = (() => {
-  const t = process.env.NEXT_PUBLIC_MAP_SATELLITE_TILES;
-  if (!t) return "";
-  try { return new URL(t.replace(/\{[a-z]+\}/g, "0")).origin; } catch { return ""; }
-})();
-/** The hosts each live chat provider loads from (their published lists). */
 const CHAT = {
   script: "https://embed.tawk.to https://*.tawk.to https://cdn.jsdelivr.net https://client.crisp.chat https://code.tidio.co https://*.tidio.co https://widget.intercom.io https://js.intercomcdn.com",
   style: "https://embed.tawk.to https://*.tawk.to https://client.crisp.chat https://*.tidio.co",
@@ -31,7 +15,9 @@ const csp = [
   // provider the administrator chooses (Tawk.to, Crisp, Tidio or Intercom), loaded only after the visitor accepts optional cookies.
   `script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.google.com https://www.gstatic.com https://challenges.cloudflare.com ${CHAT.script}`,
   `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com ${CHAT.style}`,
-  `img-src 'self' data: blob: ${tileHost}${satHost && satHost !== tileHost ? ` ${satHost}` : ""} ${CHAT.img}`,
+  // Map tiles come from the provider chosen in Admin, Connections (any https host, changed without a rebuild). Images cannot run
+  // code; scripts, frames and connections stay limited to the hosts listed here.
+  "img-src 'self' data: blob: https:",
   `font-src 'self' data: https://fonts.gstatic.com ${CHAT.font}`,
   // Reel previews play the chosen clip from the device before it is uploaded.
   `media-src 'self' blob: ${CHAT.media}`,

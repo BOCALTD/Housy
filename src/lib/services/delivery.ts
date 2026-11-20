@@ -1,3 +1,4 @@
+import { loadRuntimeEnv } from "../runtime-env";
 import { COUNTRIES, isCountry } from "../regions";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -90,6 +91,7 @@ async function log(userId: string | null, kind: string, outcome: string, detail 
 /** Work through the emails that are due. Pass a driver to override the configured one (tests do). */
 export async function processOutbox(o: { now?: Date; driver?: EmailDriver | null; limit?: number } = {}): Promise<RunSummary> {
   const now = o.now ?? new Date();
+  await loadRuntimeEnv();
   const driver = o.driver === undefined ? configuredDriver() : o.driver;
   const sum: RunSummary = { configured: !!driver, waiting: 0, sent: 0, retrying: 0, dead: 0, skipped: 0, deferred: 0, held: 0, digests: 0 };
   const dueWhere = { status: { in: ["QUEUED", "FAILED"] as ("QUEUED" | "FAILED")[] }, nextAttemptAt: { lte: now } };

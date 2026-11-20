@@ -1,3 +1,4 @@
+import { envNow } from "../runtime-env";
 import { z } from "zod";
 import { prisma } from "../db";
 import { hashToken, newToken, randomRef } from "../tokens";
@@ -10,17 +11,18 @@ export const MODAL_VERSION = "v1.1";
 export const CONSENT_TEXT_VERSION = "consent-2026-10-v1";
 export const TRIGGERS = ["view", "save", "enquiry", "offer", "manual"] as const;
 
-export const SUPPRESS_DECLINE_DAYS = Number(process.env.VERIFY_DECLINE_DAYS ?? 90);
-export const SUPPRESS_LATER_HOURS = Number(process.env.VERIFY_LATER_HOURS ?? 24);
-export const RECOMMEND_FOR_RENTALS = process.env.VERIFY_RECOMMEND_RENTALS === "true";
+// Set in Admin, Connections, Verification suggestions (or the server's settings file).
+const SUPPRESS_DECLINE_DAYS = () => Number(envNow().VERIFY_DECLINE_DAYS || 90);
+const SUPPRESS_LATER_HOURS = () => Number(envNow().VERIFY_LATER_HOURS || 24);
+const RECOMMEND_FOR_RENTALS = () => envNow().VERIFY_RECOMMEND_RENTALS === "true";
 
 export type Prefs = { declinedAt?: number; laterAt?: number };
 
 /** Whether the modal may open automatically for this visitor and listing purpose. */
 export function shouldAutoShow(prefs: Prefs, purpose: string, now = Date.now()): boolean {
-  if (purpose !== "SALE" && !RECOMMEND_FOR_RENTALS) return false;
-  if (prefs.declinedAt && now - prefs.declinedAt < SUPPRESS_DECLINE_DAYS * 864e5) return false;
-  if (prefs.laterAt && now - prefs.laterAt < SUPPRESS_LATER_HOURS * 36e5) return false;
+  if (purpose !== "SALE" && !RECOMMEND_FOR_RENTALS()) return false;
+  if (prefs.declinedAt && now - prefs.declinedAt < SUPPRESS_DECLINE_DAYS() * 864e5) return false;
+  if (prefs.laterAt && now - prefs.laterAt < SUPPRESS_LATER_HOURS() * 36e5) return false;
   return true;
 }
 

@@ -1,5 +1,6 @@
 // Push notifications to people's phones and computers. Devices are added by the person; messages are queued by notify()
 // and sent by a job every minute. Nothing is sent until VAPID keys are configured.
+import { loadRuntimeEnv } from "../runtime-env";
 import { withPlatformAdmin, withUser } from "../db";
 import { makeSender, validSubscription, vapidFromEnv, type PushSender } from "../webpush";
 
@@ -35,6 +36,7 @@ export async function removeDevice(userId: string, idOrEndpoint: string) {
 
 /** Send what is waiting. Returns counts for the job log. */
 export async function processPushQueue(sender: PushSender | null = null, now = new Date()) {
+  await loadRuntimeEnv();
   const keys = vapidFromEnv();
   const send = sender ?? (keys ? makeSender(keys) : null);
   const stats = { sent: 0, failed: 0, dropped: 0, devicesRemoved: 0, configured: !!send };
@@ -83,6 +85,7 @@ export async function processPushQueue(sender: PushSender | null = null, now = n
 
 /** Send a test message straight to the person's devices, so they can see it works. */
 export async function sendTestPush(userId: string, sender: PushSender | null = null) {
+  await loadRuntimeEnv();
   const keys = vapidFromEnv();
   const send = sender ?? (keys ? makeSender(keys) : null);
   if (!send) throw new Error("Push notifications are not set up on this server yet");

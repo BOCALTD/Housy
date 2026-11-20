@@ -129,6 +129,8 @@ test("no route hands out data without checking who is asking", () => {
     "app/ads/click/[ref]/route.ts": "an advert click: the service decides whether to charge; the visitor always reaches the property",
     "app/api/webhooks/paystack/route.ts": "verified by the provider's signature",
     "app/api/inbound-email/route.ts": "received emails from the email provider, allowed only with the platform's inbound secret",
+    "app/api/public-config/route.ts": "the map tile address and Google client ID the browser needs, nothing secret",
+    "app/api/webhooks/payouts/[token]/route.ts": "Paystack transfer messages, accepted only with the company's Paystack signature",
     "app/api/unsubscribe/company/route.ts": "one-click unsubscribe from a company's bulk email: the signed token names one company and one address, and it only ever stops messages",
     "app/reels/[id]/video/route.ts": "the service returns only clips the viewer may see",
     "app/api/v1/listings/route.ts": "published listings only; read-only; rate limited",

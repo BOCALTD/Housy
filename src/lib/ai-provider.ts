@@ -48,7 +48,7 @@ export function anthropicProvider(apiKey: string, model: string, fetchImpl: type
   };
 }
 
-export function configuredAi(env: Record<string, string | undefined> = process.env): AiProvider | null {
+export function configuredAi(env: Record<string, string | undefined> = envNow()): AiProvider | null {
   const key = env.ANTHROPIC_API_KEY?.trim();
   return key ? anthropicProvider(key, env.AI_MODEL?.trim() || "claude-sonnet-4-5") : null;
 }
@@ -58,4 +58,5 @@ export function jsonFrom(text: string): unknown {
   const a = text.indexOf("{"), b = text.lastIndexOf("}");
   if (a < 0 || b <= a) return null;
   try { return JSON.parse(text.slice(a, b + 1)); } catch { return null; }
-}
+}import { envNow } from "./runtime-env";
+

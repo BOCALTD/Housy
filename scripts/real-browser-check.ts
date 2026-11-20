@@ -479,6 +479,29 @@ async function main() {
     await ctx.close();
   });
 
+  await step("Sensitive admin pages ask for the password again", async () => {
+    const password = process.env.SEED_ADMIN_PASSWORD;
+    const stale = execFileSync("npx", ["tsx", "scripts/stale-admin-session.ts"], { encoding: "utf8" }).trim().split("\n").pop()!;
+    const ctx = await newContext(browser, "phone");
+    await ctx.addCookies([{ name: "sid", value: stale, domain: new URL(BASE).hostname, path: "/" }, { name: "cookie_choice", value: "essential", domain: new URL(BASE).hostname, path: "/" }]);
+    const p = await ctx.newPage(); watch(p, "confirm it's you");
+    await p.goto(BASE + "/admin/connections", { waitUntil: "load" });
+    const asked = new URL(p.url()).pathname === "/confirm";
+    let wrongShown = false, back = false;
+    if (asked) {
+      await p.locator("#confirm-password").fill("not-the-password");
+      await p.getByRole("button", { name: "Confirm" }).click();
+      wrongShown = await p.getByText(/tries left/i).first().waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+      if (password) {
+        await p.locator("#confirm-password").fill(password);
+        await p.getByRole("button", { name: "Confirm" }).click();
+        back = await p.waitForURL((u) => u.pathname === "/admin/connections", { timeout: 15000 }).then(() => true).catch(() => false);
+      }
+    }
+    await record(p, "confirm it's you", asked && wrongShown && (back || !password), `asked for the password on Connections: ${asked}; a wrong password was refused with the tries left: ${wrongShown}; the right one returned to the page: ${password ? back : "not tried (no admin password in this run)"}`);
+    await ctx.close();
+  });
+
   await step("The admin area is hidden; staff sign in at /auth/login", async () => {
     const ctx = await newContext(browser, "desktop");
     const s = await ctx.newPage();

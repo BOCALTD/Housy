@@ -3,10 +3,11 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
+import { publicConfig } from "@/lib/public-config";
 import { BOUNDARY_MAX_POINTS, RADII_KM, areaLabel, boundaryAreaSqm, checkBoundary, mapLayers } from "@/lib/location-rules";
 
 /**
- * A real street map (OpenStreetMap tiles by default, or the provider set in NEXT_PUBLIC_MAP_TILES), with a satellite layer when
+ * A real street map (OpenStreetMap tiles by default, or the provider set in Admin, Connections), with a satellite layer when
  * the provider offers one (see mapLayers).
  * Modes:
  *  - "listings": published properties in the visible area, loaded as the map moves, with a list beside it; or, with a radius,
@@ -19,12 +20,8 @@ import { BOUNDARY_MAX_POINTS, RADII_KM, areaLabel, boundaryAreaSqm, checkBoundar
  * The page never depends on the map: lists and forms carry the same information as text.
  */
 
-// Written out in full so the build can put the values in the page.
-const LAYERS = mapLayers({
-  NEXT_PUBLIC_MAP_TILES: process.env.NEXT_PUBLIC_MAP_TILES, NEXT_PUBLIC_MAP_ATTRIBUTION: process.env.NEXT_PUBLIC_MAP_ATTRIBUTION,
-  NEXT_PUBLIC_MAP_SATELLITE_TILES: process.env.NEXT_PUBLIC_MAP_SATELLITE_TILES, NEXT_PUBLIC_MAP_SATELLITE_TILE_SIZE: process.env.NEXT_PUBLIC_MAP_SATELLITE_TILE_SIZE,
-  NEXT_PUBLIC_MAP_SATELLITE_ATTRIBUTION: process.env.NEXT_PUBLIC_MAP_SATELLITE_ATTRIBUTION,
-});
+// The tile provider set in Admin, Connections (read when the first map loads; OpenStreetMap until then or without one).
+let LAYERS = mapLayers({});
 const LAYER_KEY = "map-layer";
 
 export type View = { lat: number; lng: number; zoom: number };
@@ -40,6 +37,7 @@ function reducedMotion() {
 }
 
 async function loadLeaflet(): Promise<typeof Leaflet> {
+  LAYERS = mapLayers((await publicConfig()).map);
   const mod = await import("leaflet");
   return (mod as unknown as { default?: typeof Leaflet }).default ?? (mod as unknown as typeof Leaflet);
 }

@@ -1,3 +1,4 @@
+import { loadRuntimeEnv } from "../runtime-env";
 import type { Prisma } from "@prisma/client";
 import { withPlatformAdmin, withPublic, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
@@ -110,6 +111,7 @@ export async function autoCheckKyc(id: string): Promise<AutoOutcome> {
   };
   if (!lookup) return save("NOT_SUPPORTED", "This check is reviewed by a person.");
   if (!item.autoConsent) return save("NO_CONSENT", "");
+  await loadRuntimeEnv();
   const providers = identityProviders().filter((p) => p.supports(lookup));
   if (!providers.length) return save("NOT_SUPPORTED", `No automatic provider is set up for the ${LOOKUP_LABEL[lookup]}.`);
 

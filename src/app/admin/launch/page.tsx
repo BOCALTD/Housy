@@ -1,3 +1,4 @@
+import { runtimeEnv } from "@/lib/runtime-env";
 import { platformConfig } from "@/lib/services/platform-config";
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
@@ -17,7 +18,7 @@ export default async function LaunchPage() {
   const [detail, mfa] = await Promise.all([healthDetail(), mfaStatus(admin.id)]);
   // A Paystack key saved in Admin → Settings counts as much as one set on the server.
   const cfg = await platformConfig();
-  const checks = readinessChecks({ ...process.env, PAYSTACK_SECRET_KEY: cfg.paystack.secret }).sort((a, b) => ORDER[a.level] - ORDER[b.level]);
+  const checks = readinessChecks({ ...(await runtimeEnv()), PAYSTACK_SECRET_KEY: cfg.paystack.secret }).sort((a, b) => ORDER[a.level] - ORDER[b.level]);
   const sum = readinessSummary(checks);
   return (
     <div className="stack-lg">

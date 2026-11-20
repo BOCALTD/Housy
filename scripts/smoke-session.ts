@@ -7,6 +7,10 @@
 import { prisma, withPlatformAdmin, withTenant, withUser } from "../src/lib/db";
 import { hashToken, newToken } from "../src/lib/tokens";
 
+// Test sessions count as having confirmed the password for their whole hour (a real sign-in confirms for 15 minutes, kept
+// fresh while the person works). The real-browser check tests the "confirm it's you" step with its own session.
+const CONFIRMED = new Date(Date.now() + 3600_000);
+
 async function main() {
   const user = await prisma.user.findUniqueOrThrow({ where: { email: "demo.alpha@example.test" } });
   // Memberships are protected by row-level security; read them through the user's own context.
@@ -14,20 +18,20 @@ async function main() {
   const companyId = membership.companyId;
   const token = newToken();
   await prisma.session.create({
-    data: { userId: user.id, companyId, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 3600_000) },
+    data: { userId: user.id, companyId, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 3600_000), reauthAt: CONFIRMED },
   });
   const officer = await prisma.user.findUniqueOrThrow({ where: { email: "demo.officer@example.test" } });
   const officerToken = newToken();
   await prisma.session.create({
-    data: { userId: officer.id, companyId, tokenHash: hashToken(officerToken), expiresAt: new Date(Date.now() + 3600_000) },
+    data: { userId: officer.id, companyId, tokenHash: hashToken(officerToken), expiresAt: new Date(Date.now() + 3600_000), reauthAt: CONFIRMED },
   });
 
   const seeker = await prisma.user.findUniqueOrThrow({ where: { email: "demo.seeker@example.test" } });
   const seekerToken = newToken();
-  await prisma.session.create({ data: { userId: seeker.id, companyId: null, tokenHash: hashToken(seekerToken), expiresAt: new Date(Date.now() + 3600_000) } });
+  await prisma.session.create({ data: { userId: seeker.id, companyId: null, tokenHash: hashToken(seekerToken), expiresAt: new Date(Date.now() + 3600_000), reauthAt: CONFIRMED } });
   const platform = await prisma.user.findFirstOrThrow({ where: { isPlatformAdmin: true } });
   const platformToken = newToken();
-  await prisma.session.create({ data: { userId: platform.id, companyId: null, tokenHash: hashToken(platformToken), expiresAt: new Date(Date.now() + 3600_000) } });
+  await prisma.session.create({ data: { userId: platform.id, companyId: null, tokenHash: hashToken(platformToken), expiresAt: new Date(Date.now() + 3600_000), reauthAt: CONFIRMED } });
 
   const paths = new Set<string>([
     "/browse", "/browse/short-let", "/market", "/field", "/app/reports/accounting", "/me/privacy", "/suspended", "/admin/companies", "/admin/companies?status=suspended", "/admin/reference", "/me/inspections", "/app/bookings", "/app/bookings/route", "/app/setup", "/app/setup?t=DEVELOPER", "/trust", "/admin/cases", "/admin/cases?status=all", "/me", "/me/security", "/me/verification", "/app/verification", "/app/api-keys", "/admin/kyc", "/admin/sign-in-locks", "/admin/partners", "/support", "/admin/launch", "/me/following", "/me/notifications", "/me/plan", "/directory", "/directory?kind=companies", "/directory?kind=developers", "/app/profile", "/admin/plans", "/admin/collaborations", "/admin/moderation", "/admin/rewards", "/admin/rewards/payouts", "/admin/referrals", "/admin/vacancies", "/admin/promotions", "/admin/banners", "/admin/reviews", "/admin/notifications", "/admin/payments", "/admin/payments?view=invoices", "/admin/payments?view=payments", "/admin/payments?view=events", "/admin/finance", "/admin/ai", "/admin/finance?check=1", "/admin/finance?ledger=ADVERTISING", "/me/billing", "/app/billing", "/me/ads", "/app/ads", "/admin/ads", "/admin/ads?status=APPROVED", "/me/saved", "/find", "/map", "/map?purpose=RENT", "/app/analytics", "/app/assistant", "/app/assistant?q=How+much+rent+is+overdue", "/app/completeness", "/app/map", "/app/map?layer=vacancies", "/admin/vacancies/map", "/find?q=3+bedroom+flat+to+rent+in+Lekki+under+5m", "/me/notification-settings", "/admin/reels", "/admin/music", "/reels", "/reels/new", "/reels/mine", "/reels/saved", "/admin/awards", "/admin/completed", "/awards", "/completed", "/app/completed", "/app/reviews", "/me/reviews", "/reviews/write", "/admin/feedback", "/app/promotions", "/app/bulk-messages", "/unsubscribe/company", "/feedback", "/referrals", "/rewards", "/vacancies", "/vacancies/new", "/messages", "/flatmates", "/flatmates/profile", "/flatmates/matches", "/flatmates/requests", `/messages/new?to=${user.id}`, "/me/collaborations", `/me/collaborations/new?agent=${user.id}`, "/app/collaborations", "/app/collaborations/new", "/app/collaborations/report",

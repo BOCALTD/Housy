@@ -4,7 +4,7 @@ What Housy already does, and what the owner must still do before submitting to t
 
 ## Before you submit (Owner)
 
-1. **Name the operator.** Set `LEGAL_ENTITY_NAME`, `LEGAL_ADDRESS` and `PRIVACY_EMAIL` on the server. They appear on `/legal/terms` and `/legal/privacy`. The admin readiness page warns until they are set.
+1. **Name the operator.** Fill in the registered name, address and privacy email in *Admin → Connections → Contact and legal details*. They appear on `/legal/terms` and `/legal/privacy`. The admin readiness page warns until they are set.
 2. **Have a lawyer review the legal pages.** `/legal/terms`, `/legal/privacy`, `/legal/cookies`, `/legal/community`, `/legal/delete-account` (source: `src/lib/legal.ts`) are a careful starting point written to match what Housy really does, but they are not legal advice. When the meaning changes, raise `LEGAL_VERSION`.
 3. **Register with the Nigeria Data Protection Commission (NDPC)** if Housy meets the threshold for a data controller of major importance, and appoint a Data Protection Officer if required. File the annual compliance audit when due.
 4. **Developer accounts.** Apple Developer Program and Google Play Console, in the company's name (an organisation account needs a D-U-N-S number).
@@ -64,6 +64,6 @@ Data is encrypted in transit (HTTPS). People can request deletion (self-service)
 
 - **Data protection:** Nigeria Data Protection Act 2023 and GDPR-style rights are served in the app: download your data, correct it, delete your account, withdraw marketing consent, switch off personal suggestions (`/me/privacy`).
 - **Accessibility (WCAG 2.2 AA):** the device check in CI fails a build on touch targets under 44px, text under 12px, sideways scrolling, missing labels, missing alt text, missing page language or more or fewer than one main heading per page. Motion runs only when the person has not asked for reduced motion.
-- **Security:** passwords hashed, optional two-step sign-in (required for platform administrators when `REQUIRE_ADMIN_MFA=true`), database row-level security between companies, rate limits, audit trail, no secrets in the code.
+- **Security:** passwords hashed, optional two-step sign-in (required for platform administrators when turned on in Admin, Connections), the password asked again for sensitive areas, database row-level security between companies, rate limits, audit trail, no secrets in the code.
 - **Cookies:** only essential cookies (listed on `/legal/cookies`), so no consent banner is required under the ePrivacy rules or the NDPA; the notice is linked in the footer.
 - **Search engines:** sitemap, robots rules, canonical links, Open Graph and X cards, RSS for the blog.

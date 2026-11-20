@@ -1,10 +1,12 @@
+import { envNow, loadRuntimeEnv } from "./runtime-env";
 import { cache } from "react";
 import { setRequestCurrency, setRequestTimeZone } from "./money-context";
 import { COUNTRIES, isCountry } from "./regions";
 
 const countryTimeZone = (c: string) => (isCountry(c) ? COUNTRIES[c].timeZone : "Africa/Lagos");
 import { adminMfaMissing } from "./readiness";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { confirmedRecently, isSensitiveAction, isSensitivePath, REAUTH_MINUTES } from "./reauth-rules";
 import { notFound, redirect } from "next/navigation";
 import { prisma, withTenant } from "./db";
 import { hashToken, newToken } from "./tokens";
@@ -26,7 +28,8 @@ export async function createSession(userId: string, companyId: string | null, op
   if (u?.suspendedAt) throw new Error("This account is suspended. If you think this is a mistake, contact support from the email address on the account.");
   const token = newToken();
   const expiresAt = new Date(Date.now() + (opts.hours ? opts.hours * 36e5 : SESSION_DAYS * 864e5));
-  await prisma.session.create({ data: { userId, companyId, tokenHash: hashToken(token), expiresAt } });
+  // Every session starts from a password just entered, so it counts as confirmed for sensitive areas for the first minutes.
+  await prisma.session.create({ data: { userId, companyId, tokenHash: hashToken(token), expiresAt, reauthAt: new Date() } });
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -131,12 +134,30 @@ export async function requireMember(action?: Action): Promise<Member> {
   if (action && !can(member.role, action)) {
     throw new Error("You do not have permission to do that. Ask your company administrator.");
   }
+  if (isSensitiveAction(action)) await requireRecentConfirm(session);
   return member;
+}
+
+/**
+ * Sensitive areas ask for the password again (and the two-step code when on) unless this session confirmed in the last
+ * REAUTH_MINUTES. A confirmed save there restarts the time. Otherwise the person is sent to confirm, then back to the page.
+ */
+async function requireRecentConfirm(session: { id: string; reauthAt: Date | null }) {
+  const h = await headers();
+  if (confirmedRecently(session)) {
+    // Working in the area keeps the confirmation fresh (written at most once a minute); 15 minutes away asks again.
+    if (session.reauthAt && Date.now() - session.reauthAt.getTime() > 60_000) {
+      await prisma.session.updateMany({ where: { id: session.id, reauthAt: { gt: new Date(Date.now() - REAUTH_MINUTES * 60_000), lt: new Date() } }, data: { reauthAt: new Date() } });
+    }
+    return;
+  }
+  const path = h.get("x-housy-path") || "/";
+  redirect(`/confirm?back=${encodeURIComponent(path)}${h.get("next-action") ? "&again=1" : ""}`);
 }
 
 /** True when this deployment requires two-step sign-in for platform administrators and this one has not turned it on. */
 export function adminNeedsMfa(user: { mfaEnabledAt?: Date | null }) {
-  return adminMfaMissing(process.env, user);
+  return adminMfaMissing(envNow(), user);
 }
 
 export async function requirePlatformAdmin() {
@@ -144,7 +165,9 @@ export async function requirePlatformAdmin() {
   const session = await getSession();
   if (!session?.user.isPlatformAdmin) notFound();
   const user = session.user;
+  await loadRuntimeEnv();
   // When REQUIRE_ADMIN_MFA=true, an administrator without two-step sign-in can reach only the page that turns it on.
   if (adminNeedsMfa(user)) redirect("/me/security?error=" + encodeURIComponent("Platform administrators must turn on two-step sign-in before using the admin pages."));
+  if (isSensitivePath((await headers()).get("x-housy-path") || "")) await requireRecentConfirm(session);
   return user;
 }

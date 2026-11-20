@@ -1,3 +1,4 @@
+import { loadRuntimeEnv } from "../runtime-env";
 import { z } from "zod";
 import { prisma, withInviteToken, withPublic, withTenant, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
@@ -473,6 +474,7 @@ const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 /** One email to an address outside Housy (a client), sent now. */
 async function emailClient(to: string, subject: string, lines: string[], link: string) {
   const { configuredDriver } = await import("../email-drivers");
+  await loadRuntimeEnv();
   const driver = configuredDriver();
   if (!driver) throw new Error("Email is not connected on this platform yet. Copy the link and send it yourself, or send it by text.");
   const r = await driver.send({

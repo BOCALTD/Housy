@@ -4,7 +4,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { prisma } from "../../src/lib/db";
-import { envNow, loadRuntimeEnv, makePushKeys, managedForAdmin, saveManaged } from "../../src/lib/runtime-env";
+import { envNow, loadRuntimeEnv, managedForAdmin, newPushKeys, saveManaged } from "../../src/lib/runtime-env";
 import { configuredDriver } from "../../src/lib/email-drivers";
 import { vapidFromEnv } from "../../src/lib/webpush";
 import { confirmIdentity } from "../../src/lib/services/reauth";
@@ -23,20 +23,24 @@ test("connections: saved encrypted, checked, used at once; the server's own valu
   await assert.rejects(saveManaged(admin.id, "contact", { SUPPORT_EMAIL: "not an email" }), /Support email: Enter an email address/);
   await assert.rejects(saveManaged(admin.id, "email", { EMAIL_PROVIDER: "smtp", EMAIL_FROM: "Housy <hello@example.test>", SMTP_HOST: "smtp.example.test" }), /SMTP server, user name and password/);
 
-  await saveManaged(admin.id, "email", { EMAIL_PROVIDER: "smtp", EMAIL_FROM: "Housy <hello@example.test>", SMTP_HOST: "smtp.example.test", SMTP_PORT: "587", SMTP_USER: "hello@example.test", SMTP_PASSWORD: "app-password-123456" });
+  // Other tests run at the same time against the same platform settings, so this saves nothing that would switch email on:
+  // the SMTP details without a sender address.
+  await saveManaged(admin.id, "email", { EMAIL_PROVIDER: "", SMTP_HOST: "smtp.example.test", SMTP_PORT: "587", SMTP_USER: "hello@example.test", SMTP_PASSWORD: "app-password-123456" });
   const row = await prisma.platformSetting.findUniqueOrThrow({ where: { key: "cfg:SMTP_PASSWORD" } });
   assert.ok(!row.value.includes("app-password"), "the password is stored encrypted");
-  if (!process.env.RESEND_API_KEY && !process.env.EMAIL_FROM) {
-    assert.equal(configuredDriver(envNow())?.name, "smtp", "used straight away, without a restart");
-    const shown = (await managedForAdmin()).email.find((f) => f.name === "SMTP_PASSWORD")!;
-    assert.equal(shown.value, "");
-    assert.equal(shown.tail, "…3456");
-    // Saving again without the password keeps it; ticking "remove" removes it (and the group must then be complete again).
-    await saveManaged(admin.id, "email", { EMAIL_PROVIDER: "smtp", EMAIL_FROM: "Housy <hello@example.test>", SMTP_HOST: "smtp.example.test", SMTP_PORT: "465", SMTP_USER: "hello@example.test", SMTP_PASSWORD: "" });
-    assert.equal(envNow().SMTP_PASSWORD, "app-password-123456");
-    await saveManaged(admin.id, "email", { EMAIL_PROVIDER: "", EMAIL_FROM: "", SMTP_HOST: "", SMTP_PORT: "", SMTP_USER: "", SMTP_PASSWORD: "" }, ["SMTP_PASSWORD"]);
-    assert.equal(configuredDriver(envNow()), null);
-  }
+  assert.equal(envNow().SMTP_PASSWORD ?? "", process.env.SMTP_PASSWORD ?? "app-password-123456", "used straight away, without a restart");
+  const shown = (await managedForAdmin()).email.find((f) => f.name === "SMTP_PASSWORD")!;
+  assert.equal(shown.value, "");
+  assert.equal(shown.tail, "…3456");
+  // Saving again without the password keeps it; ticking "remove" removes it.
+  await saveManaged(admin.id, "email", { SMTP_HOST: "smtp.example.test", SMTP_PORT: "465", SMTP_USER: "hello@example.test", SMTP_PASSWORD: "" });
+  assert.equal(envNow().SMTP_PASSWORD, "app-password-123456");
+  await saveManaged(admin.id, "email", { SMTP_HOST: "", SMTP_PORT: "", SMTP_USER: "", SMTP_PASSWORD: "" }, ["SMTP_PASSWORD"]);
+  assert.equal(envNow().SMTP_PASSWORD, undefined);
+  // Which provider the saved details pick, checked without saving them.
+  assert.equal(configuredDriver({ EMAIL_PROVIDER: "smtp", EMAIL_FROM: "a@b.test", SMTP_HOST: "smtp.b.test", SMTP_USER: "a", SMTP_PASSWORD: "p" })?.name, "smtp");
+  assert.equal(configuredDriver({ EMAIL_PROVIDER: "resend", EMAIL_FROM: "a@b.test", RESEND_API_KEY: "re_123456789012" })?.name, "resend");
+  assert.equal(configuredDriver({ SMTP_HOST: "smtp.b.test", SMTP_USER: "a", SMTP_PASSWORD: "p" }), null, "no sender address, no email");
 
   // A value in the server's settings file wins and cannot be changed here.
   process.env.SUPPORT_PHONE = "+234 800 000 0000";
@@ -47,11 +51,9 @@ test("connections: saved encrypted, checked, used at once; the server's own valu
   assert.equal((await managedForAdmin()).contact.find((f) => f.name === "SUPPORT_PHONE")!.server, true);
   delete process.env.SUPPORT_PHONE;
 
-  // Push keys are made here: a valid P-256 pair the push sender accepts.
-  if (!process.env.VAPID_PUBLIC_KEY) {
-    const pub = await makePushKeys(admin.id);
-    assert.equal(vapidFromEnv(envNow())?.publicKey, pub);
-  }
+  // Push keys are made here: a valid P-256 pair the push sender accepts (checked without saving them).
+  const k = newPushKeys();
+  assert.equal(vapidFromEnv({ VAPID_PUBLIC_KEY: k.publicKey, VAPID_PRIVATE_KEY: k.privateKey, VAPID_SUBJECT: "mailto:a@b.test" })?.publicKey, k.publicKey);
 });
 
 test("confirm it's you: password (and the code), a window that runs out, and sign-out after five wrong tries", async () => {

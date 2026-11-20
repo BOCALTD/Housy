@@ -189,11 +189,16 @@ function checkEmailGroup(v: Record<string, string>) {
 }
 
 /** New push notification keys (P-256), saved straight away. Every device must turn notifications on again afterwards. */
-export async function makePushKeys(adminId: string) {
+export function newPushKeys() {
   const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const pub = publicKey.export({ format: "jwk" }) as { x: string; y: string };
   const priv = privateKey.export({ format: "jwk" }) as { d: string };
-  const raw = Buffer.concat([Buffer.from([4]), Buffer.from(pub.x, "base64url"), Buffer.from(pub.y, "base64url")]).toString("base64url");
+  return { publicKey: Buffer.concat([Buffer.from([4]), Buffer.from(pub.x, "base64url"), Buffer.from(pub.y, "base64url")]).toString("base64url"), privateKey: priv.d };
+}
+
+export async function makePushKeys(adminId: string) {
+  const { publicKey: raw, privateKey } = newPushKeys();
+  const priv = { d: privateKey };
   const support = envValue("SUPPORT_EMAIL");
   await saveManaged(adminId, "push", { VAPID_PUBLIC_KEY: raw, VAPID_PRIVATE_KEY: priv.d, VAPID_SUBJECT: envValue("VAPID_SUBJECT") || (support ? `mailto:${support}` : "") });
   return raw;

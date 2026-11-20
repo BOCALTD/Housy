@@ -96,6 +96,10 @@ model Session {
   companyId String?  @map("company_id")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
+  /// When the person last confirmed it was them (password, and the two-step code when on) for sensitive areas, and how many
+  /// wrong tries since; too many ends the session.
+  reauthAt    DateTime? @map("reauth_at")
+  reauthFails Int       @default(0) @map("reauth_fails")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])

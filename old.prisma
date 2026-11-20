@@ -3458,6 +3458,8 @@ model Subscription {
   status         SubscriptionStatus @default(ACTIVE)
   startedAt      DateTime           @default(now()) @map("started_at")
   periodEnd      DateTime           @map("period_end")
+  /// How many months each payment covers when it differs from the plan's own period (12 when a monthly plan is paid yearly).
+  cycleMonths    Int?               @map("cycle_months")
   cancelledAt    DateTime?          @map("cancelled_at")
   createdById    String             @map("created_by_id")
   createdAt      DateTime           @default(now()) @map("created_at")

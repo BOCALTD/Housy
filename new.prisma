@@ -3458,6 +3458,10 @@ model Subscription {
   status         SubscriptionStatus @default(ACTIVE)
   startedAt      DateTime           @default(now()) @map("started_at")
   periodEnd      DateTime           @map("period_end")
+  /// How many months each payment covers when it differs from the plan's own period (12 when a monthly plan is paid yearly).
+  cycleMonths    Int?               @map("cycle_months")
+  /// Renew by charging the saved card on the renewal date (the owner turned it on and can turn it off).
+  autoRenew      Boolean            @default(false) @map("auto_renew")
   cancelledAt    DateTime?          @map("cancelled_at")
   createdById    String             @map("created_by_id")
   createdAt      DateTime           @default(now()) @map("created_at")
@@ -5341,6 +5345,8 @@ model Invoice {
   createdAt    DateTime          @default(now()) @map("created_at")
   /// A promo code used on this invoice: the price before it, and what it took off (amount_kobo is what is paid).
   promoCodeId  String?           @map("promo_code_id")
+  /// The payer ticked "renew automatically with this card" when choosing the plan.
+  autoRenewConsent Boolean       @default(false) @map("auto_renew_consent")
   listAmountKobo BigInt?         @map("list_amount_kobo")
   discountKobo BigInt            @default(0) @map("discount_kobo")
   payments     Payment[]
@@ -5369,6 +5375,8 @@ model Payment {
   reviewNote    String              @default("") @map("review_note")
   checkoutUrl   String              @default("") @map("checkout_url")
   initiatedById String              @map("initiated_by_id")
+  /// Charged to a saved card by the renewal job, not started by a person at checkout.
+  automatic     Boolean             @default(false)
   createdAt     DateTime            @default(now()) @map("created_at")
   settledAt     DateTime?           @map("settled_at")
   invoice       Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
@@ -7059,6 +7067,27 @@ model LegalPageVersion {
 }
 
 /// A discount code the platform administrator makes for plans (a percentage, or an amount in one currency), with limits.
+/// A card kept by the payment provider for automatic renewals: one per person or company. The provider's token and customer
+/// reference are sealed (encrypted); only the brand, last four digits and expiry are ever shown.
+model SavedCard {
+  id             String              @id @default(uuid())
+  ownerKey       String              @unique @map("owner_key")
+  provider       PaymentProviderKind
+  tokenSealed    String              @map("token_sealed")
+  customerSealed String              @default("") @map("customer_sealed")
+  email          String              @default("")
+  last4          String
+  brand          String              @default("")
+  expMonth       Int                 @map("exp_month")
+  expYear        Int                 @map("exp_year")
+  failures       Int                 @default(0)
+  createdById    String              @map("created_by_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@map("saved_cards")
+}
+
 model PromoCode {
   id               String    @id @default(uuid())
   code             String    @unique

@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { can } from "@/lib/permissions";
@@ -131,6 +132,7 @@ export default async function ClientPaymentsPage({ searchParams: s }: { searchPa
           </nav>
         </div>
         {shown.length ? (
+<QuickFilter label="Search client payments" placeholder="Reference, client, amount or description">
           <ul className="vp-list">
             {shown.map((p) => (
               <li key={p.id} style={{ flexWrap: "wrap" }}>
@@ -161,6 +163,7 @@ export default async function ClientPaymentsPage({ searchParams: s }: { searchPa
               </li>
             ))}
           </ul>
+          </QuickFilter>
         ) : <p className="small muted">No payments{status ? " here" : " yet"}.</p>}
         <Pager page={page} total={rows.length} pageSize={PAGE} href={href} noun="payments" />
       </section>

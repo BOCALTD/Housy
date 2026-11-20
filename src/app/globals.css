@@ -349,3 +349,26 @@ input[type="file"]::file-selector-button { min-height: 32px; margin-right: 10px;
   .label-sheet.small .inv-label:nth-child(65n) { break-after: page; }
   .no-print { display: none !important; }
 }
+
+/* Search and sort above lists (ListTools, SortTh) */
+.list-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.list-tools-search { flex: 1 1 240px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; background: var(--surface); min-height: 44px; }
+.list-tools-search:focus-within { outline: 2px solid var(--accent, #c88a1a); outline-offset: 1px; }
+.list-tools-search svg { color: var(--muted); flex: none; }
+.list-tools-search input { border: 0; background: transparent; flex: 1; min-width: 0; padding: 9px 0; font-size: 16px; outline: none; }
+.list-tools-sort { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; background: var(--surface); min-height: 44px; color: var(--muted); }
+.list-tools-sort select { border: 0; background: transparent; padding: 9px 2px; font-size: 16px; color: var(--text, inherit); max-width: 60vw; }
+.list-tools > select { border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; background: var(--surface); min-height: 44px; font-size: 16px; max-width: 100%; }
+.list-tools-dir { min-width: 44px; min-height: 44px; display: inline-grid; place-items: center; padding: 0; }
+.list-tools .btn { min-height: 44px; }
+@media (max-width: 560px) { .list-tools > * { flex: 1 1 auto; } .list-tools-search { flex-basis: 100%; } .list-tools-dir { flex: 0 0 44px; } }
+.sort-th { display: inline-flex; align-items: center; gap: 4px; color: inherit; text-decoration: none; min-height: 32px; }
+.sort-th:hover, .sort-th.on { color: var(--accent-ink, var(--accent, inherit)); }
+.sort-th-icon { opacity: .55; display: inline-flex; }
+.sort-th.on .sort-th-icon { opacity: 1; }
+.chat-tools { display: grid; gap: 8px; }
+.chat-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 0 2px; }
+.chat-filters .chip { min-height: 44px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 14px; }
+.chat-filters .chip.on { background: var(--accent-soft, #fdf1d9); border-color: var(--accent, #c88a1a); }
+.chat-sort { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); margin-left: auto; }
+.chat-sort select { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: var(--surface); font-size: 16px; min-height: 44px; }

@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listInspections, PURPOSES } from "@/lib/services/inspections";
@@ -39,6 +40,7 @@ export default async function InspectionsPage({ searchParams: searchP }: { searc
         <Link className="btn" href="/app/inspections/templates">Templates ({d.templates.length})</Link>
       </div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
+<QuickFilter label="Search inspections" placeholder="Reference, property, purpose or status">
       {block("Overdue", d.overdue, "Nothing is overdue.")}
       {block("Awaiting approval", d.awaiting, "Nothing is waiting for approval.")}
       {block("Scheduled", d.scheduled, "Nothing is scheduled.")}
@@ -50,6 +52,7 @@ export default async function InspectionsPage({ searchParams: searchP }: { searc
             ))} />
         )}
       </section>
+      </QuickFilter>
       {can(member.role, "inspection.manage") ? (
         <section className="card" aria-labelledby="sched-h">
           <h2 id="sched-h">Schedule an inspection</h2>

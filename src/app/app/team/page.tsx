@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import { headers } from "next/headers";
 import { requireMember } from "@/lib/auth";
 import { listTeam } from "@/lib/services/companies";
@@ -32,6 +33,7 @@ export default async function TeamPage({ searchParams: searchP }: { searchParams
       <div className="two">
         <section className="card table-wrap">
           <h2>Members</h2>
+<QuickFilter label="Search members" placeholder="Name, email or role">
           <TableMore limit={12} noun="more rows" head={<tr><th>Name</th><th>Role and status</th><th></th></tr>} rows={members.map((m) => (
                 <tr key={m.id}>
                   <td><strong>{m.user.name}</strong><div className="small muted">{m.user.email}</div></td>
@@ -55,6 +57,7 @@ export default async function TeamPage({ searchParams: searchP }: { searchParams
                   <td><Pill status={m.status} /></td>
                 </tr>
               ))} />
+          </QuickFilter>
         </section>
 
         <div className="stack-lg">

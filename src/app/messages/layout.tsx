@@ -23,9 +23,6 @@ export default async function MessagesLayout({ children }: { children: React.Rea
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           </Link>
         </div>
-        <form method="get" action="/messages" className="chat-search" role="search">
-          <input name="q" type="search" placeholder="Search messages" aria-label="Search messages" />
-        </form>
         <ChatList rows={rows} timeZone={currentTimeZone()} />
       </aside>
       <section className="chat-main">{children}</section>

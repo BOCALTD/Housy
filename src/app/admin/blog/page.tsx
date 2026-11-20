@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { adminPosts } from "@/lib/services/blog";
@@ -29,6 +30,7 @@ export default async function AdminBlog({ searchParams }: { searchParams?: Promi
         </section>
       ) : (
         <section className="card">
+<QuickFilter label="Search posts" placeholder="Title, author or status">
           <ShowMore limit={15} noun="posts" items={posts.map((p) => (
             <div key={p.id} className="cf-item">
               <div className="stack" style={{ gap: 2, minWidth: 0 }}>
@@ -38,6 +40,7 @@ export default async function AdminBlog({ searchParams }: { searchParams?: Promi
               <div className="cf-item-side"><Pill status={p.status === "PUBLISHED" ? "OK" : "DRAFT"} label={p.status === "PUBLISHED" ? "Published" : "Draft"} /><span className="small muted">{formatDate(p.publishedAt ?? p.updatedAt)}</span></div>
             </div>
           ))} />
+          </QuickFilter>
           <form action={startersAction} style={{ marginTop: 12 }}><button className="btn" type="submit">Add any missing starter guides</button></form>
         </section>
       )}

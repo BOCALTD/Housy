@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { correspondenceSummary, listCorrespondence } from "@/lib/services/correspondence";
+import { CORR_SORTS, correspondenceSummary, listCorrespondence } from "@/lib/services/correspondence";
+import { readSort } from "@/lib/list-sort";
+import { ListTools, SortTh } from "@/components/ListTools";
 import { isOverdue, STATUS_LABELS, type CorrStatus } from "@/lib/correspondence-rules";
 import { formatDate, todayInLagos } from "@/lib/dates";
 import { can } from "@/lib/permissions";
@@ -25,8 +27,11 @@ export default async function CorrespondencePage({ searchParams: searchP }: { se
   const view = (sp(searchParams, "view") ?? "") as "" | "mine" | "unassigned" | "overdue" | "approval";
   const q = sp(searchParams, "q") ?? "";
   const direction = sp(searchParams, "direction") ?? "";
+  const sort = readSort(searchParams, CORR_SORTS);
+  const path = "/app/correspondence";
+  const th = (k: string, label: string, dir: "asc" | "desc" = "asc") => <SortTh path={path} params={searchParams} sort={sort} k={k} dir={dir}>{label}</SortTh>;
   const [items, summary] = await Promise.all([
-    listCorrespondence(member, { q, direction, view: view || undefined }),
+    listCorrespondence(member, { q, direction, view: view || undefined, sort }),
     correspondenceSummary(member),
   ]);
   const today = todayInLagos();
@@ -66,24 +71,19 @@ export default async function CorrespondencePage({ searchParams: searchP }: { se
         ))}
       </nav>
 
-      <form className="row" role="search">
-        {view ? <input type="hidden" name="view" value={view} /> : null}
-        <input name="q" id="q" defaultValue={q} placeholder="Reference, subject, sender or recipient" aria-label="Search correspondence"
-               style={{ flex: "1 1 240px", border: "1px solid var(--line)", borderRadius: 9, padding: "9px 11px", background: "var(--surface)" }} />
-        <select name="direction" id="direction" defaultValue={direction} aria-label="Direction"
-                style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "9px 11px", background: "var(--surface)" }}>
+      <ListTools path={path} params={searchParams} q={q} label="Search correspondence" placeholder="Reference, subject, sender, email text or attachment" options={CORR_SORTS} sort={sort} keep={["view"]}>
+        <select name="direction" defaultValue={direction} aria-label="Direction">
           <option value="">Incoming and outgoing</option>
           <option value="INCOMING">Incoming</option>
           <option value="OUTGOING">Outgoing</option>
         </select>
-        <button className="btn" type="submit">Search</button>
-      </form>
+      </ListTools>
 
       <div className="card table-wrap" style={{ padding: 0 }}>
         {items.length === 0 ? (
-          <p className="muted" style={{ padding: 20 }}>{q || view || direction ? "Nothing matches this view." : "No correspondence registered yet."}</p>
+          <p className="muted" style={{ padding: 20 }}>{q || view || direction ? "Nothing matches. Try fewer words, or another view." : "No correspondence registered yet."}</p>
         ) : (
-          <TableMore limit={12} noun="more rows" head={<tr><th>Reference</th><th>Subject</th><th>From / to</th><th>Assigned</th><th>Deadline</th><th>Status</th></tr>} rows={items.map((c) => {
+          <TableMore limit={12} noun="more rows" head={<tr>{th("ref", "Reference", "desc")}{th("subject", "Subject")}{th("party", "From / to")}<th>Assigned</th>{th("deadline", "Deadline")}{th("status", "Status")}</tr>} rows={items.map((c) => {
                 const overdue = isOverdue(c.status as CorrStatus, c.responseDeadline, today);
                 return (
                   <tr key={c.id}>
@@ -91,7 +91,7 @@ export default async function CorrespondencePage({ searchParams: searchP }: { se
                     <td>
                       {c.subject}
                       <div className="small muted">
-                        {c.direction === "INCOMING" ? "Incoming" : "Outgoing"} · {c.category}
+                        {c.direction === "INCOMING" ? "Incoming" : "Outgoing"}{c.dateReceived ? ` ${formatDate(c.dateReceived)}` : ""} · {c.category}
                         {c.confidential ? " · Confidential" : ""}{c.priority === "URGENT" || c.priority === "HIGH" ? ` · ${c.priority.toLowerCase()} priority` : ""}
                       </div>
                     </td>

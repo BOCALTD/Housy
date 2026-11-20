@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listValuations, BASES, PREMISES, PURPOSES } from "@/lib/services/valuation";
@@ -30,6 +31,7 @@ export default async function ValuationsPage({ searchParams: searchP }: { search
         <div className="stat"><b>{d.rows.filter((r) => ["APPROVED", "ISSUED"].includes(r.status)).length}</b><span>Approved or issued</span></div>
       </section>
 
+<QuickFilter label="Search valuations" placeholder="Reference, property, client or status">
       <section className="card">
         <h2>All valuations</h2>
         {d.rows.length === 0 ? <p className="muted">No valuations yet.</p> : (
@@ -53,6 +55,7 @@ export default async function ValuationsPage({ searchParams: searchP }: { search
             })} />
         )}
       </section>
+      </QuickFilter>
 
       {manage ? (
         <section className="card" aria-labelledby="new-h">

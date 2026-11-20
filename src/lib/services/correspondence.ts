@@ -130,7 +130,18 @@ export async function registerCorrespondence(ctx: Ctx, input: z.input<typeof reg
   });
 }
 
-export type ListFilter = { q?: string; status?: string; direction?: string; view?: "mine" | "overdue" | "unassigned" | "approval" };
+export type ListFilter = { q?: string; status?: string; direction?: string; view?: "mine" | "overdue" | "unassigned" | "approval"; sort?: { key: string; dir: "asc" | "desc" } };
+
+/** How the register can be sorted. Priority runs from urgent to low. */
+export const CORR_SORTS = [
+  { key: "received", label: "Date received or written", dir: "desc" as const },
+  { key: "ref", label: "Reference", dir: "desc" as const },
+  { key: "subject", label: "Subject", dir: "asc" as const },
+  { key: "party", label: "From / to", dir: "asc" as const },
+  { key: "deadline", label: "Reply deadline", dir: "asc" as const },
+  { key: "priority", label: "Priority", dir: "desc" as const },
+  { key: "status", label: "Status", dir: "asc" as const },
+];
 
 export async function listCorrespondence(ctx: Ctx, f: ListFilter = {}) {
   assertCan(ctx, "correspondence.view");
@@ -138,10 +149,13 @@ export async function listCorrespondence(ctx: Ctx, f: ListFilter = {}) {
   const and: Prisma.CorrespondenceWhereInput[] = [visibleWhere(ctx)];
   if (f.status) and.push({ status: f.status as CorrStatus });
   if (f.direction === "INCOMING" || f.direction === "OUTGOING") and.push({ direction: f.direction });
+  // Search the reference, subject, people, the sender's email, the letter's text (an email's body) and attachment names.
   if (f.q) and.push({ OR: [
     { subject: { contains: f.q, mode: "insensitive" } }, { ref: { contains: f.q, mode: "insensitive" } },
     { senderName: { contains: f.q, mode: "insensitive" } }, { recipientName: { contains: f.q, mode: "insensitive" } },
-    { externalRef: { contains: f.q, mode: "insensitive" } },
+    { externalRef: { contains: f.q, mode: "insensitive" } }, { fromEmail: { contains: f.q, mode: "insensitive" } },
+    { description: { contains: f.q, mode: "insensitive" } }, { category: { contains: f.q, mode: "insensitive" } },
+    { attachments: { some: { OR: [{ title: { contains: f.q, mode: "insensitive" } }, { fileName: { contains: f.q, mode: "insensitive" } }] } } },
   ] });
   if (f.view === "mine") and.push({ assigneeId: ctx.membershipId, status: { not: "CLOSED" } });
   if (f.view === "unassigned") and.push({ status: "REGISTERED" });
@@ -150,10 +164,24 @@ export async function listCorrespondence(ctx: Ctx, f: ListFilter = {}) {
   return withTenant(ctx.companyId, ctx.userId, (tx) =>
     tx.correspondence.findMany({
       where: { AND: and },
-      orderBy: [{ createdAt: "desc" }],
+      orderBy: corrOrder(f.sort),
       take: 300,
       include: { assignee: { include: { user: { select: { name: true } } } }, department: { select: { code: true } } },
     }));
+}
+
+function corrOrder(sort?: { key: string; dir: "asc" | "desc" }): Prisma.CorrespondenceOrderByWithRelationInput[] {
+  const d = sort?.dir ?? "desc";
+  switch (sort?.key) {
+    case "ref": return [{ ref: d }];
+    case "subject": return [{ subject: d }, { createdAt: "desc" }];
+    case "party": return [{ senderName: d }, { recipientName: d }, { createdAt: "desc" }];
+    case "deadline": return [{ responseDeadline: { sort: d, nulls: "last" } }, { createdAt: "desc" }];
+    // LOW, NORMAL, HIGH, URGENT are declared in that order, so descending runs from urgent down.
+    case "priority": return [{ priority: d }, { createdAt: "desc" }];
+    case "status": return [{ status: d }, { createdAt: "desc" }];
+    default: return [{ dateReceived: { sort: d, nulls: "last" } }, { createdAt: d }];
+  }
 }
 
 export async function correspondenceSummary(ctx: Ctx) {

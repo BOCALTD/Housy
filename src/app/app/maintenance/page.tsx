@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listMaintenance, PRIORITIES, RISKS } from "@/lib/services/maintenance";
@@ -73,6 +74,7 @@ export default async function MaintenancePage({ searchParams: searchP }: { searc
       {can(member.role, "maintenance.manage") ? (
         <form action={generateAction}><button className="btn" type="submit">Create work orders that are due from recurring jobs</button></form>
       ) : null}
+<QuickFilter label="Search work orders" placeholder="Reference, job, property or contractor">
       {groups.map((g) => (
         <section key={g.title} className="card"><h2>{g.title}</h2>{g.items.length === 0 ? <p className="muted small">{g.empty}</p> : <ShowMore noun="more" limit={5} items={g.items.map(row)} />}</section>
       ))}
@@ -82,6 +84,7 @@ export default async function MaintenancePage({ searchParams: searchP }: { searc
           <ShowMore noun="more closed jobs" limit={5} items={d.closed.map((w) => <li key={w.id}><div><Link href={`/app/maintenance/${w.id}`}>{w.ref}</Link> · {w.title}<div className="small muted">{w.asset.name} · {humanize(w.status)}</div></div></li>)} />
         )}
       </section>
+      </QuickFilter>
       {can(member.role, "maintenance.request") ? (
         <section className="card" aria-labelledby="new-h">
           <h2 id="new-h">Report a problem</h2>

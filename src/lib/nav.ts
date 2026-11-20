@@ -135,6 +135,7 @@ function workspaceGroups(r: Role, incoming: number): SideGroup[] {
     ]),
     g("Records", [
       ["/app/correspondence", "Correspondence", "chat", true],
+      ["/app/documents", "Documents", "doc", true],
       ["/app/files", "Files", "folder", true],
       ["/app/completeness", "Record completeness", "clipboard", true],
     ]),

@@ -16,6 +16,7 @@ import { PhotoUploader } from "@/components/PhotoUploader";
 import { listTeam } from "@/lib/services/companies";
 import { conditionHistory } from "@/lib/services/inspections";
 import SaveDocument from "@/components/SaveDocument";
+import { sortBy } from "@/lib/list-sort";
 import { assetMaintenance } from "@/lib/services/maintenance";
 import { assetCompleteness } from "@/lib/services/completeness";
 import { assetProjectHistory } from "@/lib/services/project-handover";
@@ -45,10 +46,16 @@ function koboToInput(k: bigint) {
 export default async function AssetPage({ params: paramsP, searchParams: searchP }: { params: Promise<{ id: string }>; searchParams?: Promise<SP> }) {
   const params = await paramsP;
   const searchParams = await searchP;
+  const docQ = (sp(searchParams, "dq") ?? "").trim();
+  const docSort = sp(searchParams, "dsort") ?? "new";
   const member = await requireMember("asset.view");
   const result = await getAsset(member, params.id);
   if (!result) notFound();
   const { asset, history, actorNames } = result;
+  const docText = docQ.toLowerCase();
+  const docs = sortBy(asset.documents.filter((d) => !docText || `${d.title} ${d.fileName} ${humanize(d.category)}`.toLowerCase().includes(docText)),
+    docSort === "name" ? (d) => d.title : docSort === "category" ? (d) => humanize(d.category) : docSort === "expires" ? (d) => d.expiresOn : (d) => d.createdAt,
+    docSort === "new" ? "desc" : "asc");
   const area = locate({ city: asset.city, state: asset.state });
   const pickStart = area ? { lat: area.lat, lng: area.lng, zoom: 13 } : countryView(visitorCountry(await headers()));
   const team = can(member.role, "task.create") ? (await listTeam(member)).members.filter((m) => m.status === "ACTIVE") : [];
@@ -544,8 +551,18 @@ export default async function AssetPage({ params: paramsP, searchParams: searchP
           <section className="card" aria-labelledby="docs-h">
             <h2 id="docs-h">Documents</h2>
             <p className="small muted" style={{ marginBottom: 10 }}>Uploading a document records that it exists. It does not verify ownership.</p>
-            {asset.documents.length === 0 ? <p className="muted small">No documents uploaded.</p> : (
-              <ShowMore noun="more" limit={5} items={asset.documents.map((d) => (
+            {asset.documents.length > 5 ? (
+              <form className="list-tools" role="search" action={`/app/assets/${asset.id}#docs-h`} aria-label="Search this property's documents" style={{ marginBottom: 10 }}>
+                <label className="list-tools-search"><span className="sr-only">Search documents</span><input type="search" name="dq" defaultValue={docQ} placeholder="Search these documents" maxLength={120} /></label>
+                <select name="dsort" defaultValue={docSort} aria-label="Sort documents">
+                  <option value="new">Newest first</option><option value="old">Oldest first</option><option value="name">Name A to Z</option><option value="category">Category</option><option value="expires">Expiring soonest</option>
+                </select>
+                <button className="btn" type="submit">Show</button>
+                {docQ ? <a className="btn" href={`/app/assets/${asset.id}#docs-h`}>Clear</a> : null}
+              </form>
+            ) : null}
+            {asset.documents.length === 0 ? <p className="muted small">No documents uploaded.</p> : docs.length === 0 ? <p className="muted small">No document matches. <a href={`/app/assets/${asset.id}#docs-h`}>Show all</a></p> : (
+              <ShowMore noun="more" limit={5} items={docs.map((d) => (
                   <li key={d.id}>
                     <div>
                       {can(member.role, "document.download") ? <><a href={`/app/documents/${d.id}`}>{d.title}</a><SaveDocument url={`/app/documents/${d.id}`} fallbackName={d.title} /></> : <span>{d.title}</span>}

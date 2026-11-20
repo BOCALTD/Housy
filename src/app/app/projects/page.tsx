@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { listProjects, PROJECT_KINDS } from "@/lib/services/project";
@@ -28,6 +29,7 @@ export default async function ProjectsPage({ searchParams: searchP }: { searchPa
         <div className="stat"><b>{active.filter((r) => r.cost?.overBudget).length}</b><span>Forecast over budget</span></div>
         <div className="stat"><b>{active.reduce((a, r) => a + r.late, 0)}</b><span>Late or behind packages</span></div>
       </section>
+<QuickFilter label="Search projects" placeholder="Reference, project or property">
       <section className="card">
         <h2>All projects</h2>
         {d.rows.length === 0 ? <p className="muted">No projects yet.</p> : (
@@ -43,6 +45,7 @@ export default async function ProjectsPage({ searchParams: searchP }: { searchPa
           ))} />
         )}
       </section>
+      </QuickFilter>
       {can(member.role, "project.manage") ? (
         <section className="card">
           <details className="inline">

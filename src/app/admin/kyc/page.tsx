@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import { Fragment } from "react";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { kycQueue, revealKycSecret } from "@/lib/services/kyc";
@@ -28,6 +29,7 @@ export default async function KycAdmin({ searchParams: searchP }: { searchParams
       <section className="stack">
         <h2>Waiting ({q.waiting.length})</h2>
         {q.waiting.length === 0 ? <div className="card"><p className="muted">Nothing is waiting.</p></div> : (
+<QuickFilter label="Search waiting checks" placeholder="Name, company or check">
           <ShowMore limit={6} noun="more waiting" items={q.waiting.map((w) => {
             const req = requirement(w.code)!;
             const fields = (w.fields ?? {}) as Record<string, string>;
@@ -58,6 +60,7 @@ export default async function KycAdmin({ searchParams: searchP }: { searchParams
               </li>
             );
           })} />
+          </QuickFilter>
         )}
       </section>
       <section className="stack">

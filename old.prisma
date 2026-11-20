@@ -3,13 +3,17 @@
 //   1. the application scopes every query by company (src/lib/db.ts), and
 //   2. PostgreSQL row-level security (prisma/migrations/*_rls) rejects rows from other companies.
 
+// The client is generated as TypeScript into src/generated/prisma (not committed; `prisma generate` writes it, and the build,
+// typecheck and install scripts run that first). It connects through the node-postgres driver adapter (src/lib/db.ts); the
+// connection strings for the CLI live in prisma.config.ts.
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------- Identity and multi-tenancy ----------
@@ -5335,6 +5339,10 @@ model Invoice {
   voidReason   String            @default("") @map("void_reason")
   createdById  String            @map("created_by_id")
   createdAt    DateTime          @default(now()) @map("created_at")
+  /// A promo code used on this invoice: the price before it, and what it took off (amount_kobo is what is paid).
+  promoCodeId  String?           @map("promo_code_id")
+  listAmountKobo BigInt?         @map("list_amount_kobo")
+  discountKobo BigInt            @default(0) @map("discount_kobo")
   payments     Payment[]
   refunds      Refund[]
 
@@ -7048,4 +7056,56 @@ model LegalPageVersion {
   @@unique([slug, version])
   @@index([slug, status])
   @@map("legal_page_versions")
+}
+
+/// A discount code the platform administrator makes for plans (a percentage, or an amount in one currency), with limits.
+model PromoCode {
+  id               String    @id @default(uuid())
+  code             String    @unique
+  description      String    @default("")
+  percentOff       Int?      @map("percent_off")
+  amountOffMinor   BigInt?   @map("amount_off_minor")
+  currency         String    @default("NGN")
+  planIds          String[]  @default([]) @map("plan_ids")
+  maxRedemptions   Int?      @map("max_redemptions")
+  perOwnerOnce     Boolean   @default(true) @map("per_owner_once")
+  newCustomersOnly Boolean   @default(false) @map("new_customers_only")
+  startsAt         DateTime? @map("starts_at")
+  endsAt           DateTime? @map("ends_at")
+  active           Boolean   @default(true)
+  createdById      String    @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  redemptions      PromoRedemption[]
+
+  @@map("promo_codes")
+}
+
+/// A promo code used on a paid invoice (counted when the invoice is paid, so abandoned checkouts do not use it up).
+model PromoRedemption {
+  id             String    @id @default(uuid())
+  promoCodeId    String    @map("promo_code_id")
+  invoiceId      String    @unique @map("invoice_id")
+  ownerKey       String    @map("owner_key")
+  discountMinor  BigInt    @map("discount_minor")
+  currency       String
+  createdAt      DateTime  @default(now()) @map("created_at")
+  promoCode      PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Restrict)
+
+  @@index([promoCodeId])
+  @@index([ownerKey])
+  @@map("promo_redemptions")
+}
+
+/// A free trial someone started themselves: once per person or company per plan.
+model TrialUse {
+  id        String   @id @default(uuid())
+  ownerKey  String   @map("owner_key")
+  planId    String   @map("plan_id")
+  startedAt DateTime @default(now()) @map("started_at")
+  endsAt    DateTime @map("ends_at")
+  startedById String @map("started_by_id")
+
+  @@unique([ownerKey, planId])
+  @@map("trial_uses")
 }

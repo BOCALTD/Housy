@@ -1,3 +1,4 @@
+import { todayInLagos } from "@/lib/dates";
 import Link from "next/link";
 import { Flash, sp, type SP } from "@/components/ui";
 import { providerOverview, providerProfile } from "@/lib/services/verification-network";
@@ -41,7 +42,7 @@ export default async function ProviderDashboard({ params: p, searchParams: s }: 
       <p className="small muted">Every number on this page is counted from your organisation&apos;s own records.</p>
       {o.expiring.length ? (
         <section className="card stack"><h2>Licences and certificates expiring soon</h2>
-          <ul className="vp-docs">{o.expiring.map((d) => <li key={d.id}><span><strong>{d.title}</strong><span className={`small ${d.expiresOn! < new Date() ? "bad-text" : "warn-text"}`}>{d.expiresOn! < new Date() ? "Expired" : "Expires"} {d.expiresOn!.toISOString().slice(0, 10)}</span></span></li>)}</ul>
+          <ul className="vp-docs">{o.expiring.map((d) => <li key={d.id}><span><strong>{d.title}</strong><span className={`small ${d.expiresOn! < todayInLagos() ? "bad-text" : "warn-text"}`}>{d.expiresOn! < todayInLagos() ? "Expired" : "Expires"} {d.expiresOn!.toISOString().slice(0, 10)}</span></span></li>)}</ul>
         </section>
       ) : null}
       <section className="vp-grid">

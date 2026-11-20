@@ -20,7 +20,8 @@ export function SafetyLive({ sessionId, checkedIn, emergency, numbers }: { sessi
       setState("on");
       if (Date.now() - sentAt.current < 60_000) return;
       sentAt.current = Date.now();
-      const r = await pingAction(sessionId, p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? null);
+      // A dropped connection must not stop the sharing: say so, and the next position tries again.
+      const r = await pingAction(sessionId, p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? null).catch(() => { sentAt.current = 0; return { ok: false as const, error: "No connection just now. Your location will be sent when it returns." }; });
       if (r.ok) setLast(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
       else { setMsg(r.error ?? "Could not share location"); if (/ended/.test(r.error ?? "")) stop(); }
     }, (e) => setState(e.code === e.PERMISSION_DENIED ? "denied" : "on"), { enableHighAccuracy: true, maximumAge: 30_000, timeout: 30_000 });

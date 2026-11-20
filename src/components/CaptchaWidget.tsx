@@ -49,13 +49,16 @@ export function CaptchaWidget({ provider, siteKey, place }: Props) {
       if (!input || input.value) return;
       e.preventDefault();
       const submitter = e.submitter as HTMLElement | null;
-      waitFor(() => window.grecaptcha?.execute ? window.grecaptcha : undefined).then((g) => g.ready(() => {
-        g.execute(siteKey, { action: place }).then((token) => {
-          input.value = token;
-          form?.requestSubmit(submitter instanceof HTMLButtonElement ? submitter : undefined);
-          setTimeout(() => { input.value = ""; }, 90_000);
-        });
-      }));
+      const send = (token: string) => {
+        input.value = token;
+        form?.requestSubmit(submitter instanceof HTMLButtonElement ? submitter : undefined);
+        setTimeout(() => { input.value = ""; }, 90_000);
+      };
+      // If the check cannot load (a blocker, no connection), send the form anyway: the server refuses it with a plain message,
+      // instead of the button silently doing nothing.
+      waitFor(() => window.grecaptcha?.execute ? window.grecaptcha : undefined)
+        .then((g) => g.ready(() => { g.execute(siteKey, { action: place }).then(send, () => send("unavailable")); }))
+        .catch(() => send("unavailable"));
     };
     form?.addEventListener("submit", onSubmit);
     return () => { cancelled = true; form?.removeEventListener("submit", onSubmit); };

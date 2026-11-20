@@ -60,7 +60,7 @@ export const setSearchAlerts = (userId: string, id: string, on: boolean) => with
 export const mySearches = (userId: string) => withUser(userId, (tx) => tx.savedSearch.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: MAX_SAVED_SEARCHES }));
 
 export async function watchListing(userId: string, publicRef: string) {
-  return withUser(userId, async (tx) => {
+  await withUser(userId, async (tx) => {
     const l = await tx.listing.findFirst({ where: { publicRef, status: "PUBLISHED" }, select: { id: true } });
     if (!l) throw new Error("This property is not available to watch");
     if ((await tx.watchedListing.count({ where: { userId } })) >= MAX_WATCHED) throw new Error(`You can watch ${MAX_WATCHED} properties. Stop watching one first.`);

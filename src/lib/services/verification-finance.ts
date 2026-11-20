@@ -15,6 +15,7 @@
  * Every amount is in kobo. Every write is checked again by database triggers (earnings and payouts move only as allowed and
  * never change once paid; a case's price is fixed once quoted).
  */
+import { todayInLagos } from "../dates";
 import { z } from "zod";
 import { bankLines, checkBankDetails, currencyOf, isCountry, parseMoney } from "../regions";
 import { payoutRate } from "../verification-finance-rules";
@@ -75,7 +76,7 @@ export async function quoteCase(adminId: string, ref: string, priceInput: string
     if (c.priceKobo !== null) throw new Error("This case has already been quoted. Its price cannot change.");
     if (!canMoveCase(c.status as CaseStatus, "PENDING_PAYMENT", { kind: "platform" })) throw new Error("Only a new request can be quoted.");
     const requester = await tx.user.findUniqueOrThrow({ where: { id: c.requesterId }, select: { name: true } });
-    const year = new Date().getFullYear();
+    const year = todayInLagos().getUTCFullYear();
     await lockKey(tx, "vr-invoice-ref");
     const n = await tx.invoice.count({ where: { ref: { startsWith: `INV-VR-${year}-` } } });
     const inv = await tx.invoice.create({ data: {
@@ -227,7 +228,7 @@ export async function preparePayout(adminId: string, providerId: string) {
     const earnings = await tx.vpEarning.findMany({ where: { providerId, status: "PAYABLE" }, select: { id: true, netKobo: true } });
     if (!earnings.length) throw new Error("Nothing is ready to pay this provider.");
     const total = earnings.reduce((n, e) => n + e.netKobo, 0n);
-    const year = new Date().getFullYear();
+    const year = todayInLagos().getUTCFullYear();
     await lockKey(tx, "vr-payout-ref");
     const n = await tx.vpPayout.count({ where: { ref: { startsWith: `HVO-${year}-` } } });
     const payout = await tx.vpPayout.create({ data: { ref: payoutRef(year, n + 1), providerId, totalKobo: total, currency: currencyOf(acct.country), bankName: p.payoutBankName, accountName: p.payoutAccountName, accountNumber: p.payoutAccountNumber, preparedById: adminId } });

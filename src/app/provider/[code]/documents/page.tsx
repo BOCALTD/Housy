@@ -1,3 +1,4 @@
+import { todayInLagos } from "@/lib/dates";
 import { Field, Flash, sp, type SP } from "@/components/ui";
 import { providerDocuments } from "@/lib/services/verification-network";
 import { DOC_KINDS, vpCan } from "@/lib/verification-network-rules";
@@ -15,7 +16,8 @@ export default async function ProviderDocs({ params: p, searchParams: s }: { par
   const ctx = await orgFor(code);
   const docs = await providerDocuments(ctx);
   const manage = vpCan(ctx.role, "org.documents") && ctx.active;
-  const now = new Date(), soon = new Date(Date.now() + 60 * 864e5);
+  // Expiry dates are whole days: a document valid until today is still valid today.
+  const now = todayInLagos(), soon = new Date(now.getTime() + 60 * 864e5);
   return (
     <div className="wrap stack-lg vp">
       <OrgHeader ctx={ctx} title="Documents" />

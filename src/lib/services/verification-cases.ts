@@ -11,6 +11,7 @@
  * Every status move is checked here against the rules and again by a database trigger; every read and write runs as the
  * person (row-level security), Housy's administrators as themselves.
  */
+import { todayInLagos } from "../dates";
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { prisma, withPlatformAdmin, withPublic, withUser, type Tx } from "../db";
@@ -79,7 +80,7 @@ export async function requestVerification(userId: string, input: z.input<typeof 
     if (!l) throw new Error("That listing was not found. Check the property reference, or leave it empty.");
     listingId = l.id;
   }
-  const year = new Date().getFullYear();
+  const year = todayInLagos().getUTCFullYear();
   for (let attempt = 0; attempt < 5; attempt++) {
     const n = await system((tx) => tx.vpCase.count({ where: { ref: { startsWith: `HVR-${year}-` } } }));
     const ref = caseRef(year, n + 1 + attempt);

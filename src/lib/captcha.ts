@@ -34,6 +34,7 @@ export async function checkCaptcha(form: FormData, place: CaptchaPlace, ip: stri
   const secret = (await platformConfig()).captcha.secret;
   const token = String(form.get(pub.provider === "turnstile" ? "cf-turnstile-response" : "g-recaptcha-response") ?? "").trim();
   if (!token) throw new Error("Complete the check that you are a person, then try again.");
+  if (token === "unavailable") throw new Error("The check that you are a person could not load. Turn off any ad or tracker blocker for this site, or try another browser, then send again.");
   let answer: { success?: boolean; score?: number; action?: string };
   try {
     const body = new URLSearchParams({ secret, response: token });

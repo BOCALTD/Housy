@@ -10,6 +10,6 @@ export async function saveReferenceAction(form: FormData) {
     const kind = str(form, "kind");
     if (!(REF_KINDS as readonly string[]).includes(kind)) throw new Error("Unknown list");
     await saveReference(admin.id, { kind: kind as never, code: str(form, "code"), label: str(form, "label"), active: str(form, "active") === "yes", position: Number.parseInt(str(form, "position") || "500", 10) || 0, country: str(form, "country") });
-    return withNotice(`/admin/reference#${kind}`, "Saved. Forms and filters use it within a minute.");
+    return `${withNotice("/admin/reference", "Saved. Forms and filters use it within a minute.")}#${kind}`;
   });
 }

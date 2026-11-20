@@ -93,4 +93,4 @@ dialog[open] { border-radius: 20px; }
   .dir-card:hover .dir-face { transform: scale(1.06); }
   .dir-face { transition: transform .3s var(--ease-spring, ease); }
 }
-@media (hover: hover) { .btn.follow:hover { background: color-mix(in srgb, #E3A93F 14%, var(--surface)); } }
+@media (hover: hover) { .btn.follow:hover { background: var(--surface); background: color-mix(in srgb, #E3A93F 14%, var(--surface)); } }

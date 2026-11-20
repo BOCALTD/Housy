@@ -28,6 +28,6 @@ export async function openRecordsAction(form: FormData) {
   return act(path(id), async () => {
     const admin = await requirePlatformAdmin();
     await openCompanyRecords(admin.id, id, { purpose: str(form, "purpose"), caseRef: str(form, "caseRef"), note: str(form, "note") });
-    return withNotice(`${path(id)}#records`, "Records open for one hour. The company's administrators have been told.");
+    return `${withNotice(path(id), "Records open for one hour. The company's administrators have been told.")}#records`;
   });
 }

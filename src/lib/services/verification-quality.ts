@@ -7,6 +7,7 @@
  *  - Credential monitoring: licences and certificates about to expire or expired; owners are reminded once at each stage, Housy
  *    is told when one lapses, and a provider with no current licence or certificate of a kind it filed cannot be assigned cases.
  */
+import { todayInLagos } from "../dates";
 import { z } from "zod";
 import { withPlatformAdmin, withUser, type Tx } from "../db";
 import { lockKey } from "../locks";
@@ -57,7 +58,7 @@ const complaintSchema = z.object({
 
 async function nextComplaintRef(tx: Tx) {
   await lockKey(tx, "vr-complaint-ref");
-  const year = new Date().getFullYear();
+  const year = todayInLagos().getUTCFullYear();
   const n = await tx.vpComplaint.count({ where: { ref: { startsWith: `HVC-${year}-` } } });
   return complaintRef(year, n + 1);
 }

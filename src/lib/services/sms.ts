@@ -1,3 +1,4 @@
+import { toDateOnlyString, todayInLagos as lagosToday } from "../dates";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { prisma, withPlatformAdmin, type Tx } from "../db";
@@ -126,7 +127,7 @@ const dedupe = (parts: string[]) => createHash("sha256").update(parts.join("|"))
  */
 export async function queueSmsForUser(tx: Pick<Tx, "smsOutbox">, userId: string, kind: string, text: string, ref = "") {
   if (!smsWorthy(kind)) return false;
-  const day = new Date().toISOString().slice(0, 10);
+  const day = toDateOnlyString(lagosToday());
   const r = await tx.smsOutbox.createMany({ data: [{ userId, toPhone: "", body: text.slice(0, SMS_MAX), kind, dedupeKey: dedupe([userId, kind, ref, day]) }], skipDuplicates: true });
   return r.count === 1;
 }

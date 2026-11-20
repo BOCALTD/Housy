@@ -1,3 +1,5 @@
+import { toDateOnlyString } from "../dates";
+import { todayInLagos } from "../dates";
 import { assertNotBlocked } from "./account-moderation";
 /**
  * The verification network, stages 1 to 3 (docs/VERIFICATION-NETWORK.md):
@@ -50,7 +52,7 @@ export async function startApplication(userId: string) {
   const open = await withUser(userId, (tx) => tx.vpApplication.findFirst({ where: { applicantId: userId, status: { notIn: ["APPROVED", "REJECTED", "WITHDRAWN"] } }, select: { ref: true } }));
   if (open) return open.ref;
   await limited(`vpa-start:${userId}`, 5, 86_400_000);
-  const year = new Date().getFullYear();
+  const year = todayInLagos().getUTCFullYear();
   for (let attempt = 0; attempt < 5; attempt++) {
     const n = await system((tx) => tx.vpApplication.count({ where: { ref: { startsWith: `VPA-${year}-` } } }));
     const ref = applicationRef(year, n + 1 + attempt);
@@ -530,7 +532,7 @@ export async function addProviderDocument(ctx: VpCtx, input: { kind: string; tit
   assertVp(ctx, "org.documents");
   const kind = z.enum(DOC_KINDS.map((d) => d[0]) as [string, ...string[]]).parse(input.kind);
   const expiresOn = input.expiresOn ? z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the expiry date as YYYY-MM-DD").parse(input.expiresOn) : null;
-  if (expiresOn && expiresOn < new Date().toISOString().slice(0, 10)) throw new Error("This document has already expired. Upload the current one.");
+  if (expiresOn && expiresOn < toDateOnlyString(todayInLagos())) throw new Error("This document has already expired. Upload the current one.");
   validateUpload(file.type, file.bytes);
   await withUser(ctx.userId, async (tx) => {
     const d = await tx.vpDocument.create({ data: { providerId: ctx.providerId, kind, title: input.title.trim().slice(0, 160) || DOC_KINDS.find((x) => x[0] === kind)![1], fileName: file.name.slice(0, 200), mimeType: file.type, sizeBytes: file.bytes.byteLength, bytes: Buffer.from(file.bytes), sha256: sha256(file.bytes), expiresOn: expiresOn ? new Date(`${expiresOn}T00:00:00Z`) : null, uploadedById: ctx.userId }, select: { id: true } });

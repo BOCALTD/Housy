@@ -130,6 +130,8 @@ test("watching a property: told when it is no longer available, and not after yo
   await assert.rejects(watchListing(w.id, "NO-SUCH-REF"), /not available/);
   await watchListing(w.id, listing.publicRef);
   await watchListing(w.id, listing.publicRef);   // twice is fine
+  // Saving a property counts towards the person's suggestions (it used to be skipped).
+  assert.ok((await withUser(w.id, (tx) => tx.userSignal.count({ where: { userId: w.id, kind: "PROPERTY_SAVE" } }))) >= 1);
   assert.equal(await isWatching(w.id, listing.id), true);
   assert.equal(await isWatching(other.id, listing.id), false);
   await setListingStatus(co, asset.id, "UNAVAILABLE");

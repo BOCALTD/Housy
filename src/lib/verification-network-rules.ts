@@ -6,6 +6,7 @@
  * Housy is the platform and overseer; providers are independent professional firms. No provider (BOCA included) has any
  * rule here that the others do not.
  */
+import { todayInLagos } from "./dates";
 import { z } from "zod";
 
 // ---------- Service categories (configurable in the database; these are the starting set) ----------
@@ -113,7 +114,9 @@ export const isProviderCode = (s: string) => /^HVP-\d{6}$/.test(s);
 // The application's answers, in five parts. Each part is saved on its own; all are checked again before sending.
 const text = (max: number) => z.string().trim().max(max);
 const req = (label: string, max = 300) => z.string().trim().min(2, `Enter ${label}`).max(max);
-const year = z.coerce.number().int().min(1900, "Enter the year of incorporation").max(new Date().getFullYear(), "The year of incorporation cannot be in the future");
+// The current year is read when a form is checked, not when the server started (a server running over New Year would
+// otherwise refuse the new year).
+const year = z.coerce.number().int().min(1900, "Enter the year of incorporation").refine((y) => y <= todayInLagos().getUTCFullYear(), "The year of incorporation cannot be in the future");
 const optUrl = z.string().trim().max(300).refine((v) => v === "" || /^https?:\/\/[^\s]+\.[^\s]+$/i.test(v), "Enter the website as a full address, like https://example.com");
 const emailField = z.string().trim().toLowerCase().max(200).email("Enter a valid email address");
 const phoneField = z.string().trim().min(7, "Enter a telephone number").max(30).regex(/^[+0-9 ()-]+$/, "Enter the telephone number using digits only");

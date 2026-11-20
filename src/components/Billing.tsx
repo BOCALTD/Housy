@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { QuickFilter } from "@/components/QuickFilter";
 import { allPlans, buyablePlans, myInvoices, payerRegion, readBankInstructions, type Payer } from "@/lib/services/billing";
-import { PlanCompare } from "@/components/PlanCompare";
+import { CycleSwitch, PlanCompare } from "@/components/PlanCompare";
+import { readYearlyMonths } from "@/lib/services/platform-settings";
 import { companySubscription, mySubscription } from "@/lib/services/subscriptions";
 import { onlineProviderFor } from "@/lib/services/platform-config";
 import { formatKobo } from "@/lib/money";
@@ -14,14 +15,14 @@ const stateTone = (s: string) => (s === "ACTIVE" || s === "TRIAL" ? "ACTIVE" : s
 const invTone = (s: string) => (s === "PAID" ? "ACTIVE" : s === "OPEN" ? "PENDING" : "SUSPENDED");
 
 /** The plan a person or company holds, what they can buy, and what they have been billed. Shared by the personal and company pages. */
-export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" | "app" }) {
+export async function BillingPanel({ payer, from, cycle = "plan" }: { payer: Payer; from: "me" | "app"; cycle?: "plan" | "yearly" }) {
   const [plan, plans, invoices, all] = await Promise.all([
     payer.companyId ? companySubscription(payer.companyId, payer.userId) : mySubscription(payer.userId),
     buyablePlans(payer),
     myInvoices(payer),
     allPlans(payer.companyId ? ["COMPANY"] : ["SEEKER", "AGENT"]),
   ]);
-  const region = await payerRegion(payer);
+  const [region, yearlyMonths] = await Promise.all([payerRegion(payer), readYearlyMonths()]);
   const online = !!(await onlineProviderFor(region.country));
   const bank = online ? "" : await readBankInstructions();
   const base = from === "app" ? "/app/billing" : "/me/billing";
@@ -60,14 +61,14 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
       ) : null}
 
       <section className="stack">
-        <div className="row between" style={{ flexWrap: "wrap" }}><h2>Plans</h2><Link className="btn" href={from === "app" ? "/app/upgrades" : "/me/upgrades"}>Free trials and promo codes</Link></div>
+        <div className="row between" style={{ flexWrap: "wrap" }}><h2>Plans</h2><div className="row" style={{ flexWrap: "wrap" }}><CycleSwitch yearlyMonths={yearlyMonths} cycle={cycle} hrefFor={(c) => `${base}${c === "yearly" ? "?cycle=yearly" : ""}`} /><Link className="btn" href={from === "app" ? "/app/upgrades" : "/me/upgrades"}>Free trials and promo codes</Link></div></div>
         {!online ? <div className="card"><p className="small muted">Online payment is not connected yet. Choose a plan to get an invoice, then pay by bank transfer and the platform administrator will confirm it.{bank ? "" : " Ask the platform administrator for the account details."}</p></div> : null}
-        {payer.companyId ? <PlanCompare audience="COMPANY" plans={all.filter((x) => x.audience === "COMPANY")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} /> : (
+        {payer.companyId ? <PlanCompare audience="COMPANY" plans={all.filter((x) => x.audience === "COMPANY")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} cycle={cycle} yearlyMonths={yearlyMonths} /> : (
           <>
             <h3>For people looking for property</h3>
-            <PlanCompare audience="SEEKER" plans={all.filter((x) => x.audience === "SEEKER")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} />
+            <PlanCompare audience="SEEKER" plans={all.filter((x) => x.audience === "SEEKER")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} cycle={cycle} yearlyMonths={yearlyMonths} />
             <h3>For agents</h3>
-            <PlanCompare audience="AGENT" plans={all.filter((x) => x.audience === "AGENT")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} />
+            <PlanCompare audience="AGENT" plans={all.filter((x) => x.audience === "AGENT")} buy={{ from }} currentPlanId={plan.sub?.planId ?? null} currency={region.currency} cycle={cycle} yearlyMonths={yearlyMonths} />
           </>
         )}
         {plan.sub && plans.some((x) => x.id !== plan.sub!.planId) ? <p className="small muted">Choosing a different plan starts a new period today. Time left on your current plan is not carried over.</p> : null}

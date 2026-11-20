@@ -6,7 +6,7 @@ import { requirePlatformAdmin } from "@/lib/auth";
 import { act, optStr, str, withNotice } from "@/lib/forms";
 import { assignSubscription, cancelSubscription, renewSubscription, savePlan, setPlanEntitlements, setPlanPrices } from "@/lib/services/subscriptions";
 import { savePromoCode, setPromoActive } from "@/lib/services/upgrades";
-import { saveSettings } from "@/lib/services/platform-settings";
+import { saveSettings, saveYearlyMonths } from "@/lib/services/platform-settings";
 import { ENTITLEMENT_KEYS } from "@/lib/subscription-rules";
 
 const BACK = "/admin/plans";
@@ -81,5 +81,14 @@ export async function promoActiveAction(form: FormData) {
     const on = str(form, "active") === "on";
     await setPromoActive(admin.id, str(form, "id"), on);
     return `${withNotice(BACK, on ? "Code switched on." : "Code switched off. Nobody can use it from now on.")}#promo-h`;
+  });
+}
+
+export async function yearlyAction(form: FormData) {
+  return act(`${BACK}#yearly-h`, async () => {
+    const admin = await requirePlatformAdmin();
+    await saveYearlyMonths(admin.id, str(form, "months"));
+    const n = Number(str(form, "months"));
+    return `${withNotice(BACK, n ? `Paying yearly now costs ${n} months (${12 - n} free). Prices update at once; people already paying keep their price until they renew.` : "Paying yearly is switched off. Yearly subscribers renew monthly from their next renewal.")}#yearly-h`;
   });
 }

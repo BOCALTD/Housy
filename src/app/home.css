@@ -657,6 +657,11 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .plan-price strong { font: 700 1.6rem var(--font-display); }
 .plan-price .plan-ask { font-size: 1.15rem; }
 .plan-price span { color: var(--muted); font-size: .9rem; }
+.plan-price .plan-sub { flex-basis: 100%; font-size: .85rem; }
+.cycle-switch { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.cycle-switch .btn { min-height: 44px; }
+.cycle-save { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #e3f3e8; color: #1F7A3E; margin-left: 4px; }
+.cycle-switch .btn.primary .cycle-save { background: rgba(255,255,255,.85); }
 .plan-features { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-content: start; flex: 1 1 auto; }
 .plan > p.small { margin: 0; }
 .plan-features li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: .93rem; line-height: 1.35; }

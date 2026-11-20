@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { companyChoices, listPlans, listSubscriptions } from "@/lib/services/subscriptions";
-import { readSettings } from "@/lib/services/platform-settings";
+import { readSettings, readYearlyMonths } from "@/lib/services/platform-settings";
 import { ENTITLEMENT_KEYS, ENTITLEMENT_LABELS, COUNTED_ENTITLEMENTS } from "@/lib/subscription-rules";
 import { formatDate } from "@/lib/dates";
 import { formatKobo } from "@/lib/money";
@@ -10,7 +10,7 @@ import { humanize } from "@/lib/labels";
 import { tierLabel } from "@/lib/tier-rules";
 import { Field, Flash, Pill, ShowMore, sp, type SP } from "@/components/ui";
 import { promoCodes, upgradeStats } from "@/lib/services/upgrades";
-import { promoActiveAction, savePromoAction, assignAction, cancelAction, renewAction, savePlanAction, settingsAction } from "./actions";
+import { promoActiveAction, savePromoAction, yearlyAction, assignAction, cancelAction, renewAction, savePlanAction, settingsAction } from "./actions";
 
 export const metadata = { title: "Plans and limits" };
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
   const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const [plans, subs, companies, settings, promos, stats] = await Promise.all([listPlans(admin.id), listSubscriptions(admin.id), companyChoices(admin.id), readSettings(), promoCodes(admin.id), upgradeStats(admin.id)]);
+  const yearlyMonths = await readYearlyMonths();
   const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "No finished trials yet");
   const planForm = (p?: (typeof plans)[number]) => (
     <form action={savePlanAction} className="stack">
@@ -123,6 +124,20 @@ export default async function PlansPage({ searchParams: searchP }: { searchParam
           </details>
         ) : <p className="small muted">Nobody holds a plan yet.</p>}
         <p className="small muted">Set &ldquo;Trial days&rdquo; on a plan to let people try it free once. A short trial (7 to 14 days) on your middle plan usually brings the most paying customers.</p>
+      </section>
+
+      <section className="card stack" aria-labelledby="yearly-h">
+        <h2 id="yearly-h">Paying yearly</h2>
+        <p className="muted">Monthly plans can be paid for a year at once, for fewer months&apos; price. Customers pay up front and stay longer. It applies to every monthly plan in every currency.</p>
+        <form action={yearlyAction} className="row" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Field label="A year costs" hint="10 months means two months free. Choose 0 to offer monthly only.">
+            <select name="months" defaultValue={String(yearlyMonths === 12 ? 0 : yearlyMonths)}>
+              <option value="0">No yearly option</option>
+              {[11, 10, 9, 8].map((n) => <option key={n} value={n}>{n} months ({12 - n} free)</option>)}
+            </select>
+          </Field>
+          <button className="btn primary" type="submit" data-confirm="Change the yearly price?" data-confirm-body="New yearly prices show at once. People already paying keep their price until they renew." data-confirm-ok="Save" data-confirm-tone="default">Save</button>
+        </form>
       </section>
 
       <section className="card stack" aria-labelledby="promo-h">

@@ -14,11 +14,12 @@ export function newPeriodEnd(o: { now: Date; currentEnd: Date | null; samePlan: 
 }
 
 export const RENEWAL_NOTICE_DAYS = 7;
-/** Whether it is time to ask for the next period's payment: shortly before the end, and for as long as the plan's grace period lasts. */
 /** A free trial is reminded 3 days before it ends, so a short trial is not asked to pay the moment it starts. */
 export const TRIAL_NOTICE_DAYS = 3;
 /** How long after a trial ends the "your trial has ended" reminder can still go out (the job may have been down that day). */
 const TRIAL_AFTER_DAYS = 3;
+
+/** Whether it is time to ask for the next period's payment: shortly before the end, and for as long as the plan's grace period lasts (3 days for a trial). */
 
 export function renewalDue(o: { periodEnd: Date; graceDays: number; now: Date; cancelled: boolean; trial?: boolean }): boolean {
   if (o.cancelled) return false;
@@ -84,3 +85,17 @@ export function sameHex(a: string, b: string): boolean {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 export const hmacSha512 = (secret: string, body: string) => createHmac("sha512", secret).update(body).digest("hex");
+
+// ---------- Paying yearly ----------
+
+/** The administrator's yearly offer: a year of a monthly plan costs this many months (10 means two months free). 0 or 12 switches it off. */
+export const YEARLY_DEFAULT_MONTHS = 10;
+
+/** Whether a plan can be paid yearly: monthly plans only, while the offer is on. */
+export const yearlyOffered = (billingPeriod: string, monthsCharged: number) => billingPeriod === "MONTHLY" && monthsCharged >= 1 && monthsCharged < 12;
+
+/** What a year costs, from the monthly price. */
+export const yearlyPrice = (monthly: bigint, monthsCharged: number) => monthly * BigInt(monthsCharged);
+
+/** "2 months free", "1 month free": what paying yearly saves, in plain words. */
+export const yearlySaving = (monthsCharged: number) => { const free = 12 - monthsCharged; return `${free} ${free === 1 ? "month" : "months"} free`; };

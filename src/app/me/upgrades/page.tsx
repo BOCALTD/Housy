@@ -12,7 +12,7 @@ export default async function MyUpgradesPage({ searchParams: searchP }: { search
     <div className="stack-lg">
       <div className="stack" style={{ gap: 6 }}><h1>Upgrades</h1><p className="muted">Plans, free trials, promo codes and add-ons that help you find a home or grow your work as an agent.</p></div>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
-      <UpgradesHub payer={{ userId: u.id, companyId: null, role: null }} from="me" mayBuy code={sp(searchParams, "code") ?? ""} />
+      <UpgradesHub payer={{ userId: u.id, companyId: null, role: null }} from="me" mayBuy cycle={sp(searchParams, "cycle") === "yearly" ? "yearly" : "plan"} code={sp(searchParams, "code") ?? ""} />
     </div>
   );
 }

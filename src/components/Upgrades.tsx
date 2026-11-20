@@ -2,7 +2,8 @@ import Link from "next/link";
 import { allPlans, payerRegion, previewPromo, type Payer } from "@/lib/services/billing";
 import { companySubscription, mySubscription } from "@/lib/services/subscriptions";
 import { planFor, trialsAvailable } from "@/lib/services/upgrades";
-import { PlanCompare } from "@/components/PlanCompare";
+import { CycleSwitch, PlanCompare } from "@/components/PlanCompare";
+import { readYearlyMonths } from "@/lib/services/platform-settings";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
@@ -20,14 +21,15 @@ type AddOn = { title: string; body: string; href: string; cta: string };
  * plans side by side, and the add-ons paid for separately (promoting listings, advertising, a verified badge).
  * People in a company who cannot buy see the same page with "ask your administrator" in place of the buttons.
  */
-export async function UpgradesHub({ payer, from, mayBuy, code }: { payer: Payer; from: "me" | "app"; mayBuy: boolean; code: string }) {
-  const [plan, plans, trials, region] = await Promise.all([
+export async function UpgradesHub({ payer, from, mayBuy, code, cycle = "plan" }: { payer: Payer; from: "me" | "app"; mayBuy: boolean; code: string; cycle?: "plan" | "yearly" }) {
+  const [plan, plans, trials, region, yearlyMonths] = await Promise.all([
     payer.companyId ? companySubscription(payer.companyId, payer.userId) : mySubscription(payer.userId),
     allPlans(payer.companyId ? ["COMPANY"] : ["SEEKER", "AGENT"]),
     mayBuy ? trialsAvailable(payer) : Promise.resolve({} as Record<string, number>),
     payerRegion(payer),
+    readYearlyMonths(),
   ]);
-  const promo = mayBuy && code.trim() ? await previewPromo(payer, code) : null;
+  const promo = mayBuy && code.trim() ? await previewPromo(payer, code, undefined, cycle) : null;
   const buy = mayBuy ? { from, back: "upgrades" as const } : undefined;
   const current = plan.sub?.planId ?? null;
   const base = from === "app" ? "/app" : "/me";
@@ -59,22 +61,24 @@ export async function UpgradesHub({ payer, from, mayBuy, code }: { payer: Payer;
         <section className="card stack" aria-labelledby="up-code">
           <h2 id="up-code">Have a promo code?</h2>
           <form method="get" className="row" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+            {cycle === "yearly" ? <input type="hidden" name="cycle" value="yearly" /> : null}
             <label className="field" style={{ flex: "1 1 200px" }}>Code<input name="code" defaultValue={promo?.code ?? ""} maxLength={40} autoComplete="off" autoCapitalize="characters" spellCheck={false} placeholder="For example WELCOME25" /></label>
             <button className="btn" type="submit">Apply code</button>
-            {promo ? <Link className="btn" href={`${base}/upgrades`}>Remove code</Link> : null}
+            {promo ? <Link className="btn" href={`${base}/upgrades${cycle === "yearly" ? "?cycle=yearly" : ""}`}>Remove code</Link> : null}
           </form>
           {promo?.error ? <p className="flash error" role="alert">{promo.error}</p> : promo ? <p className="flash notice" role="status">Code {promo.code} applied. The new prices are shown on the plans it works for.</p> : null}
         </section>
       ) : null}
 
       <section className="stack" aria-labelledby="up-plans">
-        <h2 id="up-plans">Plans</h2>
-        {payer.companyId ? <PlanCompare audience="COMPANY" plans={plans.filter((x) => x.audience === "COMPANY")} buy={buy} ask={!mayBuy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} /> : (
+        <div className="row between" style={{ flexWrap: "wrap" }}><h2 id="up-plans">Plans</h2>
+          <CycleSwitch yearlyMonths={yearlyMonths} cycle={cycle} hrefFor={(c) => { const q = new URLSearchParams({ ...(c === "yearly" ? { cycle: "yearly" } : {}), ...(promo ? { code: promo.code } : {}) }).toString(); return `${base}/upgrades${q ? `?${q}` : ""}#up-plans`; }} /></div>
+        {payer.companyId ? <PlanCompare audience="COMPANY" plans={plans.filter((x) => x.audience === "COMPANY")} buy={buy} ask={!mayBuy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} /> : (
           <>
             <h3>For people looking for property</h3>
-            <PlanCompare audience="SEEKER" plans={plans.filter((x) => x.audience === "SEEKER")} buy={buy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} />
+            <PlanCompare audience="SEEKER" plans={plans.filter((x) => x.audience === "SEEKER")} buy={buy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} />
             <h3>For agents</h3>
-            <PlanCompare audience="AGENT" plans={plans.filter((x) => x.audience === "AGENT")} buy={buy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} />
+            <PlanCompare audience="AGENT" plans={plans.filter((x) => x.audience === "AGENT")} buy={buy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} />
           </>
         )}
         {plan.sub && mayBuy ? <p className="small muted">Choosing a different plan starts a new period today. Time left on your current plan is not carried over.</p> : null}

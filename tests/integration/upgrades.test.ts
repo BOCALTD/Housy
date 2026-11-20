@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import { prisma, withPlatformAdmin, withUser } from "../../src/lib/db";
 import { registerSeeker } from "../../src/lib/services/community";
 import { savePlan, setPlanEntitlements, entitlementIn } from "../../src/lib/services/subscriptions";
-import { createSubscriptionInvoice, generateRenewalInvoices, previewPromo, type Payer } from "../../src/lib/services/billing";
+import { createSubscriptionInvoice, generateRenewalInvoices, previewPromo, recordOfflinePayment, type Payer } from "../../src/lib/services/billing";
+import { readYearlyMonths, saveYearlyMonths } from "../../src/lib/services/platform-settings";
 import { planFor, promoCodes, savePromoCode, setPromoActive, startTrial, trialsAvailable, upgradeStats } from "../../src/lib/services/upgrades";
 import { newCompany, newPlatformAdmin, PASSWORD } from "./helpers";
 
@@ -174,4 +175,41 @@ test("a trial is reminded 3 days before it ends, with the invoice to pay, and lo
   assert.match((await told()).at(-1)!.title, /free trial of .* has ended/);
   const ent = await withUser(buyer.id, (tx) => entitlementIn(tx, { kind: "USER", userId: buyer.id }, "COLLAB_SEEKER_AGENT", after));
   assert.equal(ent.access, "READ_ONLY");
+});
+
+test("a monthly plan paid yearly costs ten months, runs a year, and renews yearly; the administrator can switch the offer off", async () => {
+  const admin = await newPlatformAdmin();
+  assert.equal(await readYearlyMonths(), 10);
+  const p = await plan(admin, { price: "5,000" });
+  const buyer = await person();
+  const inv = await createSubscriptionInvoice(buyer, p.id, undefined, "", "yearly");
+  assert.equal(inv.amountKobo, 5_000_000n, "10 x 5,000");
+  assert.equal(inv.periodMonths, 12);
+  assert.match(inv.description, /paid yearly \(2 months free\)/);
+  // The same plan monthly replaces the open yearly invoice, and back again.
+  const monthly = await createSubscriptionInvoice(buyer, p.id);
+  assert.equal(monthly.amountKobo, 500_000n);
+  assert.notEqual(monthly.id, inv.id);
+  const yearly = await createSubscriptionInvoice(buyer, p.id, undefined, "", "yearly");
+  await recordOfflinePayment(admin.id, yearly.id, { amount: "50,000", reference: `YR${uid()}` });
+  const sub = await sys((tx) => tx.subscription.findFirstOrThrow({ where: { ownerUserId: buyer.id } }));
+  assert.equal(sub.cycleMonths, 12);
+  const days = (sub.periodEnd.getTime() - Date.now()) / 864e5;
+  assert.ok(days > 360 && days < 368, `about a year, got ${days}`);
+  // A promo code works on the yearly price.
+  const c = await promo(admin.id, { percentOff: "10" });
+  const pv = await previewPromo(await person(), c.code, undefined, "yearly");
+  const row = pv.byPlan[p.id];
+  assert.ok(row && "pay" in row && row.list === 5_000_000n && row.pay === 4_500_000n);
+  // Renewal near the end is yearly too.
+  await generateRenewalInvoices({ now: new Date(sub.periodEnd.getTime() - 2 * 864e5) });
+  const renewal = await sys((tx) => tx.invoice.findFirstOrThrow({ where: { ownerUserId: buyer.id, status: "OPEN", renewal: true } }));
+  assert.equal(renewal.periodMonths, 12);
+  assert.equal(renewal.amountKobo, 5_000_000n);
+  // Quarterly plans have no yearly option.
+  const q = await savePlan(admin.id, null, { code: `up-${uid()}`, name: `Quarterly ${uid()}`, audience: "AGENT", price: "9,000", billingPeriod: "QUARTERLY", trialDays: 0, graceDays: 7, readOnlyDays: 30, active: true, sortOrder: 100, tier: "BASIC" } as never);
+  await assert.rejects(createSubscriptionInvoice(await person(), q.id, undefined, "", "yearly"), /not offered for this plan/);
+  // Only the administrator sets the offer, within 0 to 11 months.
+  await assert.rejects(saveYearlyMonths(buyer.id, "9"), /Only the platform administrator/);
+  await assert.rejects(saveYearlyMonths(admin.id, "12"), /from 1 to 11/);
 });

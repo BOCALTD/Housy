@@ -7,7 +7,8 @@ import { logActivity } from "../audit";
 import { lockKey } from "../locks";
 import { parseNairaToKobo } from "../money";
 import { can, type Role } from "../permissions";
-import { PERIOD_MONTHS, REVIEW_TEXT, checkReceived, daysLeft, newPeriodEnd, randomRef, renewalDue, renewalMessage, reminderStage, sha256, type Period } from "../billing-rules";
+import { PERIOD_MONTHS, REVIEW_TEXT, checkReceived, daysLeft, newPeriodEnd, randomRef, renewalDue, renewalMessage, reminderStage, sha256, yearlyOffered, yearlyPrice, yearlySaving, type Period } from "../billing-rules";
+import { readYearlyMonths } from "./platform-settings";
 import { formatKobo } from "../money";
 import { type ParsedEvent, type PaymentProvider } from "../payment-providers";
 import { notify } from "./notifications";
@@ -110,28 +111,44 @@ export async function allPlans(audiences: ("COMPANY" | "SEEKER" | "AGENT")[]) {
 }
 
 /** An invoice for one period of a plan. Asking again for the same plan returns the invoice already open; asking for another plan replaces it. */
-export async function createSubscriptionInvoice(p: Payer, planId: string, deps?: Deps, promoRaw = "") {
+export type Cycle = "plan" | "yearly";
+
+/**
+ * What one payment for a plan costs this owner and how many months it covers: the plan's own period, or (for a monthly plan,
+ * while the administrator offers it) a year for the yearly number of months.
+ */
+async function chargeFor(tx: Tx, plan: { id: string; priceKobo: bigint | null; billingPeriod: string }, owner: Owner, cycle: Cycle, monthsCharged: number) {
+  const base = await planPriceFor(tx, plan, owner);
+  if (cycle === "yearly") {
+    if (!yearlyOffered(plan.billingPeriod, monthsCharged)) throw new Error("Paying yearly is not offered for this plan. Choose monthly instead.");
+    return { amount: yearlyPrice(base.amount, monthsCharged), currency: base.currency, months: 12, yearly: true };
+  }
+  return { ...base, months: PERIOD_MONTHS[plan.billingPeriod as Period], yearly: false };
+}
+
+export async function createSubscriptionInvoice(p: Payer, planId: string, deps?: Deps, promoRaw = "", cycle: Cycle = "plan") {
   assertMayPay(p);
   const owner = ownerOf(p);
   const now = nowOf(deps);
+  const monthsCharged = cycle === "yearly" ? await readYearlyMonths() : 0;
   return system(async (tx) => {
     const plan = await tx.subscriptionPlan.findUnique({ where: { id: planId } });
     if (!plan || !plan.active) throw new Error("That plan is not available");
     if ((plan.audience === "COMPANY") !== (owner.kind === "COMPANY")) throw new Error(owner.kind === "COMPANY" ? "This plan is for individuals, not companies" : "This plan is for companies, not individuals");
     if (!plan.priceKobo || plan.priceKobo <= 0n || plan.billingPeriod === "NONE") throw new Error("This plan cannot be bought online. Ask the platform administrator.");
     await lockKey(tx, `invoice-owner:${owner.kind}:${owner.kind === "USER" ? owner.userId : owner.companyId}`);
-    const list = await planPriceFor(tx, plan, owner);
+    const list = await chargeFor(tx, plan, owner, cycle, monthsCharged);
     const promo = promoRaw.trim() ? await checkPromo(tx, promoRaw, plan.id, owner, list.currency, now) : null;
     const { discount, pay } = promo ? applyPromo(promo, list.amount) : { discount: 0n, pay: list.amount };
     const price = { amount: pay, currency: list.currency };
     const open = await tx.invoice.findFirst({ where: { ...ownerWhere(owner), purpose: "SUBSCRIPTION", status: "OPEN" } });
-    if (open && open.subjectId === plan.id && open.amountKobo === price.amount && open.currency === price.currency && (open.promoCodeId ?? null) === (promo?.id ?? null)) return open;
+    if (open && open.subjectId === plan.id && open.amountKobo === price.amount && open.currency === price.currency && open.periodMonths === list.months && (open.promoCodeId ?? null) === (promo?.id ?? null)) return open;
     if (open) await tx.invoice.update({ where: { id: open.id }, data: { status: "VOID", voidedAt: now, voidReason: "Replaced by an invoice for another plan" } });
-    const months = PERIOD_MONTHS[plan.billingPeriod as Period];
+    const months = list.months;
     const inv = await tx.invoice.create({
       data: {
         ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null,
-        ownerName: await ownerLabel(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}${promo ? ` (code ${promo.code})` : ""}`, amountKobo: price.amount, currency: price.currency, periodMonths: months, dueOn: now, createdById: p.userId,
+        ownerName: await ownerLabel(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}${list.yearly ? `, paid yearly (${yearlySaving(monthsCharged)})` : ""}${promo ? ` (code ${promo.code})` : ""}`, amountKobo: price.amount, currency: price.currency, periodMonths: months, dueOn: now, createdById: p.userId,
         promoCodeId: promo?.id ?? null, listAmountKobo: promo ? list.amount : null, discountKobo: discount,
       },
     });
@@ -152,7 +169,7 @@ export type PromoPreview = { code: string; error: string | null; byPlan: Record<
  * What a typed code would do to each plan this person or company can buy, before anything is billed. Limited to 20 tries in
  * 15 minutes per person so codes cannot be guessed by trying many.
  */
-export async function previewPromo(p: Payer, raw: string, deps?: Deps): Promise<PromoPreview> {
+export async function previewPromo(p: Payer, raw: string, deps?: Deps, cycle: Cycle = "plan"): Promise<PromoPreview> {
   const code = normaliseCode(raw);
   if (!code) return { code, error: "Enter the code", byPlan: {} };
   const { rateLimit } = await import("../ratelimit");
@@ -160,11 +177,14 @@ export async function previewPromo(p: Payer, raw: string, deps?: Deps): Promise<
   const owner = ownerOf(p);
   const now = nowOf(deps);
   const plans = await buyablePlans(p);
+  const monthsCharged = await readYearlyMonths();
   return system(async (tx) => {
     if (!(await tx.promoCode.findUnique({ where: { code }, select: { id: true } }))) return { code, error: "That code is not right. Check it and try again.", byPlan: {} };
     const byPlan: PromoPreview["byPlan"] = {};
     for (const plan of plans) {
-      const list = await planPriceFor(tx, plan, owner);
+      let list: { amount: bigint; currency: string };
+      try { list = await chargeFor(tx, plan, owner, cycle === "yearly" && yearlyOffered(plan.billingPeriod, monthsCharged) ? "yearly" : "plan", monthsCharged); }
+      catch { continue; }
       try {
         const promo = await checkPromo(tx, code, plan.id, owner, list.currency, now);
         byPlan[plan.id] = { list: list.amount, pay: applyPromo(promo, list.amount).pay, currency: list.currency };
@@ -334,14 +354,16 @@ async function applySubscription(tx: Tx, inv: Prisma.InvoiceGetPayload<object>, 
   const existing = await tx.subscription.findFirst({ where: inv.ownerUserId ? { ownerUserId: inv.ownerUserId } : { ownerCompanyId: inv.ownerCompanyId } });
   const samePlan = existing?.planId === plan.id;
   const periodEnd = newPeriodEnd({ now, currentEnd: existing?.periodEnd ?? null, samePlan, months: inv.periodMonths });
+  // Paying for a different length than the plan's own period (a monthly plan paid yearly) is remembered, so renewals keep it.
+  const cycleMonths = inv.periodMonths !== PERIOD_MONTHS[plan.billingPeriod as Period] ? inv.periodMonths : null;
   const note = `Paid online, invoice ${inv.ref}`;
   let subId: string;
   if (existing) {
-    await tx.subscription.update({ where: { id: existing.id }, data: { planId: plan.id, status: "ACTIVE", periodEnd, cancelledAt: null } });
+    await tx.subscription.update({ where: { id: existing.id }, data: { planId: plan.id, status: "ACTIVE", periodEnd, cancelledAt: null, cycleMonths } });
     subId = existing.id;
     await tx.subscriptionEvent.create({ data: { subscriptionId: subId, kind: samePlan ? "RENEWED" : "PLAN_CHANGED", fromPlanId: existing.planId, toPlanId: plan.id, periodEnd, note, actorId: inv.createdById } });
   } else {
-    const sub = await tx.subscription.create({ data: { ownerKind: inv.ownerKind, ownerUserId: inv.ownerUserId, ownerCompanyId: inv.ownerCompanyId, planId: plan.id, status: "ACTIVE", periodEnd, createdById: inv.createdById } });
+    const sub = await tx.subscription.create({ data: { ownerKind: inv.ownerKind, ownerUserId: inv.ownerUserId, ownerCompanyId: inv.ownerCompanyId, planId: plan.id, status: "ACTIVE", periodEnd, cycleMonths, createdById: inv.createdById } });
     subId = sub.id;
     await tx.subscriptionEvent.create({ data: { subscriptionId: subId, kind: "ASSIGNED", toPlanId: plan.id, periodEnd, note, actorId: inv.createdById } });
   }
@@ -510,6 +532,7 @@ export async function recordOfflinePayment(adminId: string, invoiceId: string, i
  */
 export async function generateRenewalInvoices(deps?: Deps): Promise<{ invoices: number; reminders: number }> {
   const now = nowOf(deps);
+  const monthsCharged = await readYearlyMonths();
   const subs = await system((tx) => tx.subscription.findMany({
     where: { status: { in: ["ACTIVE", "TRIAL"] }, plan: { priceKobo: { gt: 0 }, billingPeriod: { not: "NONE" } }, periodEnd: { lt: new Date(now.getTime() + 8 * 864e5) } },
     include: { plan: true }, take: 1000,
@@ -533,8 +556,9 @@ export async function generateRenewalInvoices(deps?: Deps): Promise<{ invoices: 
       // or with a promo code) is the one to remind them about.
       if (inv && inv.subjectId !== sub.planId) return null;
       if (!inv) {
-        const months = PERIOD_MONTHS[sub.plan.billingPeriod as Period];
-        const price = await planPriceFor(tx, sub.plan, owner);
+        // A yearly subscriber renews yearly while the offer stands; if the administrator has withdrawn it, at the plan's own period.
+        const price = await chargeFor(tx, sub.plan, owner, sub.cycleMonths === 12 && yearlyOffered(sub.plan.billingPeriod, monthsCharged) ? "yearly" : "plan", monthsCharged);
+        const months = price.months;
         inv = await tx.invoice.create({ data: { ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null, ownerName: await ownerLabel(tx, owner), subjectId: sub.planId, description: `${sub.plan.name} plan ${trial ? "after the free trial" : "renewal"} for ${months} ${months === 1 ? "month" : "months"}`, currency: price.currency, amountKobo: price.amount, periodMonths: months, renewal: true, dueOn: sub.periodEnd, createdById: sub.createdById } });
         created = true;
       }

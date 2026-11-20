@@ -9,6 +9,7 @@ export const SETTING_DEFAULTS = {
   new_conversations_per_day: "10",
   contact_policy: "MASK",
   report_mute_threshold: "3",
+  yearly_months_charged: "10",
 } as const;
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 
@@ -45,5 +46,23 @@ export async function saveSettings(adminId: string, raw: z.input<typeof schema>)
   await withPlatformAdmin(adminId, async (tx) => {
     for (const [key, value] of entries) await tx.platformSetting.upsert({ where: { key }, create: { key, value, updatedById: adminId }, update: { value, updatedById: adminId } });
     await logActivity(tx, { companyId: null, actorId: adminId, entityType: "settings", entityId: "platform", action: "settings.updated", detail: Object.fromEntries(entries) });
+  });
+}
+
+/** The yearly offer on monthly plans: how many months a year costs (10 = two months free; 0 = no yearly option). */
+export async function readYearlyMonths(): Promise<number> {
+  const row = await prisma.platformSetting.findUnique({ where: { key: "yearly_months_charged" } });
+  const n = Number(row?.value ?? SETTING_DEFAULTS.yearly_months_charged);
+  return Number.isInteger(n) && n >= 0 && n <= 12 ? n : 10;
+}
+
+export async function saveYearlyMonths(adminId: string, raw: string) {
+  const u = await prisma.user.findUnique({ where: { id: adminId }, select: { isPlatformAdmin: true } });
+  if (!u?.isPlatformAdmin) throw new Error("Only the platform administrator can do that");
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0 || n > 11) throw new Error("Choose how many months a year costs, from 1 to 11, or 0 for no yearly option");
+  await withPlatformAdmin(adminId, async (tx) => {
+    await tx.platformSetting.upsert({ where: { key: "yearly_months_charged" }, create: { key: "yearly_months_charged", value: String(n), updatedById: adminId }, update: { value: String(n), updatedById: adminId } });
+    await logActivity(tx, { companyId: null, actorId: adminId, entityType: "settings", entityId: "platform", action: "settings.yearly_offer", detail: { monthsCharged: n } });
   });
 }

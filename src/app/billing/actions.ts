@@ -24,7 +24,7 @@ export async function payPlanAction(form: FormData) {
   const f = fromOf(form);
   return act(backOf(form, f), async () => {
     const payer = await payerFor(f, true);
-    const inv = await createSubscriptionInvoice(payer, str(form, "planId"), undefined, str(form, "promo"));
+    const inv = await createSubscriptionInvoice(payer, str(form, "planId"), undefined, str(form, "promo"), str(form, "cycle") === "yearly" ? "yearly" : "plan");
     if (inv.status === "PAID") return withNotice(backOf(form, f), "Your code covered the whole price: the plan is on now.");
     return payOrShow(payer, f, inv.id);
   });

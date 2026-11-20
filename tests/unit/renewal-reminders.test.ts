@@ -36,3 +36,16 @@ test("reminders say what is ending, when, and what it costs, in plain words", ()
   assert.equal(renewalMessage({ planName: "Pro", stage: "NOTICE", trial: false, days: 7, amount: "x" }).title, "Your Pro plan ends in 7 days");
   assert.equal(renewalMessage({ planName: "Pro", stage: "OVERDUE", trial: false, days: 0, amount: "₦5" }).body, "Pay ₦5 now to keep your features.");
 });
+
+test("a year of a monthly plan costs the chosen number of months, and only monthly plans offer it", async () => {
+  const { yearlyOffered, yearlyPrice, yearlySaving, YEARLY_DEFAULT_MONTHS } = await import("../../src/lib/billing-rules");
+  assert.equal(YEARLY_DEFAULT_MONTHS, 10);
+  assert.equal(yearlyPrice(500_000n, 10), 5_000_000n);
+  assert.equal(yearlySaving(10), "2 months free");
+  assert.equal(yearlySaving(11), "1 month free");
+  assert.equal(yearlyOffered("MONTHLY", 10), true);
+  assert.equal(yearlyOffered("MONTHLY", 0), false, "switched off");
+  assert.equal(yearlyOffered("MONTHLY", 12), false, "no saving is no offer");
+  assert.equal(yearlyOffered("QUARTERLY", 10), false);
+  assert.equal(yearlyOffered("YEARLY", 10), false);
+});

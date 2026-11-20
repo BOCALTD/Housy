@@ -66,7 +66,7 @@ export async function ownerLabel(tx: Tx, o: Owner): Promise<string> {
 }
 
 /** The people who should hear about a company's bills: its administrators. */
-async function billingRecipients(o: Owner, fallbackUserId: string): Promise<string[]> {
+export async function billingRecipients(o: Owner, fallbackUserId: string): Promise<string[]> {
   if (o.kind === "USER") return [o.userId];
   const rows = await withTenant(o.companyId, "system", (tx) => tx.membership.findMany({ where: { companyId: o.companyId, role: "COMPANY_SUPER_ADMIN", status: "ACTIVE" }, select: { userId: true }, take: 10 }));
   const ids = rows.map((r) => r.userId);
@@ -76,7 +76,7 @@ async function billingRecipients(o: Owner, fallbackUserId: string): Promise<stri
 /** Who is told about a payment: the person who owns the plan, or for a company the person who paid (or raised the invoice, when the administrator recorded it). */
 export const payerOf = (pay: { provider: string; initiatedById: string }, inv: { ownerUserId: string | null; createdById: string }) => inv.ownerUserId ?? (pay.provider === "MANUAL" ? inv.createdById : pay.initiatedById);
 
-const billingLink = (o: Owner) => (o.kind === "USER" ? "/me/billing" : "/app/billing");
+export const billingLink = (o: Owner) => (o.kind === "USER" ? "/me/billing" : "/app/billing");
 
 // ---------- The books ----------
 
@@ -126,7 +126,8 @@ async function chargeFor(tx: Tx, plan: { id: string; priceKobo: bigint | null; b
   return { ...base, months: PERIOD_MONTHS[plan.billingPeriod as Period], yearly: false };
 }
 
-export async function createSubscriptionInvoice(p: Payer, planId: string, deps?: Deps, promoRaw = "", cycle: Cycle = "plan") {
+export async function createSubscriptionInvoice(p: Payer, planId: string, deps?: Deps, promoRaw = "", cycle: Cycle = "plan", opts: { autoRenew?: boolean } = {}) {
+  const autoRenewConsent = !!opts.autoRenew;
   assertMayPay(p);
   const owner = ownerOf(p);
   const now = nowOf(deps);
@@ -142,14 +143,16 @@ export async function createSubscriptionInvoice(p: Payer, planId: string, deps?:
     const { discount, pay } = promo ? applyPromo(promo, list.amount) : { discount: 0n, pay: list.amount };
     const price = { amount: pay, currency: list.currency };
     const open = await tx.invoice.findFirst({ where: { ...ownerWhere(owner), purpose: "SUBSCRIPTION", status: "OPEN" } });
-    if (open && open.subjectId === plan.id && open.amountKobo === price.amount && open.currency === price.currency && open.periodMonths === list.months && (open.promoCodeId ?? null) === (promo?.id ?? null)) return open;
+    if (open && open.subjectId === plan.id && open.amountKobo === price.amount && open.currency === price.currency && open.periodMonths === list.months && (open.promoCodeId ?? null) === (promo?.id ?? null)) {
+      return open.autoRenewConsent === autoRenewConsent ? open : tx.invoice.update({ where: { id: open.id }, data: { autoRenewConsent } });
+    }
     if (open) await tx.invoice.update({ where: { id: open.id }, data: { status: "VOID", voidedAt: now, voidReason: "Replaced by an invoice for another plan" } });
     const months = list.months;
     const inv = await tx.invoice.create({
       data: {
         ref: randomRef("INV"), purpose: "SUBSCRIPTION", ownerKind: owner.kind, ownerUserId: owner.kind === "USER" ? owner.userId : null, ownerCompanyId: owner.kind === "COMPANY" ? owner.companyId : null,
         ownerName: await ownerLabel(tx, owner), subjectId: plan.id, description: `${plan.name} plan for ${months} ${months === 1 ? "month" : "months"}${list.yearly ? `, paid yearly (${yearlySaving(monthsCharged)})` : ""}${promo ? ` (code ${promo.code})` : ""}`, amountKobo: price.amount, currency: price.currency, periodMonths: months, dueOn: now, createdById: p.userId,
-        promoCodeId: promo?.id ?? null, listAmountKobo: promo ? list.amount : null, discountKobo: discount,
+        promoCodeId: promo?.id ?? null, listAmountKobo: promo ? list.amount : null, discountKobo: discount, autoRenewConsent,
       },
     });
     await logActivity(tx, { companyId: owner.kind === "COMPANY" ? owner.companyId : null, actorId: p.userId, entityType: "invoice", entityId: inv.id, action: "invoice.created", detail: { ref: inv.ref, plan: plan.code, promo: promo?.code ?? null } });
@@ -252,6 +255,13 @@ async function authoriseInvoice(p: Payer, invoiceId: string, action: "billing.vi
 }
 
 /** Begin an online payment. Returns where to send the person. A payment started a few minutes ago is reused, so a double click does not make two. */
+/** Record whether the payer wants this plan to renew automatically with the card they are about to pay with. */
+export async function setRenewConsent(p: Payer, invoiceId: string, on: boolean) {
+  const inv = await authoriseInvoice(p, invoiceId, "billing.manage");
+  if (inv.purpose !== "SUBSCRIPTION" || inv.status !== "OPEN" || inv.autoRenewConsent === on) return;
+  await system((tx) => tx.invoice.update({ where: { id: inv.id }, data: { autoRenewConsent: on } }));
+}
+
 export async function startPayment(p: Payer, invoiceId: string, callbackUrl: string, deps?: Deps): Promise<{ paymentRef: string; checkoutUrl: string }> {
   const inv = await authoriseInvoice(p, invoiceId, "billing.manage");
   const { onlineProviderFor } = await import("./platform-config");
@@ -272,7 +282,7 @@ export async function startPayment(p: Payer, invoiceId: string, callbackUrl: str
     return { payment, reused: false };
   });
   if (pay.reused) return { paymentRef: pay.payment.ref, checkoutUrl: pay.payment.checkoutUrl };
-  const started = await provider.initialize({ reference: pay.payment.ref, amountKobo: pay.payment.amountKobo, email: user.email, callbackUrl: `${callbackUrl}${callbackUrl.includes("?") ? "&" : "?"}ref=${encodeURIComponent(pay.payment.ref)}`, metadata: { invoice: inv.ref }, currency: inv.currency, description: inv.description });
+  const started = await provider.initialize({ reference: pay.payment.ref, amountKobo: pay.payment.amountKobo, email: user.email, callbackUrl: `${callbackUrl}${callbackUrl.includes("?") ? "&" : "?"}ref=${encodeURIComponent(pay.payment.ref)}`, metadata: { invoice: inv.ref }, currency: inv.currency, description: inv.description, saveCard: inv.purpose === "SUBSCRIPTION" && inv.autoRenewConsent });
   if (!started.ok) {
     await system((tx) => tx.payment.update({ where: { id: pay.payment.id }, data: { status: "FAILED", failureReason: started.error.slice(0, 500) } }));
     throw new Error(started.error);
@@ -433,6 +443,11 @@ export async function processEvent(ev: ParsedEvent, payloadHash: string, deps?: 
     await tx.paymentEvent.create({ data: { id, provider: name, eventId: ev.eventId, kind: ev.rawKind.slice(0, 100), reference: paymentRef.slice(0, 200), amountKobo: ev.amountKobo, outcome, note: note.slice(0, 500), payloadHash } });
     return { duplicate: false, outcome, settled };
   });
+  // A plan paid by card with "renew automatically" ticked: keep the card for renewals (never blocks the payment itself).
+  if (out.settled?.result === "APPLIED" && ev.reference) {
+    const { rememberCard } = await import("./auto-renew");
+    await rememberCard(name, ev.reference, deps);
+  }
   if (out.settled?.referral) {
     const r = out.settled.referral;
     await referralEvent("REFERRAL_SUBSCRIBED", { companyId: r.companyId, userId: r.userId }, { type: "subscription", id: r.invoiceId, label: `${r.planName} plan` });
@@ -441,7 +456,7 @@ export async function processEvent(ev: ParsedEvent, payloadHash: string, deps?: 
 }
 
 /** A payment the provider says did not go through. Only a payment still waiting can fail; the invoice stays open so the person can try again. */
-async function markFailedIn(tx: Tx, paymentId: string, reason: string): Promise<string> {
+export async function markFailedIn(tx: Tx, paymentId: string, reason: string): Promise<string> {
   await lockKey(tx, `payment:${paymentId}`);
   const pay = await tx.payment.findUnique({ where: { id: paymentId }, include: { invoice: true } });
   if (!pay || pay.status !== "PENDING") return "ALREADY";
@@ -564,7 +579,9 @@ export async function generateRenewalInvoices(deps?: Deps): Promise<{ invoices: 
       }
       // Each stage is told once, however often this job runs.
       if (inv.reminderStage === stage) return { created, sent: 0 };
-      const msg = renewalMessage({ planName: sub.plan.name, stage, trial, days: daysLeft(sub.periodEnd, now), amount: formatKobo(inv.amountKobo, inv.currency) });
+      const card = sub.autoRenew && !trial ? await tx.savedCard.findUnique({ where: { ownerKey: owner.kind === "COMPANY" ? `COMPANY:${owner.companyId}` : `USER:${owner.userId}` } }) : null;
+      const { cardLabel, cardValidOn } = await import("./auto-renew");
+      const msg = renewalMessage({ planName: sub.plan.name, stage, trial, days: daysLeft(sub.periodEnd, now), amount: formatKobo(inv.amountKobo, inv.currency), card: card && cardValidOn(card, sub.periodEnd) ? cardLabel(card) : undefined, expiredCard: !!card && !cardValidOn(card, sub.periodEnd) });
       let sent = 0;
       for (const uid of recipients) {
         // The link opens the invoice itself, where one button pays it.
@@ -587,7 +604,8 @@ export async function cancelOwn(p: Payer) {
     const sub = await tx.subscription.findFirst({ where: owner.kind === "USER" ? { ownerUserId: owner.userId } : { ownerCompanyId: owner.companyId } });
     if (!sub) throw new Error("There is no subscription to cancel");
     if (sub.status === "CANCELLED") throw new Error("This subscription is already cancelled");
-    await tx.subscription.update({ where: { id: sub.id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+    // Stopping renewal also stops automatic charges; the saved card stays until they remove it.
+    await tx.subscription.update({ where: { id: sub.id }, data: { status: "CANCELLED", cancelledAt: new Date(), autoRenew: false } });
     await tx.subscriptionEvent.create({ data: { subscriptionId: sub.id, kind: "CANCELLED", fromPlanId: sub.planId, toPlanId: sub.planId, periodEnd: sub.periodEnd, note: "Cancelled by the owner", actorId: p.userId } });
     await tx.invoice.updateMany({ where: { ...ownerWhere(owner), purpose: "SUBSCRIPTION", status: "OPEN", renewal: true }, data: { status: "VOID", voidedAt: new Date(), voidReason: "The subscription was cancelled" } });
     if (owner.kind === "COMPANY") await syncCompanyTier(tx, owner.companyId);

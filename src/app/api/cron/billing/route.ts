@@ -14,6 +14,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   if (!cronAuthorised(req)) return new Response("Unauthorised", { status: 401 });
   const renewals = await generateRenewalInvoices();
+  // Plans set to renew automatically: charge the saved card on the renewal day (after the renewal invoice exists).
+  const { chargeAutoRenewals } = await import("@/lib/services/auto-renew");
+  const autoRenewals = await chargeAutoRenewals().catch((e) => ({ error: e instanceof Error ? e.message : "failed" }));
   const pending = await verifyPending();
   const ads = await evaluateCampaigns();
   // Data kept only as long as needed: flatmate ID pictures go 30 days after the decision.
@@ -27,5 +30,5 @@ export async function GET(req: Request) {
   const credentials = await credentialSweep().catch(() => null);
   // Housy's commission on last month's payments companies received directly (online ones were split at payment time).
   const commissionInvoices = await invoiceCommissions().catch(() => null);
-  return Response.json({ commissionInvoices, renewals, pending, ads, idImagesDeleted, listingReminders, earningsMatured, credentials });
+  return Response.json({ commissionInvoices, renewals, autoRenewals, pending, ads, idImagesDeleted, listingReminders, earningsMatured, credentials });
 }

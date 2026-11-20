@@ -33,11 +33,12 @@ export function CycleSwitch({ yearlyMonths, cycle, hrefFor }: { yearlyMonths: nu
   );
 }
 
-export function PlanCompare({ audience, plans, buy, currentPlanId, currency = "NGN", trials = {}, promo = null, ask = false, cycle = "plan", yearlyMonths = 0 }: {
+export function PlanCompare({ audience, plans, buy, currentPlanId, currency = "NGN", trials = {}, promo = null, ask = false, cycle = "plan", yearlyMonths = 0, autoRenewOffer = false }: {
   audience: Audience; plans: Plan[]; buy?: { from: "me" | "app"; back?: "upgrades" }; currentPlanId?: string | null; currency?: string;
   /** Plans this payer can still try free, with the number of days. */ trials?: Record<string, number>;
   /** A code the person typed, already checked against each plan. */ promo?: PromoPreview | null;
   /** Signed in but not allowed to buy (a company member who is not the administrator). */ ask?: boolean;
+  /** Offer "renew automatically with this card" on plan forms (an online card provider is connected). */ autoRenewOffer?: boolean;
   /** Show yearly prices for monthly plans (while the administrator offers them: a year costs `yearlyMonths` months). */ cycle?: "plan" | "yearly"; yearlyMonths?: number;
 }) {
   const features = FEATURES[audience];
@@ -82,6 +83,7 @@ export function PlanCompare({ audience, plans, buy, currentPlanId, currency = "N
                         <button className="btn primary" type="submit" data-confirm={`Start your ${trialDays}-day ${p.name} trial?`} data-confirm-body={`Everything in ${p.name} switches on now for ${trialDays} days. You can try each plan once. Nothing is charged; choose the plan before the trial ends to keep it.`} data-confirm-ok="Start free trial" data-confirm-tone="default">Start {trialDays}-day free trial</button></form>
                     ) : null}
                     <form action={payPlanAction}><input type="hidden" name="from" value={buy.from} /><input type="hidden" name="planId" value={p.id} />{buy.back ? <input type="hidden" name="back" value={buy.back} /> : null}{cut ? <input type="hidden" name="promo" value={promo!.code} /> : null}{yearly ? <input type="hidden" name="cycle" value="yearly" /> : null}
+                      {autoRenewOffer && !(cut && cut.pay === 0n) ? <label className="check plan-autorenew"><input type="checkbox" name="autorenew" defaultChecked /> <span>Renew automatically with this card. We remind you 3 days before each charge; turn it off at any time in Billing.</span></label> : null}
                       <button className={`btn${p.id === top && !trialDays ? " primary" : ""}`} type="submit"{...(cut && cut.pay === 0n ? { "data-confirm": `Use code ${promo!.code} for ${p.name}?`, "data-confirm-body": "The code covers the whole first period, so the plan starts straight away.", "data-confirm-ok": "Use code", "data-confirm-tone": "default" } : {})}>{currentPlanId === p.id ? "Renew" : "Choose"} {p.name}{cut ? ` for ${formatKobo(cut.pay, cut.currency)}` : yearly ? " yearly" : ""}</button></form>
                   </div>
                 ) : free ? <span className="small muted">{currentPlanId ? "" : "What you have now"}</span> : <Link className="btn" href="/support">Ask about {p.name}</Link>

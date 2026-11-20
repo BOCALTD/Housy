@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { allPlans, payerRegion, previewPromo, type Payer } from "@/lib/services/billing";
+import { onlineProviderFor } from "@/lib/services/platform-config";
 import { companySubscription, mySubscription } from "@/lib/services/subscriptions";
 import { planFor, trialsAvailable } from "@/lib/services/upgrades";
 import { CycleSwitch, PlanCompare } from "@/components/PlanCompare";
@@ -30,6 +31,7 @@ export async function UpgradesHub({ payer, from, mayBuy, code, cycle = "plan" }:
     readYearlyMonths(),
   ]);
   const promo = mayBuy && code.trim() ? await previewPromo(payer, code, undefined, cycle) : null;
+  const online = mayBuy && !!(await onlineProviderFor(region.country));
   const buy = mayBuy ? { from, back: "upgrades" as const } : undefined;
   const current = plan.sub?.planId ?? null;
   const base = from === "app" ? "/app" : "/me";
@@ -73,12 +75,12 @@ export async function UpgradesHub({ payer, from, mayBuy, code, cycle = "plan" }:
       <section className="stack" aria-labelledby="up-plans">
         <div className="row between" style={{ flexWrap: "wrap" }}><h2 id="up-plans">Plans</h2>
           <CycleSwitch yearlyMonths={yearlyMonths} cycle={cycle} hrefFor={(c) => { const q = new URLSearchParams({ ...(c === "yearly" ? { cycle: "yearly" } : {}), ...(promo ? { code: promo.code } : {}) }).toString(); return `${base}/upgrades${q ? `?${q}` : ""}#up-plans`; }} /></div>
-        {payer.companyId ? <PlanCompare audience="COMPANY" plans={plans.filter((x) => x.audience === "COMPANY")} buy={buy} ask={!mayBuy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} /> : (
+        {payer.companyId ? <PlanCompare audience="COMPANY" plans={plans.filter((x) => x.audience === "COMPANY")} buy={buy} ask={!mayBuy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} autoRenewOffer={online} /> : (
           <>
             <h3>For people looking for property</h3>
-            <PlanCompare audience="SEEKER" plans={plans.filter((x) => x.audience === "SEEKER")} buy={buy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} />
+            <PlanCompare audience="SEEKER" plans={plans.filter((x) => x.audience === "SEEKER")} buy={buy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} autoRenewOffer={online} />
             <h3>For agents</h3>
-            <PlanCompare audience="AGENT" plans={plans.filter((x) => x.audience === "AGENT")} buy={buy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} />
+            <PlanCompare audience="AGENT" plans={plans.filter((x) => x.audience === "AGENT")} buy={buy} currentPlanId={current} currency={region.currency} trials={trials} promo={promo} cycle={cycle} yearlyMonths={yearlyMonths} autoRenewOffer={online} />
           </>
         )}
         {plan.sub && mayBuy ? <p className="small muted">Choosing a different plan starts a new period today. Time left on your current plan is not carried over.</p> : null}

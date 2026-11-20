@@ -19,10 +19,21 @@ export type ParsedEvent = {
   providerTxId: string;
 };
 
+/** A card the provider keeps for charging later. `token` (and `customer`, for Stripe) are secrets: stored sealed, never shown. */
+export type SavedCardInfo = { token: string; customer: string; last4: string; brand: string; expMonth: number; expYear: number; email: string };
+
+export type CardCharge =
+  | { ok: true; status: "success" | "failed" | "pending"; amountKobo: bigint; currency: string; providerTxId: string; message: string }
+  | { ok: false; error: string; permanent: boolean };
+
 export interface PaymentProvider {
   name: "PAYSTACK" | "STRIPE";
-  /** Amounts are minor units of `currency` (naira when not given). */
-  initialize(i: { reference: string; amountKobo: bigint; email: string; callbackUrl: string; metadata?: Record<string, string>; currency?: string; description?: string }): Promise<{ ok: true; checkoutUrl: string } | { ok: false; error: string }>;
+  /** Amounts are minor units of `currency` (naira when not given). `saveCard` asks the provider to keep the card for renewals. */
+  initialize(i: { reference: string; amountKobo: bigint; email: string; callbackUrl: string; metadata?: Record<string, string>; currency?: string; description?: string; saveCard?: boolean }): Promise<{ ok: true; checkoutUrl: string } | { ok: false; error: string }>;
+  /** After a successful card payment: the card, when the provider will let it be charged again; otherwise null. */
+  cardFor?(reference: string): Promise<SavedCardInfo | null>;
+  /** Charge a kept card without the customer present (an automatic renewal). */
+  chargeCard?(i: { reference: string; amountKobo: bigint; currency: string; card: { token: string; customer: string; email: string }; description: string }): Promise<CardCharge>;
   /** True only when the signature proves the message came from the provider and was not altered. */
   verifySignature(rawBody: string, signature: string | null): boolean;
   parseEvent(rawBody: string): ParsedEvent | null;
@@ -85,6 +96,23 @@ export function paystackProvider(secretKey: string, fetchImpl: typeof fetch = fe
       if (amount === null) return { ok: false, error: "The provider's answer had no amount" };
       const status = s === "success" ? "success" : s === "failed" || s === "abandoned" || s === "reversed" ? "failed" : "pending";
       return { ok: true, status, amountKobo: amount, currency: asStr(r.data.currency, 8) || "NGN", providerTxId: asStr(r.data.id) };
+    },
+    async cardFor(reference) {
+      const r = await call(`/transaction/verify/${encodeURIComponent(reference)}`);
+      if (!r.ok || asStr(r.data.status, 30) !== "success") return null;
+      const a = (r.data.authorization ?? {}) as Record<string, unknown>;
+      const c = (r.data.customer ?? {}) as Record<string, unknown>;
+      // Only a reusable card authorisation can be charged again; bank transfers and USSD cannot.
+      if (a.reusable !== true || asStr(a.channel, 30) !== "card" || !asStr(a.authorization_code)) return null;
+      return { token: asStr(a.authorization_code), customer: asStr(c.customer_code), last4: asStr(a.last4, 4), brand: asStr(a.brand || a.card_type, 30), expMonth: Number(a.exp_month) || 0, expYear: Number(a.exp_year) || 0, email: asStr(c.email, 200) };
+    },
+    async chargeCard(i) {
+      const r = await call("/transaction/charge_authorization", { method: "POST", body: { authorization_code: i.card.token, email: i.card.email, amount: Number(i.amountKobo), currency: i.currency, reference: i.reference, metadata: { automatic: "renewal" } } });
+      if (!r.ok && r.http !== 200) return { ok: false, permanent: r.http >= 400 && r.http < 500 && r.http !== 429 && r.http !== 408, error: `${r.http || "no answer"} ${r.message}`.trim().slice(0, 300) };
+      const st = asStr(r.data.status, 30);
+      const amount = toKobo(r.data.amount) ?? 0n;
+      const status = st === "success" ? "success" : st === "failed" || st === "reversed" || st === "abandoned" || !r.ok ? "failed" : "pending";
+      return { ok: true, status, amountKobo: amount, currency: asStr(r.data.currency, 8) || i.currency, providerTxId: asStr(r.data.id), message: asStr(r.data.gateway_response || r.message, 200) };
     },
     async refund(i) {
       const r = await call("/refund", { method: "POST", body: { transaction: i.reference, amount: Number(i.amountKobo), customer_note: i.reason.slice(0, 200), merchant_note: i.reason.slice(0, 200) } });
@@ -211,7 +239,9 @@ export function stripeProvider(secretKey: string, webhookSecret: string, fetchIm
       const r = await call("/checkout/sessions", { method: "POST", idempotencyKey: `init-${i.reference}`, form: {
         mode: "payment", customer_email: i.email, client_reference_id: i.reference, success_url: i.callbackUrl, cancel_url: i.callbackUrl,
         line_items: [{ quantity: 1, price_data: { currency: lower(i.currency), unit_amount: Number(i.amountKobo), product_data: { name: (i.description || "Housy invoice").slice(0, 200) } } }],
-        metadata: { reference: i.reference, ...(i.metadata ?? {}) }, payment_intent_data: { metadata: { reference: i.reference, ...(i.metadata ?? {}) } },
+        metadata: { reference: i.reference, ...(i.metadata ?? {}) },
+        payment_intent_data: { metadata: { reference: i.reference, ...(i.metadata ?? {}) }, ...(i.saveCard ? { setup_future_usage: "off_session" } : {}) },
+        ...(i.saveCard ? { customer_creation: "always" } : {}),
       } });
       const url = asStr(r.data.url, 1000);
       if (r.ok && url.startsWith("https://")) return { ok: true, checkoutUrl: url };
@@ -241,6 +271,30 @@ export function stripeProvider(secretKey: string, webhookSecret: string, fetchIm
       const st = asStr(intent.status, 30);
       const amount = toKobo(st === "succeeded" ? intent.amount_received : intent.amount) ?? 0n;
       return { ok: true, status: st === "succeeded" ? "success" : st === "canceled" ? "failed" : "pending", amountKobo: amount, currency: asStr(intent.currency, 8).toUpperCase(), providerTxId: asStr(intent.id) };
+    },
+    async cardFor(reference) {
+      const { r, intent } = await intentFor(call, reference);
+      if (!r.ok || !intent || asStr(intent.status, 30) !== "succeeded") return null;
+      const customer = asStr(intent.customer), pm = asStr(intent.payment_method);
+      // Kept only when the checkout asked to keep the card (a customer and a payment method set up for later use).
+      if (!customer || !pm || asStr(intent.setup_future_usage, 30) !== "off_session") return null;
+      const m = await call(`/payment_methods/${encodeURIComponent(pm)}`);
+      const card = (m.data.card ?? {}) as Record<string, unknown>;
+      if (!m.ok || !asStr(card.last4)) return null;
+      const billing = (m.data.billing_details ?? {}) as Record<string, unknown>;
+      return { token: pm, customer, last4: asStr(card.last4, 4), brand: asStr(card.brand, 30), expMonth: Number(card.exp_month) || 0, expYear: Number(card.exp_year) || 0, email: asStr(billing.email, 200) };
+    },
+    async chargeCard(i) {
+      const r = await call("/payment_intents", { method: "POST", idempotencyKey: `auto-${i.reference}`, form: {
+        amount: Number(i.amountKobo), currency: lower(i.currency), customer: i.card.customer, payment_method: i.card.token, off_session: true, confirm: true,
+        description: i.description.slice(0, 200), metadata: { reference: i.reference, automatic: "renewal" },
+      } });
+      const err = (r.data.error ?? {}) as Record<string, unknown>;
+      // A declined card, or one whose bank wants the customer to approve, is a failed attempt (the customer pays from the invoice).
+      if (!r.ok && r.http === 402) return { ok: true, status: "failed", amountKobo: 0n, currency: i.currency, providerTxId: asStr((err.payment_intent as Record<string, unknown> | undefined)?.id), message: asStr(err.decline_code || err.code || r.message, 200) };
+      if (!r.ok) return { ok: false, permanent: r.http >= 400 && r.http < 500 && r.http !== 429 && r.http !== 408, error: `${r.http || "no answer"} ${r.message}`.trim().slice(0, 300) };
+      const st = asStr(r.data.status, 30);
+      return { ok: true, status: st === "succeeded" ? "success" : st === "canceled" || st === "requires_payment_method" || st === "requires_action" ? "failed" : "pending", amountKobo: toKobo(r.data.amount_received ?? r.data.amount) ?? 0n, currency: asStr(r.data.currency, 8).toUpperCase(), providerTxId: asStr(r.data.id), message: st };
     },
     async refund(i) {
       const { intent } = await intentFor(call, i.reference);

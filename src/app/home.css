@@ -671,6 +671,8 @@ p.fm-bad { color: #c2410c; font-weight: 600; }
 .plan-features .no .plan-mark { background: var(--surface-2); color: #9AA3B2; }
 .plan-features s { text-decoration-thickness: 1.5px; text-decoration-color: #9AA3B2; }
 .plan-cta .btn, .plan-cta form .btn { width: 100%; justify-content: center; }
+.plan-cta form { display: grid; gap: 8px; }
+.plan-autorenew { font-size: 12.5px; font-weight: 400; color: var(--muted); grid-template-columns: auto 1fr; }
 .plan-top { border: 2px solid #E3A93F; background: linear-gradient(180deg, var(--surface), var(--surface) 40%); background: linear-gradient(180deg, color-mix(in srgb, #E3A93F 10%, var(--surface)), var(--surface) 40%); box-shadow: 0 22px 44px -26px rgba(242, 159, 5, .55); }
 .plan-current { outline: 2px dashed #E3A93F; outline: 2px dashed color-mix(in srgb, #E3A93F 70%, var(--line)); outline-offset: -6px; }
 .plan-flag { position: absolute; top: -12px; left: 16px; padding: 3px 10px; border-radius: 999px; background: #E3A93F; color: #1F2125; font-size: 12px; font-weight: 800; letter-spacing: .02em; }

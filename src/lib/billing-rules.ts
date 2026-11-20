@@ -33,7 +33,15 @@ export function renewalDue(o: { periodEnd: Date; graceDays: number; now: Date; c
 export const daysLeft = (periodEnd: Date, now: Date) => Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 864e5));
 
 /** The reminder sent at each stage, in plain words, for a plan renewal or the end of a free trial. */
-export function renewalMessage(o: { planName: string; stage: "NOTICE" | "LAST_DAY" | "OVERDUE"; trial: boolean; days: number; amount: string }): { title: string; body: string } {
+export function renewalMessage(o: { planName: string; stage: "NOTICE" | "LAST_DAY" | "OVERDUE"; trial: boolean; days: number; amount: string; card?: string; expiredCard?: boolean }): { title: string; body: string } {
+  // Renewing automatically: say which card is charged, how much and when, so nothing is a surprise.
+  if (!o.trial && o.card && o.stage !== "OVERDUE") {
+    const when = o.stage === "LAST_DAY" ? "today" : `in ${o.days} ${o.days === 1 ? "day" : "days"}`;
+    return { title: `Your ${o.planName} plan renews ${when}`, body: `We will charge ${o.amount} to your ${o.card}. To change this, turn off automatic renewal in Billing before then.` };
+  }
+  if (!o.trial && o.expiredCard && o.stage !== "OVERDUE") {
+    return { title: `Your ${o.planName} plan ends ${o.stage === "LAST_DAY" ? "today" : `in ${o.days} ${o.days === 1 ? "day" : "days"}`}`, body: `Your saved card will have expired, so it cannot renew automatically. Pay ${o.amount} from the invoice to continue without a break.` };
+  }
   if (o.trial) {
     if (o.stage === "OVERDUE") return { title: `Your free trial of ${o.planName} has ended`, body: `You can still see what you made during the trial. Choose ${o.planName} for ${o.amount} to switch everything back on.` };
     if (o.stage === "LAST_DAY") return { title: `Your free trial of ${o.planName} ends today`, body: `Choose ${o.planName} for ${o.amount} today to keep everything on without a break.` };

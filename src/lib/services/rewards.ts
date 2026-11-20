@@ -2,6 +2,7 @@ import { z } from "zod";
 
 /** A whole number that may arrive as text from a form. */
 const int = (min: number, max: number, minMessage?: string) => z.preprocess((v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v), z.number({ error: "Enter a whole number" }).int("Enter a whole number").min(min, minMessage).max(max));
+import { peopleMatching, searchText } from "../search-terms";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma, withPlatformAdmin, withUser, type Tx } from "../db";
 import { logActivity } from "../audit";
@@ -489,10 +490,13 @@ export async function myRewards(userId: string, page = 1, programme?: "REFERRAL"
 }
 
 /** The waiting lists an administrator works through. */
-export async function adminRewardQueue(adminId: string, status: RewardStatusName = "ELIGIBLE", page = 1) {
+export async function adminRewardQueue(adminId: string, status: RewardStatusName = "ELIGIBLE", page = 1, search = "") {
   await adminOnly(adminId);
+  const q = searchText(search);
   return withPlatformAdmin(adminId, async (tx) => {
-    const rows = await tx.reward.findMany({ where: { status }, orderBy: { createdAt: "asc" }, skip: (page - 1) * REWARD_PAGE, take: REWARD_PAGE + 1 });
+    const people = await peopleMatching(tx, q);
+    const match = q ? { OR: [{ ref: { contains: q, mode: "insensitive" as const } }, { reason: { contains: q, mode: "insensitive" as const } }, { sourceLabel: { contains: q, mode: "insensitive" as const } }, ...(people.length ? [{ userId: { in: people } }] : [])] } : {};
+    const rows = await tx.reward.findMany({ where: { status, ...match }, orderBy: { createdAt: "asc" }, skip: (page - 1) * REWARD_PAGE, take: REWARD_PAGE + 1 });
     const names = new Map((await tx.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
     const counts = await tx.reward.groupBy({ by: ["status"], _count: { _all: true } });
     return { items: rows.slice(0, REWARD_PAGE).map((r) => ({ ...r, userName: names.get(r.userId) ?? "Unknown" })), more: rows.length > REWARD_PAGE, counts: Object.fromEntries(counts.map((c) => [c.status, c._count._all])) };

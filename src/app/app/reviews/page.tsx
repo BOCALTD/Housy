@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import { requireMember } from "@/lib/auth";
 import { companyReviewDesk } from "@/lib/services/reviews";
 import { formatDate } from "@/lib/dates";
@@ -32,7 +33,7 @@ export default async function CompanyReviewsPage({ searchParams: searchP }: { se
       <section className="card stack">
         <h2>Reviews about you ({desk.reviews.length})</h2>
         {desk.reviews.length === 0 ? <p className="muted">No reviews yet.</p> : (
-          <ShowMore noun="more reviews" limit={4} items={desk.reviews.map((r) => (
+          <QuickFilter label="Search reviews about you" placeholder="Words, rating, client or status"><ShowMore noun="more reviews" limit={4} items={desk.reviews.map((r) => (
             <li key={r.id}><div className="stack" style={{ width: "100%" }}>
               <ReviewCard r={r} />
               {r.status === "HIDDEN" ? <Pill status="SUSPENDED" label="Hidden by the platform" /> : null}
@@ -41,7 +42,7 @@ export default async function CompanyReviewsPage({ searchParams: searchP }: { se
                 <form action={respondAction} className="stack"><input type="hidden" name="id" value={r.id} /><Field label="Your reply (public)"><textarea name="reply" rows={3} required maxLength={1500} /></Field><button className="btn" type="submit">Post reply</button></form></details> : null}
               {r.status === "PUBLISHED" && !r.dispute ? <details className="inline"><summary>Dispute this review</summary>
                 <form action={disputeAction} className="stack"><input type="hidden" name="id" value={r.id} /><Field label="What is untrue or against the rules?"><textarea name="reason" rows={3} required minLength={10} maxLength={1000} /></Field><button className="btn" type="submit">Send to the platform team</button></form></details> : null}
-            </div></li>))} />
+            </div></li>))} /></QuickFilter>
         )}
       </section>
 

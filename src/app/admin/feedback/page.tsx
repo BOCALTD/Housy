@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchBox } from "@/components/ListTools";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { feedbackSummary, listRatings, readFeedbackSettings } from "@/lib/services/feedback";
 import { formatDate } from "@/lib/dates";
@@ -15,8 +16,9 @@ export default async function AdminFeedbackPage({ searchParams: searchP }: { sea
   const admin = await requirePlatformAdmin();
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const status = sp(searchParams, "status") ?? "";
-  const [sum, list, settings] = await Promise.all([feedbackSummary(admin.id), listRatings(admin.id, { page, status, onlyComments: sp(searchParams, "comments") === "1" }), readFeedbackSettings()]);
-  const link = (p: number) => `/admin/feedback?page=${p}${status ? `&status=${status}` : ""}${sp(searchParams, "comments") === "1" ? "&comments=1" : ""}`;
+  const fq = (sp(searchParams, "q") ?? "").trim().slice(0, 120);
+  const [sum, list, settings] = await Promise.all([feedbackSummary(admin.id), listRatings(admin.id, { page, status, onlyComments: sp(searchParams, "comments") === "1", q: fq }), readFeedbackSettings()]);
+  const link = (p: number) => `/admin/feedback?page=${p}${status ? `&status=${status}` : ""}${sp(searchParams, "comments") === "1" ? "&comments=1" : ""}${fq ? `&q=${encodeURIComponent(fq)}` : ""}`;
   const show = (n: number | null) => (n == null ? "–" : n.toFixed(1));
   return (
     <div className="stack-lg">
@@ -48,6 +50,7 @@ export default async function AdminFeedbackPage({ searchParams: searchP }: { sea
 
       <section className="card stack">
         <div className="row between"><h2>Answers ({list.total})</h2><SaveDocument url="/admin/feedback/export" fallbackName="platform-ratings.csv" /></div>
+        <SearchBox path="/admin/feedback" q={fq} label="Search answers" placeholder="Words in a suggestion or note, or a named member" keep={{ status: status || undefined, comments: sp(searchParams, "comments") === "1" ? "1" : undefined }} />
         <nav className="row" aria-label="Filter">
           <Link className="btn small" href="/admin/feedback">All</Link>
           <Link className="btn small" href="/admin/feedback?status=NEW">New</Link>

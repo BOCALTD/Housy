@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchBox } from "@/components/ListTools";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { deliveryStats, failureList } from "@/lib/services/delivery";
 import { readAlertConfig } from "@/lib/services/alerts";
@@ -13,7 +14,9 @@ export default async function AdminNotificationsPage({ searchParams: searchP }: 
   const searchParams = await searchP;
   const admin = await requirePlatformAdmin();
   const page = Math.max(0, Number.parseInt(sp(searchParams, "page") ?? "0", 10) || 0);
-  const [s, fails, cfg] = await Promise.all([deliveryStats(admin.id, 7), failureList(admin.id, page), readAlertConfig()]);
+  const fq = (sp(searchParams, "q") ?? "").trim().slice(0, 120);
+  const [s, fails, cfg] = await Promise.all([deliveryStats(admin.id, 7), failureList(admin.id, page, fq), readAlertConfig()]);
+  const more = fq ? `&q=${encodeURIComponent(fq)}` : "";
   const pct = s.successRate == null ? "no sends yet" : `${Math.round(s.successRate * 100)}%`;
   return (
     <div className="stack-lg">
@@ -36,6 +39,7 @@ export default async function AdminNotificationsPage({ searchParams: searchP }: 
       </section>
       <section className="card stack">
         <h2>Failed or retrying ({fails.total})</h2>
+        <SearchBox path="/admin/notifications" q={fq} label="Search failed emails" placeholder="Email address, name, kind of email or error" />
         {fails.total === 0 ? <p className="muted">No failures.</p> : (
           <>
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -50,8 +54,8 @@ export default async function AdminNotificationsPage({ searchParams: searchP }: 
               </div></li>))} />
             {fails.pages > 1 ? (
               <div className="row between">
-                {fails.page > 0 ? <Link className="btn" href={`/admin/notifications?page=${fails.page - 1}`}>Previous</Link> : <span />}
-                {fails.page + 1 < fails.pages ? <Link className="btn" href={`/admin/notifications?page=${fails.page + 1}`}>Next</Link> : <span />}
+                {fails.page > 0 ? <Link className="btn" href={`/admin/notifications?page=${fails.page - 1}${more}`}>Previous</Link> : <span />}
+                {fails.page + 1 < fails.pages ? <Link className="btn" href={`/admin/notifications?page=${fails.page + 1}${more}`}>Next</Link> : <span />}
               </div>
             ) : null}
           </>

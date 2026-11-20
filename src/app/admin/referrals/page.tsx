@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchBox } from "@/components/ListTools";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { adminReferrals } from "@/lib/services/referrals";
 import { PROGRAMME_EVENTS, EVENT_LABELS } from "@/lib/services/rewards";
@@ -17,7 +18,9 @@ export default async function AdminReferralsPage({ searchParams: searchP }: { se
   const admin = await requirePlatformAdmin();
   const state = sp(searchParams, "show") === "all" ? "ALL" : "FLAGGED";
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);
-  const d = await adminReferrals(admin.id, state, page);
+  const rq = (sp(searchParams, "q") ?? "").trim().slice(0, 120);
+  const d = await adminReferrals(admin.id, state, page, rq);
+  const more = rq ? `&q=${encodeURIComponent(rq)}` : "";
   const total = Object.values(d.stats.byStatus).reduce((s, n) => s + n, 0);
   return (
     <div className="stack-lg">
@@ -30,6 +33,7 @@ export default async function AdminReferralsPage({ searchParams: searchP }: { se
         <div className="stat"><b>{d.stats.byReview.FLAGGED ?? 0}</b><span>To check</span></div>
       </section>
       <section className="card"><h2>{state === "FLAGGED" ? "To check" : "All referrals"}</h2>
+        <SearchBox path="/admin/referrals" q={rq} label="Search referrals" placeholder="Referral number, or who referred or joined" keep={{ show: state === "ALL" ? "all" : "flagged" }} />
         <div className="row"><Link className={`btn${state === "FLAGGED" ? " primary" : ""}`} href="/admin/referrals">To check</Link><Link className={`btn${state === "ALL" ? " primary" : ""}`} href="/admin/referrals?show=all">All</Link></div>
         {d.items.length === 0 ? <p className="muted">Nothing here.</p> : (
           <ul className="timeline">{d.items.map((a) => (
@@ -42,7 +46,7 @@ export default async function AdminReferralsPage({ searchParams: searchP }: { se
               {a.status === "REGISTERED" ? <details className="inline"><summary>Record a custom event</summary><form action={customEventAction} className="row"><input type="hidden" name="attributionId" value={a.id} /><input name="note" required minLength={5} placeholder="What happened" aria-label="What happened" /><button className="btn" type="submit">Record</button></form></details> : null}
             </li>))}</ul>
         )}
-        <div className="row">{page > 1 ? <Link className="btn" href={`/admin/referrals?show=${state === "ALL" ? "all" : "flagged"}&page=${page - 1}`}>Previous</Link> : null}{d.more ? <Link className="btn" href={`/admin/referrals?show=${state === "ALL" ? "all" : "flagged"}&page=${page + 1}`}>Next</Link> : null}</div>
+        <div className="row">{page > 1 ? <Link className="btn" href={`/admin/referrals?show=${state === "ALL" ? "all" : "flagged"}&page=${page - 1}${more}`}>Previous</Link> : null}{d.more ? <Link className="btn" href={`/admin/referrals?show=${state === "ALL" ? "all" : "flagged"}&page=${page + 1}${more}`}>Next</Link> : null}</div>
       </section>
       <section className="card"><h2>Campaigns</h2>
         {d.campaigns.length === 0 ? <p className="muted">No campaigns yet. Create one, then set its reward on the rewards page.</p> : (

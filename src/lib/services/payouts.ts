@@ -12,6 +12,7 @@
  *  - BANK: the approver pays from the company's bank and records the bank's reference here.
  * Every step is kept (contractor_payout_events), and each paid payout appears in the accounting export.
  */
+import { searchText } from "../search-terms";
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { withPlatformAdmin, withTenant, type Tx } from "../db";
@@ -392,11 +393,13 @@ export async function cancelPayout(ctx: Ctx, id: string) {
 
 // ---------- Reading ----------
 
-export async function payouts(ctx: Ctx) {
+export async function payouts(ctx: Ctx, search = "") {
   assertCan(ctx, "payout.request");
+  const q = searchText(search);
+  const match = q ? { OR: [{ ref: { contains: q, mode: "insensitive" as const } }, { reason: { contains: q, mode: "insensitive" as const } }, { contractor: { name: { contains: q, mode: "insensitive" as const } } }, { bankReference: { contains: q, mode: "insensitive" as const } }] } : {};
   return withTenant(ctx.companyId, ctx.userId, async (tx) => {
     const [rows, contractors, workOrders] = await Promise.all([
-      tx.contractorPayout.findMany({ where: { companyId: ctx.companyId }, orderBy: { createdAt: "desc" }, take: 300, include: { contractor: { select: { name: true } }, events: { orderBy: { createdAt: "asc" }, take: 20 } } }),
+      tx.contractorPayout.findMany({ where: { companyId: ctx.companyId, ...match }, orderBy: { createdAt: "desc" }, take: 300, include: { contractor: { select: { name: true } }, events: { orderBy: { createdAt: "asc" }, take: 20 } } }),
       tx.contractor.findMany({ where: { companyId: ctx.companyId }, orderBy: { name: "asc" }, select: { id: true, name: true, active: true, email: true, bankName: true, accountNumber: true, accountName: true, paystackRecipient: true, stripeAccountId: true, stripeReady: true } }),
       tx.workOrder.findMany({ where: { companyId: ctx.companyId, status: { notIn: ["CANCELLED"] } }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, ref: true, title: true, contractorId: true, actualCostKobo: true, approvedCostKobo: true } }),
     ]);

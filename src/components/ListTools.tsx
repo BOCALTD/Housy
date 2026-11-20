@@ -54,3 +54,24 @@ export function SortTh({ path, params, sort, k, children, dir = "asc", className
     </th>
   );
 }
+
+/**
+ * A search box for a list that is searched on the server (long, paged lists): keeps the filters named in `keep`, starts again at
+ * the first page, and offers "Clear search" while a search is on.
+ */
+export function SearchBox({ path, q, label, placeholder, keep = {} }: { path: string; q: string; label: string; placeholder: string; keep?: Record<string, string | undefined> }) {
+  const kept = Object.entries(keep).filter((e): e is [string, string] => !!e[1]);
+  const clear = kept.length ? `${path}?${new URLSearchParams(kept).toString()}` : path;
+  return (
+    <form className="list-tools" role="search" action={path} aria-label={label}>
+      {kept.map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+      <label className="list-tools-search">
+        <span className="sr-only">{label}</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        <input type="search" name="q" defaultValue={q} placeholder={placeholder} enterKeyHint="search" maxLength={120} />
+      </label>
+      <button className="btn" type="submit">Search</button>
+      {q ? <Link className="btn list-tools-clear" href={clear}>Clear search</Link> : null}
+    </form>
+  );
+}

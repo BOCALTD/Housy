@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QuickFilter } from "@/components/QuickFilter";
 import { allPlans, buyablePlans, myInvoices, payerRegion, readBankInstructions, type Payer } from "@/lib/services/billing";
 import { PlanCompare } from "@/components/PlanCompare";
 import { companySubscription, mySubscription } from "@/lib/services/subscriptions";
@@ -75,9 +76,9 @@ export async function BillingPanel({ payer, from }: { payer: Payer; from: "me" |
       <section className="stack">
         <h2>Invoices</h2>
         {invoices.length === 0 ? <p className="muted">Nothing has been billed yet.</p> : (
-          <ShowMore limit={5} noun="older invoices" items={invoices.map((i) => (
+<QuickFilter label="Search invoices" placeholder="Invoice number, plan or status"><ShowMore limit={5} noun="older invoices" items={invoices.map((i) => (
             <li key={i.id}><div className="row between"><div><Link href={`${base}/${i.id}`}><strong>{i.ref}</strong></Link> <span className="small muted">{i.description} · {formatKobo(i.amountKobo, i.currency)} · {formatDate(i.createdAt)}</span></div><Pill status={invTone(i.status)} label={humanize(i.status)} /></div></li>
-          ))} />
+          ))} /></QuickFilter>
         )}
       </section>
     </div>

@@ -1,3 +1,4 @@
+import { QuickFilter } from "@/components/QuickFilter";
 import { moneySymbol } from "@/lib/money";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
@@ -25,7 +26,7 @@ export default async function SchedulesPage({ searchParams: searchP }: { searchP
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       <section className="card">
         {schedules.length === 0 ? <p className="muted">No recurring jobs yet.</p> : (
-          <ShowMore noun="more" limit={5} items={schedules.map((s) => (
+          <QuickFilter label="Search recurring jobs" placeholder="Job, property, contractor or officer"><ShowMore noun="more" limit={5} items={schedules.map((s) => (
               <li key={s.id}>
                 <div className="row between" style={{ width: "100%" }}>
                   <div>
@@ -38,7 +39,7 @@ export default async function SchedulesPage({ searchParams: searchP }: { searchP
                   </div>
                 </div>
               </li>
-            ))} />
+            ))} /></QuickFilter>
         )}
       </section>
       {manage ? (

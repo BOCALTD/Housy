@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QuickFilter } from "@/components/QuickFilter";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { adminPayouts, readRewardSettings } from "@/lib/services/rewards";
 import { formatKobo } from "@/lib/money";
@@ -21,8 +22,8 @@ export default async function PayoutsPage({ searchParams: searchP }: { searchPar
       <section className="card"><h2>Owed</h2>
         <p className="small muted">Payable balances of at least {formatKobo(BigInt(settings.payoutThresholdKobo))}. The safety period has passed and the source has been checked again.</p>
         {owed.length === 0 ? <p className="muted">Nothing is waiting to be paid.</p> : (
-          <ShowMore noun="more people" limit={5} items={owed.map((o) => <li key={o.userId}><div className="row between"><span><strong>{o.name}</strong> <span className="small muted">{formatKobo(o.kobo)}</span></span>
-            <form action={createPayoutAction} className="row"><input type="hidden" name="userId" value={o.userId} /><button className="btn" type="submit">Create payout</button></form></div></li>)} />
+          <QuickFilter label="Search people owed" placeholder="Name"><ShowMore noun="more people" limit={5} items={owed.map((o) => <li key={o.userId}><div className="row between"><span><strong>{o.name}</strong> <span className="small muted">{formatKobo(o.kobo)}</span></span>
+            <form action={createPayoutAction} className="row"><input type="hidden" name="userId" value={o.userId} /><button className="btn" type="submit">Create payout</button></form></div></li>)} /></QuickFilter>
         )}
       </section>
       <section className="card"><h2>Waiting for verification ({pending.length})</h2>
@@ -38,7 +39,7 @@ export default async function PayoutsPage({ searchParams: searchP }: { searchPar
       </section>
       <section className="card"><h2>History</h2>
         {payouts.filter((p) => p.status !== "PENDING").length === 0 ? <p className="muted">No payouts yet.</p> : (
-          <ShowMore noun="more payouts" limit={6} items={payouts.filter((p) => p.status !== "PENDING").map((p) => <li key={p.id}><div className="row between"><span><strong>{p.userName}</strong> <span className="small muted">{p.ref} · {formatKobo(p.amountKobo)} · {formatDate(p.createdAt)}</span></span><Pill status={p.status} /></div><div className="small muted">{p.status === "PAID" ? `Reference ${p.reference}` : p.failureReason}</div></li>)} />
+          <QuickFilter label="Search payouts" placeholder="Person, reference or status"><ShowMore noun="more payouts" limit={6} items={payouts.filter((p) => p.status !== "PENDING").map((p) => <li key={p.id}><div className="row between"><span><strong>{p.userName}</strong> <span className="small muted">{p.ref} · {formatKobo(p.amountKobo)} · {formatDate(p.createdAt)}</span></span><Pill status={p.status} /></div><div className="small muted">{p.status === "PAID" ? `Reference ${p.reference}` : p.failureReason}</div></li>)} /></QuickFilter>
         )}
       </section>
     </div>

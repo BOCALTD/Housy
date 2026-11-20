@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QuickFilter } from "@/components/QuickFilter";
 import { requireUser } from "@/lib/auth";
 import { myReviews, reviewableConversations } from "@/lib/services/reviews";
 import { BASIS_LABEL } from "@/lib/reputation-rules";
@@ -27,7 +28,7 @@ export default async function MyReviewsPage({ searchParams: searchP }: { searchP
       <section className="card stack">
         <h2>Written by you ({mine.length})</h2>
         {mine.length === 0 ? <p className="muted">Nothing yet.</p> : (
-          <ShowMore noun="more reviews" limit={4} items={mine.map((r) => (
+          <QuickFilter label="Search your reviews" placeholder="Words, rating, status or reference"><ShowMore noun="more reviews" limit={4} items={mine.map((r) => (
             <li key={r.id}><div className="stack" style={{ width: "100%", gap: 6 }}>
               <div className="row between"><div><strong>{r.overall} out of 5</strong> <span className="small muted">{BASIS_LABEL[r.basis]} · {formatDate(r.createdAt)} · <span className="mono">{r.ref}</span></span></div><Pill status={r.status === "PUBLISHED" ? "ACTIVE" : r.status === "HELD" ? "PENDING" : "SUSPENDED"} label={r.status === "HELD" ? "Being checked" : humanize(r.status)} /></div>
               {r.body ? <p style={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{r.body}</p> : null}
@@ -36,7 +37,7 @@ export default async function MyReviewsPage({ searchParams: searchP }: { searchP
                 <details className="inline"><summary>Appeal this decision</summary>
                   <form action={appealReviewAction} className="stack"><input type="hidden" name="id" value={r.id} /><Field label="Why should it be restored?"><textarea name="reason" rows={3} required minLength={10} /></Field><button className="btn" type="submit">Send appeal</button></form></details>
               ) : null}
-            </div></li>))} />
+            </div></li>))} /></QuickFilter>
         )}
       </section>
     </div>

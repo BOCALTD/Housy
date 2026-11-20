@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchBox } from "@/components/ListTools";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { adminDisputes, adminRewardQueue, allPolicies, budgets, EVENT_LABELS, PROGRAMME_EVENTS, readRewardSettings, reconcile } from "@/lib/services/rewards";
 import { listCampaigns } from "@/lib/services/referrals";
@@ -18,7 +19,8 @@ export default async function AdminRewardsPage({ searchParams: searchP }: { sear
   const admin = await requirePlatformAdmin();
   const status = (REWARD_STATUSES as readonly string[]).includes(sp(searchParams, "status") ?? "") ? (sp(searchParams, "status") as (typeof REWARD_STATUSES)[number]) : "ELIGIBLE";
   const page = Math.max(1, Number(sp(searchParams, "page") ?? 1) || 1);
-  const [q, policies, bud, disputes, rec, settings, campaigns] = await Promise.all([adminRewardQueue(admin.id, status, page), allPolicies(admin.id), budgets(admin.id), adminDisputes(admin.id), reconcile(admin.id), readRewardSettings(), listCampaigns(admin.id)]);
+  const rq = (sp(searchParams, "q") ?? "").trim().slice(0, 120);
+  const [q, policies, bud, disputes, rec, settings, campaigns] = await Promise.all([adminRewardQueue(admin.id, status, page, rq), allPolicies(admin.id), budgets(admin.id), adminDisputes(admin.id), reconcile(admin.id), readRewardSettings(), listCampaigns(admin.id)]);
   const month = monthKey(new Date());
   const active = policies.filter((p) => p.active);
   const history = policies.filter((p) => !p.active);
@@ -34,7 +36,8 @@ export default async function AdminRewardsPage({ searchParams: searchP }: { sear
       </section>
 
       <section className="card"><div className="row between"><h2>Queue</h2><SaveDocument url="/admin/rewards/export" fallbackName="reward-ledger.csv" /></div>
-        <div className="row" role="tablist" aria-label="Status">{["ELIGIBLE", "UNDER_REVIEW", "APPROVED", "PAYABLE", "PAID", "REJECTED", "NOT_ELIGIBLE", "CANCELLED", "DISPUTED"].map((s) => <Link key={s} className={`btn${s === status ? " primary" : ""}`} href={`/admin/rewards?status=${s}`}>{humanize(s)} ({q.counts[s] ?? 0})</Link>)}</div>
+        <div className="row" role="tablist" aria-label="Status">{["ELIGIBLE", "UNDER_REVIEW", "APPROVED", "PAYABLE", "PAID", "REJECTED", "NOT_ELIGIBLE", "CANCELLED", "DISPUTED"].map((s) => <Link key={s} className={`btn${s === status ? " primary" : ""}`} href={`/admin/rewards?status=${s}${rq ? `&q=${encodeURIComponent(rq)}` : ""}`}>{humanize(s)} ({q.counts[s] ?? 0})</Link>)}</div>
+        <SearchBox path="/admin/rewards" q={rq} label="Search rewards" placeholder="Reward number, person, reason or what earned it" keep={{ status }} />
         {q.items.length === 0 ? <p className="muted">Nothing here.</p> : (
           <ul className="timeline">{q.items.map((r) => (
             <li key={r.id}><div className="row between"><span><strong>{r.userName}</strong> <span className="small muted">{r.ref} · {humanize(r.event)} · {formatKobo(r.amountKobo)}{r.policyVersion ? ` · terms v${r.policyVersion}` : ""}</span></span><Pill status={r.status} /></div>
@@ -49,7 +52,7 @@ export default async function AdminRewardsPage({ searchParams: searchP }: { sear
               </div>
             </li>))}</ul>
         )}
-        <div className="row">{page > 1 ? <Link className="btn" href={`/admin/rewards?status=${status}&page=${page - 1}`}>Previous</Link> : null}{q.more ? <Link className="btn" href={`/admin/rewards?status=${status}&page=${page + 1}`}>Next</Link> : null}</div>
+        <div className="row">{page > 1 ? <Link className="btn" href={`/admin/rewards?status=${status}&page=${page - 1}${rq ? `&q=${encodeURIComponent(rq)}` : ""}`}>Previous</Link> : null}{q.more ? <Link className="btn" href={`/admin/rewards?status=${status}&page=${page + 1}${rq ? `&q=${encodeURIComponent(rq)}` : ""}`}>Next</Link> : null}</div>
       </section>
 
       <section className="card"><h2>Disputes</h2>

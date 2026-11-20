@@ -1,4 +1,5 @@
 import { randomInt } from "node:crypto";
+import { peopleMatching, searchText } from "../search-terms";
 import { z } from "zod";
 
 /** A whole number that may arrive as text from a form. */
@@ -224,10 +225,15 @@ export async function myReferrals(userId: string, page = 1) {
   });
 }
 
-export async function adminReferrals(adminId: string, state: "FLAGGED" | "ALL" = "FLAGGED", page = 1) {
+export async function adminReferrals(adminId: string, state: "FLAGGED" | "ALL" = "FLAGGED", page = 1, search = "") {
   await adminOnly(adminId);
+  const q = searchText(search);
   return withPlatformAdmin(adminId, async (tx) => {
-    const where = state === "FLAGGED" ? { reviewState: "FLAGGED" as const } : {};
+    const people = await peopleMatching(tx, q);
+    const where = {
+      ...(state === "FLAGGED" ? { reviewState: "FLAGGED" as const } : {}),
+      ...(q ? { OR: [{ ref: { contains: q, mode: "insensitive" as const } }, { referredName: { contains: q, mode: "insensitive" as const } }, ...(people.length ? [{ referrerId: { in: people } }, { referredUserId: { in: people } }] : [])] } : {}),
+    };
     const rows = await tx.referralAttribution.findMany({ where, orderBy: { registeredAt: "desc" }, skip: (page - 1) * REFERRAL_PAGE, take: REFERRAL_PAGE + 1 });
     const users = await tx.user.findMany({ where: { id: { in: rows.flatMap((r) => [r.referrerId, r.referredUserId]) } }, select: { id: true, name: true, email: true } });
     const u = new Map(users.map((x) => [x.id, x]));

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchBox } from "@/components/ListTools";
 import { requireMember } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime, toDateOnlyString, todayInLagos } from "@/lib/dates";
@@ -24,7 +25,8 @@ export default async function PayoutsPage({ searchParams: spP }: { searchParams?
   const approve = can(m.role, "payout.approve"), manage = can(m.role, "settings.manage");
   // People who can approve and send money confirm it is them before seeing this page.
   if (approve) await requireMember("payout.approve");
-  const [s, data, origin] = await Promise.all([payoutSettings(m), payouts(m), siteOrigin()]);
+  const pq = (sp(searchParams, "q") ?? "").trim().slice(0, 120);
+  const [s, data, origin] = await Promise.all([payoutSettings(m), payouts(m, pq), siteOrigin()]);
   const banks = s.paystack && approve ? await payoutBanks(m) : [];
   const link = sp(searchParams, "link");
   const waiting = data.rows.filter((r) => r.status === "REQUESTED");
@@ -67,6 +69,9 @@ export default async function PayoutsPage({ searchParams: spP }: { searchParams?
           <div className="row"><CopyButton text={link} label="Copy the link" /></div>
         </div>
       ) : null}
+
+      {data.rows.length || pq ? <SearchBox path="/app/payouts" q={pq} label="Search payments to contractors" placeholder="Payment number, contractor, reason or bank reference" /> : null}
+      {pq && !data.rows.length ? <p className="muted" role="status">No payment matches &ldquo;{pq}&rdquo;.</p> : null}
 
       {waiting.length ? (
         <section className="card stack" aria-labelledby="wait-h">

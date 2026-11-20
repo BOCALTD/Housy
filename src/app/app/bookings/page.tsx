@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QuickFilter } from "@/components/QuickFilter";
 import { requireMember } from "@/lib/auth";
 import { companyBookings } from "@/lib/services/inspection-bookings";
 import { BOOKING_LABEL, isOpen, type BookingStatus } from "@/lib/booking-rules";
@@ -35,7 +36,7 @@ export default async function BookingsPage({ searchParams }: { searchParams?: Pr
       </div>
       <Flash searchParams={{ error: sp(s, "error"), notice: sp(s, "notice") }} />
       <section className="card stack"><h2>Waiting for a time ({waiting.length})</h2>
-        {waiting.length ? <ShowMore limit={6} noun="more requests" items={waiting.map((r) => <li key={r.id}>{row(r)}</li>)} /> : <p className="muted">No new requests.</p>}
+        {waiting.length ? <QuickFilter label="Search booking requests" placeholder="Name, phone, property or date"><ShowMore limit={6} noun="more requests" items={waiting.map((r) => <li key={r.id}>{row(r)}</li>)} /></QuickFilter> : <p className="muted">No new requests.</p>}
       </section>
       <section className="card stack"><h2>Calendar</h2>
         {days.length === 0 ? <p className="muted">Nothing confirmed yet.</p> : days.slice(0, 14).map((d) => (
@@ -43,7 +44,7 @@ export default async function BookingsPage({ searchParams }: { searchParams?: Pr
         ))}
         {days.length > 14 ? <p className="small muted">Showing the next 14 days with inspections.</p> : null}
       </section>
-      {done.length ? <details className="card inline"><summary>Completed and cancelled in the last 30 days ({done.length})</summary><ShowMore limit={8} noun="more" items={done.map((r) => <li key={r.id}>{row(r)}</li>)} /></details> : null}
+      {done.length ? <details className="card inline"><summary>Completed and cancelled in the last 30 days ({done.length})</summary><QuickFilter label="Search completed and cancelled bookings" placeholder="Name, phone, property or date"><ShowMore limit={8} noun="more" items={done.map((r) => <li key={r.id}>{row(r)}</li>)} /></QuickFilter></details> : null}
       <section className="card stack" id="calendar"><h2>Inspections you are meeting, in your calendar</h2><CalendarFeed since={feed ? formatDate(feed.createdAt) : null} /></section>
     </div>
   );

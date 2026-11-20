@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { peopleMatching, searchText } from "../search-terms";
 import { prisma, withPlatformAdmin, withUser } from "../db";
 import { logActivity } from "../audit";
 import { toCsv } from "../csv";
@@ -85,11 +86,17 @@ export async function feedbackSummary(adminId: string) {
   });
 }
 
-export async function listRatings(adminId: string, o: { page?: number; status?: string; onlyComments?: boolean } = {}) {
+export async function listRatings(adminId: string, o: { page?: number; status?: string; onlyComments?: boolean; q?: string } = {}) {
   await admin(adminId);
   const page = Math.max(0, o.page ?? 0);
+  const q = searchText(o.q);
   return withPlatformAdmin(adminId, async (tx) => {
-    const where = { ...(o.status && ["NEW", "REVIEWED", "ACTIONED"].includes(o.status) ? { status: o.status as "NEW" } : {}), ...(o.onlyComments ? { suggestion: { not: "" } } : {}) };
+    // A name search only ever matches answers given with a name, so searching cannot reveal who wrote an anonymous one.
+    const people = await peopleMatching(tx, q);
+    const where = {
+      ...(o.status && ["NEW", "REVIEWED", "ACTIONED"].includes(o.status) ? { status: o.status as "NEW" } : {}), ...(o.onlyComments ? { suggestion: { not: "" } } : {}),
+      ...(q ? { OR: [{ suggestion: { contains: q, mode: "insensitive" as const } }, { adminNote: { contains: q, mode: "insensitive" as const } }, ...(people.length ? [{ anonymous: false, userId: { in: people } }] : [])] } : {}),
+    };
     const [total, rows] = await Promise.all([
       tx.platformRating.count({ where }),
       tx.platformRating.findMany({ where, orderBy: { createdAt: "desc" }, skip: page * FEEDBACK_PAGE, take: FEEDBACK_PAGE }),

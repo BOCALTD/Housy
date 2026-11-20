@@ -1,4 +1,5 @@
 import { applyPromo, normaliseCode, promoProblem } from "../promo-rules";
+import { searchText } from "../search-terms";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma, withTenant, type Tx } from "../db";
@@ -588,9 +589,13 @@ export async function paymentStatusFor(p: Payer, paymentRef: string) {
 }
 
 export const PAGE = 20;
-export async function adminInvoices(adminId: string, o: { status?: string; page?: number } = {}) {
+export async function adminInvoices(adminId: string, o: { status?: string; page?: number; q?: string } = {}) {
   await assertAdmin(adminId);
-  const where: Prisma.InvoiceWhereInput = o.status === "OPEN" || o.status === "PAID" || o.status === "VOID" ? { status: o.status } : {};
+  const q = searchText(o.q);
+  const where: Prisma.InvoiceWhereInput = {
+    ...(o.status === "OPEN" || o.status === "PAID" || o.status === "VOID" ? { status: o.status } : {}),
+    ...(q ? { OR: [{ ref: { contains: q, mode: "insensitive" } }, { ownerName: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }] } : {}),
+  };
   const page = Math.max(0, o.page ?? 0);
   return system(async (tx) => {
     const [rows, total] = await Promise.all([
@@ -601,9 +606,13 @@ export async function adminInvoices(adminId: string, o: { status?: string; page?
   });
 }
 
-export async function adminPayments(adminId: string, o: { status?: string; page?: number } = {}) {
+export async function adminPayments(adminId: string, o: { status?: string; page?: number; q?: string } = {}) {
   await assertAdmin(adminId);
-  const where: Prisma.PaymentWhereInput = o.status === "PENDING" || o.status === "SUCCEEDED" || o.status === "FAILED" || o.status === "REVIEW" ? { status: o.status } : {};
+  const q = searchText(o.q);
+  const where: Prisma.PaymentWhereInput = {
+    ...(o.status === "PENDING" || o.status === "SUCCEEDED" || o.status === "FAILED" || o.status === "REVIEW" ? { status: o.status } : {}),
+    ...(q ? { OR: [{ ref: { contains: q, mode: "insensitive" } }, { providerRef: { contains: q, mode: "insensitive" } }, { invoice: { ref: { contains: q, mode: "insensitive" } } }, { invoice: { ownerName: { contains: q, mode: "insensitive" } } }] } : {}),
+  };
   const page = Math.max(0, o.page ?? 0);
   return system(async (tx) => {
     const [rows, total, review] = await Promise.all([
@@ -615,12 +624,14 @@ export async function adminPayments(adminId: string, o: { status?: string; page?
   });
 }
 
-export async function adminEvents(adminId: string, page = 0) {
+export async function adminEvents(adminId: string, page = 0, search = "") {
   await assertAdmin(adminId);
+  const q = searchText(search);
+  const where: Prisma.PaymentEventWhereInput = q ? { OR: [{ reference: { contains: q, mode: "insensitive" } }, { eventId: { contains: q, mode: "insensitive" } }, { kind: { contains: q, mode: "insensitive" } }, { note: { contains: q, mode: "insensitive" } }] } : {};
   return system(async (tx) => {
     const [rows, total] = await Promise.all([
-      tx.paymentEvent.findMany({ orderBy: { receivedAt: "desc" }, skip: Math.max(0, page) * PAGE, take: PAGE }),
-      tx.paymentEvent.count(),
+      tx.paymentEvent.findMany({ where, orderBy: { receivedAt: "desc" }, skip: Math.max(0, page) * PAGE, take: PAGE }),
+      tx.paymentEvent.count({ where }),
     ]);
     return { rows, total, page };
   });

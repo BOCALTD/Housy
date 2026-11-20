@@ -1,4 +1,5 @@
 import { loadRuntimeEnv } from "../runtime-env";
+import { peopleMatching, searchText } from "../search-terms";
 import { COUNTRIES, isCountry } from "../regions";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -196,10 +197,12 @@ export async function retryEmails(adminId: string, which: "DEAD" | "FAILED" | st
 }
 
 export const FAILURE_PAGE = 10;
-export async function failureList(adminId: string, page = 0) {
+export async function failureList(adminId: string, page = 0, search = "") {
   await adminOnly(adminId);
-  const where = { OR: [{ status: "DEAD" as const }, { status: "FAILED" as const }] };
+  const q = searchText(search);
   return system(async (tx) => {
+    const people = await peopleMatching(tx, q);
+    const where = { status: { in: ["DEAD" as const, "FAILED" as const] }, ...(q ? { OR: [{ kind: { contains: q, mode: "insensitive" as const } }, { template: { contains: q, mode: "insensitive" as const } }, { lastError: { contains: q, mode: "insensitive" as const } }, ...(people.length ? [{ userId: { in: people } }] : [])] } : {}) };
     const [total, rows] = await Promise.all([tx.emailOutbox.count({ where }), tx.emailOutbox.findMany({ where, orderBy: { createdAt: "desc" }, skip: Math.max(0, page) * FAILURE_PAGE, take: FAILURE_PAGE })]);
     const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, email: true } });
     return { total, page, pages: Math.max(1, Math.ceil(total / FAILURE_PAGE)), rows: rows.map((r) => ({ ...r, email: users.find((u) => u.id === r.userId)?.email ?? "" })) };

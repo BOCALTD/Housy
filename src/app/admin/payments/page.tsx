@@ -8,6 +8,7 @@ import { formatKobo, moneySymbol } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { Field, Flash, Pill, sp, type SP } from "@/components/ui";
+import { SearchBox } from "@/components/ListTools";
 import { acceptReviewAction, bankAction, cancelRefundAction, confirmRefundAction, recordOfflineAction, refundAction, voidInvoiceAction } from "./actions";
 
 export const metadata = { title: "Payments" };
@@ -24,16 +25,19 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
   const page = Math.max(0, Number(sp(searchParams, "page") ?? 0) || 0);
   const provider = await activePaymentProvider();
   const [pending, bank] = await Promise.all([pendingRefunds(admin.id), readBankInstructions()]);
-  const link = (v: View, p = 0) => `/admin/payments?view=${v}&page=${p}`;
+  const status = sp(searchParams, "status") ?? "";
+  const q = (sp(searchParams, "q") ?? "").trim().slice(0, 120);
+  // Paging keeps the chosen status and the search (it used to drop them and fall back to every record).
+  const link = (v: View, p = 0) => `/admin/payments?${new URLSearchParams({ view: v, page: String(p), ...(status ? { status } : {}), ...(q ? { q } : {}) }).toString()}`;
   const pager = (total: number) => (
     <div className="row between">
       {page > 0 ? <Link className="btn" href={link(view, page - 1)}>Previous</Link> : <span />}
       {(page + 1) * 20 < total ? <Link className="btn" href={link(view, page + 1)}>Next</Link> : <span />}
     </div>
   );
-  const invs = view === "invoices" ? await adminInvoices(admin.id, { status: sp(searchParams, "status"), page }) : null;
-  const pays = view === "payments" || view === "review" ? await adminPayments(admin.id, { status: view === "review" ? "REVIEW" : sp(searchParams, "status"), page }) : null;
-  const events = view === "events" ? await adminEvents(admin.id, page) : null;
+  const invs = view === "invoices" ? await adminInvoices(admin.id, { status, page, q }) : null;
+  const pays = view === "payments" || view === "review" ? await adminPayments(admin.id, { status: view === "review" ? "REVIEW" : status, page, q: view === "review" ? "" : q }) : null;
+  const events = view === "events" ? await adminEvents(admin.id, page, q) : null;
   const reviewCount = pays ? pays.review : (await adminPayments(admin.id, { status: "REVIEW" })).review;
 
   const refundForm = (p: NonNullable<typeof pays>["rows"][number]) => {
@@ -101,7 +105,9 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
 
       {view === "invoices" && invs ? (
         <section className="stack"><h2>Invoices</h2>
-          <div className="row">{["", "OPEN", "PAID", "VOID"].map((s) => <Link key={s} className="btn" href={`/admin/payments?view=invoices&status=${s}`}>{s ? humanize(s) : "All"}</Link>)}</div>
+          <div className="row" style={{ flexWrap: "wrap" }}>{["", "OPEN", "PAID", "VOID"].map((s) => <Link key={s} className={`btn${status === s ? " primary" : ""}`} aria-current={status === s ? "true" : undefined} href={`/admin/payments?view=invoices&status=${s}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>{s ? humanize(s) : "All"}</Link>)}</div>
+          <SearchBox path="/admin/payments" q={q} label="Search invoices" placeholder="Invoice number, who it is for, or what it is for" keep={{ view: "invoices", status }} />
+          {q ? <p className="small muted" role="status">{invs.total} {invs.total === 1 ? "invoice matches" : "invoices match"} &ldquo;{q}&rdquo;.</p> : null}
           {invs.rows.length === 0 ? <p className="muted">No invoices.</p> : invs.rows.map((i) => (
             <div key={i.id} className="card stack">
               <div className="row between"><div><strong>{i.ref}</strong> <span className="small muted">{i.ownerName} · {formatKobo(i.amountKobo, i.currency)} · {formatDate(i.createdAt)}</span><div className="small">{i.description}</div></div><Pill status={i.status === "PAID" ? "ACTIVE" : i.status === "OPEN" ? "PENDING" : "SUSPENDED"} label={humanize(i.status)} /></div>
@@ -127,7 +133,9 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
 
       {view === "payments" && pays ? (
         <section className="stack"><h2>Payments</h2>
-          <div className="row">{["", "PENDING", "SUCCEEDED", "FAILED", "REVIEW"].map((s) => <Link key={s} className="btn" href={`/admin/payments?view=payments&status=${s}`}>{s ? humanize(s) : "All"}</Link>)}</div>
+          <div className="row" style={{ flexWrap: "wrap" }}>{["", "PENDING", "SUCCEEDED", "FAILED", "REVIEW"].map((s) => <Link key={s} className={`btn${status === s ? " primary" : ""}`} aria-current={status === s ? "true" : undefined} href={`/admin/payments?view=payments&status=${s}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>{s ? humanize(s) : "All"}</Link>)}</div>
+          <SearchBox path="/admin/payments" q={q} label="Search payments" placeholder="Payment or invoice number, provider reference, or payer" keep={{ view: "payments", status }} />
+          {q ? <p className="small muted" role="status">{pays.total} {pays.total === 1 ? "payment matches" : "payments match"} &ldquo;{q}&rdquo;.</p> : null}
           {pays.rows.length === 0 ? <p className="muted">No payments.</p> : pays.rows.map((p) => (
             <div key={p.id} className="card stack">
               <div className="row between"><div><strong>{p.ref}</strong> <span className="small muted">{p.invoice.ref} · {formatKobo(p.amountKobo, p.invoice.currency)} · {humanize(p.provider)} · {formatDate(p.createdAt)}{p.refundedKobo > 0n ? ` · ${formatKobo(p.refundedKobo)} refunded` : ""}</span>{p.failureReason ? <div className="small">{p.failureReason}</div> : null}</div><Pill status={payTone(p.status)} label={p.status === "REVIEW" ? "Being checked" : humanize(p.status)} /></div>
@@ -141,6 +149,7 @@ export default async function AdminPaymentsPage({ searchParams: searchP }: { sea
       {view === "events" && events ? (
         <section className="stack"><h2>Provider messages</h2>
           <p className="small muted">Every signed message from the payment provider, once. A repeated message is recognised and changes nothing.</p>
+          <SearchBox path="/admin/payments" q={q} label="Search provider messages" placeholder="Reference, message id, kind or note" keep={{ view: "events" }} />
           {events.rows.length === 0 ? <p className="muted">None yet.</p> : (
             <div className="table-wrap"><table><thead><tr><th>When</th><th>Kind</th><th>Reference</th><th>Outcome</th></tr></thead>
               <tbody>{events.rows.map((e) => <tr key={e.id}><td>{formatDateTime(e.receivedAt)}</td><td>{e.kind}</td><td>{e.reference}</td><td>{humanize(e.outcome)}{e.note ? ` · ${e.note}` : ""}</td></tr>)}</tbody></table></div>

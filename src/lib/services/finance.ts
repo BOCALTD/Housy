@@ -112,7 +112,8 @@ export async function reconcileFinance(adminId: string, now = new Date()) {
     }
   }
   const settled = (s: string) => s === "SUCCEEDED" || s === "REVIEW";
-  add("PAID_WITHOUT_PAYMENT", "Invoices marked paid with no succeeded payment behind them.", data.invoices.filter((i) => i.status === "PAID" && !data.payments.some((p) => p.invoiceId === i.id && p.status === "SUCCEEDED")).map((i) => i.ref));
+  // An invoice a promo code covered completely (nothing to pay, allowed only that way by the database) needs no payment behind it.
+  add("PAID_WITHOUT_PAYMENT", "Invoices marked paid with no succeeded payment behind them.", data.invoices.filter((i) => i.status === "PAID" && !(i.amountKobo === 0n && i.promoCodeId) && !data.payments.some((p) => p.invoiceId === i.id && p.status === "SUCCEEDED")).map((i) => i.ref));
   add("PAYMENT_NOT_IN_BOOKS", "Payments whose money is not in the ledger.", data.payments.filter((p) => settled(p.status) && !data.entries.some((e) => e.paymentId === p.id && e.kind === "PAYMENT")).map((p) => p.ref));
   add("PAYMENT_TOTAL_MISMATCH", "Payments where the ledger does not equal money received less money refunded.", data.payments.filter((p) => settled(p.status) && (byPay.get(p.id) ?? 0n) !== (p.receivedKobo ?? 0n) - p.refundedKobo).map((p) => p.ref));
   add("UNSETTLED_IN_BOOKS", "Payments that are not settled but have ledger entries.", data.payments.filter((p) => !settled(p.status) && (byPay.get(p.id) ?? 0n) !== 0n).map((p) => p.ref));

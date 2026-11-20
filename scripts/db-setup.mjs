@@ -26,7 +26,8 @@ if (/['\\]/.test(appPassword)) fail("APP_DB_PASSWORD must not contain quotes or 
 
 function execSql(sql, label) {
   console.log(`db-setup: ${label}`);
-  execFileSync("npx", ["prisma", "db", "execute", "--stdin", "--url", ownerUrl], { input: sql, stdio: ["pipe", "inherit", "inherit"] });
+  // Prisma 7 takes the connection from prisma.config.ts, which reads DATABASE_URL: the owner's connection here.
+  execFileSync("npx", ["prisma", "db", "execute", "--stdin"], { input: sql, env: { ...process.env, DATABASE_URL: ownerUrl }, stdio: ["pipe", "inherit", "inherit"] });
 }
 
 execSql(`

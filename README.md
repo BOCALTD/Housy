@@ -31,7 +31,7 @@ Uploads are capped at 4 MB per file.
 
 ## Set up locally
 
-Requirements: Node 22.12+ (LTS), PostgreSQL 16.
+Requirements: Node 24 (LTS), PostgreSQL 16.
 
 1. Create an owner role and a database. The owner needs `CREATEROLE` so setup can create the restricted runtime role `estate_app`.
 

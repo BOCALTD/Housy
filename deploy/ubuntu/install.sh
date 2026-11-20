@@ -14,10 +14,10 @@ echo 'Acquire::Retries "5"; Acquire::http::Timeout "60"; Acquire::https::Timeout
 apt-get update -y
 apt-get install -y curl ca-certificates gnupg git ufw nginx certbot python3-certbot-nginx fail2ban unattended-upgrades openssl ffmpeg rsync
 
-# Node 20 (NodeSource)
-# Node 22 LTS (Node 20 is past its end of life; Prisma 7 needs 22.12 or later on this line).
-if ! command -v node >/dev/null || ! node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)'; then
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+# Node 24 LTS from NodeSource (supported to April 2028), as /usr/bin/node: the service runs exactly that file, so a Node
+# installed elsewhere (nvm, /usr/local) does not count. Node 20 is past its end of life and Node 22 ends in April 2027.
+if ! [ -x /usr/bin/node ] || ! /usr/bin/node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>=24?0:1)'; then
+  curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   apt-get install -y nodejs
 fi
 

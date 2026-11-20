@@ -23,7 +23,7 @@ Copy the repository to the server (or `git clone https://github.com/BOCALTD/Hous
 ```
 sudo bash deploy/ubuntu/install.sh your-domain.example you@your-domain.example
 ```
-It installs Node 22 (LTS), PostgreSQL 16, nginx, certbot, fail2ban and automatic security updates; creates a `housy` user, the database and a **generated `/etc/housy/housy.env`**; installs the service and timers; opens the firewall; and asks Let's Encrypt for a certificate. It prints the `SETUP_TOKEN`. It never overwrites an existing env file or database, so it is safe to run again.
+It installs Node 24 (LTS), PostgreSQL 16, nginx, certbot, fail2ban and automatic security updates; creates a `housy` user, the database and a **generated `/etc/housy/housy.env`**; installs the service and timers; opens the firewall; and asks Let's Encrypt for a certificate. It prints the `SETUP_TOKEN`. It never overwrites an existing env file or database, so it is safe to run again.
 
 Then edit `/etc/housy/housy.env`: product name, support contact, and the email/Paystack keys when you have them. **Back up `MFA_ENCRYPTION_KEY` somewhere safe**; changing it later disables two-step sign-in for everyone who uses it.
 

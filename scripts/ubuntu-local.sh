@@ -45,14 +45,14 @@ else
 fi
 
 if ! $FAST; then
-say "Installing what Housy needs (Node.js 20, PostgreSQL 16, git, ffmpeg)"
+say "Installing what Housy needs (Node.js 24, PostgreSQL 16, git, ffmpeg)"
 export DEBIAN_FRONTEND=noninteractive
 sudo sh -c 'echo "Acquire::Retries \"5\";" > /etc/apt/apt.conf.d/80housy-retries'
 sudo apt-get update -y
 sudo apt-get install -y curl ca-certificates gnupg git openssl ffmpeg
-# Node 22 LTS or newer (Node 20 is past its end of life; Prisma 7 needs 22.12 or later on this line).
-if ! command -v node >/dev/null || ! node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)'; then
-  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+# Node 24 LTS or newer (supported to April 2028; Node 20 is past its end of life and Node 22 ends in April 2027).
+if ! command -v node >/dev/null || ! node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>=24?0:1)'; then
+  curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
   sudo apt-get install -y nodejs
 fi
 if ! command -v psql >/dev/null; then

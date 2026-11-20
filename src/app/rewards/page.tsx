@@ -28,6 +28,13 @@ export default async function RewardsPage({ searchParams: searchP }: { searchPar
         <div className="stat"><b>{formatKobo(sum("APPROVED", "PAYABLE"))}</b><span>Approved</span></div>
         <div className="stat"><b>{formatKobo(sum("PAID"))}</b><span>Paid</span></div>
       </section>
+      {!r.restricted && sum("PAYABLE") > 0n ? (
+        <section className="card stack" aria-labelledby="use-h">
+          <h2 id="use-h">Use your rewards toward a plan</h2>
+          <p className="small">You have {formatKobo(sum("PAYABLE"))} ready. Instead of waiting for a payout, use it on your next plan invoice: open the invoice and choose &ldquo;Use my rewards&rdquo;. There is no minimum.</p>
+          <div className="row" style={{ flexWrap: "wrap" }}><Link className="btn primary" href="/me/upgrades">Choose a plan</Link><Link className="btn" href="/me/billing">My invoices</Link></div>
+        </section>
+      ) : null}
       <section className="card"><div className="row between"><h2>Rewards</h2><SaveDocument url="/rewards/export" fallbackName="my-rewards.csv" /></div>
         {r.items.length === 0 ? <p className="muted">No rewards yet.</p> : (
           <ul className="timeline">{r.items.map((w) => {

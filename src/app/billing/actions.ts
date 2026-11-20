@@ -5,6 +5,8 @@ import { act, str, withNotice } from "@/lib/forms";
 import { baseUrl } from "@/lib/services/delivery";
 import { startTrial } from "@/lib/services/upgrades";
 import { removeCard, setAutoRenew } from "@/lib/services/auto-renew";
+import { applyRewardCredit } from "@/lib/services/reward-credit";
+import { formatKobo } from "@/lib/money";
 import { setRenewConsent, cancelOwn, createSubscriptionInvoice, startPayment, NO_PROVIDER, type Payer } from "@/lib/services/billing";
 import { activePaymentProvider } from "@/lib/services/platform-config";
 
@@ -79,5 +81,15 @@ export async function removeCardAction(form: FormData) {
   return act(`${home(f)}#card-h`, async () => {
     await removeCard(await payerFor(f, true));
     return `${withNotice(home(f), "Your card has been removed. Your plan will not renew automatically.")}#card-h`;
+  });
+}
+
+/** Use the person's payable rewards toward an open plan invoice. */
+export async function useRewardsAction(form: FormData) {
+  const f = fromOf(form);
+  const id = str(form, "invoiceId");
+  return act(`${home(f)}/${id}`, async () => {
+    const r = await applyRewardCredit(await payerFor(f, true), id);
+    return withNotice(`${home(f)}/${id}`, r.paid ? `${formatKobo(r.usedKobo)} of your rewards paid this invoice. Your plan is on.` : `${formatKobo(r.usedKobo)} of your rewards was taken off. ${formatKobo(r.leftKobo)} is left to pay.`);
   });
 }

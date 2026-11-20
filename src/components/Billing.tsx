@@ -9,8 +9,9 @@ import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { humanize } from "@/lib/labels";
 import { Pill, ShowMore } from "@/components/ui";
-import { autoRenewAction, cancelPlanAction, payInvoiceAction, removeCardAction } from "@/app/billing/actions";
+import { autoRenewAction, cancelPlanAction, payInvoiceAction, removeCardAction, useRewardsAction } from "@/app/billing/actions";
 import { autoRenewStatus } from "@/lib/services/auto-renew";
+import { rewardCredit } from "@/lib/services/reward-credit";
 
 const stateTone = (s: string) => (s === "ACTIVE" || s === "TRIAL" ? "ACTIVE" : s === "GRACE" || s === "READ_ONLY" ? "PENDING" : "SUSPENDED");
 const invTone = (s: string) => (s === "PAID" ? "ACTIVE" : s === "OPEN" ? "PENDING" : "SUSPENDED");
@@ -116,15 +117,23 @@ export async function BillingPanel({ payer, from, cycle = "plan" }: { payer: Pay
 export async function InvoicePanel({ payer, from, invoice }: { payer: Payer; from: "me" | "app"; invoice: NonNullable<Awaited<ReturnType<typeof import("@/lib/services/billing").invoiceFor>>> }) {
   const online = !!(await onlineProviderFor((await payerRegion(payer)).country));
   const bank = invoice.status === "OPEN" && !online ? await readBankInstructions() : "";
+  const credit = invoice.status === "OPEN" && invoice.purpose === "SUBSCRIPTION" ? await rewardCredit(payer.userId) : null;
   const base = from === "app" ? "/app/billing" : "/me/billing";
   return (
     <div className="stack-lg">
       <section className="card stack">
         <div className="row between"><h2>{invoice.ref}</h2><Pill status={invTone(invoice.status)} label={humanize(invoice.status)} /></div>
         <p>{invoice.description}</p>
-        {invoice.discountKobo > 0n && invoice.listAmountKobo != null ? (
-          <p><s className="muted">{formatKobo(invoice.listAmountKobo, invoice.currency)}</s> <strong>{formatKobo(invoice.amountKobo, invoice.currency)}</strong> <span className="small muted">({formatKobo(invoice.discountKobo, invoice.currency)} off with a promo code)</span></p>
+        {(invoice.discountKobo > 0n || invoice.creditKobo > 0n) && invoice.listAmountKobo != null ? (
+          <p><s className="muted">{formatKobo(invoice.listAmountKobo, invoice.currency)}</s> <strong>{formatKobo(invoice.amountKobo, invoice.currency)}</strong> <span className="small muted">({[invoice.discountKobo > 0n ? `${formatKobo(invoice.discountKobo, invoice.currency)} off with a promo code` : "", invoice.creditKobo > 0n ? `${formatKobo(invoice.creditKobo, invoice.currency)} paid with your rewards` : ""].filter(Boolean).join(", ")})</span></p>
         ) : <p><strong>{formatKobo(invoice.amountKobo, invoice.currency)}</strong></p>}
+        {credit && credit.availableKobo > 0n && invoice.status === "OPEN" && invoice.purpose === "SUBSCRIPTION" && invoice.currency === "NGN" ? (
+          <div className="flash notice stack" style={{ gap: 8 }}>
+            <span>You have <strong>{formatKobo(credit.availableKobo)}</strong> in rewards ready to use. {credit.availableKobo >= invoice.amountKobo ? "They can cover this invoice." : "They can go toward this invoice."}</span>
+            <form action={useRewardsAction}><input type="hidden" name="from" value={from} /><input type="hidden" name="invoiceId" value={invoice.id} />
+              <button className="btn" type="submit" data-confirm="Use your rewards toward this invoice?" data-confirm-body="Rewards that fit within what is left to pay are used, oldest first, and taken off the amount. They cannot be paid out in cash afterwards." data-confirm-ok="Use rewards" data-confirm-tone="default">Use my rewards</button></form>
+          </div>
+        ) : null}
         <p className="small muted">Raised {formatDate(invoice.createdAt)}{invoice.dueOn ? ` · due ${formatDate(invoice.dueOn)}` : ""}{invoice.paidAt ? ` · paid ${formatDate(invoice.paidAt)}` : ""}{invoice.voidReason ? ` · cancelled: ${invoice.voidReason}` : ""}</p>
         {invoice.status === "OPEN" && online ? (
           <form action={payInvoiceAction} className="stack" style={{ gap: 8 }}><input type="hidden" name="from" value={from} /><input type="hidden" name="invoiceId" value={invoice.id} />

@@ -5347,6 +5347,8 @@ model Invoice {
   promoCodeId  String?           @map("promo_code_id")
   /// The payer ticked "renew automatically with this card" when choosing the plan.
   autoRenewConsent Boolean       @default(false) @map("auto_renew_consent")
+  /// Referral and other rewards the payer used toward this invoice (taken off the amount; recorded as a "plan credit" payout).
+  creditKobo   BigInt            @default(0) @map("credit_kobo")
   listAmountKobo BigInt?         @map("list_amount_kobo")
   discountKobo BigInt            @default(0) @map("discount_kobo")
   payments     Payment[]

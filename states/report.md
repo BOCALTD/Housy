@@ -1,0 +1,61 @@
+# Messages and windows on every screen
+
+10 screen sizes: Narrow phone 320, iPhone SE, iPhone SE landscape, iPhone 15 Pro Max, Pixel 7, Pixel 7 landscape, iPad Mini, iPad Pro 11 landscape, Laptop 1366, Wide 1920.
+
+**No problems.**
+
+
+230 checks passed.
+
+## Pictures
+
+- [narrow-phone-320--page-messages.jpg](narrow-phone-320--page-messages.jpg)
+- [narrow-phone-320--pop-up-message-success.jpg](narrow-phone-320--pop-up-message-success.jpg)
+- [narrow-phone-320--window-confirm-danger.jpg](narrow-phone-320--window-confirm-danger.jpg)
+- [narrow-phone-320--window-account-switch.jpg](narrow-phone-320--window-account-switch.jpg)
+- [narrow-phone-320--bar-page-problem.jpg](narrow-phone-320--bar-page-problem.jpg)
+- [narrow-phone-320--window-share.jpg](narrow-phone-320--window-share.jpg)
+- [narrow-phone-320--panel-notifications.jpg](narrow-phone-320--panel-notifications.jpg)
+- [narrow-phone-320--panel-assistant.jpg](narrow-phone-320--panel-assistant.jpg)
+- [narrow-phone-320--window-welcome-slides.jpg](narrow-phone-320--window-welcome-slides.jpg)
+- [narrow-phone-320--window-cookie-choice.jpg](narrow-phone-320--window-cookie-choice.jpg)
+- [iphone-se--page-messages.jpg](iphone-se--page-messages.jpg)
+- [iphone-se--pop-up-message-success.jpg](iphone-se--pop-up-message-success.jpg)
+- [iphone-se--window-confirm-danger.jpg](iphone-se--window-confirm-danger.jpg)
+- [iphone-se--window-account-switch.jpg](iphone-se--window-account-switch.jpg)
+- [iphone-se--bar-page-problem.jpg](iphone-se--bar-page-problem.jpg)
+- [iphone-se--window-share.jpg](iphone-se--window-share.jpg)
+- [iphone-se--panel-notifications.jpg](iphone-se--panel-notifications.jpg)
+- [iphone-se--panel-assistant.jpg](iphone-se--panel-assistant.jpg)
+- [iphone-se--window-welcome-slides.jpg](iphone-se--window-welcome-slides.jpg)
+- [iphone-se--window-cookie-choice.jpg](iphone-se--window-cookie-choice.jpg)
+- [iphone-se-landscape--page-messages.jpg](iphone-se-landscape--page-messages.jpg)
+- [iphone-se-landscape--pop-up-message-success.jpg](iphone-se-landscape--pop-up-message-success.jpg)
+- [iphone-se-landscape--window-confirm-danger.jpg](iphone-se-landscape--window-confirm-danger.jpg)
+- [iphone-se-landscape--window-account-switch.jpg](iphone-se-landscape--window-account-switch.jpg)
+- [iphone-se-landscape--bar-page-problem.jpg](iphone-se-landscape--bar-page-problem.jpg)
+- [iphone-se-landscape--window-share.jpg](iphone-se-landscape--window-share.jpg)
+- [iphone-se-landscape--panel-notifications.jpg](iphone-se-landscape--panel-notifications.jpg)
+- [iphone-se-landscape--panel-assistant.jpg](iphone-se-landscape--panel-assistant.jpg)
+- [iphone-se-landscape--window-welcome-slides.jpg](iphone-se-landscape--window-welcome-slides.jpg)
+- [iphone-se-landscape--window-cookie-choice.jpg](iphone-se-landscape--window-cookie-choice.jpg)
+- [ipad-mini--page-messages.jpg](ipad-mini--page-messages.jpg)
+- [ipad-mini--pop-up-message-success.jpg](ipad-mini--pop-up-message-success.jpg)
+- [ipad-mini--window-confirm-danger.jpg](ipad-mini--window-confirm-danger.jpg)
+- [ipad-mini--window-account-switch.jpg](ipad-mini--window-account-switch.jpg)
+- [ipad-mini--bar-page-problem.jpg](ipad-mini--bar-page-problem.jpg)
+- [ipad-mini--window-share.jpg](ipad-mini--window-share.jpg)
+- [ipad-mini--panel-notifications.jpg](ipad-mini--panel-notifications.jpg)
+- [ipad-mini--panel-assistant.jpg](ipad-mini--panel-assistant.jpg)
+- [ipad-mini--window-welcome-slides.jpg](ipad-mini--window-welcome-slides.jpg)
+- [ipad-mini--window-cookie-choice.jpg](ipad-mini--window-cookie-choice.jpg)
+- [laptop-1366--page-messages.jpg](laptop-1366--page-messages.jpg)
+- [laptop-1366--pop-up-message-success.jpg](laptop-1366--pop-up-message-success.jpg)
+- [laptop-1366--window-confirm-danger.jpg](laptop-1366--window-confirm-danger.jpg)
+- [laptop-1366--window-account-switch.jpg](laptop-1366--window-account-switch.jpg)
+- [laptop-1366--bar-page-problem.jpg](laptop-1366--bar-page-problem.jpg)
+- [laptop-1366--window-share.jpg](laptop-1366--window-share.jpg)
+- [laptop-1366--panel-notifications.jpg](laptop-1366--panel-notifications.jpg)
+- [laptop-1366--panel-assistant.jpg](laptop-1366--panel-assistant.jpg)
+- [laptop-1366--window-welcome-slides.jpg](laptop-1366--window-welcome-slides.jpg)
+- [laptop-1366--window-cookie-choice.jpg](laptop-1366--window-cookie-choice.jpg)

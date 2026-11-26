@@ -32,6 +32,7 @@ export function exploreSection(): NavSection {
     ] },
     { label: "Help", items: [
       { href: "/how-it-works", label: "How it works", icon: "sparkle" },
+      { href: "/?intro=1", label: "Welcome tour", icon: "play" },
       { href: "/trust", label: "Trust and safety", icon: "shield" },
       { href: "/faq", label: "Questions and answers", icon: "chat" },
       { href: "/support", label: "Contact and support", icon: "bell" },

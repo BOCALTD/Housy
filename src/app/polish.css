@@ -311,3 +311,16 @@ details.more-figures > summary { display: inline-flex; padding: 9px 16px; border
 .toggle.on .toggle-knob { transform: translateX(22px); }
 .toggle:focus-visible .toggle-track { outline: 3px solid #E3A93F; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .toggle-knob, .toggle-track { transition: none; } }
+
+/* The other screen, shown while swiping between properties and reels (drawn above the page, below nothing that matters:
+   the swipe only starts when no menu, dialog or welcome slide is open). Follows the finger; see ModeSwitch. */
+.mode-peek { position: fixed; inset: 0; z-index: 900; pointer-events: none; will-change: opacity, transform; display: grid; place-items: center; overflow: hidden; }
+.mode-peek.to-reels { background: #05070c; color: #fff; }
+.mode-peek.to-reels img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .72; }
+.mode-peek.to-reels::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.1) 40%, rgba(0,0,0,.6)); }
+.mode-peek.to-listings { background: var(--bg); color: var(--ink); align-content: start; justify-items: stretch; padding: calc(env(safe-area-inset-top, 0px) + 84px) 16px 16px; }
+.mode-peek-label { position: relative; z-index: 1; display: grid; justify-items: center; gap: 10px; font-weight: 700; font-size: 18px; text-shadow: 0 1px 8px rgba(0,0,0,.35); }
+.mode-peek.to-reels .mode-peek-label svg { padding: 14px; border-radius: 999px; background: rgba(255,255,255,.18); box-sizing: content-box; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.mode-peek.to-listings .mode-peek-label { justify-items: stretch; text-shadow: none; font-size: 20px; max-width: 720px; width: 100%; margin: 0 auto; }
+.mode-peek.to-listings .mode-peek-label i { display: block; height: 140px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) { .mode-peek { will-change: opacity; } }

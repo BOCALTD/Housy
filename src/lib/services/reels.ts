@@ -537,3 +537,9 @@ export async function listingChoices(userId: string) {
     return { listed: true as const, listings: await tx.listing.findMany({ where: { companyId: p.companyId, status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, take: 100, select: { id: true, title: true, city: true } }) };
   });
 }
+
+/** The picture of the newest published reel, shown while someone swipes from the home page towards reels. */
+export async function latestReelPoster(): Promise<string | null> {
+  const r = await withPublic((tx) => tx.reel.findFirst({ where: { status: "PUBLISHED", posterKey: { not: "" } }, orderBy: { publishedAt: "desc" }, select: { id: true, posterKey: true } }));
+  return r?.posterKey ? `/reels/${r.id}/poster?v=${encodeURIComponent((r.posterKey.split("/").pop() ?? "1").slice(0, 40))}` : null;
+}

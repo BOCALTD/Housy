@@ -5,7 +5,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
 
-const KEY = "intro-done";
+/**
+ * The story's version. Someone who has been through the slides is not shown them again after an ordinary update; when the
+ * story itself changes (new slides or a new message), raise this number and everyone sees the new story once.
+ * Anyone can watch it again at any time: "Welcome tour" in the side menu and the footer.
+ */
+const STORY_VERSION = 1;
+const KEY = STORY_VERSION === 1 ? "intro-done" : `intro-done-v${STORY_VERSION}`;
 
 /**
  * Four welcome slides for someone visiting for the first time, behind the opening loader's doors: the idea behind the

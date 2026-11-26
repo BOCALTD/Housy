@@ -16,6 +16,7 @@ import { Icon } from "@/components/Icons";
 import { DoneCard } from "@/components/Done";
 import { SponsoredStrip } from "@/components/Sponsored";
 import { ModeSwitch } from "@/components/ModeSwitch";
+import { latestReelPoster } from "@/lib/services/reels";
 import { formatKobo } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { PLATFORM_NAME } from "@/lib/labels";
@@ -80,7 +81,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
   const bot = isBot(h.get("user-agent"));
   const country = visitorCountry(h);
   const session = await getSession();
-  const [banners, layoutOn] = await Promise.all([bannersFor("HOME").catch(() => []), promoLayoutOn().catch(() => true)]);
+  const [banners, layoutOn, reelPeek] = await Promise.all([bannersFor("HOME").catch(() => []), promoLayoutOn().catch(() => true), latestReelPoster().catch(() => null)]);
   const bannerReactions = Object.fromEntries(await reactionSummaries("BANNER", banners.map((b) => b.id), session?.user.id ?? null).catch(() => new Map()));
   const [listings, sponsored, pickSet] = await Promise.all([
     searchListingsRanked(filters),
@@ -144,7 +145,7 @@ export default async function HomePage({ searchParams: searchP }: { searchParams
 
   return (
     <div className="stack-lg">
-      <ModeSwitch active="listings" />
+      <ModeSwitch active="listings" peek={reelPeek} />
       {banners.length ? <PromoBanner banners={banners} reactions={bannerReactions} signedIn={!!session} /> : null}
       <div>
         {hero}

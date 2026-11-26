@@ -9,6 +9,7 @@ import { safeLocalPath } from "@/lib/security";
 import { prisma, withUser } from "@/lib/db";
 import { ADMIN_SESSION_HOURS, createSession, destroySession, getSession, setActiveCompany, verifyPassword, hashPassword } from "@/lib/auth";
 import { notify } from "@/lib/services/notifications";
+import { logActivity } from "@/lib/audit";
 import { act, phoneFrom, str, withNotice } from "@/lib/forms";
 import { endBreak } from "@/lib/services/profile";
 import { rateLimit } from "@/lib/ratelimit";
@@ -98,7 +99,8 @@ export async function loginAction(form: FormData) {
     // A locked or closed sign-in is refused before the password is even checked, so attempts during a lock never count.
     const locked = lockedMessage(await signInState(email));
     if (locked) throw new Error(locked);
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Emails are stored in lower case; an older record typed with capitals still matches.
+    const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
     // Same message and same work whether the email or the password is wrong, so accounts cannot be enumerated by message or by timing.
     // Locks are kept per email address, for unknown addresses too, for the same reason.
     const passwordOk = await verifyPassword(str(form, "password"), user?.passwordHash ?? (await noAccountHash()));
@@ -112,9 +114,14 @@ export async function loginAction(form: FormData) {
       if (!code) throw new Error("Enter the code from your authenticator app, or a recovery code.");
       if (!(await rateLimit(`mfa:${user.id}`, 8, 15 * 60 * 1000)) || !(await checkSecondStep(user.id, code))) throw new Error("That code is not right or has already been used.");
     }
-    // Administrators sign in only on the staff page. Here an administrator account answers exactly like a wrong password
-    // (without counting towards a lock), so this page never confirms that an address belongs to an administrator.
-    if (user.isPlatformAdmin) throw new Error("That email and password do not match an account.");
+    // Administrators sign in only on the staff page (stricter limits, a shorter session, every sign-in reported). The password
+    // is already proven right here, so saying so tells nothing to anyone who does not hold it; it used to answer like a wrong
+    // password without the "tries left", which was both confusing for the owner and a give-away. The attempt is recorded.
+    if (user.isPlatformAdmin) {
+      await recordSuccessfulSignIn(email);
+      await prisma.$transaction((tx) => logActivity(tx, { companyId: null, actorId: user.id, entityType: "user", entityId: user.id, action: "security.admin_used_public_sign_in", detail: {} }));
+      return withNotice("/auth/login", "This is a staff account. Sign in here, on the staff sign-in page.");
+    }
     // The password is right, so saying which kind of account this is reveals nothing to someone who does not already hold it.
     const kinds = await membershipKinds(user.id);
     const refusal = user.isPlatformAdmin && as === "personal" ? null : signInRefusal(as, kinds);
@@ -145,7 +152,7 @@ export async function adminLoginAction(form: FormData) {
     await checkCaptcha(form, "login", ip);
     const locked = lockedMessage(await signInState(email));
     if (locked) throw new Error(locked);
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
     const passwordOk = await verifyPassword(str(form, "password"), user?.passwordHash ?? (await noAccountHash()));
     // A real account that is not an administrator fails here exactly like a wrong password, and counts towards the lock.
     if (!user || !passwordOk || !user.isPlatformAdmin) {

@@ -40,7 +40,7 @@ const Sound = ({ off }: { off: boolean }) => <svg width="20" height="20" viewBox
  * sharing and following ask a visitor to sign in or create an account first. Each clip is fetched once: the next one starts
  * loading in the background, and clips already watched play again from the browser and the app's cache without downloading.
  */
-export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null }: { initial: ReelCard[]; pages: number; tab: Tab; signedIn: boolean; canPost: boolean; filter?: ReelFilter | null }) {
+export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null, showAllHref = null }: { initial: ReelCard[]; pages: number; tab: Tab; signedIn: boolean; canPost: boolean; filter?: ReelFilter | null; /** Set when a filter left nothing: the empty screen offers every reel instead. */ showAllHref?: string | null }) {
   const [rows, setRows] = useState(initial);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(pages);
@@ -206,9 +206,20 @@ export function ReelFeed({ initial, pages, tab, signedIn, canPost, filter = null
   if (!rows.length) {
     return (
       <div className="rf rf-empty" ref={box}>
-        <div className="rf-empty-inner">
-          <p>{tab === "following" ? "Follow agents and their reels will show here." : "No reels yet."}</p>
-          {canPost ? <Link className="btn primary" href="/reels/new">Post the first reel</Link> : <Link className="btn" href="/">Browse properties</Link>}
+        {/* One message only: a filter that left nothing says so and offers every reel; otherwise there are no reels at all yet. */}
+        <div className="rf-empty-inner" role="status">
+          {showAllHref ? (
+            <>
+              <p><strong>No reels fit this filter yet.</strong></p>
+              <p className="small">Try a nearby area or a higher budget.</p>
+              <div className="rf-empty-actions"><Link className="btn primary" href={showAllHref}>Show all reels</Link><Link className="btn" href="/">Browse properties</Link></div>
+            </>
+          ) : (
+            <>
+              <p>{tab === "following" ? "Follow agents and their reels will show here." : "No reels yet."}</p>
+              {canPost ? <Link className="btn primary" href="/reels/new">Post the first reel</Link> : <Link className="btn" href="/">Browse properties</Link>}
+            </>
+          )}
         </div>
       </div>
     );

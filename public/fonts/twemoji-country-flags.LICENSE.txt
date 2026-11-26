@@ -1,0 +1,6 @@
+twemoji-country-flags.woff2 — the "Twemoji Country Flags" font from country-flag-emoji-polyfill 0.1.10 (https://github.com/talkjs/country-flag-emoji-polyfill).
+
+Flag artwork: Twemoji, Copyright Twitter, Inc and other contributors, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). https://github.com/twitter/twemoji
+Font subset tooling and packaging: Copyright (c) 2022 TalkJS, MIT licence.
+
+Housy uses it so that country flags show as flags on every device (Windows has no flag emoji and shows two letters instead).

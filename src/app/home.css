@@ -899,7 +899,11 @@ body:has(.rf-page) .site-footer, body:has(.rf-page) .back-to-top { display: none
 .rf-top { position: absolute; z-index: 6; top: 12px; right: 12px; display: flex; gap: 8px; }
 .rf-mute, .rf-post { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .45); color: #fff; cursor: pointer; text-decoration: none; font-size: 26px; font-weight: 300; line-height: 1; }
 .rf-empty { display: grid; place-items: center; }
-.rf-empty-inner { display: grid; gap: 14px; justify-items: center; text-align: center; padding: 24px; color: #fff; }
+.rf-empty-inner { display: grid; gap: 14px; justify-items: center; text-align: center; padding: 24px; color: #fff; max-width: 360px; }
+.rf-empty-inner p { margin: 0; }
+.rf-empty-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.rf-empty-inner .btn:not(.primary) { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22); color: #fff; }
+@media (hover: hover) { .rf-empty-inner .btn:not(.primary):hover { background: rgba(255,255,255,.16); } }
 
 /* Sheets: sign in to act, comments, more. */
 .rf-sheet-back { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .5); display: grid; align-items: end; justify-items: center; }

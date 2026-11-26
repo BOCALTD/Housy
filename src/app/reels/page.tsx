@@ -69,10 +69,7 @@ export default async function ReelsPage({ searchParams: searchP }: { searchParam
       </details>
       <Flash searchParams={{ error: sp(searchParams, "error"), notice: sp(searchParams, "notice") }} />
       {fellBack ? <p className="rf-note" role="status">No reels fit your saved search yet, so these are all reels. <Link href="/me/settings#my-search">Change my search</Link></p> : null}
-      {rows.length === 0 && hasReelFilter(filter) ? (
-        <div className="rf-nofit" role="status"><p><strong>No reels fit this filter yet.</strong></p><p className="small">Try a nearby area or a higher budget.</p><Link className="btn primary" href={`/reels?all=1${tab !== "foryou" ? `&tab=${tab}` : ""}`}>Show all reels</Link></div>
-      ) : null}
-      <ReelFeed key={`${tab}-${filterLabel}`} initial={rows} pages={feed.pages} tab={tab} signedIn={!!viewerId} canPost={canPost} filter={filter} />
+      <ReelFeed key={`${tab}-${filterLabel}`} initial={rows} pages={feed.pages} tab={tab} signedIn={!!viewerId} canPost={canPost} filter={filter} showAllHref={rows.length === 0 && hasReelFilter(filter) ? `/reels?all=1${tab !== "foryou" ? `&tab=${tab}` : ""}` : null} />
     </div>
   );
 }

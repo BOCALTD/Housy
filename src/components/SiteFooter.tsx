@@ -31,6 +31,7 @@ export function SiteFooter() {
         </div>
         <div className="foot-bottom">
           <span>© {year} {PLATFORM_NAME}. Prices are in Nigerian naira unless stated.</span>
+          <span className="footer-credit">Flags by <a href="https://github.com/twitter/twemoji" rel="noopener noreferrer" target="_blank">Twemoji</a> (CC BY 4.0).</span>
           <span>Verification badges describe checks on identity and business records. They are not a guarantee about any property.</span>
         </div>
       </div>

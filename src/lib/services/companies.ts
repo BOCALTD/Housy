@@ -53,7 +53,7 @@ export async function registerCompany(input: z.input<typeof registerSchema>) {
     throw new Error("Use your company email address, for example you@yourcompany.com. If your company has no email domain yet, tick the box under the email to say so.");
   }
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
-  if (existing) throw new Error("An account with that email already exists. Sign in instead.");
+  if (existing) throw new Error("An account with that email already exists. Sign in instead, or choose “Forgot password” on the sign-in page to set a new one.");
 
   await assertNotBlocked(data.email, data.contactPhone ?? "");
   const user = await prisma.user.create({
@@ -87,7 +87,7 @@ const agentSchema = z.object({
  */
 export async function registerAgent(input: z.input<typeof agentSchema>) {
   const data = agentSchema.parse(input);
-  if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead.");
+  if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead, or choose “Forgot password” on the sign-in page to set a new one.");
   await assertNotBlocked(data.email, data.phone ?? "");
   const user = await prisma.user.create({ data: { email: data.email, name: data.name, phone: data.phone, country: data.country, passwordHash: await hashPassword(data.password) } });
   const companyId = randomUUID();

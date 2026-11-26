@@ -212,9 +212,15 @@ test("the admin area is hidden and has its own staff sign-in", () => {
   // Anyone who is not a signed-in administrator gets a 404 for every admin page, not a sign-in page that points the way.
   assert.match(read("app/admin/layout.tsx"), /notFound\(\)/);
   assert.match(read("lib/auth.ts"), /export async function requirePlatformAdmin\(\) \{[\s\S]{0,300}notFound\(\)/);
-  // The public sign-in refuses administrator accounts with the wrong-password message; the staff page signs them in.
+  // The public sign-in never signs an administrator in. Only once the right password is proven does it say this is a staff
+  // account and send them to the staff page (so the staff address is shown only to someone who already holds the password).
   const actions = read("app/auth-actions.ts");
-  assert.match(actions, /if \(user\.isPlatformAdmin\) throw new Error\("That email and password do not match an account\."\)/);
+  const login = actions.slice(actions.indexOf("export async function loginAction"), actions.indexOf("export async function adminLoginAction"));
+  const passwordChecked = login.indexOf("if (!user || !passwordOk)");
+  const adminBranch = login.indexOf("if (user.isPlatformAdmin) {");
+  assert.ok(passwordChecked > 0 && adminBranch > passwordChecked, "the staff redirect comes only after the password is checked");
+  assert.ok(adminBranch < login.indexOf("await createSession("), "no session is created for an administrator here");
+  assert.match(login.slice(adminBranch, adminBranch + 600), /return withNotice\("\/auth\/login"/);
   assert.match(actions, /export async function adminLoginAction/);
   assert.match(actions, /!user\.isPlatformAdmin\) \{\s*const r = await recordFailedSignIn/);
   assert.match(actions, /ADMIN_SESSION_HOURS/);

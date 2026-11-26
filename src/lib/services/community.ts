@@ -25,7 +25,7 @@ export async function registerSeeker(input: { name: string; email: string; passw
     }),
     country: z.string().default("NG").refine(isCountry, "Choose the country where you live"),
   }).parse(input);
-  if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead.");
+  if (await prisma.user.findUnique({ where: { email: data.email } })) throw new Error("An account with that email already exists. Sign in instead, or choose “Forgot password” on the sign-in page to set a new one.");
   await assertNotBlocked(data.email, data.phone ?? "");
   const user = await prisma.user.create({ data: { email: data.email, name: data.name, phone: data.phone, country: data.country, passwordHash: await hashPassword(data.password) } });
   await enqueueEmail(prisma, user.id, { kind: "onboarding", template: "welcome", vars: { name: user.name, kind: "seeker" }, dedupeKey: "welcome" });
